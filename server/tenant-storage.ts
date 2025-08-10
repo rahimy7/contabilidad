@@ -463,14 +463,153 @@ const result = await tenantDb.execute(directQuery);
 // ✅ CORREGIR getCustomerByPhone - usar "phone" en lugar de "phoneNumber"
 async getCustomerByPhone(phoneNumber: string) {
   try {
-    const [customer] = await tenantDb.select()
-      .from(schema.customers)
-      .where(eq(schema.customers.phone, phoneNumber)) // ⚠️ CAMBIO: "phone" no "phoneNumber"
-      .limit(1);
-    return customer || null;
+    console.log(`🔍 Searching customer by phone: ${phoneNumber} in store: ${storeId}`);
+    
+    if (usePublicSchema) {
+      const [customer] = await tenantDb.select()
+        .from(schema.customers)
+        .where(eq(schema.customers.phone, phoneNumber))
+        .limit(1);
+      console.log(`✅ Customer found (public): ${customer ? customer.id : 'None'}`);
+      return customer || null;
+    } else {
+      // Para esquemas de tenant, usar Pool directo para evitar problemas con drizzle
+      return await this.getCustomerByPhoneFallback(phoneNumber);
+    }
   } catch (error) {
-    console.error('Error getting customer by phone:', error);
+    console.error('❌ Error getting customer by phone:', error);
+    return await this.getCustomerByPhoneFallback(phoneNumber);
+  }
+},
+async getCustomerByPhoneFallback(phoneNumber: string) {
+  const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    max: 1,
+    idleTimeoutMillis: 5000
+  });
+  
+  try {
+    console.log(`🔄 Using fallback method for phone: ${phoneNumber}`);
+    
+    // Obtener el schema de la tienda
+    const storeResult = await pool.query(`
+      SELECT database_url FROM virtual_stores WHERE id = $1
+    `, [storeId]);
+    
+    if (!storeResult.rows[0]) {
+      console.error(`❌ Store ${storeId} not found`);
+      return null;
+    }
+    
+    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
+    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    
+    console.log(`🔄 Working in schema: ${schemaName}`);
+    
+    // Configurar search_path
+    await pool.query(`SET search_path TO ${schemaName}, public`);
+    
+    // Buscar cliente
+    const result = await pool.query(`
+      SELECT * FROM customers 
+      WHERE phone = $1 AND store_id = $2
+      LIMIT 1
+    `, [phoneNumber, storeId]);
+    
+    const customer = result.rows[0] || null;
+    
+    if (customer) {
+      console.log(`✅ Customer found via fallback: ID ${customer.id}`);
+      // Convertir snake_case a camelCase para compatibilidad
+      return {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+        latitude: customer.latitude,
+        longitude: customer.longitude,
+        notes: customer.notes,
+        isVip: customer.is_vip,
+        createdAt: customer.created_at,
+        updatedAt: customer.updated_at,
+        storeId: customer.store_id,
+        whatsappName: customer.whatsapp_name,
+        contactMethod: customer.contact_method,
+        preferredContactTime: customer.preferred_contact_time,
+        customerType: customer.customer_type,
+        companyName: customer.company_name,
+        taxId: customer.tax_id,
+        mapLink: customer.map_link,
+        whatsappId: customer.whatsapp_id,
+        lastContact: customer.last_contact,
+        registrationDate: customer.registration_date,
+        totalOrders: customer.total_orders,
+        totalSpent: customer.total_spent
+      };
+    } else {
+      console.log(`❌ No customer found for phone: ${phoneNumber}`);
+      return null;
+    }
+    
+  } catch (error) {
+    console.error('❌ Fallback method failed:', error);
     return null;
+  } finally {
+    await pool.end().catch(err => 
+      console.log('⚠️ Pool close warning:', err.message)
+    );
+  }
+},
+
+async ensureCorrectSchema(): Promise<boolean> {
+  const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    max: 1,
+    idleTimeoutMillis: 5000
+  });
+  
+  try {
+    // Obtener información de la tienda
+    const storeResult = await pool.query(`
+      SELECT database_url FROM virtual_stores WHERE id = $1
+    `, [storeId]);
+    
+    if (!storeResult.rows[0]) {
+      console.error(`❌ Store ${storeId} not found`);
+      return false;
+    }
+    
+    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
+    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    
+    console.log(`🔍 Schema verification for store ${storeId}: ${schemaName}`);
+    
+    // Verificar que la tabla customers existe en el schema
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = $1 AND table_name = 'customers'
+      )
+    `, [schemaName]);
+    
+    const tableExists = tableCheck.rows[0]?.exists;
+    
+    if (!tableExists) {
+      console.error(`❌ Table 'customers' does not exist in schema '${schemaName}'`);
+      return false;
+    }
+    
+    console.log(`✅ Schema verification passed for store ${storeId}`);
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Schema verification failed:', error);
+    return false;
+  } finally {
+    await pool.end().catch(err => 
+      console.log('⚠️ Pool close warning:', err.message)
+    );
   }
 },
 
@@ -1593,28 +1732,136 @@ async createDefaultAutoResponses() {
 async getAllConversations() {
   try {
     if (usePublicSchema) {
-      return await tenantDb.select()
-        .from(schema.conversations)
-        .orderBy(desc(schema.conversations.lastMessageAt));
+      // Para schema público, usar drizzle con JOIN
+      const conversations = await tenantDb.select({
+        // Campos de conversación
+        id: schema.conversations.id,
+        customerId: schema.conversations.customerId,
+        status: schema.conversations.status,
+        lastMessageAt: schema.conversations.lastMessageAt,
+        createdAt: schema.conversations.createdAt,
+        updatedAt: schema.conversations.updatedAt,
+        storeId: schema.conversations.storeId,
+        conversationType: schema.conversations.conversationType,
+
+        
+        // Campos del cliente
+        customerName: schema.customers.name,
+        customerPhone: schema.customers.phone,
+        customerEmail: schema.customers.email,
+      })
+      .from(schema.conversations)
+      .leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
+      .orderBy(desc(schema.conversations.lastMessageAt));
+
+      // Mapear a formato esperado
+      return conversations.map(conv => ({
+        id: conv.id,
+        customerId: conv.customerId,
+        status: conv.status,
+        lastMessageAt: conv.lastMessageAt,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        storeId: conv.storeId,
+        conversationType: conv.conversationType,
+        unreadCount: conv.unreadCount || 0,
+        customer: {
+          id: conv.customerId,
+          name: conv.customerName || 'Cliente sin nombre',
+          phone: conv.customerPhone || '',
+          email: conv.customerEmail || null,
+        }
+      }));
+      
     } else {
-      const schemaName = `store_${storeId}`;
-      const directQuery = `
-  SELECT c.*, 
-         cust.name as customer_name,
-         cust.phone as customer_phone
-  FROM "store_${storeId}".conversations c
-  LEFT JOIN "store_${storeId}".customers cust ON c.customer_id = cust.id
-  WHERE c.store_id = ${storeId}
-  ORDER BY c.last_message_at DESC
-`;
-const result = await tenantDb.execute(directQuery);
-      return result.rows;
+      // Para tenant schemas, usar query directo
+      return await this.getAllConversationsFallback();
     }
   } catch (error) {
-    console.error('Error getting all conversations:', error);
-    throw error;
+    console.error('❌ Error getting all conversations:', error);
+    return await this.getAllConversationsFallback();
   }
 },
+
+// ✅ FUNCIÓN FALLBACK para tenant schemas
+async getAllConversationsFallback() {
+  const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    max: 1,
+    idleTimeoutMillis: 5000
+  });
+  
+  try {
+    console.log(`🔄 Using fallback method for conversations in store: ${storeId}`);
+    
+    // Obtener el schema de la tienda
+    const storeResult = await pool.query(`
+      SELECT database_url FROM virtual_stores WHERE id = $1
+    `, [storeId]);
+    
+    if (!storeResult.rows[0]) {
+      console.error(`❌ Store ${storeId} not found`);
+      return [];
+    }
+    
+    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
+    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    
+    console.log(`🔄 Working in schema: ${schemaName}`);
+    
+    // Configurar search_path
+    await pool.query(`SET search_path TO ${schemaName}, public`);
+    
+    // Query con JOIN para obtener datos del cliente
+    const result = await pool.query(`
+      SELECT 
+        c.id,
+        c.customer_id,
+        c.status,
+        c.last_message_at,
+        c.created_at,
+        c.updated_at,
+        c.store_id,
+        c.conversation_type,
+        c.unread_count,
+        cu.name as customer_name,
+        cu.phone as customer_phone,
+        cu.email as customer_email
+      FROM conversations c
+      LEFT JOIN customers cu ON c.customer_id = cu.id
+      WHERE c.store_id = $1
+      ORDER BY c.last_message_at DESC
+    `, [storeId]);
+    
+    // Mapear resultados
+    return result.rows.map(row => ({
+      id: row.id,
+      customerId: row.customer_id,
+      status: row.status,
+      lastMessageAt: row.last_message_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      storeId: row.store_id,
+      conversationType: row.conversation_type,
+      unreadCount: row.unread_count || 0,
+      customer: {
+        id: row.customer_id,
+        name: row.customer_name || 'Cliente sin nombre',
+        phone: row.customer_phone || '',
+        email: row.customer_email || null,
+      }
+    }));
+    
+  } catch (error) {
+    console.error('❌ Fallback getAllConversations failed:', error);
+    return [];
+  } finally {
+    await pool.end().catch(err => 
+      console.log('⚠️ Pool close warning:', err.message)
+    );
+  }
+},
+
     // CONVERSATIONS
 
 
@@ -1729,17 +1976,35 @@ async updateConversation(id: number, updates: any) {
       }
     },
 
-    async getMessagesByConversation(conversationId: number) {
-      try {
-        return await tenantDb.select()
-          .from(schema.messages)
-          .where(eq(schema.messages.conversationId, conversationId))
-          .orderBy(schema.messages.sentAt);
-      } catch (error) {
-        console.error('Error getting messages by conversation:', error);
-        return [];
-      }
-    },
+ async getMessagesByConversation(conversationId: number) {
+  try {
+    const messages = await tenantDb.select()
+      .from(schema.messages)
+      .where(eq(schema.messages.conversationId, conversationId))
+      .orderBy(asc(schema.messages.sentAt));
+    
+    // ✅ MAPEAR snake_case a camelCase
+    return messages.map(msg => ({
+      id: msg.id,
+      conversationId: msg.conversation_id || msg.conversationId,
+      content: msg.content || '',
+      messageType: msg.message_type || msg.messageType || 'text',
+      message_type: msg.message_type, // Mantener original
+      senderType: msg.sender_type || msg.senderType || 'customer',
+      sender_type: msg.sender_type, // Mantener original
+      senderId: msg.sender_id,
+      isRead: msg.is_read,
+      is_read: msg.is_read, // Mantener original
+      createdAt: msg.created_at || msg.createdAt,
+      created_at: msg.created_at, // Mantener original
+      sentAt: msg.sent_at || msg.sentAt,
+      whatsappMessageId: msg.whatsapp_message_id,
+    }));
+  } catch (error) {
+    console.error('❌ Error getting messages by conversation:', error);
+    return [];
+  }
+},
 
  async createMessage(messageData: any) {
   try {

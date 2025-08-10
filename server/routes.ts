@@ -5,7 +5,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, count, and, isNull, or, max, desc, asc } from "drizzle-orm";
 
 
 // Schema and Types
@@ -1024,13 +1024,110 @@ router.post('/products', authenticateToken, createProductHandler);
   // CONVERSATION ROUTES - CORREGIDOS ✅
   // ================================
 
- router.get('/conversations', authenticateToken, routeWithSchemaRouting(async (req: any, res: any) => {
-  const user = req.user as AuthUser;
-  const tenantStorage = await getTenantStorageWithSchema(user);
-  
-  const conversations = await tenantStorage.getAllConversations();
-  res.json(conversations);
-}));
+router.get('/conversations', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    console.log('🔍 [GET /conversations] User:', user.id, 'Store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // ✅ OBTENER CONVERSACIONES CON DATOS DE CLIENTE INCLUIDOS
+    const conversations = await tenantStorage.getAllConversations();
+    
+    // ✅ ENRIQUECER SOLO CON ÚLTIMO MENSAJE Y MENSAJES NO LEÍDOS
+    const enrichedConversations = await Promise.all(
+      conversations.map(async (conv: any) => {
+        try {
+          // Si ya tiene datos del customer del JOIN, usarlos directamente
+          if (conv.customer) {
+            // Obtener último mensaje
+            const messages = await tenantStorage.getMessagesByConversation(conv.id);
+            const lastMessage = messages[messages.length - 1];
+            
+            // Contar mensajes no leídos
+            const unreadMessages = messages.filter(
+              (msg: any) => msg.senderType === 'customer' && !msg.isRead
+            );
+            
+            return {
+              id: conv.id,
+              status: conv.status,
+              lastMessageAt: conv.lastMessageAt,
+              createdAt: conv.createdAt,
+              updatedAt: conv.updatedAt,
+              unreadCount: unreadMessages.length,
+              customer: conv.customer, // Usar datos del JOIN
+              lastMessage: lastMessage ? {
+                id: lastMessage.id,
+                content: lastMessage.content,
+                messageType: lastMessage.messageType,
+                senderType: lastMessage.senderType,
+                createdAt: lastMessage.createdAt,
+              } : null,
+            };
+          } else {
+            // Fallback: obtener cliente por separado si no vino del JOIN
+            const customer = await tenantStorage.getCustomerById(conv.customerId);
+            const messages = await tenantStorage.getMessagesByConversation(conv.id);
+            const lastMessage = messages[messages.length - 1];
+            const unreadMessages = messages.filter(
+              (msg: any) => msg.senderType === 'customer' && !msg.isRead
+            );
+            
+            return {
+              id: conv.id,
+              status: conv.status,
+              lastMessageAt: conv.lastMessageAt,
+              createdAt: conv.createdAt,
+              updatedAt: conv.updatedAt,
+              unreadCount: unreadMessages.length,
+              customer: {
+                id: customer?.id || conv.customerId,
+                name: customer?.name || 'Cliente sin nombre',
+                phone: customer?.phone || '',
+                email: customer?.email || null,
+              },
+              lastMessage: lastMessage ? {
+                id: lastMessage.id,
+                content: lastMessage.content,
+                messageType: lastMessage.messageType,
+                senderType: lastMessage.senderType,
+                createdAt: lastMessage.createdAt,
+              } : null,
+            };
+          }
+        } catch (error) {
+          console.error('❌ Error enriching conversation:', conv.id, error);
+          return {
+            id: conv.id,
+            status: conv.status,
+            lastMessageAt: conv.lastMessageAt,
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt,
+            unreadCount: 0,
+            customer: {
+              id: conv.customerId,
+              name: 'Cliente sin nombre',
+              phone: '',
+              email: null,
+            },
+            lastMessage: null,
+          };
+        }
+      })
+    );
+
+    console.log('✅ [GET /conversations] Found conversations:', enrichedConversations.length);
+    res.json(enrichedConversations);
+  } catch (error) {
+    console.error('❌ [GET /conversations] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch conversations",
+      details: error.message 
+    });
+  }
+});
+
 
   router.get('/conversations/:id', authenticateToken, async (req: any, res: any) => {
     try {
@@ -1121,56 +1218,86 @@ router.post('/products', authenticateToken, createProductHandler);
     }
   });
 
-  router.get('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
-    try {
-      const conversationId = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      console.log('💬 [GET /conversations/:id/messages] Conversation:', conversationId);
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const messages = await tenantStorage.getMessagesByConversation(conversationId);
-      
-      console.log('✅ [GET /conversations/:id/messages] Found:', messages.length, 'messages');
-      res.json(messages);
-    } catch (error) {
-      console.error('❌ [GET /conversations/:id/messages] Error:', error);
-      res.status(500).json({ 
-        error: "Failed to fetch messages",
-        details: error.message 
-      });
+router.get('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('📋 [GET /conversations/:id/messages] Getting messages for conversation:', conversationId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la conversación existe
+    const conversation = await tenantStorage.getConversationById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
     }
-  });
+    
+    // Obtener mensajes
+    const messages = await tenantStorage.getMessagesByConversation(conversationId);
+    
+    console.log('✅ [GET /conversations/:id/messages] Found messages:', messages.length);
+    res.json(messages);
+  } catch (error) {
+    console.error('❌ [GET /conversations/:id/messages] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch messages",
+      details: error.message 
+    });
+  }
+});
 
-  router.post('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
-    try {
-      const conversationId = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      console.log('💬 [POST /conversations/:id/messages] Creating message for conversation:', conversationId);
-      
-      const messageData = {
-        ...req.body,
-        conversationId: conversationId,
-        senderType: req.body.senderType || 'agent',
-        senderId: user.id,
-        createdAt: new Date(),
-        sentAt: new Date()
-      };
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const message = await tenantStorage.createMessage(messageData);
-      
-      console.log('✅ [POST /conversations/:id/messages] Created message:', message.id);
-      res.status(201).json(message);
-    } catch (error) {
-      console.error('❌ [POST /conversations/:id/messages] Error:', error);
-      res.status(500).json({ 
-        error: "Failed to create message",
-        details: error.message 
-      });
+router.post('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const { content, messageType = 'text' } = req.body;
+    const user = req.user as AuthUser;
+    
+    console.log('📤 [POST /conversations/:id/messages] Sending message to conversation:', conversationId);
+    
+    if (!content || content.trim() === '') {
+      return res.status(400).json({ error: 'Message content is required' });
     }
-  });
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la conversación existe
+    const conversation = await tenantStorage.getConversationById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    // Crear el mensaje
+    const messageData = {
+      conversationId,
+      content: content.trim(),
+      messageType,
+      senderType: 'staff',
+      senderId: user.id,
+      isRead: true,
+      createdAt: new Date(),
+      sentAt: new Date(),
+    };
+    
+    const newMessage = await tenantStorage.createMessage(messageData);
+    
+    // Actualizar la conversación
+    await tenantStorage.updateConversation(conversationId, {
+      lastMessageAt: new Date(),
+    });
+    
+    console.log('✅ [POST /conversations/:id/messages] Message sent:', newMessage.id);
+    res.status(201).json(newMessage);
+  } catch (error) {
+    console.error('❌ [POST /conversations/:id/messages] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to send message",
+      details: error.message 
+    });
+  }
+});
+
+
 
   router.post('/conversations/:id/mark-read', authenticateToken, async (req: any, res: any) => {
   try {
@@ -1263,81 +1390,6 @@ router.get('/notifications/count', authenticateToken, async (req, res) => {
 });
 
 
-// ✅ ENDPOINT FALTANTE: Obtener detalles del cliente
-router.get('/customers/:id/details', authenticateToken, async (req: any, res: any) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const user = req.user as AuthUser;
-    
-    console.log('👤 [GET /customers/:id/details] Getting customer details:', customerId);
-    
-    const tenantStorage = await getTenantStorageWithSchema(user);
-    
-    // Obtener información básica del cliente
-    const customer = await tenantStorage.getCustomerById(customerId);
-    
-    if (!customer) {
-      console.log('⚠️ [GET /customers/:id/details] Customer not found:', customerId);
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-    
-    // Obtener estadísticas adicionales del cliente
-    let totalOrders = 0;
-    let totalSpent = '0.00';
-    
-    try {
-      // Contar órdenes del cliente usando consulta directa
-      const orders = await tenantStorage.db.select()
-        .from(tenantStorage.schema.orders)
-        .where(eq(tenantStorage.schema.orders.customerId, customerId));
-      
-      totalOrders = orders.length;
-      
-      // Calcular total gastado
-      const totalAmount = orders.reduce((sum, order) => {
-        return sum + parseFloat(order.totalAmount || '0');
-      }, 0);
-      
-      totalSpent = totalAmount.toFixed(2);
-    } catch (statsError) {
-      console.warn('Could not calculate customer stats:', statsError);
-      // Usar valores por defecto en caso de error
-    }
-    
-    // Determinar si es VIP (puedes ajustar estos criterios)
-    const isVip = totalOrders >= 5 || parseFloat(totalSpent) >= 1000;
-    
-    const customerDetails = {
-      id: customer.id,
-      name: customer.name,
-      phone: customer.phone,
-      email: customer.email,
-      isVip: isVip,
-      totalOrders: totalOrders,
-      totalSpent: totalSpent,
-      lastContact: customer.lastContact,
-      registrationDate: customer.createdAt,
-      // Agregar otros campos que necesites
-      address: customer.address,
-      notes: customer.notes
-    };
-    
-    console.log('✅ [GET /customers/:id/details] Customer details retrieved:', {
-      customerId,
-      totalOrders,
-      totalSpent,
-      isVip
-    });
-    
-    res.json(customerDetails);
-  } catch (error) {
-    console.error('❌ [GET /customers/:id/details] Error:', error);
-    res.status(500).json({ 
-      error: "Failed to fetch customer details",
-      details: error.message 
-    });
-  }
-});
 
 // ================================
 // CUSTOMER MANAGEMENT ROUTES ADICIONALES
@@ -1425,7 +1477,6 @@ router.post('/conversations/:id/mark-read', authenticateToken, async (req: any, 
 });
 
 
-// ✅ ENDPOINT FALTANTE: Obtener detalles del cliente
 router.get('/customers/:id/details', authenticateToken, async (req: any, res: any) => {
   try {
     const customerId = parseInt(req.params.id);
@@ -1443,20 +1494,18 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
       return res.status(404).json({ error: 'Customer not found' });
     }
     
-    // Obtener estadísticas adicionales del cliente
+    // Obtener estadísticas básicas sin usar tenantStorage.db directamente
     let totalOrders = 0;
     let totalSpent = '0.00';
     
     try {
-      // Contar órdenes del cliente usando consulta directa
-      const orders = await tenantStorage.db.select()
-        .from(tenantStorage.schema.orders)
-        .where(eq(tenantStorage.schema.orders.customerId, customerId));
+      // Usar los métodos existentes del tenant storage
+      const orders = await tenantStorage.getOrdersByCustomer(customerId);
       
       totalOrders = orders.length;
       
       // Calcular total gastado
-      const totalAmount = orders.reduce((sum, order) => {
+      const totalAmount = orders.reduce((sum: number, order: any) => {
         return sum + parseFloat(order.totalAmount || '0');
       }, 0);
       
@@ -1466,7 +1515,7 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
       // Usar valores por defecto en caso de error
     }
     
-    // Determinar si es VIP (puedes ajustar estos criterios)
+    // Determinar si es VIP
     const isVip = totalOrders >= 5 || parseFloat(totalSpent) >= 1000;
     
     const customerDetails = {
@@ -1474,23 +1523,14 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
-      isVip: isVip,
-      totalOrders: totalOrders,
-      totalSpent: totalSpent,
-      lastContact: customer.lastContact,
-      registrationDate: customer.createdAt,
-      // Agregar otros campos que necesites
       address: customer.address,
-      notes: customer.notes
-    };
-    
-    console.log('✅ [GET /customers/:id/details] Customer details retrieved:', {
-      customerId,
+      isVip,
       totalOrders,
       totalSpent,
-      isVip
-    });
+      createdAt: customer.createdAt,
+    };
     
+    console.log('✅ [GET /customers/:id/details] Customer details:', customerDetails);
     res.json(customerDetails);
   } catch (error) {
     console.error('❌ [GET /customers/:id/details] Error:', error);
