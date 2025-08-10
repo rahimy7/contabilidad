@@ -33,15 +33,7 @@ export const getTenantStorage = (storeId: number): Promise<TenantStorage> => {
   return storageFactory.getTenantStorage(storeId);
 };
 
-/**
- * ✅ CORRECCIÓN: Obtiene tenant storage para un usuario autenticado
- */
-export const getTenantStorageForUser = async (user: { storeId?: number }) => {
-  if (!user.storeId) {
-    throw new Error('User does not have a valid store ID');
-  }
-  return await getTenantStorage(user.storeId);
-};
+
 
 /**
  * Valida acceso a una tienda específica
@@ -187,7 +179,6 @@ export default {
   // Funciones principales
   getMasterStorage,
   getTenantStorage,
-  getTenantStorageForUser,
   validateTenantAccess,
   
   // Unified Storage
@@ -213,5 +204,4 @@ export default {
 // ================================
 
 console.log('✅ Multi-tenant storage system initialized');
-console.log('📦 Available exports: getMasterStorage, getTenantStorage, getTenantStorageForUser, createUnifiedStorage');
 console.log('🏭 Storage Factory ready for multi-tenant operations');

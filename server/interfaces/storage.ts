@@ -472,6 +472,9 @@ export interface TenantStorage extends BaseStorage {
   deleteUser(id: number): Promise<void>;
   getUsersByRole(role: string): Promise<User[]>;
 
+
+  getOrderItems(orderId: number): Promise<any[]>;
+
   // ========================================
   // METRICS & ANALYTICS
   // ========================================

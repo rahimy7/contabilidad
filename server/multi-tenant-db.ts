@@ -27,13 +27,13 @@ export const masterDb = drizzle({ client: masterPool, schema });
  * Obtiene la conexión de base de datos para una tienda específica
  * Si no existe, la crea y la almacena en caché
  */
-export async function getTenantDb(storeId: number): Promise<any> {
-  // Verificar si ya tenemos la conexión en caché
-  if (dbConnections.has(storeId)) {
-    return dbConnections.get(storeId);
+export async function getTenantDb(storeId: number, forcePublic = false): Promise<any> {
+  const cacheKey = forcePublic ? `public_${storeId}` : storeId;
+  
+  if (dbConnections.has(cacheKey)) {
+    return dbConnections.get(cacheKey);
   }
 
-  // Obtener información de la tienda desde la base de datos maestra
   const [store] = await masterDb
     .select()
     .from(schema.virtualStores)
@@ -44,29 +44,27 @@ export async function getTenantDb(storeId: number): Promise<any> {
     throw new Error(`Store with ID ${storeId} not found`);
   }
 
-  if (!store.isActive) {
-    throw new Error(`Store with ID ${storeId} is not active`);
+  let tenantDb;
+  
+  if (forcePublic) {
+    // Super admin usa public schema
+    tenantDb = masterDb;
+    console.log(`✅ Using PUBLIC schema for super admin`);
+  } else {
+    // Store users usan tenant schema
+    const schemaMatch = store.databaseUrl?.match(/schema=([^&]+)/);
+    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    
+    const baseUrl = process.env.DATABASE_URL;
+    const tenantUrl = `${baseUrl}&options=-c%20search_path%3D${schemaName}`;
+    
+    const tenantPool = new Pool({ connectionString: tenantUrl });
+    tenantDb = drizzle({ client: tenantPool, schema });
+    
+    console.log(`✅ Using TENANT schema: ${schemaName}`);
   }
 
-  // Crear conexión a la base de datos específica de la tienda
-  // Extraer el schema name de la URL
-  const schemaMatch = store.databaseUrl.match(/[&?]schema=([^&]+)/);
-  const schemaName = schemaMatch ? schemaMatch[1] : 'public';
-  
-  console.log(`🔄 Creating tenant connection for store ${storeId} with schema: ${schemaName}`);
-  
-  // Crear URL de conexión específica para el schema
-  const baseUrl = process.env.DATABASE_URL;
-  const tenantUrl = `${baseUrl}&options=-c%20search_path%3D${schemaName}`;
-  
-  const tenantPool = new Pool({ connectionString: tenantUrl });
-  const tenantDb = drizzle({ client: tenantPool, schema });
-  
-  console.log(`✅ Tenant DB configured for schema: ${schemaName}`);
-
-  // Almacenar en caché
-  dbConnections.set(storeId, tenantDb);
-
+  dbConnections.set(cacheKey, tenantDb);
   return tenantDb;
 }
 

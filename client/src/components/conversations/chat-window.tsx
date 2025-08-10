@@ -37,14 +37,14 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
 
   // Fetch customer details
   const { data: customerDetails } = useQuery<CustomerDetails | null>({
-    queryKey: ["/api/customers", conversation?.customer.id, "details"],
+    queryKey: ["/api/customers", conversation?.customer?.id, "details"],
     queryFn: () =>
       conversation?.customer.id
         ? apiGet<CustomerDetails>(
             `/api/customers/${conversation.customer.id}/details`
           )
         : Promise.resolve(null),
-    enabled: !!conversation?.customer.id,
+    enabled: !!conversation?.customer?.id,
   });
 
   // Send message
@@ -104,23 +104,17 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
     });
   };
 
-  if (!conversation) {
-    return (
-      <Card className="h-full">
-        <CardContent className="h-[500px] flex items-center justify-center">
-          <div className="text-center">
-            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Selecciona una conversación
-            </h3>
-            <p className="text-gray-500">
-              Elige una conversación de la lista para comenzar a chatear
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+ if (!conversation?.customer?.id) {
+  return (
+    <Card className="h-full">
+      <CardContent className="h-[500px] flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          Selecciona una conversación para ver los detalles
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
   return (
     <div>

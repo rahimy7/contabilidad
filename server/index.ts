@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config()
-import { getTenantStorageForUser } from './storage/index.js';
+// Agregar al inicio del archivo
+import { getTenantStorageWithSchema } from './routes.ts';
 import { StorageFactory } from './storage/storage-factory.js';
 import { MasterStorageService } from './storage/master-storage.js';
 import 'dotenv/config';
@@ -34,20 +35,6 @@ const masterStorage = storageFactory.getMasterStorage();
 
 
 
-async function getTenantStorageForUserFixed(userId: number) {
-  try {
-    const factory = StorageFactory.getInstance();
-    const masterStorage = factory.getMasterStorage();
-    const user = await masterStorage.getUserById(userId);
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
-    }
-    return await factory.getTenantStorage(user.storeId);
-  } catch (error) {
-    console.error(`Error getting tenant storage for user ${userId}:`, error);
-    throw error;
-  }
-}
 
 // ================================
 // CONFIGURACIÓN EXPRESS Y SERVER
@@ -268,7 +255,7 @@ apiRouter.post('/auth/login', async (req, res) => {
 apiRouter.post('/categories', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const category = await tenantStorage.createCategory(req.body);
     res.status(201).json(category);
   } catch (error) {
@@ -282,7 +269,7 @@ apiRouter.put('/categories/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const category = await tenantStorage.updateCategory(id, req.body);
     
     if (!category) {
@@ -301,7 +288,7 @@ apiRouter.delete('/categories/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     await tenantStorage.deleteCategory(id);
     res.json({ success: true });
   } catch (error) {
@@ -330,7 +317,7 @@ apiRouter.get('/store/schema-status', authenticateToken, async (req, res) => {
     
     let tenantConnectionValid = false;
     try {
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.getAllProducts();
       tenantConnectionValid = true;
     } catch (error) {
@@ -395,7 +382,7 @@ apiRouter.get('/reports', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const { type, startDate, endDate } = req.query;
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const reports = await tenantStorage.getReports({
       type: type as string,
       startDate: startDate as string,
@@ -795,7 +782,7 @@ apiRouter.get('/store/schema-status', authenticateToken, async (req, res) => {
     
     let tenantConnectionValid = false;
     try {
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.getAllProducts();
       tenantConnectionValid = true;
     } catch (error) {
@@ -826,7 +813,7 @@ apiRouter.get('/reports', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const { type, startDate, endDate } = req.query;
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const reports = await tenantStorage.getReports({
       type: type as string,
       startDate: startDate as string,
@@ -1198,7 +1185,7 @@ app.get('/api/public/stores/:storeId/catalog-config', async (req, res) => {
 apiRouter.get('/employees', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const employees = await tenantStorage.getAllEmployeeProfiles();
     res.json(employees);
   } catch (error) {
@@ -1210,7 +1197,7 @@ apiRouter.get('/employees', authenticateToken, async (req, res) => {
 apiRouter.post('/employees', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const employee = await tenantStorage.createEmployeeProfile(req.body);
     res.status(201).json(employee);
   } catch (error) {
@@ -1224,7 +1211,7 @@ apiRouter.put('/employees/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const employee = await tenantStorage.updateEmployeeProfile(id, req.body);
     
     if (!employee) {
@@ -1243,7 +1230,7 @@ apiRouter.delete('/employees/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Verificar si el empleado existe antes de eliminarlo
     const employee = await tenantStorage.getEmployeeProfile(id);
@@ -1270,7 +1257,7 @@ apiRouter.post('/employees/generate-id', authenticateToken, async (req, res) => 
       return res.status(400).json({ error: 'Department is required' });
     }
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const employeeId = await tenantStorage.generateEmployeeId(department);
     res.json({ employeeId });
   } catch (error) {
@@ -1681,8 +1668,8 @@ apiRouter.get('/products', authenticateToken, async (req, res) => {
     });
     
     // ✅ Usar la función importada con debugging
-    console.log('🏪 Calling getTenantStorageForUser with storeId:', user.storeId);
-    const tenantStorage = await getTenantStorageForUser(user);
+  
+    const tenantStorage = await getTenantStorageWithSchema(user);
     console.log('✅ Tenant storage obtained successfully');
     
     console.log('📦 Calling getAllProducts()...');
@@ -1714,7 +1701,7 @@ apiRouter.get('/products/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const product = await tenantStorage.getProductById(id);
     
     if (!product) {
@@ -1763,7 +1750,7 @@ apiRouter.post('/products', authenticateToken, async (req, res) => {
 
     console.log('✅ Validation passed, creating product...');
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
 
     // Preparar datos del producto
     const productData = {
@@ -1824,7 +1811,7 @@ apiRouter.put('/products/:id', authenticateToken, async (req, res) => {
       bodyKeys: Object.keys(req.body)
     });
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const updateData = { ...req.body };
 
     if (updateData.images && Array.isArray(updateData.images)) {
@@ -1868,7 +1855,7 @@ apiRouter.delete('/products/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     await tenantStorage.deleteProduct(id);
     res.json({ success: true });
   } catch (error) {
@@ -2120,7 +2107,7 @@ apiRouter.get('/dashboard/stats', authenticateToken, async (req, res) => {
 apiRouter.get('/users', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const users = await tenantStorage.getAllUsers();
     res.json(users);
   } catch (error) {
@@ -2136,7 +2123,7 @@ apiRouter.get('/users', authenticateToken, async (req, res) => {
 apiRouter.get('/notifications', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const notifications = await tenantStorage.getUserNotifications(user.id);
     res.json(notifications);
   } catch (error) {
@@ -2149,7 +2136,7 @@ apiRouter.get('/notifications/count', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
     const userId = parseInt(req.query.userId as string) || user.id;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const counts = await tenantStorage.getNotificationCounts(userId);
     res.json(counts);
   } catch (error) {
@@ -2183,7 +2170,7 @@ apiRouter.get('/settings', authenticateToken, async (req, res) => {
 apiRouter.put('/settings', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const settings = await tenantStorage.updateStoreSettings(req.body);
     res.json(settings);
   } catch (error) {
@@ -2451,7 +2438,7 @@ apiRouter.delete('/cart/:productId', authenticateToken, async (req, res) => {
 apiRouter.get('/categories', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const categories = await tenantStorage.getAllCategories();
     res.json(categories);
   } catch (error) {
@@ -2465,7 +2452,7 @@ apiRouter.get('/categories/:id', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const id = parseInt(req.params.id);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const category = await tenantStorage.getCategoryById(id);
     
     if (!category) {

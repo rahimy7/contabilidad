@@ -5,8 +5,139 @@ import { eq, desc, and, or, count, sql, ilike, asc, like, lt } from "drizzle-orm
 import { getTenantDb } from "./multi-tenant-db.js";
 import { ConversationWithDetails, CustomerRegistrationFlow } from "../shared/schema.js";
 
-export function createTenantStorage(tenantDb: any, storeId: number) {
+export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
+  // ✅ VALIDACIÓN CRÍTICA AL INICIO
+    console.log(`🏗️ createTenantStorage called with:`);
+  console.log(`  - tenantDb: ${!!tenantDb}`);
+  console.log(`  - storeId: ${storeId} (type: ${typeof storeId})`);
+  console.log(`  - schemaType: ${schemaType}`);
+  if (!tenantDb) {
+    throw new Error(`❌ TenantDb is undefined for store ${storeId}`);
+  }
+  
+  if (!tenantDb.execute || typeof tenantDb.execute !== 'function') {
+    throw new Error(`❌ TenantDb.execute is not a function for store ${storeId}`);
+  }
+
+  const usePublicSchema = schemaType === 'public';
+  
+  console.log(`🏗️ Creating tenant storage for store ${storeId}, schema: ${schemaType}`);
+
+  // ✅ RETORNAR OBJETO CON MÉTODOS QUE TIENEN ACCESO AL tenantDb EN SU CLOSURE
   return {
+    storeId: storeId,
+
+async getAllProducts() {
+  try {
+    console.log(`📦 Getting all products for store ${storeId} - tenantDb exists: ${!!tenantDb}`);
+    
+    if (usePublicSchema) {
+      return await tenantDb.select()
+        .from(schema.products)
+        .orderBy(desc(schema.products.createdAt));
+    } else {
+      // ✅ SOLUCIÓN: String interpolation directa
+      const directQuery = `
+        SELECT * FROM "store_${storeId}".products 
+        WHERE store_id = ${storeId}
+        ORDER BY created_at DESC
+      `;
+      console.log(`🚀 Executing direct query for store ${storeId}`);
+      const result = await tenantDb.execute(directQuery);
+      return result.rows;
+    }
+  } catch (error) {
+    console.error(`❌ Error in getAllProducts for store ${storeId}:`, error);
+    throw error;
+  }
+},
+
+    async getProductById(id: number) {
+      try {
+        const [product] = await tenantDb.select()
+          .from(schema.products)
+          .where(eq(schema.products.id, id))
+          .limit(1);
+        return product || null;
+      } catch (error) {
+        console.error('Error getting product by ID:', error);
+        return null;
+      }
+    },
+
+    async deleteCategory(id: number): Promise<void> {
+      try {
+        await tenantDb.delete(schema.productCategories)
+          .where(eq(schema.productCategories.id, id));
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        throw error;
+      }
+    },
+
+    async getProductBySku(sku: string) {
+      try {
+        const [product] = await tenantDb.select()
+          .from(schema.products)
+          .where(eq(schema.products.sku, sku))
+          .limit(1);
+        return product || null;
+      } catch (error) {
+        console.error('Error getting product by SKU:', error);
+        return null;
+      }
+    },
+
+    async deleteProduct(id: number): Promise<void> {
+      try {
+        await tenantDb.delete(schema.products)
+          .where(eq(schema.products.id, id));
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        throw error;
+      }
+    },
+
+    async getProductsByCategory(category: string) {
+      try {
+        return await tenantDb.select()
+          .from(schema.products)
+          .where(eq(schema.products.category, category));
+      } catch (error) {
+        console.error('Error getting products by category:', error);
+        return [];
+      }
+    },
+
+    async getAllCategories() {
+      try {
+        if (schema.productCategories) {
+          return await tenantDb.select()
+            .from(schema.productCategories)
+            .orderBy(desc(schema.productCategories.createdAt));
+        }
+        return [];
+      } catch (error) {
+        console.error('Error getting all categories:', error);
+        return [];
+      }
+    },
+
+    async getCategoryById(id: number) {
+      try {
+        if (schema.productCategories) {
+          const [category] = await tenantDb.select()
+            .from(schema.productCategories)
+            .where(eq(schema.productCategories.id, id))
+            .limit(1);
+          return category || null;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error getting category by ID:', error);
+        return null;
+      }
+    },
     // ORDERS
     async getAllOrders() {
       try {
@@ -132,6 +263,13 @@ export function createTenantStorage(tenantDb: any, storeId: number) {
   }
 },
 
+
+async getOrderItems(orderId: number) {
+  return await this.db.select()
+    .from(this.schema.orderItems)  // o como se llame tu tabla
+    .where(eq(this.schema.orderItems.orderId, orderId));
+},
+
 async createOrderItem(itemData: any) {
   try {
     const [item] = await tenantDb.insert(schema.orderItems)
@@ -217,59 +355,8 @@ async getStoreLocation(storeId: number): Promise<any | null> {
 },
 
     // PRODUCTS
- async getAllProducts() {
-  try {
-    console.log('🔍 === getAllProducts DEBUG ===');
-    console.log('🔍 tenantDb connection:', !!tenantDb);
-    console.log('🔍 schema.products:', !!schema.products);
-    console.log('🔍 storeId context:', storeId);
-    
-    // Probar query directa SQL
-    console.log('🔍 Testing direct SQL query...');
-    const sqlResult = await tenantDb.execute(`
-      SELECT COUNT(*) as count 
-      FROM products 
-    `);
-    console.log('🔍 Direct SQL count:', sqlResult.rows[0]);
-    
-    // Probar query con Drizzle
-    console.log('🔍 Testing Drizzle query...');
-    const products = await tenantDb.select()
-      .from(schema.products)
-      .orderBy(desc(schema.products.createdAt));
-      
-    console.log('🔍 Drizzle query result:', {
-      count: products.length,
-      firstProduct: products[0] ? {
-        id: products[0].id,
-        name: products[0].name
-      } : 'No products'
-    });
-    
-    return products;
-  } catch (error) {
-    console.error('❌ Error getting all products:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack?.split('\n').slice(0, 3)
-    });
-    return [];
-  }
-},
 
-    async getProductById(id: number) {
-      try {
-        const [product] = await tenantDb.select()
-          .from(schema.products)
-          .where(eq(schema.products.id, id))
-          .limit(1);
-        return product || null;
-      } catch (error) {
-        console.error('Error getting product by ID:', error);
-        return null;
-      }
-    },
+
 
    async createProduct(productData: any, storeId: number) {
   try {
@@ -342,17 +429,22 @@ async getStoreLocation(storeId: number): Promise<any | null> {
 },
 
     // CUSTOMERS
-    async getAllCustomers() {
-      try {
-        return await tenantDb.select()
-          .from(schema.customers)
-          .orderBy(desc(schema.customers.createdAt));
-      } catch (error) {
-        console.error('Error getting all customers:', error);
-        return [];
-      }
-    },
-
+async getAllCustomers() {
+  if (usePublicSchema) {
+    return await tenantDb.select()
+      .from(schema.customers)
+      .orderBy(desc(schema.customers.createdAt));
+  } else {
+    const schemaName = `store_${storeId}`;
+ const directQuery = `
+  SELECT * FROM "store_${storeId}".customers 
+  WHERE store_id = ${storeId}
+  ORDER BY created_at DESC
+`;
+const result = await tenantDb.execute(directQuery);
+    return result.rows;
+  }
+},
     async getCustomerById(id: number) {
       try {
         const [customer] = await tenantDb.select()
@@ -514,17 +606,40 @@ async createOrUpdateCustomer(customerData: any) {
     },
 
     // NOTIFICATIONS
-    async getUserNotifications(userId: number) {
-      try {
-        return await tenantDb.select()
-          .from(schema.notifications)
-          .where(eq(schema.notifications.userId, userId))
-          .orderBy(desc(schema.notifications.createdAt));
-      } catch (error) {
-        console.error('Error getting user notifications:', error);
-        return [];
-      }
-    },
+
+async getUserNotifications(userId: number) {
+  if (usePublicSchema) {
+    // Super admin busca en public
+    return await tenantDb.select({
+      id: schema.notifications.id,
+      userId: schema.notifications.userId,
+      title: schema.notifications.title,
+      message: schema.notifications.message,
+      type: schema.notifications.type,
+      priority: schema.notifications.priority,
+      isRead: schema.notifications.isRead,
+      relatedId: schema.notifications.relatedId,
+      relatedType: schema.notifications.relatedType,
+      metadata: schema.notifications.metadata,
+      createdAt: schema.notifications.createdAt
+    })
+    .from(schema.notifications)
+    .where(eq(schema.notifications.userId, userId))
+    .orderBy(desc(schema.notifications.createdAt));
+  } else {
+    // Store users buscan en tenant schema
+    const schemaName = `store_${storeId}`;
+    const directQuery = `
+  SELECT id, user_id, title, message, type, priority, is_read,
+         related_id, related_type, metadata, created_at
+  FROM "store_${storeId}".notifications 
+  WHERE user_id = ${userId}
+  ORDER BY created_at DESC
+`;
+const result = await tenantDb.execute(directQuery);
+    return result.rows;
+  }
+},
 
     async getUnreadNotifications(userId: number) {
       try {
@@ -676,45 +791,7 @@ async createOrUpdateCustomer(customerData: any) {
       }
     },
 
-    // CATEGORIES
-    async getAllCategories() {
-      try {
-        if (schema.productCategories) {
-          return await tenantDb.select()
-            .from(schema.productCategories)
-            .orderBy(desc(schema.productCategories.createdAt));
-        }
-        
-        return [
-          { id: 1, name: 'Electrónicos', description: 'Dispositivos electrónicos' },
-          { id: 2, name: 'Ropa', description: 'Vestimenta y accesorios' },
-          { id: 3, name: 'Hogar', description: 'Artículos para el hogar' },
-          { id: 4, name: 'Deportes', description: 'Equipos deportivos' },
-          { id: 5, name: 'Libros', description: 'Libros y material educativo' }
-        ];
-      } catch (error) {
-        console.error('Error getting all categories:', error);
-        return [{ id: 1, name: 'General', description: 'Categoría general' }];
-      }
-    },
 
-    async getCategoryById(id: number) {
-      try {
-        if (schema.productCategories) {
-          const [category] = await tenantDb.select()
-            .from(schema.productCategories)
-            .where(eq(schema.productCategories.id, id))
-            .limit(1);
-          return category || null;
-        }
-        
-        const categories = await this.getAllCategories();
-        return categories.find(cat => cat.id === id) || null;
-      } catch (error) {
-        console.error('Error getting category by ID:', error);
-        return null;
-      }
-    },
 
 // ================================
 // EMPLOYEE PROFILES
@@ -1513,173 +1590,29 @@ async createDefaultAutoResponses() {
 
 // ✅ Agregar este método en tenant-storage.ts
 
-async getAllConversations(): Promise<ConversationWithDetails[]> {
+async getAllConversations() {
   try {
-    console.log('📞 GETTING ALL CONVERSATIONS...');
-    
-    // ✅ Query principal con JOIN para obtener conversaciones con detalles de cliente
-    const conversationsWithCustomers = await tenantDb
-      .select({
-        // Campos de la conversación (después de la migración)
-        id: schema.conversations.id,
-        customerId: schema.conversations.customerId,
-        orderId: schema.conversations.orderId, 
-        conversationType: schema.conversations.conversationType,
-        status: schema.conversations.status,
-        lastMessageAt: schema.conversations.lastMessageAt,
-        storeId: schema.conversations.storeId,
-        createdAt: schema.conversations.createdAt,
-        updatedAt: schema.conversations.updatedAt,
-        
-        // Campos del cliente
-        customer: {
-          id: schema.customers.id,
-          name: schema.customers.name,
-          phone: schema.customers.phone,
-          email: schema.customers.email,
-          address: schema.customers.address,
-          whatsappId: schema.customers.whatsappId,
-          isVip: schema.customers.isVip,
-          totalOrders: schema.customers.totalOrders,
-          totalSpent: schema.customers.totalSpent,
-          lastContact: schema.customers.lastContact,
-          registrationDate: schema.customers.registrationDate,
-          storeId: schema.customers.storeId,
-          createdAt: schema.customers.createdAt,
-          updatedAt: schema.customers.updatedAt,
-        }
-      })
-      .from(schema.conversations)
-      .leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
-      .orderBy(desc(schema.conversations.lastMessageAt));
-
-    console.log(`✅ Found ${conversationsWithCustomers.length} conversations`);
-
-    // ✅ Enriquecer cada conversación con datos adicionales
-    const enrichedConversations = await Promise.all(
-      conversationsWithCustomers.map(async (conv) => {
-        try {
-          // Obtener el último mensaje
-          const [lastMessage] = await tenantDb
-            .select()
-            .from(schema.messages)
-            .where(eq(schema.messages.conversationId, conv.id))
-            .orderBy(desc(schema.messages.sentAt))
-            .limit(1);
-
-          // Contar mensajes no leídos del cliente
-          const [unreadResult] = await tenantDb
-            .select({ count: count() })
-            .from(schema.messages)
-            .where(
-              and(
-                eq(schema.messages.conversationId, conv.id),
-                eq(schema.messages.isFromCustomer, true),
-                eq(schema.messages.isRead, false)
-              )
-            );
-
-          // Buscar orden asociada (opcional)
-          let associatedOrder = null;
-          if (conv.customer?.id) {
-            const [order] = await tenantDb
-              .select()
-              .from(schema.orders)
-              .where(eq(schema.orders.customerId, conv.customer.id))
-              .orderBy(desc(schema.orders.createdAt))
-              .limit(1);
-            
-            associatedOrder = order || null;
-          }
-
-          // ✅ Construir el objeto ConversationWithDetails
-          const conversationWithDetails: ConversationWithDetails = {
-            // Campos base de la conversación
-            id: conv.id,
-            customerId: conv.customerId,
-            orderId: conv.orderId || null,
-            conversationType: conv.conversationType || 'whatsapp',
-            status: conv.status || 'active',
-            lastMessageAt: conv.lastMessageAt,
-            storeId: conv.storeId,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
-            
-            // Cliente (requerido por el tipo)
-            customer: conv.customer || {
-              id: 0,
-              name: 'Cliente Desconocido',
-              phone: 'No disponible',
-              email: null,
-              address: null,
-              whatsappId: null,
-              isVip: false,
-              totalOrders: 0,
-              totalSpent: '0.00',
-              lastContact: new Date(),
-              registrationDate: new Date(),
-              storeId: conv.storeId,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              latitude: null,
-              longitude: null,
-              notes: null
-            },
-            
-            // Datos adicionales
-            lastMessage: lastMessage || undefined,
-            unreadCount: unreadResult?.count || 0,
-            order: associatedOrder || undefined,
-          };
-
-          return conversationWithDetails;
-        } catch (enrichError) {
-          console.error(`❌ Error enriching conversation ${conv.id}:`, enrichError);
-          
-          // ✅ Retornar conversación básica en caso de error
-          return {
-            id: conv.id,
-            customerId: conv.customerId,
-            orderId: conv.orderId || null,
-            conversationType: conv.conversationType || 'whatsapp',
-            status: conv.status || 'active',
-            lastMessageAt: conv.lastMessageAt,
-            storeId: conv.storeId,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
-            customer: conv.customer || {
-              id: 0,
-              name: 'Cliente Desconocido',
-              phone: 'No disponible',
-              email: null,
-              address: null,
-              whatsappId: null,
-              isVip: false,
-              totalOrders: 0,
-              totalSpent: '0.00',
-              lastContact: new Date(),
-              registrationDate: new Date(),
-              storeId: conv.storeId,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              latitude: null,
-              longitude: null,
-              notes: null
-            },
-            unreadCount: 0,
-          } as ConversationWithDetails;
-        }
-      })
-    );
-
-    console.log(`✅ CONVERSATIONS ENRICHED: ${enrichedConversations.length} total`);
-    return enrichedConversations;
-
+    if (usePublicSchema) {
+      return await tenantDb.select()
+        .from(schema.conversations)
+        .orderBy(desc(schema.conversations.lastMessageAt));
+    } else {
+      const schemaName = `store_${storeId}`;
+      const directQuery = `
+  SELECT c.*, 
+         cust.name as customer_name,
+         cust.phone as customer_phone
+  FROM "store_${storeId}".conversations c
+  LEFT JOIN "store_${storeId}".customers cust ON c.customer_id = cust.id
+  WHERE c.store_id = ${storeId}
+  ORDER BY c.last_message_at DESC
+`;
+const result = await tenantDb.execute(directQuery);
+      return result.rows;
+    }
   } catch (error) {
-    console.error('❌ ERROR GETTING ALL CONVERSATIONS:', error);
-    
-    // ✅ En caso de error crítico, retornar array vacío
-    return [];
+    console.error('Error getting all conversations:', error);
+    throw error;
   }
 },
     // CONVERSATIONS
@@ -2630,5 +2563,14 @@ async ensureRegistrationFlowTableExists(): Promise<void> {
 // En tenant-storage.ts - agregar al final del archivo
 export async function createTenantStorageForStore(storeId: number) {
   const tenantDb = await getTenantDb(storeId);
+  
+  // ✅ DEBUGGING TEMPORAL
+  console.log(`🔍 TenantDb validation for store ${storeId}:`, {
+    exists: !!tenantDb,
+    hasExecute: !!(tenantDb && tenantDb.execute),
+    type: typeof tenantDb,
+    keys: tenantDb ? Object.keys(tenantDb) : 'undefined'
+  });
+  
   return createTenantStorage(tenantDb, storeId);
 }

@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { sql, eq } from "drizzle-orm";
 
+
 // Schema and Types
 import {
   insertUserSchema,
@@ -23,21 +24,48 @@ import { authenticateToken, requireSuperAdmin } from "./authMiddleware";
 // Storage Layer
 import { StorageFactory } from './storage/storage-factory';
 import { UnifiedStorage } from './storage/unified-storage';
-import { getMasterStorage, getTenantStorage, healthCheck } from './storage/index';
+import { getMasterStorage, getTenantStorage, healthCheck, TenantStorage } from './storage/index';
 import { db as masterDb } from './db'; // ✅ Usar db como masterDb
 import * as schema from '@shared/schema'; // ✅ Importar schema directamente
+import { getTenantDb } from "./multi-tenant-db.js";
+import { createTenantStorage } from "./tenant-storage.js";
+
+function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
+  return user.role === 'super_admin' ? 'public' : 'tenant';
+}
+
+export async function getTenantStorageWithSchema(user: AuthUser) {
+  // El StorageFactory ya maneja los esquemas correctamente según el rol del usuario
+  return await storageFactory.getTenantStorage(user.storeId);
+}
 
 const storageFactory = StorageFactory.getInstance();
 
-// Helper function corregida para obtener tenant storage
-async function getTenantStorageForUser(user: { storeId: number }) {
-  if (!user.storeId) {
-    throw new Error('User does not have a valid store ID');
-  }
-  return await storageFactory.getTenantStorage(user.storeId);
-}
-// Utilities
-// import { SupabaseStorageManager } from './supabase-storage-manager'; // Commented out until file is created
+const routeWithSchemaRouting = (handler: Function) => {
+  return async (req: any, res: any, next: any) => {
+    try {
+      const user = req.user as AuthUser;
+      
+      // Determinar si forzar public schema
+      const forcePublic = user.role === 'super_admin';
+      
+      if (forcePublic) {
+        console.log(`🔑 Super admin accessing PUBLIC schema`);
+      } else {
+        console.log(`🏪 Store user accessing TENANT schema for store ${user.storeId}`);
+      }
+      
+      // Inyectar schema info en request
+      req.schemaType = forcePublic ? 'public' : 'tenant';
+      
+      return await handler(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+
 
 // ================================
 // STORAGE INITIALIZATION
@@ -124,7 +152,7 @@ async function processProductImages(
       
       // Procesar archivos subidos
       for (const file of files) {
-        const fileObject = new File([file.buffer], file.originalname, { type: file.mimetype });
+        const fileObject = new File([new Uint8Array(file.buffer)], file.originalname, { type: file.mimetype });
         const imageUrl = await storageManager.uploadFile(fileObject, productId);
         processedImages.push(imageUrl);
       }
@@ -237,8 +265,9 @@ const getProductsHandler = async (req: any, res: any) => {
 
     console.log('🛍️ Getting products for store:', user.storeId);
 
-    const tenantStorage = await getTenantStorageForUser(user);
-    const products = await tenantStorage.getAllProducts();
+    // ✅ CORRECCIÓN: Asignar el resultado a la variable products
+    const tenantStorage = await getTenantStorageWithSchema(user); // ✅ Usar la función corregida
+    const products = await tenantStorage.getAllProducts(); // ✅ Asignar resultado
     
     console.log(`✅ Retrieved ${products.length} products from tenant schema`);
     res.json(products);
@@ -258,7 +287,7 @@ const getProductByIdHandler = async (req: any, res: any) => {
 
     console.log('🔍 Getting product', productId, 'for store:', user.storeId);
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const product = await tenantStorage.getProductById(productId);
 
     if (!product) {
@@ -304,7 +333,7 @@ const createProductHandler = async (req: any, res: any) => {
       });
     }
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // ✅ CONSTRUCCIÓN EXPLÍCITA DE PRODUCTDATA
     const productData = {
@@ -389,7 +418,7 @@ const updateProductHandler = async (req: any, res: any) => {
 
     console.log('✏️ Updating product', productId, 'for store:', user.storeId);
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Verificar que el producto existe
     const existingProduct = await tenantStorage.getProductById(productId);
@@ -434,7 +463,7 @@ const deleteProductHandler = async (req: any, res: any) => {
 
     console.log('🗑️ Deleting product', productId, 'from store:', user.storeId);
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Verificar que el producto existe
     const product = await tenantStorage.getProductById(productId);
@@ -481,7 +510,7 @@ const getCategoriesHandler = async (req: any, res: any) => {
     
     console.log('📂 Getting categories for store:', user.storeId);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const categories = await tenantStorage.getAllCategories();
     
     console.log(`✅ Retrieved ${categories.length} categories from tenant schema`);
@@ -506,7 +535,7 @@ const createCategoryHandler = async (req: any, res: any) => {
     
     console.log('📁 Creating category for store:', user.storeId);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     const categoryData = { 
       ...req.body,
@@ -548,7 +577,7 @@ const updateCategoryHandler = async (req: any, res: any) => {
     
     console.log('✏️ Updating category', categoryId, 'for store:', user.storeId);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Verificar que la categoría existe
     const existingCategory = await tenantStorage.getCategoryById(categoryId);
@@ -586,7 +615,7 @@ const deleteCategoryHandler = async (req: any, res: any) => {
     
     console.log('🗑️ Deleting category', categoryId, 'from store:', user.storeId);
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Verificar que la categoría existe
     const category = await tenantStorage.getCategoryById(categoryId);
@@ -810,18 +839,11 @@ async function processWhatsAppMessage(value: any) {
   console.log('🚀 WEBHOOK RECEIVED - Function called successfully');
   
   try {
-    // ✅ IMPORT DIRECTO con nombre correcto
-    const whatsappModule = await import('./whatsapp-simple.js');
+    // ✅ USAR EL NOMBRE CORRECTO DE LA FUNCIÓN
+    const { processWhatsAppMessageSafe } = await import('./whatsapp-simple.js');
     
-    // Verificar qué función usar basado en lo que está disponible
-    if (whatsappModule.processWhatsAppMessage) {
-      await whatsappModule.processWhatsAppMessage(value);
-    } else if (whatsappModule.default) {
-      await whatsappModule.default(value);
-    } else {
-      console.error('❌ No se encontró función de procesamiento de WhatsApp');
-      throw new Error('WhatsApp processing function not found');
-    }
+    // ✅ LLAMAR A LA FUNCIÓN QUE REALMENTE EXISTE
+    await processWhatsAppMessageSafe(value);
     
     console.log('✅ WhatsApp message processed successfully');
     
@@ -904,6 +926,13 @@ export async function registerRoutes(app: express.Application) {
     }
   });
 
+
+  // Agregar temporalmente en routes.ts para debuggear
+router.post('/debug/clear-cache', authenticateToken, (req, res) => {
+  storageFactory.clearAllCaches();
+  res.json({ message: 'Cache cleared successfully' });
+});
+
   // ================================
   // PRODUCT ROUTES
   // ================================
@@ -926,67 +955,7 @@ router.post('/products', authenticateToken, createProductHandler);
   router.put('/categories/:id', authenticateToken, updateCategoryHandler);
   router.delete('/categories/:id', authenticateToken, deleteCategoryHandler);
 
-  // ================================
-  // CUSTOMER ROUTES
-  // ================================
 
-  router.get('/customers', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
-      const customers = await tenantStorage.getAllCustomers();
-      res.json(customers);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      res.status(500).json({ error: "Failed to fetch customers" });
-    }
-  });
-
-  router.post('/customers', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const customerData = { ...req.body, storeId: user.storeId };
-      
-      const tenantStorage = await getTenantStorageForUser(user);
-      const customer = await tenantStorage.createCustomer(customerData);
-      res.status(201).json(customer);
-    } catch (error) {
-      console.error('Error creating customer:', error);
-      res.status(500).json({ error: "Failed to create customer" });
-    }
-  });
-
-  router.put('/customers/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageForUser(user);
-      const customer = await tenantStorage.updateCustomer(id, req.body);
-      if (!customer) {
-        return res.status(404).json({ error: 'Customer not found' });
-      }
-      
-      res.json(customer);
-    } catch (error) {
-      console.error('Error updating customer:', error);
-      res.status(500).json({ error: 'Failed to update customer' });
-    }
-  });
-
-  router.delete('/customers/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageForUser(user);
-      await tenantStorage.deleteCustomer(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Error deleting customer:', error);
-      res.status(500).json({ error: 'Failed to delete customer' });
-    }
-  });
 
   // ================================
   // EMPLOYEE ROUTES
@@ -995,7 +964,7 @@ router.post('/products', authenticateToken, createProductHandler);
   router.get('/employees', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const employees = await tenantStorage.getAllEmployeeProfiles();
       res.json(employees);
     } catch (error) {
@@ -1009,7 +978,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const user = req.user as AuthUser;
       const employeeData = { ...req.body, storeId: user.storeId };
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const employee = await tenantStorage.createEmployeeProfile(employeeData);
       res.status(201).json(employee);
     } catch (error) {
@@ -1023,7 +992,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const employee = await tenantStorage.updateEmployeeProfile(id, req.body);
       if (!employee) {
         return res.status(404).json({ error: 'Employee not found' });
@@ -1041,7 +1010,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.deleteEmployeeProfile(id);
       res.json({ success: true });
     } catch (error) {
@@ -1055,24 +1024,13 @@ router.post('/products', authenticateToken, createProductHandler);
   // CONVERSATION ROUTES - CORREGIDOS ✅
   // ================================
 
-  router.get('/conversations', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      console.log('📞 [GET /conversations] User store:', user.storeId);
-      
-      const tenantStorage = await getTenantStorageForUser(user);
-      const conversations = await tenantStorage.getAllConversations();
-      
-      console.log('✅ [GET /conversations] Found:', conversations.length, 'conversations');
-      res.json(conversations);
-    } catch (error) {
-      console.error('❌ [GET /conversations] Error:', error);
-      res.status(500).json({ 
-        error: "Failed to fetch conversations",
-        details: error.message 
-      });
-    }
-  });
+ router.get('/conversations', authenticateToken, routeWithSchemaRouting(async (req: any, res: any) => {
+  const user = req.user as AuthUser;
+  const tenantStorage = await getTenantStorageWithSchema(user);
+  
+  const conversations = await tenantStorage.getAllConversations();
+  res.json(conversations);
+}));
 
   router.get('/conversations/:id', authenticateToken, async (req: any, res: any) => {
     try {
@@ -1081,7 +1039,7 @@ router.post('/products', authenticateToken, createProductHandler);
       
       console.log('📞 [GET /conversations/:id] ID:', id, 'User store:', user.storeId);
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const conversation = await tenantStorage.getConversationById(id);
       
       if (!conversation) {
@@ -1120,7 +1078,7 @@ router.post('/products', authenticateToken, createProductHandler);
         lastMessageAt: new Date()
       };
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const conversation = await tenantStorage.createConversation(conversationData);
       
       console.log('✅ [POST /conversations] Created:', conversation.id);
@@ -1141,7 +1099,7 @@ router.post('/products', authenticateToken, createProductHandler);
       
       console.log('📞 [PUT /conversations/:id] Updating:', id, req.body);
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const conversation = await tenantStorage.updateConversation(id, {
         ...req.body,
         updatedAt: new Date()
@@ -1170,7 +1128,7 @@ router.post('/products', authenticateToken, createProductHandler);
       
       console.log('💬 [GET /conversations/:id/messages] Conversation:', conversationId);
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const messages = await tenantStorage.getMessagesByConversation(conversationId);
       
       console.log('✅ [GET /conversations/:id/messages] Found:', messages.length, 'messages');
@@ -1200,7 +1158,7 @@ router.post('/products', authenticateToken, createProductHandler);
         sentAt: new Date()
       };
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const message = await tenantStorage.createMessage(messageData);
       
       console.log('✅ [POST /conversations/:id/messages] Created message:', message.id);
@@ -1214,6 +1172,383 @@ router.post('/products', authenticateToken, createProductHandler);
     }
   });
 
+  router.post('/conversations/:id/mark-read', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('👁️ [POST /conversations/:id/mark-read] Marking conversation as read:', conversationId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Marcar todos los mensajes de la conversación como leídos
+    await tenantStorage.markMessagesAsRead(conversationId);
+    
+    // También actualizar el contador de mensajes no leídos en la conversación
+    await tenantStorage.updateConversation(conversationId, {
+      updatedAt: new Date()
+    });
+    
+    console.log('✅ [POST /conversations/:id/mark-read] Conversation marked as read:', conversationId);
+    res.json({ success: true, message: 'Conversation marked as read' });
+  } catch (error) {
+    console.error('❌ [POST /conversations/:id/mark-read] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to mark conversation as read",
+      details: error.message 
+    });
+  }
+});
+
+// ================================
+// BILLING ROUTES (BÁSICOS)
+// ================================
+
+router.get('/billing', authenticateToken, async (req, res) => {
+  try {
+    // Por ahora retornar datos básicos hasta que implementes billing completo
+    res.json({
+      currentPlan: 'basic',
+      billingCycle: 'monthly',
+      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      isActive: true
+    });
+  } catch (error) {
+    console.error('Error fetching billing:', error);
+    res.status(500).json({ error: 'Failed to fetch billing info' });
+  }
+});
+
+router.get('/billing/summary', authenticateToken, async (req, res) => {
+  try {
+    // Datos básicos de resumen
+    res.json({
+      totalCharges: 0,
+      currentBalance: 0,
+      nextPaymentAmount: 29.99,
+      nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching billing summary:', error);
+    res.status(500).json({ error: 'Failed to fetch billing summary' });
+  }
+});
+// ================================
+// NOTIFICATIONS ENDPOINTS (TENANT STORAGE)
+// ================================
+
+router.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const notifications = await tenantStorage.getUserNotifications(user.id);
+    res.json(notifications);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+router.get('/notifications/count', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const userId = parseInt(req.query.userId as string) || user.id;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const counts = await tenantStorage.getNotificationCounts(userId);
+    res.json(counts);
+  } catch (error) {
+    console.error('Error fetching notification counts:', error);
+    res.status(500).json({ error: 'Failed to fetch notification counts' });
+  }
+});
+
+
+// ✅ ENDPOINT FALTANTE: Obtener detalles del cliente
+router.get('/customers/:id/details', authenticateToken, async (req: any, res: any) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('👤 [GET /customers/:id/details] Getting customer details:', customerId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Obtener información básica del cliente
+    const customer = await tenantStorage.getCustomerById(customerId);
+    
+    if (!customer) {
+      console.log('⚠️ [GET /customers/:id/details] Customer not found:', customerId);
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    // Obtener estadísticas adicionales del cliente
+    let totalOrders = 0;
+    let totalSpent = '0.00';
+    
+    try {
+      // Contar órdenes del cliente usando consulta directa
+      const orders = await tenantStorage.db.select()
+        .from(tenantStorage.schema.orders)
+        .where(eq(tenantStorage.schema.orders.customerId, customerId));
+      
+      totalOrders = orders.length;
+      
+      // Calcular total gastado
+      const totalAmount = orders.reduce((sum, order) => {
+        return sum + parseFloat(order.totalAmount || '0');
+      }, 0);
+      
+      totalSpent = totalAmount.toFixed(2);
+    } catch (statsError) {
+      console.warn('Could not calculate customer stats:', statsError);
+      // Usar valores por defecto en caso de error
+    }
+    
+    // Determinar si es VIP (puedes ajustar estos criterios)
+    const isVip = totalOrders >= 5 || parseFloat(totalSpent) >= 1000;
+    
+    const customerDetails = {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      isVip: isVip,
+      totalOrders: totalOrders,
+      totalSpent: totalSpent,
+      lastContact: customer.lastContact,
+      registrationDate: customer.createdAt,
+      // Agregar otros campos que necesites
+      address: customer.address,
+      notes: customer.notes
+    };
+    
+    console.log('✅ [GET /customers/:id/details] Customer details retrieved:', {
+      customerId,
+      totalOrders,
+      totalSpent,
+      isVip
+    });
+    
+    res.json(customerDetails);
+  } catch (error) {
+    console.error('❌ [GET /customers/:id/details] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch customer details",
+      details: error.message 
+    });
+  }
+});
+
+// ================================
+// CUSTOMER MANAGEMENT ROUTES ADICIONALES
+// ================================
+
+  // ================================
+  // CUSTOMER ROUTES
+  // ================================
+
+
+  router.post('/customers', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = req.user as AuthUser;
+      const customerData = { ...req.body, storeId: user.storeId };
+      
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const customer = await tenantStorage.createCustomer(customerData);
+      res.status(201).json(customer);
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  router.put('/customers/:id', authenticateToken, async (req: any, res: any) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user as AuthUser;
+      
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const customer = await tenantStorage.updateCustomer(id, req.body);
+      if (!customer) {
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+      
+      res.json(customer);
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      res.status(500).json({ error: 'Failed to update customer' });
+    }
+  });
+
+  router.delete('/customers/:id', authenticateToken, async (req: any, res: any) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user as AuthUser;
+      
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      await tenantStorage.deleteCustomer(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      res.status(500).json({ error: 'Failed to delete customer' });
+    }
+  });
+
+
+// ✅ ENDPOINT FALTANTE: Marcar conversación como leída
+router.post('/conversations/:id/mark-read', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('👁️ [POST /conversations/:id/mark-read] Marking conversation as read:', conversationId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Marcar todos los mensajes de la conversación como leídos
+    await tenantStorage.markMessagesAsRead(conversationId);
+    
+    // También actualizar el contador de mensajes no leídos en la conversación
+    await tenantStorage.updateConversation(conversationId, {
+      updatedAt: new Date()
+    });
+    
+    console.log('✅ [POST /conversations/:id/mark-read] Conversation marked as read:', conversationId);
+    res.json({ success: true, message: 'Conversation marked as read' });
+  } catch (error) {
+    console.error('❌ [POST /conversations/:id/mark-read] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to mark conversation as read",
+      details: error.message 
+    });
+  }
+});
+
+
+// ✅ ENDPOINT FALTANTE: Obtener detalles del cliente
+router.get('/customers/:id/details', authenticateToken, async (req: any, res: any) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('👤 [GET /customers/:id/details] Getting customer details:', customerId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Obtener información básica del cliente
+    const customer = await tenantStorage.getCustomerById(customerId);
+    
+    if (!customer) {
+      console.log('⚠️ [GET /customers/:id/details] Customer not found:', customerId);
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    // Obtener estadísticas adicionales del cliente
+    let totalOrders = 0;
+    let totalSpent = '0.00';
+    
+    try {
+      // Contar órdenes del cliente usando consulta directa
+      const orders = await tenantStorage.db.select()
+        .from(tenantStorage.schema.orders)
+        .where(eq(tenantStorage.schema.orders.customerId, customerId));
+      
+      totalOrders = orders.length;
+      
+      // Calcular total gastado
+      const totalAmount = orders.reduce((sum, order) => {
+        return sum + parseFloat(order.totalAmount || '0');
+      }, 0);
+      
+      totalSpent = totalAmount.toFixed(2);
+    } catch (statsError) {
+      console.warn('Could not calculate customer stats:', statsError);
+      // Usar valores por defecto en caso de error
+    }
+    
+    // Determinar si es VIP (puedes ajustar estos criterios)
+    const isVip = totalOrders >= 5 || parseFloat(totalSpent) >= 1000;
+    
+    const customerDetails = {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      isVip: isVip,
+      totalOrders: totalOrders,
+      totalSpent: totalSpent,
+      lastContact: customer.lastContact,
+      registrationDate: customer.createdAt,
+      // Agregar otros campos que necesites
+      address: customer.address,
+      notes: customer.notes
+    };
+    
+    console.log('✅ [GET /customers/:id/details] Customer details retrieved:', {
+      customerId,
+      totalOrders,
+      totalSpent,
+      isVip
+    });
+    
+    res.json(customerDetails);
+  } catch (error) {
+    console.error('❌ [GET /customers/:id/details] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch customer details",
+      details: error.message 
+    });
+  }
+});
+
+
+// Obtener todos los clientes
+router.get('/customers', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    console.log('👥 [GET /customers] Getting all customers for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const customers = await tenantStorage.getAllCustomers();
+    
+    console.log('✅ [GET /customers] Found customers:', customers.length);
+    res.json(customers);
+  } catch (error) {
+    console.error('❌ [GET /customers] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch customers",
+      details: error.message 
+    });
+  }
+});
+
+// Obtener un cliente específico
+router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('👤 [GET /customers/:id] Getting customer:', customerId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const customer = await tenantStorage.getCustomerById(customerId);
+    
+    if (!customer) {
+      console.log('⚠️ [GET /customers/:id] Customer not found:', customerId);
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    console.log('✅ [GET /customers/:id] Customer retrieved:', customerId);
+    res.json(customer);
+  } catch (error) {
+    console.error('❌ [GET /customers/:id] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch customer",
+      details: error.message 
+    });
+  }
+});
+
 // ORDER ROUTES
   // ================================
 
@@ -1226,7 +1561,8 @@ router.post('/products', authenticateToken, createProductHandler);
   router.get('/orders', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      //const tenantStorage = await getTenantStorageWithSchema(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       console.log('📦 Fetching orders for store:', user.storeId);
       
@@ -1247,25 +1583,18 @@ router.post('/products', authenticateToken, createProductHandler);
           if (order.assignedUserId) {
             try {
               assignedUser = await tenantStorage.getUserById(order.assignedUserId);
+              
             } catch (err) {
               console.warn(`⚠️ User ${order.assignedUserId} not found for order ${order.id}`);
             }
           }
-          
-          // Obtener items de la orden (si existe la tabla order_items)
-          let items = [];
-          let totalItems = 0;
-          try {
-            // Intentar obtener items - algunos sistemas pueden no tener esta tabla
-            if (tenantStorage.getOrderItems) {
-              items = await tenantStorage.getOrderItems(order.id);
-              totalItems = items.length;
-            }
-          } catch (err) {
-            // Si no existe order_items, continuar sin items
-            console.log(`ℹ️ No items found for order ${order.id} (expected if no order_items table)`);
-          }
-          
+           let items = [];
+try {
+  items = await tenantStorage.getOrderItems(order.id);
+} catch (err) {
+  console.log(`ℹ️ No items found for order ${order.id}`);
+}
+const totalItems = items.length;       
           return {
             id: order.id,
             orderNumber: order.orderNumber,
@@ -1311,6 +1640,8 @@ router.post('/products', authenticateToken, createProductHandler);
               name: assignedUser.name,
               role: assignedUser.role
             } : null,
+
+            
             
             // Items de la orden
             items: items.map((item: any) => ({
@@ -1401,7 +1732,7 @@ router.post('/products', authenticateToken, createProductHandler);
         return res.status(400).json({ error: 'Invalid order ID' });
       }
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const order = await tenantStorage.getOrderById(id);
       
       if (!order) {
@@ -1491,7 +1822,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const user = req.user as AuthUser;
       const orderData = { ...req.body, storeId: user.storeId };
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       // Crear la orden
       const order = await tenantStorage.createOrder(orderData);
@@ -1528,7 +1859,7 @@ router.post('/products', authenticateToken, createProductHandler);
         return res.status(400).json({ error: 'Invalid order ID' });
       }
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const order = await tenantStorage.updateOrder(id, req.body);
       
       if (!order) {
@@ -1551,7 +1882,7 @@ router.post('/products', authenticateToken, createProductHandler);
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     const order = await tenantStorage.updateOrder(id, req.body);
 
     if (!order) {
@@ -1580,7 +1911,7 @@ router.post('/products', authenticateToken, createProductHandler);
         return res.status(400).json({ error: 'Status is required' });
       }
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       const updateData = { 
         status,
@@ -1609,7 +1940,7 @@ router.post('/products', authenticateToken, createProductHandler);
         return res.status(400).json({ error: 'Invalid order ID' });
       }
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       // Verificar que la orden existe
       const order = await tenantStorage.getOrderById(id);
@@ -1619,8 +1950,8 @@ router.post('/products', authenticateToken, createProductHandler);
       
       // Eliminar items si existen
       try {
-        if (tenantStorage.deleteOrderItems) {
-          await tenantStorage.deleteOrderItems(id);
+        if (tenantStorage.deleteOrderItem) {
+          await tenantStorage.deleteOrderItem(id);
         }
       } catch (itemError) {
         console.warn('⚠️ Could not delete order items:', itemError);
@@ -1641,7 +1972,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const order = await tenantStorage.updateOrder(id, req.body);
       
       if (!order) {
@@ -1664,7 +1995,7 @@ router.post('/products', authenticateToken, createProductHandler);
         return res.status(400).json({ error: 'Invalid order ID' });
       }
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       // Verificar que la orden existe
       const order = await tenantStorage.getOrderById(orderId);
@@ -1768,7 +2099,7 @@ router.post('/products', authenticateToken, createProductHandler);
   router.get('/orders/assignment/stats', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       const [orders, users] = await Promise.all([
         tenantStorage.getAllOrders(),
@@ -1833,7 +2164,7 @@ router.post('/products', authenticateToken, createProductHandler);
   router.get('/registration-flows', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const flows = await tenantStorage.getAllRegistrationFlows();
       res.json(flows);
     } catch (error) {
@@ -1847,7 +2178,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const flow = await tenantStorage.getRegistrationFlowById(id);
       
       if (!flow) {
@@ -1866,8 +2197,8 @@ router.post('/products', authenticateToken, createProductHandler);
       const user = req.user as AuthUser;
       const flowData = { ...req.body, storeId: user.storeId };
       
-      const tenantStorage = await getTenantStorageForUser(user);
-      const flow = await tenantStorage.createRegistrationFlow(flowData);
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const flow = await tenantStorage.repairRegistrationFlow(flowData);
       res.status(201).json(flow);
     } catch (error) {
       console.error("Error creating registration flow:", error);
@@ -1880,7 +2211,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const flow = await tenantStorage.updateRegistrationFlow(id, req.body);
       
       if (!flow) {
@@ -1899,7 +2230,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.deleteRegistrationFlow(id);
       res.json({ success: true });
     } catch (error) {
@@ -1915,7 +2246,7 @@ router.post('/products', authenticateToken, createProductHandler);
   router.get('/users', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const users = await tenantStorage.getAllUsers();
       res.json(users);
     } catch (error) {
@@ -1943,7 +2274,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const targetUser = await tenantStorage.getUserById(id);
       
       if (!targetUser) {
@@ -1962,7 +2293,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const updatedUser = await tenantStorage.updateUser(id, req.body);
       
       if (!updatedUser) {
@@ -1982,7 +2313,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const { status } = z.object({ status: z.string() }).parse(req.body);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const updatedUser = await tenantStorage.updateUser(id, { status });
       
       if (!updatedUser) {
@@ -2006,7 +2337,7 @@ router.post('/products', authenticateToken, createProductHandler);
       const { userId } = req.params;
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const counts = await tenantStorage.getNotificationCounts(parseInt(userId));
       
       res.json(counts);
@@ -2022,7 +2353,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
     const { limit = 50, offset = 0 } = req.query;
     const user = req.user as AuthUser;
     
-    const tenantStorage = await getTenantStorageForUser(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
     
     // Usar getUserNotifications en lugar de getNotifications
     const allNotifications = await tenantStorage.getUserNotifications(parseInt(userId));
@@ -2052,7 +2383,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const notificationData = insertNotificationSchema.parse(req.body);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const notification = await tenantStorage.createNotification(notificationData);
       
       res.status(201).json(notification);
@@ -2070,7 +2401,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const notification = await tenantStorage.markNotificationAsRead(id);
       
       if (!notification) {
@@ -2091,7 +2422,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       }
       
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.markAllNotificationsAsRead(parseInt(userId));
       
       res.json({ success: true });
@@ -2179,7 +2510,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
   router.get('/auto-responses', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const autoResponses = await tenantStorage.getAllAutoResponses();
       res.json(autoResponses);
     } catch (error) {
@@ -2193,7 +2524,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const autoResponse = await tenantStorage.getAutoResponseById(id);
       
       if (!autoResponse) {
@@ -2212,7 +2543,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const user = req.user as AuthUser;
       const autoResponseData = { ...req.body, storeId: user.storeId };
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const autoResponse = await tenantStorage.createAutoResponse(autoResponseData);
       res.status(201).json(autoResponse);
     } catch (error) {
@@ -2226,7 +2557,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const autoResponse = await tenantStorage.updateAutoResponse(id, req.body);
       
       if (!autoResponse) {
@@ -2245,7 +2576,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       await tenantStorage.deleteAutoResponse(id);
       res.json({ success: true });
     } catch (error) {
@@ -2309,7 +2640,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       
       let tenantConnectionValid = false;
       try {
-        const tenantStorage = await getTenantStorageForUser(user);
+        const tenantStorage = await getTenantStorageWithSchema(user);
         await tenantStorage.getAllProducts();
         tenantConnectionValid = true;
       } catch (error) {
@@ -2401,8 +2732,8 @@ router.get('/stores/:storeId/users', authenticateToken, async (req: any, res: an
       return res.status(403).json({ error: 'Not authorized to view users for this store' });
     }
     
-    // Obtener usuarios de la tienda usando master storage
-    const users = await masterStorage.getStoreUsers(storeId);
+    // ✅ USAR EL NOMBRE CORRECTO DE LA FUNCIÓN
+    const users = await masterStorage.getStoreUsersByStoreId(storeId);
     
     // Remover contraseñas de la respuesta
     const safeUsers = users.map(user => {
@@ -2438,7 +2769,7 @@ router.put('/stores/:storeId/users/:userId', authenticateToken, async (req: any,
     }
     
     // Actualizar usuario usando master storage
-    const updatedUser = await masterStorage.updateStoreUser(userId, updateData, storeId);
+    const updatedUser = await masterStorage.updateStoreUser(userId, updateData);
     
     if (!updatedUser) {
       return res.status(404).json({ error: 'User not found' });
@@ -2472,7 +2803,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
     
-    const success = await masterStorage.deleteStoreUser(userId, storeId);
+    const success = await masterStorage.deleteStoreUser(userId);
     
     if (!success) {
       return res.status(404).json({ error: 'User not found' });
@@ -2495,7 +2826,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       const user = req.user as AuthUser;
       const { type, startDate, endDate } = req.query;
       
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       const reports = await tenantStorage.getReports({
         type: type as string,
         startDate: startDate as string,
@@ -2512,7 +2843,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   router.get('/reports/dashboard', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageForUser(user);
+      const tenantStorage = await getTenantStorageWithSchema(user);
       
       const dashboardData = await tenantStorage.getDashboardMetrics();
       res.json(dashboardData);
@@ -2631,7 +2962,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       let tenantHealth = null;
       if (user.storeId) {
         try {
-          const tenantStorage = await getTenantStorageForUser(user);
+          const tenantStorage = await getTenantStorageWithSchema(user);
           tenantHealth = await tenantStorage.testConnection();
         } catch (error) {
           tenantHealth = { 
