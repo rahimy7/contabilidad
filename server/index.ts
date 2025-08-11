@@ -245,6 +245,8 @@ apiRouter.post('/auth/login', async (req, res) => {
     const { username, password, companyId, storeId } = req.body;
     
     const targetStoreId = storeId || companyId;
+    console.log(`🔍 Login attempt for ${username} with targetStoreId: ${targetStoreId}`);
+    
     const user = await authenticateUser(username, password, targetStoreId);
     
     if (!user) {
@@ -254,13 +256,55 @@ apiRouter.post('/auth/login', async (req, res) => {
       });
     }
 
-    if (targetStoreId && user.level !== 'global') {
-      if (!user.storeId || user.storeId !== parseInt(targetStoreId)) {
-        return res.status(403).json({
-          success: false,
-          code: 'STORE_ACCESS_DENIED',
-          message: 'No tienes acceso a esta tienda'
-        });
+    console.log(`✅ User authenticated:`, {
+      id: user.id,
+      username: user.username,
+      level: user.level,
+      storeId: user.storeId,
+      targetStoreId
+    });
+
+    // Validación de acceso a tienda mejorada
+   if (targetStoreId) {
+  const targetStoreIdInt = parseInt(targetStoreId.toString());
+  
+  console.log(`🔍 Store access validation:`, {
+    userStoreId: user.storeId,
+    userStoreIdType: typeof user.storeId,
+    targetStoreId: targetStoreIdInt,
+    targetStoreIdType: typeof targetStoreIdInt
+  });
+  
+  // Super admin puede acceder a cualquier tienda
+  if (user.level === 'global') {
+    console.log('✅ Global user access granted');
+  } 
+  // Usuarios de tenant pertenecen automáticamente a la tienda que autenticó
+  else if (user.level === 'tenant') {
+    // Asegurar que ambos valores son números para la comparación
+    const userStoreIdInt = parseInt(user.storeId?.toString() || '0');
+    
+    if (userStoreIdInt !== targetStoreIdInt) {
+      console.log(`❌ Tenant user ${user.username} belongs to store ${userStoreIdInt}, not ${targetStoreIdInt}`);
+      return res.status(403).json({
+        success: false,
+        code: 'STORE_ACCESS_DENIED',
+        message: 'No tienes acceso a esta tienda'
+      });
+    }
+    console.log('✅ Tenant user access granted');
+      }
+      // Usuarios de store deben tener el storeId correcto
+      else if (user.level === 'store') {
+        if (!user.storeId || user.storeId !== targetStoreIdInt) {
+          console.log(`❌ Store user ${user.username} access denied to store ${targetStoreIdInt}`);
+          return res.status(403).json({
+            success: false,
+            code: 'STORE_ACCESS_DENIED',
+            message: 'No tienes acceso a esta tienda'
+          });
+        }
+        console.log('✅ Store user access granted');
       }
     }
 
@@ -271,7 +315,8 @@ apiRouter.post('/auth/login', async (req, res) => {
       level: user.level
     };
     
-    if (user.storeId && user.storeId !== null && user.storeId !== undefined) {
+    // Incluir storeId en el token
+    if (user.storeId) {
       tokenPayload.storeId = user.storeId;
     }
     

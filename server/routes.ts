@@ -830,6 +830,8 @@ export function setupUserManagementRoutes(app: any) {
   
 }
 
+
+
 // ================================
 // WEBHOOK PROCESSORS
 // ================================
@@ -955,7 +957,314 @@ router.post('/products', authenticateToken, createProductHandler);
   router.put('/categories/:id', authenticateToken, updateCategoryHandler);
   router.delete('/categories/:id', authenticateToken, deleteCategoryHandler);
 
+//===================================
+// SUPER ADMIN 
+//==================================
 
+// Agregar a routes.ts en la sección SUPER ADMIN ROUTES
+
+// GET - Usuarios por contexto (sin requerir storeId del usuario)
+router.get('/super-admin/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const { level = 'global', storeId, search, page = 1, limit = 50 } = req.query;
+    
+    let users = [];
+    let totalCount = 0;
+    let source = '';
+
+    if (storeId) {
+      // Usuarios de tienda específica
+      const storeIdInt = parseInt(storeId as string);
+      const store = await masterStorage.getVirtualStore(storeIdInt);
+      if (!store) {
+        return res.status(404).json({ error: 'Store not found' });
+      }
+
+      if (level === 'tenant') {
+        // Usuarios del schema de la tienda
+        try {
+          const tenantStorage = await storageFactory.getTenantStorage(storeIdInt);
+          const tenantUsers = await tenantStorage.getAllUsers();
+          users = tenantUsers.map(u => ({
+            ...u,
+            level: 'tenant',
+            storeId: storeIdInt,
+            storeName: store.name,
+            source: 'tenant_schema'
+          }));
+          source = `tenant_schema_${store.name}`;
+        } catch (error) {
+          console.error(`Error fetching tenant users for store ${storeIdInt}:`, error);
+          users = [];
+        }
+      } else {
+         const tenantStorage = await storageFactory.getTenantStorage(storeIdInt);
+    const storeUsers = await tenantStorage.getAllUsers();
+    users = storeUsers.map(u => ({
+      ...u,
+      level: 'store',
+      storeId: storeIdInt,
+      storeName: store.name,
+      source: 'tenant_schema'
+    }));
+    source = `tenant_schema_${store.name}`;
+  }
+    } else {
+      // Sin storeId específico
+      if (level === 'global') {
+        const globalUsers = await masterStorage.listGlobalUsers();
+        users = globalUsers.map(u => ({
+          ...u,
+          level: 'global',
+          source: 'global_schema'
+        }));
+        source = 'global_schema';
+      } else if (level === 'store') {
+        const storeUsers = await masterStorage.listStoreUsers();
+        users = storeUsers.map(u => ({
+          ...u,
+          level: 'store',
+          source: 'system_users'
+        }));
+        source = 'system_users';
+      } else {
+        return res.status(400).json({ error: 'storeId required for tenant level' });
+      }
+    }
+
+    // Filtro de búsqueda
+    if (search) {
+      const searchTerm = (search as string).toLowerCase();
+      users = users.filter(u => 
+        u.username?.toLowerCase().includes(searchTerm) ||
+        u.email?.toLowerCase().includes(searchTerm) ||
+        u.name?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    totalCount = users.length;
+
+    // Paginación
+    const pageInt = parseInt(page as string);
+    const limitInt = parseInt(limit as string);
+    const offset = (pageInt - 1) * limitInt;
+    const paginatedUsers = users.slice(offset, offset + limitInt);
+
+    // Remover passwords
+    const safeUsers = paginatedUsers.map(user => {
+      const { password, ...safeUser } = user;
+      return safeUser;
+    });
+
+    res.json({
+      users: safeUsers,
+      pagination: {
+        page: pageInt,
+        limit: limitInt,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limitInt)
+      },
+      metadata: {
+        source,
+        storeId: storeId ? parseInt(storeId as string) : null,
+        level: level || 'global'
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// POST - Crear usuario (contexto específico)
+router.post('/super-admin/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const { level = 'global', storeId, ...userData } = req.body;
+
+    if (!userData.username || !userData.email || !userData.role) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: username, email, role' 
+      });
+    }
+
+    // Hash password
+    const password = userData.password || Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userDataWithPassword = {
+      ...userData,
+      password: hashedPassword
+    };
+
+    let newUser;
+
+    if (level === 'global') {
+      newUser = await masterStorage.createGlobalUser(userDataWithPassword);
+      newUser.level = 'global';
+      newUser.source = 'global_schema';
+    } 
+    else if (level === 'store') {
+      if (!storeId) {
+        return res.status(400).json({ error: 'storeId required for store level' });
+      }
+      newUser = await masterStorage.createStoreUser({
+        ...userDataWithPassword,
+        storeId: parseInt(storeId)
+      });
+      newUser.level = 'store';
+      newUser.source = 'system_users';
+    } 
+    else if (level === 'tenant') {
+      if (!storeId) {
+        return res.status(400).json({ error: 'storeId required for tenant level' });
+      }
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      newUser = await tenantStorage.createUser(userDataWithPassword);
+      newUser.level = 'tenant';
+      newUser.source = 'tenant_schema';
+      newUser.storeId = parseInt(storeId);
+    }
+
+    const { password: _, ...safeUser } = newUser;
+    
+    res.status(201).json({
+      user: safeUser,
+      tempPassword: password,
+      message: `User created successfully in ${newUser.source}`
+    });
+
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+// PUT - Actualizar usuario
+router.put('/super-admin/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { level, storeId, ...updates } = req.body;
+
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 10);
+    }
+
+    let updatedUser;
+
+    if (level === 'global') {
+      updatedUser = await masterStorage.updateGlobalUser(id, updates);
+    } 
+    else if (level === 'store') {
+      updatedUser = await masterStorage.updateStoreUser(id, updates);
+    } 
+    else if (level === 'tenant' && storeId) {
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      updatedUser = await tenantStorage.updateUser(id, updates);
+    } 
+    else {
+      return res.status(400).json({ error: "Missing level or storeId" });
+    }
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { password, ...safeUser } = updatedUser;
+    res.json({ user: safeUser });
+
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ error: "Failed to update user" });
+  }
+});
+
+// POST - Reset password
+// POST - Reset password
+router.post('/super-admin/users/:id/reset-password', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { level, storeId } = req.body;
+    
+    const newPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    let result;
+
+    if (level === 'global') {
+      result = await masterStorage.updateGlobalUser(id, { password: hashedPassword });
+    } 
+    else if (level === 'store') {
+      // ❌ PROBLEMA: busca en system_users en lugar del schema de la tienda
+      if (!storeId) {
+        result = await masterStorage.updateStoreUser(id, { password: hashedPassword });
+      } else {
+        // ✅ SOLUCIÓN: buscar en schema de la tienda
+        const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+        result = await tenantStorage.updateUser(id, { password: hashedPassword });
+      }
+    } 
+    else if (level === 'tenant' && storeId) {
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      result = await tenantStorage.updateUser(id, { password: hashedPassword });
+    }
+
+    if (!result) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      newPassword,
+      message: `Password reset for ${level} user`
+    });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// DELETE - Eliminar usuario
+router.delete('/super-admin/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { level, storeId } = req.query;
+
+    let success = false;
+
+    if (level === 'global') {
+      success = await masterStorage.deleteGlobalUser(id);
+    } 
+    else if (level === 'store') {
+      success = await masterStorage.deleteStoreUser(id);
+    } 
+    else if (level === 'tenant' && storeId) {
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId as string));
+      await tenantStorage.deleteUser(id);
+      success = true;
+    }
+
+    if (!success) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+// GET - Métricas de usuarios
+router.get('/super-admin/user-metrics', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const stats = await masterStorage.getUserStats();
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching user metrics:", error);
+    res.status(500).json({ error: "Failed to fetch metrics" });
+  }
+});
 
   // ================================
   // EMPLOYEE ROUTES
@@ -2284,31 +2593,225 @@ items: items.map((item: any) => ({
   // USER MANAGEMENT ROUTES (TENANT LEVEL)
   // ================================
 
-  router.get('/users', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const users = await tenantStorage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  });
+// GET - Endpoint unificado para obtener usuarios
+router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const { storeId, level, search, page = 1, limit = 50 } = req.query;
+    const user = req.user as AuthUser;
+    
+    let users = [];
+    let totalCount = 0;
+    let source = '';
 
-  router.post('/users', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const userData = { ...req.body, storeId: user.storeId };
+    // Si se especifica storeId, obtener usuarios del schema de esa tienda
+    if (storeId) {
+      const storeIdInt = parseInt(storeId as string);
       
-      // Para crear usuarios de tienda, usar master storage
-      const newUser = await masterStorage.createStoreUser(userData);
-      res.status(201).json(newUser);
-    } catch (error) {
-      console.error("Error creating user:", error);
-      res.status(500).json({ error: "Failed to create user" });
+      // Verificar que la tienda existe
+      const store = await masterStorage.getVirtualStore(storeIdInt);
+      if (!store) {
+        return res.status(404).json({ error: 'Store not found' });
+      }
+
+      try {
+        const tenantStorage = await storageFactory.getTenantStorage(storeIdInt);
+        const tenantUsers = await tenantStorage.getAllUsers();
+        
+        users = tenantUsers.map(u => ({
+          ...u,
+          level: 'tenant',
+          storeId: storeIdInt,
+          storeName: store.name,
+          source: 'tenant_schema'
+        }));
+        
+        source = `tenant_schema_${store.name}`;
+      } catch (error) {
+        console.error(`Error fetching tenant users for store ${storeIdInt}:`, error);
+        users = [];
+      }
+    } 
+    // Si se especifica level=global, obtener usuarios globales
+    else if (level === 'global') {
+      const globalUsers = await masterStorage.listGlobalUsers();
+      users = globalUsers.map(u => ({
+        ...u,
+        level: 'global',
+        source: 'global_schema'
+      }));
+      source = 'global_schema';
     }
-  });
+    // Si se especifica level=store, obtener usuarios de tienda (system_users)
+    else if (level === 'store') {
+      const storeUsers = await masterStorage.listStoreUsers();
+      users = storeUsers.map(u => ({
+        ...u,
+        level: 'store',
+        source: 'system_users'
+      }));
+      source = 'system_users';
+    }
+    // Por defecto, obtener usuarios globales (sin storeId especificado)
+    else {
+      const globalUsers = await masterStorage.listGlobalUsers();
+      users = globalUsers.map(u => ({
+        ...u,
+        level: 'global',
+        source: 'global_schema'
+      }));
+      source = 'global_schema';
+    }
+
+    // Aplicar filtro de búsqueda
+    if (search) {
+      const searchTerm = (search as string).toLowerCase();
+      users = users.filter(u => 
+        u.username?.toLowerCase().includes(searchTerm) ||
+        u.email?.toLowerCase().includes(searchTerm) ||
+        u.name?.toLowerCase().includes(searchTerm) ||
+        u.firstName?.toLowerCase().includes(searchTerm) ||
+        u.lastName?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    totalCount = users.length;
+
+    // Aplicar paginación
+    const pageInt = parseInt(page as string);
+    const limitInt = parseInt(limit as string);
+    const offset = (pageInt - 1) * limitInt;
+    const paginatedUsers = users.slice(offset, offset + limitInt);
+
+    // Remover passwords de la respuesta
+    const safeUsers = paginatedUsers.map(user => {
+      const { password, ...safeUser } = user;
+      return safeUser;
+    });
+
+    res.json({
+      users: safeUsers,
+      pagination: {
+        page: pageInt,
+        limit: limitInt,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limitInt)
+      },
+      metadata: {
+        source,
+        storeId: storeId ? parseInt(storeId as string) : null,
+        level: level || 'global',
+        filters: {
+          search: search || null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// POST - Crear usuario (mejorado para manejar diferentes contextos)
+router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const { storeId, level = 'global', ...userData } = req.body;
+    const user = req.user as AuthUser;
+
+    // Validar datos requeridos
+    if (!userData.username || !userData.password || !userData.role) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: username, password, role' 
+      });
+    }
+
+    // Hash de la contraseña
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const userDataWithPassword = {
+      ...userData,
+      password: hashedPassword
+    };
+
+    let newUser;
+
+    // Crear según el contexto especificado
+    if (storeId && level === 'tenant') {
+      // Crear usuario en schema de tienda específica
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      newUser = await tenantStorage.createUser({
+        ...userDataWithPassword,
+        storeId: parseInt(storeId)
+      });
+      newUser.level = 'tenant';
+      newUser.source = 'tenant_schema';
+    } 
+    else if (level === 'store') {
+      // Crear usuario de tienda (system_users)
+      newUser = await masterStorage.createStoreUser({
+        ...userDataWithPassword,
+        storeId: storeId ? parseInt(storeId) : null
+      });
+      newUser.level = 'store';
+      newUser.source = 'system_users';
+    } 
+    else {
+      // Crear usuario global (por defecto)
+      newUser = await masterStorage.createGlobalUser(userDataWithPassword);
+      newUser.level = 'global';
+      newUser.source = 'global_schema';
+    }
+
+    // Remover password de la respuesta
+    const { password, ...safeUser } = newUser;
+    
+    res.status(201).json({
+      user: safeUser,
+      message: `User created successfully in ${newUser.source}`
+    });
+
+  } catch (error) {
+    console.error("Error creating user:", error);
+    
+    if (error instanceof Error && error.message?.includes('already exists')) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+    
+    res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+// GET - Obtener stores disponibles para el selector
+router.get('/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const stores = await masterStorage.getAllVirtualStores();
+    
+    const storesWithUserCounts = await Promise.all(
+      stores.map(async (store) => {
+        let userCount = 0;
+        try {
+          const tenantStorage = await storageFactory.getTenantStorage(store.id);
+          const users = await tenantStorage.getAllUsers();
+          userCount = users.length;
+        } catch (error) {
+          console.error(`Error counting users for store ${store.id}:`, error);
+        }
+        
+        return {
+          id: store.id,
+          name: store.name,
+          isActive: store.isActive,
+          userCount,
+          hasSchema: !!store.databaseUrl?.includes('schema=')
+        };
+      })
+    );
+
+    res.json(storesWithUserCounts);
+  } catch (error) {
+    console.error("Error fetching stores:", error);
+    res.status(500).json({ error: "Failed to fetch stores" });
+  }
+});
 
   router.get('/users/:id', authenticateToken, async (req: any, res: any) => {
     try {
@@ -2329,24 +2832,153 @@ items: items.map((item: any) => ({
     }
   });
 
-  router.put('/users/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const updatedUser = await tenantStorage.updateUser(id, req.body);
-      
-      if (!updatedUser) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      res.json(updatedUser);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      res.status(500).json({ error: 'Failed to update user' });
+
+// PUT - Actualizar usuario (contexto unificado)
+router.put('/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { storeId, level, ...updates } = req.body;
+    const user = req.user as AuthUser;
+
+    // Validaciones de seguridad
+    if (updates.role === 'super_admin' && user.role !== 'super_admin') {
+      return res.status(403).json({ error: "Only super admin can assign super admin role" });
     }
-  });
+
+    let updatedUser;
+
+    // Determinar contexto y actualizar
+    if (level === 'global') {
+      // Actualizar usuario global
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+      updatedUser = await masterStorage.updateGlobalUser(id, updates);
+    } 
+    else if (level === 'store') {
+      // Actualizar usuario de tienda (system_users)
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+      updatedUser = await masterStorage.updateStoreUser(id, updates);
+    } 
+    else if (level === 'tenant' && storeId) {
+      // Actualizar usuario de tenant (schema específico)
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+      updatedUser = await tenantStorage.updateUser(id, updates);
+    } 
+    else {
+      return res.status(400).json({ error: "Missing level or storeId for context" });
+    }
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Remover password de la respuesta
+    const { password, ...safeUser } = updatedUser;
+    res.json({
+      user: safeUser,
+      message: `User updated successfully in ${level} context`
+    });
+
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ error: "Failed to update user" });
+  }
+});
+
+// POST - Reset password (contexto unificado)
+router.post('/users/:id/reset-password', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { newPassword, storeId, level } = req.body;
+    const user = req.user as AuthUser;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    let result;
+
+    // Resetear según contexto
+    if (level === 'global') {
+      result = await masterStorage.updateGlobalUser(id, { password: hashedPassword });
+    } 
+    else if (level === 'store') {
+      result = await masterStorage.updateStoreUser(id, { password: hashedPassword });
+    } 
+    else if (level === 'tenant' && storeId) {
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
+      result = await tenantStorage.updateUser(id, { password: hashedPassword });
+    } 
+    else {
+      return res.status(400).json({ error: "Missing level or storeId for context" });
+    }
+
+    if (!result) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Password reset successfully for ${level} user`
+    });
+
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// DELETE - Eliminar usuario (contexto unificado)
+router.delete('/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { storeId, level } = req.query;
+    const user = req.user as AuthUser;
+
+    // Evitar auto-eliminación
+    if (id === user.id) {
+      return res.status(400).json({ error: "Cannot delete yourself" });
+    }
+
+    let success = false;
+
+    // Eliminar según contexto
+    if (level === 'global') {
+      success = await masterStorage.deleteGlobalUser(id);
+    } 
+    else if (level === 'store') {
+      success = await masterStorage.deleteStoreUser(id);
+    } 
+    else if (level === 'tenant' && storeId) {
+      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId as string));
+      await tenantStorage.deleteUser(id);
+      success = true;
+    } 
+    else {
+      return res.status(400).json({ error: "Missing level or storeId for context" });
+    }
+
+    if (!success) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `User deleted successfully from ${level} context`
+    });
+
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
 
   router.patch('/users/:id/status', authenticateToken, async (req: any, res: any) => {
     try {

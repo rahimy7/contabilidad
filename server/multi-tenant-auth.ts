@@ -100,10 +100,7 @@ export async function authenticateGlobalUser(username: string, password: string)
   }
 }
 
-/**
- * Autenticación para usuarios de tienda (propietarios, administradores)
- * ESTA FUNCIÓN YA ESTÁ CORRECTA - busca en system_users
- */
+
 export async function authenticateStoreUser(username: string, password: string): Promise<AuthUser | null> {
   try {
     const bcrypt = await import('bcrypt');
@@ -138,55 +135,100 @@ export async function authenticateStoreUser(username: string, password: string):
   }
 }
 
-/**
- * Autenticación para usuarios operacionales (técnicos, vendedores)
- * Busca en el schema específico de la tienda
- */
+import { Pool } from '@neondatabase/serverless';
+
 export async function authenticateTenantUser(
   username: string, 
   password: string, 
   storeId: number
 ): Promise<AuthUser | null> {
+  let pool: Pool | null = null;
+  
   try {
-    const tenantDb = await getTenantDb(storeId);
-    const bcrypt = await import('bcrypt');
+    console.log(`🔍 Attempting tenant authentication for ${username} in store ${storeId}`);
     
-    const [user] = await tenantDb
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.username, username))
-      .limit(1);
-
-    if (!user || !user.isActive) {
+    // 1. Crear pool directo para evitar problemas con Drizzle
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+      idleTimeoutMillis: 5000
+    });
+    
+    // 2. Obtener schema de la tienda
+    const storeResult = await pool.query(`
+      SELECT database_url FROM virtual_stores WHERE id = $1
+    `, [storeId]);
+    
+    if (!storeResult.rows[0]) {
+      console.log(`❌ Store ${storeId} not found`);
       return null;
     }
-
+    
+    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
+    if (!schemaMatch) {
+      console.log(`❌ No schema found for store ${storeId}`);
+      return null;
+    }
+    
+    const schemaName = schemaMatch[1];
+    console.log(`🏪 Using schema: ${schemaName}`);
+    
+    // 3. Buscar usuario en el schema específico
+    console.log(`🔍 Executing SQL query with username: ${username}`);
+    const userResult = await pool.query(`
+      SELECT id, username, password, name, role, status, is_active, phone, email, department
+      FROM "${schemaName}".users 
+      WHERE username = $1 
+      LIMIT 1
+    `, [username]);
+    
+    console.log(`📋 Query result: ${userResult.rows.length} rows found`);
+    
+    if (userResult.rows.length === 0) {
+      console.log(`❌ Tenant user '${username}' not found in schema '${schemaName}'`);
+      return null;
+    }
+    
+    const user = userResult.rows[0] as any;
+    console.log(`👤 Found user: ${user.username}, active: ${user.is_active}`);
+    
+    // 4. Verificar que el usuario está activo
+    if (!user.is_active) {
+      console.log(`❌ Tenant user '${username}' is not active`);
+      return null;
+    }
+    
+    // 5. Verificar contraseña
+    const bcrypt = await import('bcrypt');
     const isValidPassword = await bcrypt.compare(password, user.password);
+    
     if (!isValidPassword) {
+      console.log(`❌ Invalid password for tenant user '${username}'`);
       return null;
     }
-
+    
+    console.log(`✅ Tenant user '${username}' authenticated successfully from schema '${schemaName}'`);
+    
     return {
       id: user.id,
       username: user.username,
       role: user.role,
-      level: 'tenant',
-      storeId: storeId
+      storeId: storeId,
+      level: 'tenant' as const
     };
+    
   } catch (error) {
-    console.error('Error authenticating tenant user:', error);
+    console.error(`❌ Error authenticating tenant user '${username}' for store ${storeId}:`, error);
     return null;
+  } finally {
+    if (pool) {
+      await pool.end().catch(err => 
+        console.log('⚠️ Pool close warning:', err.message)
+      );
+    }
   }
 }
 
-
-/**
- * 🚀 FUNCIÓN PRINCIPAL: Autenticación universal que intenta todos los niveles
- * La validación de tienda se hace en el endpoint de login
- */
-// ================================
-// AUTENTICACIÓN ACTUALIZADA (multi-tenant-auth.ts)
-// ================================
 
 export async function authenticateUser(username: string, password: string, storeId?: number): Promise<AuthUser | null> {
   console.log(`🔍 Attempting authentication for username: ${username}`);
@@ -199,31 +241,22 @@ export async function authenticateUser(username: string, password: string, store
     return user;
   }
 
-  // 2. Si se proporciona storeId, buscar en schema de tienda
+  // 2. Si se proporciona storeId, buscar ÚNICAMENTE en ese esquema específico
   if (storeId) {
-    console.log(`2️⃣ Trying tenant authentication for store ${storeId}...`);
+    console.log(`2️⃣ Trying tenant authentication for store ${storeId} ONLY...`);
     user = await authenticateTenantUser(username, password, storeId);
     if (user) {
       console.log('✅ Tenant authentication successful');
       return user;
     }
+    // ❌ IMPORTANTE: Si se proporciona storeId y no se encuentra, NO buscar en otras tiendas
+    console.log(`❌ User '${username}' not found in store ${storeId}. Stopping search.`);
+    return null;
   }
 
-  // 3. Si no se proporciona storeId, buscar en todas las tiendas
-  console.log('3️⃣ Searching across all store schemas...');
-  const stores = await masterDb.select().from(schema.virtualStores).where(eq(schema.virtualStores.isActive, true));
-  
-  for (const store of stores) {
-    if (store.databaseUrl?.includes('schema=')) {
-      user = await authenticateTenantUser(username, password, store.id);
-      if (user) {
-        console.log(`✅ Found user in store ${store.id}: ${store.name}`);
-        return user;
-      }
-    }
-  }
-
-  console.log('❌ Authentication failed');
+  // 3. Si no se proporciona storeId, no buscar en tiendas (requiere storeId específico)
+  console.log('3️⃣ No storeId provided. Tenant authentication requires specific store ID.');
+  console.log('❌ Authentication failed - storeId required for tenant users');
   return null;
 }
 
