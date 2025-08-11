@@ -4,7 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, UserCheck, UserX, Clock, Phone, Mail, MapPin, Calendar } from "lucide-react";
-import { EmployeeProfile } from "@shared/schema";
+import { EmployeeProfile, User } from "@shared/schema";
+
+// Tipo extendido que incluye la relación user
+interface EmployeeWithUser extends EmployeeProfile {
+  user: User;
+  hireDate?: Date;
+}
 
 export default function Team() {
   const { data: employees, isLoading } = useQuery({
@@ -81,16 +87,34 @@ export default function Team() {
     );
   }
 
-  const employeeData = Array.isArray(employees) ? employees : [];
-  const technicians = employeeData.filter((emp: EmployeeProfile) => emp.user.role === "technical");
-  const sellers = employeeData.filter((emp: EmployeeProfile) => emp.user.role === "sales");
-  const admins = employeeData.filter((emp: EmployeeProfile) => emp.user.role === "admin");
-  const support = employeeData.filter((emp: EmployeeProfile) => emp.user.role === "support");
-  const delivery = employeeData.filter((emp: EmployeeProfile) => emp.user.role === "delivery");
+  // ✅ VALIDACIÓN MEJORADA: Procesar empleados con y sin usuarios
+  const allEmployees = Array.isArray(employees) ? employees : [];
+  
+  const validEmployees: EmployeeWithUser[] = allEmployees.filter((emp: any): emp is EmployeeWithUser => 
+    emp && emp.user && emp.user.role && emp.user.id
+  );
+
+  const invalidEmployees = allEmployees.filter((emp: any) => 
+    emp && (!emp.user || !emp.user.role || !emp.user.id)
+  );
+
+  console.log(`📊 Empleados: ${validEmployees.length} válidos, ${invalidEmployees.length} sin usuario`);
+
+  // Mostrar empleados válidos disponibles
+  const employeeData = validEmployees;
+
+  // ✅ VALIDACIÓN AGREGADA: Verificar que user y role existan antes de filtrar
+  const safeFilter = (role: string) => 
+    employeeData.filter((emp: EmployeeWithUser) => emp.user.role === role);
+
+  const technicians = safeFilter("technical");
+  const sellers = safeFilter("sales");
+  const admins = safeFilter("admin");
+  const support = safeFilter("support");
+  const delivery = safeFilter("delivery");
 
   return (
     <div className="space-y-6">
-
       {/* Team Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
@@ -154,6 +178,23 @@ export default function Team() {
         </Card>
       </div>
 
+      {/* Warning for employees without users */}
+      {invalidEmployees.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-orange-800">
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                {invalidEmployees.length} empleado(s) sin usuario válido encontrado(s)
+              </span>
+            </div>
+            <p className="text-xs text-orange-600 mt-1">
+              Algunos perfiles de empleados no tienen usuarios asociados. Contacte al administrador.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Team Members */}
       <Card>
         <CardHeader>
@@ -161,17 +202,17 @@ export default function Team() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {employeeData.map((employee: EmployeeProfile) => (
+            {employeeData.map((employee: EmployeeWithUser) => (
               <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white">
                     <span className="text-sm font-medium">
-                      {employee.user.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      {employee.user.name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "??"}
                     </span>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">{employee.user.name}</h3>
+                      <h3 className="font-medium text-gray-900">{employee.user.name || "Sin nombre"}</h3>
                       <Badge variant="outline" className="text-xs">
                         {employee.employeeId}
                       </Badge>
@@ -183,7 +224,8 @@ export default function Team() {
                          employee.user.role === "sales" ? "Vendedor" :
                          employee.user.role === "admin" ? "Administrador" :
                          employee.user.role === "support" ? "Soporte" :
-                         employee.user.role === "delivery" ? "Delivery" : employee.user.role}
+                         employee.user.role === "delivery" ? "Delivery" : 
+                         employee.user.role || "Sin rol"}
                       </p>
                       {employee.department && (
                         <p className="text-xs text-gray-400 flex items-center gap-1">
@@ -216,10 +258,10 @@ export default function Team() {
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Badge className={getStatusColor(employee.user.status)}>
+                  <Badge className={getStatusColor(employee.user.status || "offline")}>
                     <div className="flex items-center space-x-1">
-                      {getStatusIcon(employee.user.status)}
-                      <span>{getStatusText(employee.user.status)}</span>
+                      {getStatusIcon(employee.user.status || "offline")}
+                      <span>{getStatusText(employee.user.status || "offline")}</span>
                     </div>
                   </Badge>
 
@@ -227,7 +269,10 @@ export default function Team() {
                     <Button
                       size="sm"
                       variant={employee.user.status === "active" ? "default" : "outline"}
-                      onClick={() => updateStatusMutation.mutate({ userId: employee.user.id, status: "active" })}
+                      onClick={() => updateStatusMutation.mutate({ 
+                        userId: employee.user.id, 
+                        status: "active" 
+                      })}
                       disabled={updateStatusMutation.isPending}
                     >
                       Activo
@@ -235,7 +280,10 @@ export default function Team() {
                     <Button
                       size="sm"
                       variant={employee.user.status === "busy" ? "default" : "outline"}
-                      onClick={() => updateStatusMutation.mutate({ userId: employee.user.id, status: "busy" })}
+                      onClick={() => updateStatusMutation.mutate({ 
+                        userId: employee.user.id, 
+                        status: "busy" 
+                      })}
                       disabled={updateStatusMutation.isPending}
                     >
                       Ocupado
@@ -243,7 +291,10 @@ export default function Team() {
                     <Button
                       size="sm"
                       variant={employee.user.status === "break" ? "default" : "outline"}
-                      onClick={() => updateStatusMutation.mutate({ userId: employee.user.id, status: "break" })}
+                      onClick={() => updateStatusMutation.mutate({ 
+                        userId: employee.user.id, 
+                        status: "break" 
+                      })}
                       disabled={updateStatusMutation.isPending}
                     >
                       Descanso

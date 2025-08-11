@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon, Download, Printer, ShoppingCart } from "lucide-react";
 import type { User } from "@shared/schema";
 import AssignmentModal from "@/components/orders/assignment-modal";
 
@@ -21,44 +21,40 @@ type OrderWithDetails = {
   customerId: number;
   assignedUserId: number | null;
   status: string;
-  priority: string; // ✅ Agregado para coherencia
+  priority: string;
   totalAmount: string;
-  deliveryCost: string; // ✅ Agregado
-  deliveryAddress?: string | null; // ✅ Agregado
-  contactNumber?: string | null; // ✅ Agregado
-  estimatedDelivery?: string | null; // ✅ Agregado
-  estimatedDeliveryTime?: string | null; // ✅ Agregado
-  paymentMethod?: string | null; // ✅ Agregado
-  paymentStatus?: string; // ✅ Agregado
+  deliveryCost: string;
+  deliveryAddress?: string | null;
+  contactNumber?: string | null;
+  estimatedDelivery?: string | null;
+  estimatedDeliveryTime?: string | null;
+  paymentMethod?: string | null;
+  paymentStatus?: string;
   notes: string | null;
   description: string | null;
   createdAt: string;
   updatedAt: string;
-  lastStatusUpdate?: string | null; // ✅ Agregado
-  customerLastInteraction?: string | null; // ✅ Agregado
-  modificationCount?: number; // ✅ Agregado
-  storeId: number; // ✅ Agregado
+  lastStatusUpdate?: string | null;
+  customerLastInteraction?: string | null;
+  modificationCount?: number;
+  storeId: number;
   
-  // ✅ Información expandida del cliente (coherente con backend)
   customer: {
     longitude: any;
-   
     latitude: any;
     id: number;
     name: string;
     phone: string;
-    email?: string | null; // ✅ Agregado
+    email?: string | null;
     address: string | null;
   };
   
-  // ✅ Usuario asignado expandido (coherente con backend)
   assignedUser?: {
     id: number;
     name: string;
     role: string;
   } | null;
   
-  // ✅ Items de la orden
   items: Array<{
     id: number;
     orderId: number;
@@ -66,25 +62,24 @@ type OrderWithDetails = {
     quantity: number;
     unitPrice: string;
     totalPrice: string;
-    installationCost?: string; // ✅ Opcional
-    partsCost?: string; // ✅ Opcional
-    laborHours?: string; // ✅ Opcional
-    laborRate?: string; // ✅ Opcional
-    deliveryCost?: string; // ✅ Opcional
-    deliveryDistance?: string; // ✅ Opcional
+    installationCost?: string;
+    partsCost?: string;
+    laborHours?: string;
+    laborRate?: string;
+    deliveryCost?: string;
+    deliveryDistance?: string;
     notes: string | null;
     product: {
       id: number;
       name: string;
-      description?: string; // ✅ Opcional
+      description?: string;
       price: string;
-      category?: string; // ✅ Opcional
-      status?: string; // ✅ Opcional
+      category?: string;
+      status?: string;
     };
   }>;
   
-  // ✅ Información adicional del backend
-  totalItems?: number; // ✅ Agregado para mostrar conteo
+  totalItems?: number;
 };
 
 export default function OrdersPage() {
@@ -97,6 +92,7 @@ export default function OrdersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isProductsModalOpen, setIsProductsModalOpen] = useState(false);
 
   // Fetch orders
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
@@ -121,7 +117,6 @@ export default function OrdersPage() {
         if (order) {
           setSelectedOrder(order);
           setIsViewDialogOpen(true);
-          // Clear URL parameter
           setLocation('/orders');
         }
       } else if (editId) {
@@ -129,7 +124,6 @@ export default function OrdersPage() {
         if (order) {
           setSelectedOrder(order);
           setIsEditDialogOpen(true);
-          // Clear URL parameter
           setLocation('/orders');
         }
       } else if (assignId) {
@@ -137,7 +131,6 @@ export default function OrdersPage() {
         if (order) {
           setSelectedOrder(order);
           setIsAssignDialogOpen(true);
-          // Clear URL parameter
           setLocation('/orders');
         }
       }
@@ -145,73 +138,71 @@ export default function OrdersPage() {
   }, [orders, search, setLocation]);
 
   // Update order mutation
-const updateOrderMutation = useMutation({
-  mutationFn: async ({ id, ...data }: { id: number } & Partial<OrderWithDetails>) => {
-    return apiRequest("PUT", `/api/orders/${id}`, data); // ✅ Cambiar a PUT
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-    setIsEditDialogOpen(false);
-    setSelectedOrder(null);
-    toast({
-      title: "Orden actualizada",
-      description: "Los cambios se han guardado correctamente.",
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: "Error",
-      description: "No se pudo actualizar la orden.",
-      variant: "destructive",
-    });
-    console.error("Error updating order:", error);
-  },
-});
+  const updateOrderMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: number } & Partial<OrderWithDetails>) => {
+      return apiRequest("PUT", `/api/orders/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setIsEditDialogOpen(false);
+      setSelectedOrder(null);
+      toast({
+        title: "Orden actualizada",
+        description: "Los cambios se han guardado correctamente.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la orden.",
+        variant: "destructive",
+      });
+      console.error("Error updating order:", error);
+    },
+  });
 
-const assignOrderMutation = useMutation({
-  mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
-    return apiRequest("PUT", `/api/orders/${orderId}`, { 
-      assignedUserId: userId,
-      lastStatusUpdate: new Date().toISOString()
-    });
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+  const assignOrderMutation = useMutation({
+    mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
+      return apiRequest("PUT", `/api/orders/${orderId}`, { 
+        assignedUserId: userId
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setIsAssignDialogOpen(false);
+      setSelectedOrder(null);
+      toast({
+        title: "Orden asignada",
+        description: "La orden ha sido asignada exitosamente.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo asignar la orden.",
+        variant: "destructive",
+      });
+      console.error("Error assigning order:", error);
+    },
+  });
+
+  const handleAssignOrder = (userId: number | null) => {
+    if (selectedOrder) {
+      assignOrderMutation.mutate({ 
+        orderId: selectedOrder.id, 
+        userId 
+      });
+    }
+  };
+
+  const handleCloseAssignModal = (assigned: boolean = false) => {
     setIsAssignDialogOpen(false);
     setSelectedOrder(null);
-    toast({
-      title: "Orden asignada",
-      description: "La orden ha sido asignada exitosamente.",
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: "Error",
-      description: "No se pudo asignar la orden.",
-      variant: "destructive",
-    });
-    console.error("Error assigning order:", error);
-  },
-});
-
-const handleAssignOrder = (userId: number | null) => {
-  if (selectedOrder) {
-    assignOrderMutation.mutate({ 
-      orderId: selectedOrder.id, 
-      userId 
-    });
-  }
-};
-
-const handleCloseAssignModal = (assigned: boolean = false) => {
-  setIsAssignDialogOpen(false);
-  setSelectedOrder(null);
-  
-  if (assigned) {
-    // Refrescar datos si se realizó una asignación
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-  }
-};
+    
+    if (assigned) {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    }
+  };
 
   // Delete order mutation
   const deleteOrderMutation = useMutation({
@@ -235,241 +226,361 @@ const handleCloseAssignModal = (assigned: boolean = false) => {
     },
   });
 
-
-
-const getStatusBadge = (status: string) => {
-  const statusConfig: Record<string, { label: string; variant: any; color: string }> = {
-    pending: { 
-      label: 'Pendiente', 
-      variant: 'default',
-      color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
-    },
-    confirmed: { 
-      label: 'Confirmado', 
-      variant: 'default',
-      color: 'bg-blue-100 text-blue-800 border-blue-200'
-    },
-    assigned: { 
-      label: 'Asignado', 
-      variant: 'default',
-      color: 'bg-purple-100 text-purple-800 border-purple-200'
-    },
-    preparing: { 
-      label: 'Preparando', 
-      variant: 'default',
-      color: 'bg-orange-100 text-orange-800 border-orange-200'
-    },
-    ready: { 
-      label: 'Listo', 
-      variant: 'default',
-      color: 'bg-indigo-100 text-indigo-800 border-indigo-200'
-    },
-    in_transit: { 
-      label: 'En Tránsito', 
-      variant: 'default',
-      color: 'bg-cyan-100 text-cyan-800 border-cyan-200'
-    },
-    delivered: { 
-      label: 'Entregado', 
-      variant: 'default',
-      color: 'bg-green-100 text-green-800 border-green-200'
-    },
-    completed: { 
-      label: 'Completado', 
-      variant: 'default',
-      color: 'bg-green-100 text-green-800 border-green-200'
-    },
-    cancelled: { 
-      label: 'Cancelado', 
-      variant: 'destructive',
-      color: 'bg-red-100 text-red-800 border-red-200'
-    },
-    returned: { 
-      label: 'Devuelto', 
-      variant: 'secondary',
-      color: 'bg-gray-100 text-gray-800 border-gray-200'
-    }
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; variant: any; color: string }> = {
+      pending: { 
+        label: 'Pendiente', 
+        variant: 'default',
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      },
+      confirmed: { 
+        label: 'Confirmado', 
+        variant: 'default',
+        color: 'bg-blue-100 text-blue-800 border-blue-200'
+      },
+      assigned: { 
+        label: 'Asignado', 
+        variant: 'default',
+        color: 'bg-purple-100 text-purple-800 border-purple-200'
+      },
+      preparing: { 
+        label: 'Preparando', 
+        variant: 'default',
+        color: 'bg-orange-100 text-orange-800 border-orange-200'
+      },
+      ready: { 
+        label: 'Listo', 
+        variant: 'default',
+        color: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+      },
+      in_transit: { 
+        label: 'En Tránsito', 
+        variant: 'default',
+        color: 'bg-cyan-100 text-cyan-800 border-cyan-200'
+      },
+      delivered: { 
+        label: 'Entregado', 
+        variant: 'default',
+        color: 'bg-green-100 text-green-800 border-green-200'
+      },
+      completed: { 
+        label: 'Completado', 
+        variant: 'default',
+        color: 'bg-green-100 text-green-800 border-green-200'
+      },
+      cancelled: { 
+        label: 'Cancelado', 
+        variant: 'destructive',
+        color: 'bg-red-100 text-red-800 border-red-200'
+      },
+      returned: { 
+        label: 'Devuelto', 
+        variant: 'secondary',
+        color: 'bg-gray-100 text-gray-800 border-gray-200'
+      }
+    };
+    
+    const config = statusConfig[status] || statusConfig.pending;
+    return (
+      <Badge variant={config.variant} className={config.color}>
+        {config.label}
+      </Badge>
+    );
   };
-  
-  const config = statusConfig[status] || statusConfig.pending;
-  return (
-    <Badge variant={config.variant} className={config.color}>
-      {config.label}
-    </Badge>
-  );
-};
 
-const getPriorityBadge = (priority: string) => {
-  const priorityConfig: Record<string, { label: string; color: string }> = {
-    low: { label: 'Baja', color: 'bg-gray-100 text-gray-600' },
-    normal: { label: 'Normal', color: 'bg-blue-100 text-blue-600' },
-    high: { label: 'Alta', color: 'bg-orange-100 text-orange-600' },
-    urgent: { label: 'Urgente', color: 'bg-red-100 text-red-600' }
+  const getPriorityBadge = (priority: string) => {
+    const priorityConfig: Record<string, { label: string; color: string }> = {
+      low: { label: 'Baja', color: 'bg-gray-100 text-gray-600' },
+      normal: { label: 'Normal', color: 'bg-blue-100 text-blue-600' },
+      high: { label: 'Alta', color: 'bg-orange-100 text-orange-600' },
+      urgent: { label: 'Urgente', color: 'bg-red-100 text-red-600' }
+    };
+    
+    const config = priorityConfig[priority] || priorityConfig.normal;
+    return (
+      <Badge variant="outline" className={config.color}>
+        {config.label}
+      </Badge>
+    );
   };
-  
-  const config = priorityConfig[priority] || priorityConfig.normal;
-  return (
-    <Badge variant="outline" className={config.color}>
-      {config.label}
-    </Badge>
-  );
-};
 
-const filteredOrders = orders.filter((order) => {
-  const matchesSearch = 
-    order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer?.phone.includes(searchTerm) ||
-    (order.deliveryAddress && order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase()));
-  
-  const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-  
-  return matchesSearch && matchesStatus;
-});
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch = 
+      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer?.phone.includes(searchTerm) ||
+      (order.deliveryAddress && order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
-// ✅ FUNCIÓN NUEVA: Estadísticas de órdenes más detalladas
-const orderStats = {
-  total: orders.length,
-  pending: orders.filter(order => order.status === 'pending').length,
-  confirmed: orders.filter(order => order.status === 'confirmed').length,
-  assigned: orders.filter(order => order.status === 'assigned').length,
-  in_progress: orders.filter(order => order.status === 'in_progress').length,
-  completed: orders.filter(order => order.status === 'completed').length,
-  cancelled: orders.filter(order => order.status === 'cancelled').length,
-  // ✅ Estadísticas adicionales
-  unassigned: orders.filter(order => !order.assignedUserId).length,
-  highPriority: orders.filter(order => ['high', 'urgent'].includes(order.priority)).length,
-  recentOrders: orders.filter(order => {
-    const orderDate = new Date(order.createdAt);
+  const orderStats = {
+    total: orders.length,
+    pending: orders.filter(order => order.status === 'pending').length,
+    confirmed: orders.filter(order => order.status === 'confirmed').length,
+    assigned: orders.filter(order => order.status === 'assigned').length,
+    in_progress: orders.filter(order => order.status === 'in_progress').length,
+    completed: orders.filter(order => order.status === 'completed').length,
+    cancelled: orders.filter(order => order.status === 'cancelled').length,
+    unassigned: orders.filter(order => !order.assignedUserId).length,
+    highPriority: orders.filter(order => ['high', 'urgent'].includes(order.priority)).length,
+    recentOrders: orders.filter(order => {
+      const orderDate = new Date(order.createdAt);
+      const now = new Date();
+      const daysDiff = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
+      return daysDiff <= 1;
+    }).length
+  };
+
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '$0.00';
+    return new Intl.NumberFormat('es-MX', { 
+      style: 'currency', 
+      currency: 'MXN' 
+    }).format(num);
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
-    const daysDiff = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
-    return daysDiff <= 1; // Órdenes del último día
-  }).length
-};
-
-// ✅ FUNCIÓN HELPER: Formatear moneda
-const formatCurrency = (amount: string | number) => {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(num)) return '$0.00';
-  return new Intl.NumberFormat('es-MX', { 
-    style: 'currency', 
-    currency: 'MXN' 
-  }).format(num);
-};
-
-// ✅ FUNCIÓN HELPER: Formatear fecha relativa
-const formatRelativeTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-  
-  if (diffInMinutes < 1) return 'Ahora';
-  if (diffInMinutes < 60) return `${diffInMinutes}m`;
-  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
-  if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
-  
-  return date.toLocaleDateString('es-MX');
-};
-
-// ✅ FUNCIÓN HELPER: Obtener color de prioridad
-const getPriorityColor = (priority: string) => {
-  const colors = {
-    low: 'text-gray-500',
-    normal: 'text-blue-500',
-    high: 'text-orange-500',
-    urgent: 'text-red-500'
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Ahora';
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
+    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
+    
+    return date.toLocaleDateString('es-MX');
   };
-  return colors[priority as keyof typeof colors] || colors.normal;
-};
+
+  const getPriorityColor = (priority: string) => {
+    const colors = {
+      low: 'text-gray-500',
+      normal: 'text-blue-500',
+      high: 'text-orange-500',
+      urgent: 'text-red-500'
+    };
+    return colors[priority as keyof typeof colors] || colors.normal;
+  };
 
   // Function to generate Google Maps link from address or coordinates
   const generateGoogleMapsLink = (address: string, latitude?: string, longitude?: string): string => {
     if (latitude && longitude) {
-      // Use coordinates for more precise location
       const lat = parseFloat(latitude);
       const lng = parseFloat(longitude);
       const query = address ? encodeURIComponent(address) : `${lat},${lng}`;
       return `https://www.google.com/maps/@${lat},${lng},15z?q=${query}`;
     } else if (address) {
-      // Use address only
       return `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
     }
     return '';
   };
-
-
 
   const handleViewOrder = (order: OrderWithDetails) => {
     setSelectedOrder(order);
     setIsViewDialogOpen(true);
   };
 
-const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  if (!selectedOrder) return;
+  const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
 
-  const formData = new FormData(e.currentTarget);
-  
-  // ✅ Construir objeto de actualización coherente con backend
-  const updates = {
-    status: formData.get("status") as string,
-    priority: formData.get("priority") as string,
-    notes: formData.get("notes") as string,
-    description: formData.get("description") as string,
-    deliveryAddress: formData.get("deliveryAddress") as string,
-    contactNumber: formData.get("contactNumber") as string,
-    paymentMethod: formData.get("paymentMethod") as string,
-    paymentStatus: formData.get("paymentStatus") as string,
-    // ✅ Agregar timestamp de actualización
-    lastStatusUpdate: new Date().toISOString()
+    const formData = new FormData(e.currentTarget);
+    
+    const updates = {
+      status: formData.get("status") as string,
+      priority: formData.get("priority") as string,
+      notes: formData.get("notes") as string,
+      description: formData.get("description") as string,
+      deliveryAddress: formData.get("deliveryAddress") as string,
+      contactNumber: formData.get("contactNumber") as string,
+      paymentMethod: formData.get("paymentMethod") as string,
+      paymentStatus: formData.get("paymentStatus") as string,
+      assignedUserId: formData.get("assignedUserId") as string
+    };
+
+    // Handle assigned user ID conversion
+    if (updates.assignedUserId === "unassigned") {
+      updates.assignedUserId = null as any;
+    } else if (updates.assignedUserId) {
+      updates.assignedUserId = parseInt(updates.assignedUserId) as any;
+    }
+
+    // Filter empty fields
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([key, value]) => {
+        if (key === 'assignedUserId') return true; // Always include assignedUserId even if null
+        return value !== null && value !== "" && value !== "none";
+      })
+    );
+
+    updateOrderMutation.mutate({ 
+      id: selectedOrder.id, 
+      ...filteredUpdates 
+    });
   };
 
-  // ✅ Filtrar campos vacíos para evitar sobrescribir con null
-  const filteredUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([_, value]) => value !== null && value !== "")
-  );
+  const handleEditOrder = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsEditDialogOpen(true);
+  };
 
-  updateOrderMutation.mutate({ 
-    id: selectedOrder.id, 
-    ...filteredUpdates 
+  const handleQuickAssign = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsAssignDialogOpen(true);
+  };
+
+  const autoAssignMutation = useMutation({
+    mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Asignación automática exitosa",
+        description: data.message || "La orden ha sido asignada automáticamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error en asignación automática",
+        description: error.message || "No se pudo asignar la orden automáticamente.",
+        variant: "destructive",
+      });
+    },
   });
-};
 
-// ✅ FUNCIÓN MEJORADA: handleEditOrder
-const handleEditOrder = (order: OrderWithDetails) => {
-  setSelectedOrder(order);
-  setIsEditDialogOpen(true);
-};
+  const handleAutoAssign = (orderId: number) => {
+    autoAssignMutation.mutate(orderId);
+  };
 
-// ✅ FUNCIÓN MEJORADA: handleAssignOrder (para el botón de asignación rápida)
-const handleQuickAssign = (order: OrderWithDetails) => {
-  setSelectedOrder(order);
-  setIsAssignDialogOpen(true);
-};
+  // Función para generar e imprimir la orden
+  const generateOrderPrint = (order: OrderWithDetails) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-// ✅ FUNCIÓN NUEVA: handleAutoAssign (para asignación automática)
-const autoAssignMutation = useMutation({
-  mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
-  onSuccess: (data: any) => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-    toast({
-      title: "Asignación automática exitosa",
-      description: data.message || "La orden ha sido asignada automáticamente.",
-    });
-  },
-  onError: (error: any) => {
-    toast({
-      title: "Error en asignación automática",
-      description: error.message || "No se pudo asignar la orden automáticamente.",
-      variant: "destructive",
-    });
-  },
-});
+    // Debug: verificar que los items existen
+    console.log('Order items for print:', order.items);
 
-const handleAutoAssign = (orderId: number) => {
-  autoAssignMutation.mutate(orderId);
-};
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Orden ${order.orderNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+          .order-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+          .section { margin-bottom: 20px; }
+          .section h3 { background: #f5f5f5; padding: 8px; margin: 0 0 10px 0; }
+          .items-table { width: 100%; border-collapse: collapse; }
+          .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          .items-table th { background: #f5f5f5; }
+          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; }
+          .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+          .status-pending { background: #fff3cd; color: #856404; }
+          .status-confirmed { background: #d1ecf1; color: #0c5460; }
+          .status-completed { background: #d4edda; color: #155724; }
+          @media print { .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>ORDEN DE TRABAJO</h1>
+          <h2>Orden #${order.orderNumber}</h2>
+        </div>
+        
+        <div class="order-info">
+          <div>
+            <strong>Fecha:</strong> ${new Date(order.createdAt).toLocaleDateString('es-MX')}<br>
+            <strong>Estado:</strong> <span class="status status-${order.status}">${order.status}</span><br>
+            <strong>Prioridad:</strong> ${order.priority || 'Normal'}
+          </div>
+          <div>
+            <strong>Total:</strong> ${formatCurrency(order.totalAmount)}<br>
+            <strong>Asignado a:</strong> ${assignedUser(order.assignedUserId)}
+          </div>
+        </div>
 
+        <div class="section">
+          <h3>INFORMACIÓN DEL CLIENTE</h3>
+          <strong>Nombre:</strong> ${order.customer?.name || 'N/A'}<br>
+          <strong>Teléfono:</strong> ${order.customer?.phone || 'N/A'}<br>
+          <strong>Dirección:</strong> ${order.customer?.address || order.deliveryAddress || 'N/A'}
+        </div>
+
+        <div class="section">
+          <h3>PRODUCTOS Y SERVICIOS</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Producto/Servicio</th>
+                <th>Categoría</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.items && order.items.length > 0 ? order.items.map(item => `
+                <tr>
+                  <td>${item.product?.name || 'Producto sin nombre'}</td>
+                  <td>${item.product?.category === 'product' ? 'Producto' : 'Servicio'}</td>
+                  <td>${item.quantity || 0}</td>
+                  <td>${formatCurrency(item.unitPrice || '0')}</td>
+                  <td>${formatCurrency(item.totalPrice || '0')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" style="text-align: center;">No hay productos en esta orden</td></tr>'}
+            </tbody>
+          </table>
+          <div class="total">TOTAL: ${formatCurrency(order.totalAmount)}</div>
+        </div>
+
+        ${order.description ? `
+        <div class="section">
+          <h3>DESCRIPCIÓN</h3>
+          <p>${order.description}</p>
+        </div>
+        ` : ''}
+
+        ${order.notes ? `
+        <div class="section">
+          <h3>NOTAS INTERNAS</h3>
+          <p>${order.notes}</p>
+        </div>
+        ` : ''}
+
+        <div class="section" style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+          <p>Documento generado el ${new Date().toLocaleString('es-MX')}</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() {
+              window.close();
+            };
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+  };
+
+  // Función para descargar como PDF (usando print to PDF del navegador)
+  const handleDownloadOrder = (order: OrderWithDetails) => {
+    generateOrderPrint(order);
+  };
+
+  // Función para abrir modal de productos
+  const handleViewProducts = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsProductsModalOpen(true);
+  };
 
   const assignedUser = (userId: number | null) => {
     if (!userId) return "Sin asignar";
@@ -489,8 +600,6 @@ const handleAutoAssign = (orderId: number) => {
       </div>
     );
   }
-
-
 
   return (
     <div className="p-6 space-y-6">
@@ -667,33 +776,6 @@ const handleAutoAssign = (orderId: number) => {
                         <span>{assignedUser(order.assignedUserId)}</span>
                       </div>
                     </div>
-                    
-                    {/* Products/Services Section */}
-                    {order.items && order.items.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Productos/Servicios:
-                        </h4>
-                        <div className="space-y-1">
-                          {order.items.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-2">
-                                <Package className="w-4 h-4 text-blue-500" />
-                                <span className="font-medium">{item.product.name}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {item.product.category === 'product' ? 'Producto' : 'Servicio'}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <span>Cant: {item.quantity}</span>
-                                <span>•</span>
-                                <span>{formatCurrency(item.unitPrice)}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                   
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -722,10 +804,54 @@ const handleAutoAssign = (orderId: number) => {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleViewProducts(order);
+                        }}
+                        className="text-orange-600 hover:text-orange-700"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           handleEditOrder(order);
                         }}
                       >
                         <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickAssign(order);
+                        }}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <UserCheck className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          generateOrderPrint(order);
+                        }}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadOrder(order);
+                        }}
+                        className="text-purple-600 hover:text-purple-700"
+                      >
+                        <Download className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="outline"
@@ -748,224 +874,240 @@ const handleAutoAssign = (orderId: number) => {
       </div>
 
       {/* Edit Order Dialog */}
-   // client/src/pages/orders.tsx - Formulario de edición mejorado para el Dialog
-
-{/* ✅ EDIT ORDER DIALOG MEJORADO */}
-<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-  <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-    <form onSubmit={handleUpdateOrder}>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <Edit className="w-5 h-5" />
-          Editar Orden #{selectedOrder?.orderNumber}
-        </DialogTitle>
-        <DialogDescription>
-          Modifica los detalles de la orden. Los campos marcados con * son obligatorios.
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div className="grid gap-6 py-6">
-        {/* Información básica */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="status">Estado *</Label>
-            <Select name="status" defaultValue={selectedOrder?.status}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="confirmed">Confirmado</SelectItem>
-                <SelectItem value="assigned">Asignado</SelectItem>
-                <SelectItem value="preparing">Preparando</SelectItem>
-                <SelectItem value="ready">Listo</SelectItem>
-                <SelectItem value="in_transit">En Tránsito</SelectItem>
-                <SelectItem value="delivered">Entregado</SelectItem>
-                <SelectItem value="completed">Completado</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
-                <SelectItem value="returned">Devuelto</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="priority">Prioridad *</Label>
-            <Select name="priority" defaultValue={selectedOrder?.priority || 'normal'}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar prioridad" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Baja</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="high">Alta</SelectItem>
-                <SelectItem value="urgent">Urgente</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Información de contacto y entrega */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="contactNumber">Número de Contacto</Label>
-            <Input
-              name="contactNumber"
-              type="tel"
-              placeholder="Ej: +1234567890"
-              defaultValue={selectedOrder?.contactNumber || selectedOrder?.customer?.phone || ''}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="deliveryAddress">Dirección de Entrega</Label>
-            <Input
-              name="deliveryAddress"
-              placeholder="Dirección completa"
-              defaultValue={selectedOrder?.deliveryAddress || selectedOrder?.customer?.address || ''}
-            />
-          </div>
-        </div>
-
-        {/* Información de pago */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Método de Pago</Label>
-            <Select name="paymentMethod" defaultValue={selectedOrder?.paymentMethod || ''}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar método" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Sin especificar</SelectItem>
-                <SelectItem value="cash">Efectivo</SelectItem>
-                <SelectItem value="card">Tarjeta de Crédito/Débito</SelectItem>
-                <SelectItem value="transfer">Transferencia Bancaria</SelectItem>
-                <SelectItem value="check">Cheque</SelectItem>
-                <SelectItem value="financing">Financiamiento</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="paymentStatus">Estado del Pago</Label>
-            <Select name="paymentStatus" defaultValue={selectedOrder?.paymentStatus || 'pending'}>
-              <SelectTrigger>
-                <SelectValue placeholder="Estado del pago" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="processing">Procesando</SelectItem>
-                <SelectItem value="completed">Completado</SelectItem>
-                <SelectItem value="failed">Fallido</SelectItem>
-                <SelectItem value="refunded">Reembolsado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Descripción y notas */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="description">Descripción</Label>
-            <Textarea
-              name="description"
-              placeholder="Descripción general de la orden..."
-              rows={3}
-              defaultValue={selectedOrder?.description || ''}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notas Internas</Label>
-            <Textarea
-              name="notes"
-              placeholder="Notas internas para el equipo..."
-              rows={3}
-              defaultValue={selectedOrder?.notes || ''}
-            />
-          </div>
-        </div>
-
-        {/* Información del cliente (solo lectura) */}
-        {selectedOrder?.customer && (
-          <Card className="bg-gray-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Información del Cliente</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-gray-500" />
-                <span className="font-medium">{selectedOrder.customer.name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-gray-500" />
-                <span>{selectedOrder.customer.phone}</span>
-              </div>
-              {selectedOrder.customer.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm">{selectedOrder.customer.address}</span>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleUpdateOrder}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="w-5 h-5" />
+                Editar Orden #{selectedOrder?.orderNumber}
+              </DialogTitle>
+              <DialogDescription>
+                Modifica los detalles de la orden. Los campos marcados con * son obligatorios.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid gap-6 py-6">
+              {/* Información básica */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Estado *</Label>
+                  <Select name="status" defaultValue={selectedOrder?.status || "pending"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pendiente</SelectItem>
+                      <SelectItem value="confirmed">Confirmado</SelectItem>
+                      <SelectItem value="assigned">Asignado</SelectItem>
+                      <SelectItem value="preparing">Preparando</SelectItem>
+                      <SelectItem value="ready">Listo</SelectItem>
+                      <SelectItem value="in_transit">En Tránsito</SelectItem>
+                      <SelectItem value="delivered">Entregado</SelectItem>
+                      <SelectItem value="completed">Completado</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
+                      <SelectItem value="returned">Devuelto</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Información de items (solo lectura) */}
-        {selectedOrder?.items && selectedOrder.items.length > 0 && (
-          <Card className="bg-gray-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Items de la Orden ({selectedOrder.items.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {selectedOrder.items.slice(0, 3).map((item, index) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                    <div>
-                      <p className="font-medium text-sm">{item.product.name}</p>
-                      <p className="text-xs text-gray-500">
-                        Cantidad: {item.quantity} | Precio: {formatCurrency(item.unitPrice)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-green-600">
-                        {formatCurrency(item.totalPrice)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {selectedOrder.items.length > 3 && (
-                  <p className="text-sm text-gray-500 text-center">
-                    ... y {selectedOrder.items.length - 3} items más
-                  </p>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Prioridad *</Label>
+                  <Select name="priority" defaultValue={selectedOrder?.priority || 'normal'}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar prioridad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baja</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assignedUserId">Asignar a</Label>
+                  <Select name="assignedUserId" defaultValue={selectedOrder?.assignedUserId?.toString() || "unassigned"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar usuario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Sin asignar</SelectItem>
+                      {users.filter(user => 
+                        ['technician', 'admin', 'manager', 'specialist'].includes(user.role?.toLowerCase() || '')
+                      ).map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.name} ({user.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-      
-      <DialogFooter className="gap-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={() => setIsEditDialogOpen(false)}
-          disabled={updateOrderMutation.isPending}
-        >
-          Cancelar
-        </Button>
-        <Button 
-          type="submit" 
-          disabled={updateOrderMutation.isPending}
-        >
-          {updateOrderMutation.isPending ? "Guardando..." : "Guardar Cambios"}
-        </Button>
-      </DialogFooter>
-    </form>
-  </DialogContent>
-</Dialog>
+
+              {/* Información de contacto y entrega */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contactNumber">Número de Contacto</Label>
+                  <Input
+                    name="contactNumber"
+                    type="tel"
+                    placeholder="Ej: +1234567890"
+                    defaultValue={selectedOrder?.contactNumber || selectedOrder?.customer?.phone || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="deliveryAddress">Dirección de Entrega</Label>
+                  <Input
+                    name="deliveryAddress"
+                    placeholder="Dirección completa"
+                    defaultValue={selectedOrder?.deliveryAddress || selectedOrder?.customer?.address || ''}
+                  />
+                </div>
+              </div>
+
+              {/* Información de pago */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="paymentMethod">Método de Pago</Label>
+                  <Select name="paymentMethod" defaultValue={selectedOrder?.paymentMethod || 'none'}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar método" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin especificar</SelectItem>
+                      <SelectItem value="cash">Efectivo</SelectItem>
+                      <SelectItem value="card">Tarjeta de Crédito/Débito</SelectItem>
+                      <SelectItem value="transfer">Transferencia Bancaria</SelectItem>
+                      <SelectItem value="check">Cheque</SelectItem>
+                      <SelectItem value="financing">Financiamiento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="paymentStatus">Estado del Pago</Label>
+                  <Select name="paymentStatus" defaultValue={selectedOrder?.paymentStatus || 'pending'}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Estado del pago" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pendiente</SelectItem>
+                      <SelectItem value="processing">Procesando</SelectItem>
+                      <SelectItem value="completed">Completado</SelectItem>
+                      <SelectItem value="failed">Fallido</SelectItem>
+                      <SelectItem value="refunded">Reembolsado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Descripción y notas */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descripción</Label>
+                  <Textarea
+                    name="description"
+                    placeholder="Descripción general de la orden..."
+                    rows={3}
+                    defaultValue={selectedOrder?.description || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notas Internas</Label>
+                  <Textarea
+                    name="notes"
+                    placeholder="Notas internas para el equipo..."
+                    rows={3}
+                    defaultValue={selectedOrder?.notes || ''}
+                  />
+                </div>
+              </div>
+
+              {/* Información del cliente (solo lectura) */}
+              {selectedOrder?.customer && (
+                <Card className="bg-gray-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Información del Cliente</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <UserIcon className="w-4 h-4 text-gray-500" />
+                      <span className="font-medium">{selectedOrder.customer.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-gray-500" />
+                      <span>{selectedOrder.customer.phone}</span>
+                    </div>
+                    {selectedOrder.customer.address && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm">{selectedOrder.customer.address}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Información de items (solo lectura) */}
+              {selectedOrder?.items && selectedOrder.items.length > 0 && (
+                <Card className="bg-gray-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Items de la Orden ({selectedOrder.items.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {selectedOrder.items.slice(0, 3).map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div>
+                            <p className="font-medium text-sm">{item.product.name}</p>
+                            <p className="text-xs text-gray-500">
+                              Cantidad: {item.quantity} | Precio: {formatCurrency(item.unitPrice)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-green-600">
+                              {formatCurrency(item.totalPrice)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {selectedOrder.items.length > 3 && (
+                        <p className="text-sm text-gray-500 text-center">
+                          ... y {selectedOrder.items.length - 3} items más
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            
+            <DialogFooter className="gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={updateOrderMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={updateOrderMutation.isPending}
+              >
+                {updateOrderMutation.isPending ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* View Order Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -1066,7 +1208,7 @@ const handleAutoAssign = (orderId: number) => {
                           <div>Precio unitario: {formatCurrency(item.unitPrice)}</div>
                           {item.deliveryCost !== "0.00" && (
                             <>
-                              <div>Costo de entrega: {formatCurrency(item.deliveryCost)}</div>
+                              <div>Costo de entrega: {formatCurrency(item.deliveryCost || "0")}</div>
                               <div>Distancia: {item.deliveryDistance} km</div>
                             </>
                           )}
@@ -1085,25 +1227,147 @@ const handleAutoAssign = (orderId: number) => {
           )}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+            <div className="flex justify-between w-full">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => generateOrderPrint(selectedOrder)}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Imprimir
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDownloadOrder(selectedOrder)}
+                  className="text-purple-600 hover:text-purple-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Cerrar
+                </Button>
+                <Button onClick={() => {
+                  setIsViewDialogOpen(false);
+                  if (selectedOrder) handleEditOrder(selectedOrder);
+                }}>
+                  Editar
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Products Modal */}
+      <Dialog open={isProductsModalOpen} onOpenChange={setIsProductsModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5" />
+              Productos/Servicios - Orden {selectedOrder?.orderNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Lista completa de productos y servicios de esta orden
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <span className="text-sm font-medium text-gray-600">Total Items:</span>
+                  <span className="ml-2 font-semibold">{selectedOrder.items?.length || 0}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">Total Orden:</span>
+                  <span className="ml-2 font-semibold text-green-600">{formatCurrency(selectedOrder.totalAmount)}</span>
+                </div>
+              </div>
+
+              {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {selectedOrder.items.map((item, index) => (
+                    <div key={index} className="border rounded-lg p-4 bg-white">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <h4 className="font-medium">{item.product?.name || 'Producto sin nombre'}</h4>
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {item.product?.category === 'product' ? 'Producto' : 'Servicio'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg text-green-600">
+                            {formatCurrency(item.totalPrice)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mt-3">
+                        <div>
+                          <span className="font-medium">Cantidad:</span>
+                          <span className="ml-1">{item.quantity}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Precio Unitario:</span>
+                          <span className="ml-1">{formatCurrency(item.unitPrice)}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Subtotal:</span>
+                          <span className="ml-1 font-semibold text-green-600">{formatCurrency(item.totalPrice)}</span>
+                        </div>
+                      </div>
+
+                      {item.product?.description && (
+                        <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
+                          <span className="font-medium text-gray-700">Descripción:</span>
+                          <p className="text-gray-600 mt-1">{item.product.description}</p>
+                        </div>
+                      )}
+
+                      {item.notes && (
+                        <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                          <span className="font-medium text-blue-700">Notas:</span>
+                          <p className="text-blue-600 mt-1">{item.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Sin productos
+                  </h3>
+                  <p className="text-gray-600">
+                    Esta orden no tiene productos asociados
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsProductsModalOpen(false)}>
               Cerrar
             </Button>
-            <Button onClick={() => {
-              setIsViewDialogOpen(false);
-              if (selectedOrder) handleEditOrder(selectedOrder);
-            }}>
-              Editar
-            </Button>
           </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
 
-    {/* Assignment Modal */}
-    <AssignmentModal 
-      order={selectedOrder}
-      isOpen={isAssignDialogOpen}
-      onClose={handleCloseAssignModal}
-    />
+      {/* Assignment Modal */}
+      <AssignmentModal 
+        order={selectedOrder}
+        isOpen={isAssignDialogOpen}
+        onClose={handleCloseAssignModal}
+      />
 
     </div>
   );

@@ -6,7 +6,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { masterDb } from './multi-tenant-db.js';
+import { getTenantDb, masterDb } from './multi-tenant-db.js';
 import * as schema from '../shared/schema.ts';
 
 export interface AuthUser {
@@ -147,37 +147,61 @@ export async function authenticateTenantUser(
   password: string, 
   storeId: number
 ): Promise<AuthUser | null> {
-  // Por ahora, simplemente retornar null para evitar errores
-  // La autenticación de tenant se implementará completamente más adelante
-  return null;
+  try {
+    const tenantDb = await getTenantDb(storeId);
+    const bcrypt = await import('bcrypt');
+    
+    const [user] = await tenantDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.username, username))
+      .limit(1);
+
+    if (!user || !user.isActive) {
+      return null;
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      level: 'tenant',
+      storeId: storeId
+    };
+  } catch (error) {
+    console.error('Error authenticating tenant user:', error);
+    return null;
+  }
 }
+
 
 /**
  * 🚀 FUNCIÓN PRINCIPAL: Autenticación universal que intenta todos los niveles
  * La validación de tienda se hace en el endpoint de login
  */
+// ================================
+// AUTENTICACIÓN ACTUALIZADA (multi-tenant-auth.ts)
+// ================================
+
 export async function authenticateUser(username: string, password: string, storeId?: number): Promise<AuthUser | null> {
   console.log(`🔍 Attempting authentication for username: ${username}`);
   
-  // 1. Intentar autenticación global (super admin puede acceder a cualquier tienda)
-  console.log('1️⃣ Trying global authentication (users table)...');
+  // 1. Intentar autenticación global (super admin únicamente)
+  console.log('1️⃣ Trying global authentication (public schema users)...');
   let user = await authenticateGlobalUser(username, password);
   if (user) {
     console.log('✅ Global authentication successful');
     return user;
   }
 
-  // 2. Intentar autenticación de tienda (system_users table)
-  console.log('2️⃣ Trying store authentication (system_users table)...');
-  user = await authenticateStoreUser(username, password);
-  if (user) {
-    console.log('✅ Store authentication successful');
-    return user;
-  }
-
-  // 3. Si se proporciona storeId, intentar autenticación de tenant
+  // 2. Si se proporciona storeId, buscar en schema de tienda
   if (storeId) {
-    console.log('3️⃣ Trying tenant authentication (store schemas)...');
+    console.log(`2️⃣ Trying tenant authentication for store ${storeId}...`);
     user = await authenticateTenantUser(username, password, storeId);
     if (user) {
       console.log('✅ Tenant authentication successful');
@@ -185,7 +209,21 @@ export async function authenticateUser(username: string, password: string, store
     }
   }
 
-  console.log('❌ Authentication failed for all levels');
+  // 3. Si no se proporciona storeId, buscar en todas las tiendas
+  console.log('3️⃣ Searching across all store schemas...');
+  const stores = await masterDb.select().from(schema.virtualStores).where(eq(schema.virtualStores.isActive, true));
+  
+  for (const store of stores) {
+    if (store.databaseUrl?.includes('schema=')) {
+      user = await authenticateTenantUser(username, password, store.id);
+      if (user) {
+        console.log(`✅ Found user in store ${store.id}: ${store.name}`);
+        return user;
+      }
+    }
+  }
+
+  console.log('❌ Authentication failed');
   return null;
 }
 

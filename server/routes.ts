@@ -1630,7 +1630,7 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
           }
            let items = [];
 try {
-  items = await tenantStorage.getOrderItems(order.id);
+  items = await tenantStorage.getOrderItemsByOrderId(order.id);
 } catch (err) {
   console.log(`ℹ️ No items found for order ${order.id}`);
 }
@@ -1684,28 +1684,29 @@ const totalItems = items.length;
             
             
             // Items de la orden
-            items: items.map((item: any) => ({
-              id: item.id,
-              orderId: item.orderId,
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.totalPrice,
-              installationCost: item.installationCost || '0.00',
-              partsCost: item.partsCost || '0.00',
-              laborHours: item.laborHours || '0',
-              laborRate: item.laborRate || '0.00',
-              deliveryCost: item.deliveryCost || '0.00',
-              deliveryDistance: item.deliveryDistance || '0',
-              notes: item.notes,
-              product: item.product || {
-                id: item.productId,
-                name: 'Producto',
-                description: '',
-                category: '',
-                price: item.unitPrice
-              }
-            })),
+           // Items de la orden
+items: items.map((item: any) => ({
+  id: item.id,
+  orderId: item.orderId,
+  productId: item.productId,
+  quantity: item.quantity,
+  unitPrice: item.unitPrice,
+  totalPrice: item.totalPrice,
+  installationCost: item.installationCost || '0.00',
+  partsCost: item.partsCost || '0.00',
+  laborHours: item.laborHours || '0',
+  laborRate: item.laborRate || '0.00',
+  deliveryCost: item.deliveryCost || '0.00',
+  deliveryDistance: item.deliveryDistance || '0',
+  notes: item.notes,
+  product: {
+    id: item.productId,
+    name: item.productName || 'Producto sin nombre', // ✅ USAR productName
+    description: item.productDescription || '',
+    category: item.productCategory || 'product',
+    price: item.productPrice || item.unitPrice
+  }
+})),
             totalItems
           };
         } catch (error) {
@@ -1798,7 +1799,7 @@ const totalItems = items.length;
       let items = [];
       try {
         if (tenantStorage.getOrderItems) {
-          items = await tenantStorage.getOrderItems(order.id);
+          items = await tenantStorage.getOrderItemsByOrderId(order.id);
         }
       } catch (err) {
         console.log(`ℹ️ No items found for order ${order.id}`);

@@ -189,6 +189,56 @@ apiRouter.get('/auth/debug-secrets', (req, res) => {
 // AUTHENTICATION ENDPOINTS
 // ================================
 
+apiRouter.post('/tenant-users', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Validar permisos - solo admins y propietarios pueden crear usuarios
+    if (!['store_owner', 'store_admin', 'admin', 'super_admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions to create users' });
+    }
+    
+    const { username, password, name, role, email, phone } = req.body;
+    
+    if (!username || !password || !name || !role) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: username, password, name, role' 
+      });
+    }
+    
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const userData = {
+      username,
+      password: hashedPassword,
+      name,
+      role,
+      email: email || null,
+      phone: phone || null,
+      status: 'active',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const newUser = await tenantStorage.createUser(userData);
+    const { password: _, ...safeUser } = newUser;
+    
+    console.log(`✅ Tenant user created: ${newUser.username} (${newUser.role}) in store ${user.storeId}`);
+    res.status(201).json(safeUser);
+    
+  } catch (error) {
+    console.error('Error creating tenant user:', error);
+    if (error instanceof Error && error.message?.includes('already exists')) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+
 apiRouter.post('/auth/login', async (req, res) => {
   try {
     const { authenticateUser } = await import('./multi-tenant-auth.js');
@@ -372,6 +422,51 @@ const validateTenantStorage = async (req: any, res: any, next: any) => {
     res.status(500).json({ error: 'Failed to validate tenant storage' });
   }
 };
+
+// POST - Crear usuario operacional en tenant schema
+apiRouter.post('/users', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('🔄 Creating tenant user:', req.body.username);
+    
+    // Validar datos requeridos
+    const { username, password, name, role } = req.body;
+    if (!username || !password || !name || !role) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: username, password, name, role' 
+      });
+    }
+    
+    // Hash password
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const userData = {
+      ...req.body,
+      password: hashedPassword,
+      status: req.body.status || 'active',
+      isActive: req.body.isActive !== false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const newUser = await tenantStorage.createUser(userData);
+    
+    // Remove password from response
+    const { password: _, ...safeUser } = newUser;
+    console.log('✅ Tenant user created:', newUser.id);
+    res.status(201).json(safeUser);
+  } catch (error) {
+    console.error('Error creating tenant user:', error);
+    if (error instanceof Error && error.message?.includes('already exists')) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
 
 // ================================
 // REPORTS/ANALYTICS ENDPOINTS (TENANT STORAGE)

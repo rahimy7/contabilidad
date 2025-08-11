@@ -46,7 +46,7 @@ interface AssignmentModalProps {
 
 export default function AssignmentModal({ order, isOpen, onClose }: AssignmentModalProps) {
   const { toast } = useToast();
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("unassigned");
 
   // Fetch available users
   const { data: users = [], isLoading: usersLoading } = useQuery<UserType[]>({
@@ -59,7 +59,6 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
     mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
       return apiRequest("PUT", `/api/orders/${orderId}`, { 
         assignedUserId: userId,
-        lastStatusUpdate: new Date().toISOString(),
         // Si se asigna a alguien y el estado es pending, cambiar a assigned
         ...(userId && order?.status === 'pending' && { status: 'assigned' })
       });
@@ -68,7 +67,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Orden asignada",
-        description: selectedUserId === "" 
+        description: selectedUserId === "unassigned" 
           ? "La asignación ha sido removida exitosamente."
           : "La orden ha sido asignada exitosamente.",
       });
@@ -87,14 +86,21 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   const handleAssign = () => {
     if (!order) return;
     
-    const userId = selectedUserId === "" ? null : parseInt(selectedUserId);
+    const userId = selectedUserId === "unassigned" ? null : parseInt(selectedUserId);
     assignOrderMutation.mutate({ orderId: order.id, userId });
   };
 
   const handleClose = () => {
-    setSelectedUserId("");
+    setSelectedUserId("unassigned");
     onClose(false);
   };
+
+  // Reset selectedUserId when order changes
+  React.useEffect(() => {
+    if (order) {
+      setSelectedUserId(order.assignedUserId ? order.assignedUserId.toString() : "unassigned");
+    }
+  }, [order]);
 
   // Filtrar usuarios que pueden ser asignados (técnicos, admins, etc.)
   const availableUsers = users.filter(user => 
@@ -137,7 +143,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
             Asignar Orden #{order.orderNumber}
           </DialogTitle>
           <DialogDescription>
-            Selecciona un usuario para asignar esta orden o déjalo vacío para remover la asignación.
+            Selecciona un usuario para asignar esta orden o déjalo sin asignar.
           </DialogDescription>
         </DialogHeader>
 
@@ -212,7 +218,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
                 <SelectValue placeholder={usersLoading ? "Cargando usuarios..." : "Seleccionar usuario"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">
+                <SelectItem value="unassigned">
                   <div className="flex items-center gap-2">
                     <span>Sin asignar</span>
                   </div>

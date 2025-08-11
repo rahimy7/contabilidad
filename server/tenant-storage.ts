@@ -930,7 +930,31 @@ const result = await tenantDb.execute(directQuery);
       }
     },
 
-
+async createUser(userData: any) {
+  try {
+    console.log('🔄 Creating tenant user in schema:', userData.username);
+    
+    const [user] = await tenantDb.insert(schema.users)
+      .values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    console.log('✅ Tenant user created with ID:', user.id);
+    return user;
+  } catch (error) {
+    console.error('❌ Error creating tenant user:', error);
+    
+    // Manejar errores de duplicados
+    if (error.code === '23505' || error.message?.includes('duplicate key')) {
+      throw new Error(`Username '${userData.username}' already exists`);
+    }
+    
+    throw error;
+  }
+},
 
 // ================================
 // EMPLOYEE PROFILES
