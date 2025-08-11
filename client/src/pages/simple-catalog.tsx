@@ -429,9 +429,10 @@ ${orderItems}
 📋 Por favor confirma la disponibilidad y tiempo de entrega.
 ¡Gracias por tu preferencia! 🙏`;
     
-    // Abrir WhatsApp
-    const phoneNumber = storeInfo?.whatsapp || '18295551234';
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(orderMessage)}`;
+    // Obtener número de WhatsApp de la tienda
+    const phoneNumber = storeInfo?.phone || storeInfo?.whatsapp || storeInfo?.contact_phone || '18095551234';
+    const cleanPhoneNumber = phoneNumber.replace(/[^\d]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhoneNumber}?text=${encodeURIComponent(orderMessage)}`;
     
     window.open(whatsappUrl, '_blank');
     
@@ -483,74 +484,34 @@ ${orderItems}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 relative">
-      {/* Header Dinámico */}
-      <div className="sticky top-0 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 shadow-lg z-30 transition-all duration-300">
+      {/* Header Responsivo Fijo */}
+      <div className="sticky top-0 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 shadow-lg z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {!isScrolled ? (
-            /* Header completo */
-            <div className="py-6">
-              <div className="flex flex-col space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h1 className="text-3xl font-bold text-white">
-                      🛍️ {storeInfo?.name || 'Catálogo'}
-                    </h1>
-                    {storeInfo?.description && (
-                      <p className="text-emerald-100 mt-1">{storeInfo.description}</p>
-                    )}
-                  </div>
-                  <div className="text-sm text-emerald-100 bg-white/20 px-3 py-1 rounded-full">
-                    {filteredProducts.length} productos
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-600 w-5 h-5" />
-                    <Input
-                      placeholder="🔍 Buscar productos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-11 border-white/30 bg-white/90 text-gray-800 placeholder:text-emerald-600/70 focus:bg-white focus:border-emerald-300 rounded-full h-12"
-                    />
-                  </div>
-                  
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full sm:w-56 border-white/30 bg-white/90 text-gray-800 focus:bg-white focus:border-emerald-300 rounded-full h-12">
-                      <SelectValue placeholder="📂 Todas las categorías" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">📂 Todas las categorías</SelectItem>
-                      {categories.map((category: any) => (
-                        <SelectItem key={category.id || category.name} value={category.name}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Header compacto al hacer scroll */
-            <div className="py-3">
-              <div className="flex items-center gap-4">
-                <h1 className="text-lg font-bold text-white whitespace-nowrap">
+          {/* Vista móvil */}
+          <div className="lg:hidden py-3">
+            <div className="flex flex-col space-y-3">
+              <div className="flex items-center justify-between">
+                <h1 className="text-lg font-bold text-white truncate">
                   🛍️ {storeInfo?.name || 'Catálogo'}
                 </h1>
-                
-                <div className="flex-1 max-w-md relative">
+                <div className="text-xs text-emerald-100 bg-white/20 px-2 py-1 rounded-full">
+                  {filteredProducts.length}
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-600 w-4 h-4" />
                   <Input
                     placeholder="🔍 Buscar..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 border-white/30 bg-white/90 text-gray-800 placeholder:text-emerald-600/70 focus:bg-white focus:border-emerald-300 rounded-full h-10"
+                    className="pl-10 border-white/30 bg-white/90 text-gray-800 placeholder:text-emerald-600/70 focus:bg-white focus:border-emerald-300 rounded-full h-9"
                   />
                 </div>
-
+                
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-32 border-white/30 bg-white/90 text-gray-800 focus:bg-white focus:border-emerald-300 rounded-full h-10">
+                  <SelectTrigger className="w-24 border-white/30 bg-white/90 text-gray-800 focus:bg-white focus:border-emerald-300 rounded-full h-9">
                     <SelectValue placeholder="📂" />
                   </SelectTrigger>
                   <SelectContent>
@@ -562,13 +523,54 @@ ${orderItems}
                     ))}
                   </SelectContent>
                 </Select>
-
-                <div className="text-xs text-emerald-100 bg-white/20 px-2 py-1 rounded-full">
-                  {filteredProducts.length}
-                </div>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Vista desktop */}
+          <div className="hidden lg:block py-6">
+            <div className="flex flex-col space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    🛍️ {storeInfo?.name || 'Catálogo'}
+                  </h1>
+                  {storeInfo?.description && (
+                    <p className="text-emerald-100 mt-1">{storeInfo.description}</p>
+                  )}
+                </div>
+                <div className="text-sm text-emerald-100 bg-white/20 px-3 py-1 rounded-full">
+                  {filteredProducts.length} productos
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-600 w-5 h-5" />
+                  <Input
+                    placeholder="🔍 Buscar productos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-11 border-white/30 bg-white/90 text-gray-800 placeholder:text-emerald-600/70 focus:bg-white focus:border-emerald-300 rounded-full h-12"
+                  />
+                </div>
+                
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full sm:w-56 border-white/30 bg-white/90 text-gray-800 focus:bg-white focus:border-emerald-300 rounded-full h-12">
+                    <SelectValue placeholder="📂 Todas las categorías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">📂 Todas las categorías</SelectItem>
+                    {categories.map((category: any) => (
+                      <SelectItem key={category.id || category.name} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
