@@ -1352,69 +1352,6 @@ Nuestro equipo se pondrá en contacto contigo en las próximas 2 horas para:
   }
 }
 
-export async function safeWhatsAppLog(
-  logData: {
-    type: string;
-    phoneNumber: string;
-    messageContent?: string;
-    messageId?: string;
-    status?: string;
-    errorMessage?: string;
-    rawData?: string;
-    storeId?: number;
-  }
-): Promise<void> {
-  try {
-    // 🔍 VALIDAR store_id antes de insertar
-    const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
-    
-    let validStoreId = logData.storeId || 0;
-    
-    // ✅ Si storeId es 0 o inválido, buscar un store válido
-    if (validStoreId === 0 || !validStoreId) {
-      try {
-        const stores = await masterStorage.getAllVirtualStores();
-        if (stores.length > 0) {
-          validStoreId = stores[0].id; // Usar el primer store disponible
-          console.log(`🔄 Using fallback store ID: ${validStoreId}`);
-        } else {
-          console.warn('⚠️ No virtual stores found, skipping log');
-          return; // No hacer log si no hay stores
-        }
-      } catch (storeError) {
-        console.warn('⚠️ Cannot validate store, skipping log:', storeError);
-        return;
-      }
-    }
-
-    // ✅ INTENTAR INSERTAR LOG con storeId válido
-    await masterStorage.addWhatsAppLog({
-      ...logData,
-      storeId: validStoreId
-    });
-
-    console.log(`✅ WhatsApp log saved successfully with store ID: ${validStoreId}`);
-
-  } catch (error: any) {
-    // 🚨 Si falla el logging, no fallar el proceso principal
-    console.warn('⚠️ Failed to save WhatsApp log (non-critical):', {
-      error: error.message,
-      code: error.code,
-      originalData: logData
-    });
-    
-    // 📝 Log básico en consola como fallback
-    console.log(`📋 FALLBACK LOG: ${logData.type} - ${logData.phoneNumber} - ${logData.messageContent}`);
-  }
-}
-
-
-
-/**
- * 🔄 VERSIÓN RESILIENTE del manejo de flujo de registro
- */
-
 
 
 /**
@@ -3137,11 +3074,13 @@ function parseOrderFromMessage(orderText: string): Array<{name: string, quantity
   return items;
 }
 
+// En whatsapp-simple.ts, actualizar la función sendWhatsAppMessageDirect
+
 async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, storeId: number): Promise<void> {
   try {
     console.log(`📤 SENDING WHATSAPP MESSAGE - To: ${phoneNumber}, Store: ${storeId}`);
 
-    // ✅ VALIDACIONES DE ENTRADA MEJORADAS
+    // ✅ VALIDACIONES DE ENTRADA
     if (!phoneNumber || typeof phoneNumber !== 'string') {
       console.error('❌ Invalid phone number:', phoneNumber);
       return;
@@ -3152,13 +3091,13 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
       return;
     }
 
-    // ✅ VALIDACIÓN CORREGIDA DE STORE ID
-    if (!storeId || typeof storeId !== 'number' || storeId < 1) {
-      console.error('❌ Invalid store ID:', storeId);
-      return;
+    // ✅ VALIDACIÓN MEJORADA DE STORE ID - No bloquear por ID inválido
+    if (!storeId || typeof storeId !== 'number') {
+      console.warn('⚠️ Warning: Invalid store ID, but continuing:', storeId);
+      // No hacer return aquí, continuar con el envío
     }
 
-    // ✅ IMPORTACIÓN CORRECTA (consistente con otros archivos)
+    // ✅ IMPORTACIÓN CORRECTA
     const { getMasterStorage } = await import('./storage/index.js');
     const masterStorage = getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
@@ -3177,23 +3116,19 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
       return;
     }
 
-    // ✅ LIMPIAR TOKEN DE ESPACIOS Y CARACTERES ESPECIALES
+    // ✅ LIMPIAR TOKEN
     const cleanToken = config.accessToken.trim().replace(/\s+/g, '');
     
-    console.log(`🔧 Using token - Length: ${cleanToken.length}, Store: ${storeId}`);
-
     const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
     
-    // ✅ PAYLOAD COMPLETO CON TIPO REQUERIDO
     const data = {
       messaging_product: "whatsapp",
       to: phoneNumber,
-      type: "text", // ← CAMPO REQUERIDO QUE FALTABA
+      type: "text",
       text: { body: message }
     };
 
     console.log(`🌐 Making API call to: ${url}`);
-    console.log(`📦 Payload:`, JSON.stringify(data, null, 2));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -3216,25 +3151,21 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
         storeId: storeId
       });
       
-      // ✅ REGISTRAR ERROR EN LA BASE DE DATOS
-      try {
-        await masterStorage.addWhatsAppLog({
-          type: 'error',
-          phoneNumber: phoneNumber,
-          messageContent: message,
-          status: 'failed',
-          errorMessage: `${response.status}: ${responseText}`,
-          rawData: JSON.stringify({
-            url,
-            payload: data,
-            responseStatus: response.status,
-            responseBody: responseText
-          }),
-          storeId: storeId
-        });
-      } catch (logError) {
-        console.error('❌ Failed to log error:', logError);
-      }
+      // ✅ REGISTRAR ERROR CON VALIDACIÓN SEGURA
+      await safeWhatsAppLog({
+        type: 'error',
+        phoneNumber: phoneNumber,
+        messageContent: message,
+        status: 'failed',
+        errorMessage: `${response.status}: ${responseText}`,
+        rawData: JSON.stringify({
+          url,
+          payload: data,
+          responseStatus: response.status,
+          responseBody: responseText
+        }),
+        storeId: storeId
+      });
       return;
     }
 
@@ -3244,55 +3175,106 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
       result = JSON.parse(responseText);
     } catch (parseError) {
       console.error('❌ Failed to parse response:', parseError);
-      console.log('📄 Raw response:', responseText);
       return;
     }
 
     console.log('✅ MESSAGE SENT SUCCESSFULLY:', result);
     
-    // ✅ REGISTRAR ÉXITO EN LA BASE DE DATOS
-    try {
-      await masterStorage.addWhatsAppLog({
-        type: 'outbound',
-        phoneNumber: phoneNumber,
-        messageContent: message,
-        messageId: result.messages?.[0]?.id,
-        status: 'sent',
-        rawData: JSON.stringify(result),
-        storeId: storeId
-      });
-    } catch (logError) {
-      console.error('❌ Failed to log success:', logError);
+    // ✅ REGISTRAR ÉXITO CON VALIDACIÓN SEGURA
+    await safeWhatsAppLog({
+      type: 'outbound',
+      phoneNumber: phoneNumber,
+      messageContent: message,
+      messageId: result.messages?.[0]?.id,
+      status: 'sent',
+      storeId: storeId
+    });
+
+  } catch (error: any) {
+    console.error('❌ CRITICAL ERROR in sendWhatsAppMessageDirect:', error);
+    
+    // ✅ REGISTRAR ERROR CRÍTICO CON VALIDACIÓN SEGURA
+    await safeWhatsAppLog({
+      type: 'error',
+      phoneNumber: phoneNumber,
+      messageContent: message,
+      status: 'failed',
+      errorMessage: error.message || 'Unknown error',
+      rawData: JSON.stringify({ error: error.stack || error }),
+      storeId: storeId
+    });
+  }
+}
+
+// ✅ FUNCIÓN MEJORADA PARA VALIDACIÓN SEGURA DE LOGS
+export async function safeWhatsAppLog(
+  logData: {
+    type: string;
+    phoneNumber: string;
+    messageContent?: string;
+    messageId?: string;
+    status?: string;
+    errorMessage?: string;
+    rawData?: string;
+    storeId?: number;
+  }
+): Promise<void> {
+  try {
+    const { getMasterStorage } = await import('./storage/index.js');
+    const masterStorage = getMasterStorage();
+    
+    let validStoreId = logData.storeId || 0;
+    
+    // ✅ VALIDACIÓN MEJORADA - Verificar si el store existe
+    if (validStoreId && validStoreId > 0) {
+      try {
+        // Intentar obtener el store para verificar que existe
+        const store = await masterStorage.getVirtualStore(validStoreId);
+        if (!store) {
+          console.warn(`⚠️ Store ID ${validStoreId} not found, using fallback`);
+          validStoreId = 0; // Forzar búsqueda de fallback
+        }
+      } catch (storeError) {
+        console.warn(`⚠️ Error validating store ${validStoreId}:`, storeError);
+        validStoreId = 0; // Forzar búsqueda de fallback
+      }
     }
     
-  } catch (error) {
-    console.error('❌ ERROR SENDING WHATSAPP MESSAGE:', {
+    // ✅ Si storeId es 0 o inválido, buscar un store válido
+    if (validStoreId === 0 || !validStoreId) {
+      try {
+        const stores = await masterStorage.getAllVirtualStores();
+        if (stores.length > 0) {
+          validStoreId = stores[0].id;
+          console.log(`🔄 Using fallback store ID: ${validStoreId}`);
+        } else {
+          console.warn('⚠️ No virtual stores found, using default store ID 1');
+          validStoreId = 1; // ID por defecto
+        }
+      } catch (storeError) {
+        console.warn('⚠️ Cannot validate stores, using default store ID 1:', storeError);
+        validStoreId = 1; // ID por defecto
+      }
+    }
+
+    // ✅ INTENTAR INSERTAR LOG con storeId válido
+    await masterStorage.addWhatsAppLog({
+      ...logData,
+      storeId: validStoreId
+    });
+
+    console.log(`✅ WhatsApp log saved successfully with store ID: ${validStoreId}`);
+
+  } catch (error: any) {
+    // 🚨 Si falla el logging, no fallar el proceso principal
+    console.warn('⚠️ Failed to save WhatsApp log (non-critical):', {
       error: error.message,
-      phoneNumber: phoneNumber,
-      storeId: storeId,
-      stack: error.stack
+      code: error.code,
+      originalData: logData
     });
     
-    // ✅ REGISTRAR EXCEPCIÓN EN LA BASE DE DATOS
-    try {
-      const { getMasterStorage } = await import('./storage/index.js');
-      const masterStorage = getMasterStorage();
-      await masterStorage.addWhatsAppLog({
-        type: 'error',
-        phoneNumber: phoneNumber,
-        messageContent: message,
-        status: 'failed',
-        errorMessage: error.message,
-        rawData: JSON.stringify({ 
-          error: error.message, 
-          stack: error.stack,
-          storeId: storeId 
-        }),
-        storeId: storeId
-      });
-    } catch (logError) {
-      console.error('❌ Failed to log exception:', logError);
-    }
+    // 📝 Log básico en consola como fallback
+    console.log(`📋 FALLBACK LOG: ${logData.type} - ${logData.phoneNumber} - ${logData.status} - Store: ${logData.storeId}`);
   }
 }
 

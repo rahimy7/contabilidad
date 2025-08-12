@@ -1556,7 +1556,7 @@ router.get('/conversations/:id/messages', authenticateToken, async (req: any, re
   }
 });
 
-// REEMPLAZAR esta ruta completa en routes.ts
+// En routes.ts - ELIMINAR la segunda definición duplicada y mantener solo esta:
 
 router.post('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
   try {
@@ -1586,165 +1586,107 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
 
     console.log(`📞 Customer phone: ${customer.phone} for conversation ${conversationId}`);
     
-    // ✅ PASO 1: ENVIAR MENSAJE POR WHATSAPP PRIMERO
+    // ✅ PASO 1: ENVIAR MENSAJE POR WHATSAPP PRIMERO CON DEBUG MEJORADO
     let whatsappSuccess = false;
     let whatsappMessageId = null;
     
     try {
-      console.log(`📤 Sending WhatsApp message to ${customer.phone}: "${content}"`);
+      console.log(`📤 Attempting WhatsApp send to ${customer.phone}: "${content}"`);
       
-      // Importar función de envío de WhatsApp
-      const { sendWhatsAppMessageDirect } = await import('./whatsapp-simple.js');
+      // ✅ MÉTODO DIRECTO CON VALIDACIÓN COMPLETA
+      const { getMasterStorage } = await import('./storage/index.js');
+      const masterStorage = getMasterStorage();
+      const config = await masterStorage.getWhatsAppConfig(user.storeId);
       
-      // ✅ IMPORTANTE: Enviar por WhatsApp usando la función corregida
-      await sendWhatsAppMessageDirect(customer.phone, content, user.storeId);
-      whatsappSuccess = true;
-      
-      console.log(`✅ WhatsApp message sent successfully to ${customer.phone}`);
-      
-    } catch (whatsappError) {
-      console.error('❌ Failed to send WhatsApp message:', whatsappError);
-      // Continuar para guardar en BD aunque falle WhatsApp
-    }
-    
-    // ✅ PASO 2: GUARDAR MENSAJE EN LA BASE DE DATOS
-    const messageData = {
-      conversationId,
-      content: content.trim(),
-      messageType,
-      senderType: 'staff',
-      senderId: user.id,
-      isRead: true,
-      createdAt: new Date(),
-      sentAt: new Date(),
-      // ✅ Indicar si se envió exitosamente por WhatsApp
-      whatsappMessageId: whatsappMessageId,
-      deliveryStatus: whatsappSuccess ? 'sent' : 'failed'
-    };
-    
-    const newMessage = await tenantStorage.createMessage(messageData);
-    
-    // ✅ PASO 3: ACTUALIZAR LA CONVERSACIÓN
-    await tenantStorage.updateConversation(conversationId, {
-      lastMessageAt: new Date(),
-    });
-    
-    // ✅ RESPUESTA CON INFORMACIÓN DE ESTADO
-    const response = {
-      ...newMessage,
-      whatsappDelivered: whatsappSuccess,
-      customerPhone: customer.phone,
-      storeId: user.storeId
-    };
-    
-    if (whatsappSuccess) {
-      console.log('✅ [POST /conversations/:id/messages] Message sent successfully:', newMessage.id);
-      res.status(201).json(response);
-    } else {
-      console.log('⚠️ [POST /conversations/:id/messages] Message saved but WhatsApp delivery failed:', newMessage.id);
-      res.status(201).json({
-        ...response,
-        warning: 'Message saved but WhatsApp delivery failed'
-      });
-    }
-    
-  } catch (error) {
-    console.error('❌ [POST /conversations/:id/messages] Error:', error);
-    res.status(500).json({ 
-      error: "Failed to send message",
-      details: error.message 
-    });
-  }
-});
-
-// ✅ TAMBIÉN AGREGAR UNA RUTA DE DEBUG PARA PROBAR ENVÍO DIRECTO
-router.post('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
-  try {
-    const conversationId = parseInt(req.params.id);
-    const { content, messageType = 'text' } = req.body;
-    const user = req.user as AuthUser;
-    
-    console.log('📤 [POST /conversations/:id/messages] Sending message to conversation:', conversationId);
-    
-    if (!content || content.trim() === '') {
-      return res.status(400).json({ error: 'Message content is required' });
-    }
-    
-    const tenantStorage = await getTenantStorageWithSchema(user);
-    
-    // Verificar que la conversación existe
-    const conversation = await tenantStorage.getConversationById(conversationId);
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
-    }
-
-    // ✅ OBTENER INFORMACIÓN DEL CLIENTE PARA EL WHATSAPP
-    const customer = await tenantStorage.getCustomerById(conversation.customerId);
-    if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    console.log(`📞 Customer phone: ${customer.phone} for conversation ${conversationId}`);
-    
-    // ✅ PASO 1: ENVIAR MENSAJE POR WHATSAPP PRIMERO
-    let whatsappSuccess = false;
-    let whatsappMessageId = null;
-    
-    try {
-      console.log(`📤 Sending WhatsApp message to ${customer.phone}: "${content}"`);
-      
-      // ✅ OPCIÓN A: Usar función corregida directamente (si ya la exportaste)
-      const { sendWhatsAppMessageDirect } = await import('./whatsapp-simple.js');
-      await sendWhatsAppMessageDirect(customer.phone, content, user.storeId);
-      whatsappSuccess = true;
-      
-      console.log(`✅ WhatsApp message sent successfully to ${customer.phone}`);
-      
-    } catch (whatsappError) {
-      console.error('❌ Failed to send WhatsApp message:', whatsappError);
-      
-      // ✅ OPCIÓN B: Fallback manual si la importación falla
-      try {
-        console.log(`🔄 Trying fallback WhatsApp send...`);
-        
-        const { getMasterStorage } = await import('./storage/index.js');
-        const masterStorage = getMasterStorage();
-        const config = await masterStorage.getWhatsAppConfig(user.storeId);
-        
-        if (config && config.accessToken && config.phoneNumberId) {
-          const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
-          const data = {
-            messaging_product: "whatsapp",
-            to: customer.phone,
-            type: "text",
-            text: { body: content }
-          };
-
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${config.accessToken.trim()}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            whatsappSuccess = true;
-            whatsappMessageId = result.messages?.[0]?.id;
-            console.log(`✅ Fallback WhatsApp send successful:`, result);
-          } else {
-            const errorText = await response.text();
-            console.error(`❌ Fallback WhatsApp failed:`, errorText);
-          }
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback WhatsApp also failed:', fallbackError);
+      if (!config) {
+        console.error(`❌ No WhatsApp config found for store: ${user.storeId}`);
+        throw new Error(`No WhatsApp config for store ${user.storeId}`);
       }
+
+      if (!config.accessToken || !config.phoneNumberId) {
+        console.error('❌ Incomplete WhatsApp config:', {
+          hasToken: !!config.accessToken,
+          hasPhoneId: !!config.phoneNumberId,
+          storeId: user.storeId
+        });
+        throw new Error('Incomplete WhatsApp configuration');
+      }
+      
+      console.log(`🔧 Using config - Store: ${user.storeId}, PhoneID: ${config.phoneNumberId}`);
+      
+      const cleanToken = config.accessToken.trim().replace(/\s+/g, '');
+      const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        to: customer.phone,
+        type: "text",
+        text: { body: content }
+      };
+
+      console.log(`🌐 Making API call to WhatsApp:`, {
+        url: url,
+        to: customer.phone,
+        messageLength: content.length,
+        tokenLength: cleanToken.length
+      });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cleanToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+      console.log(`📡 WhatsApp API Response:`, {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText.substring(0, 200)
+      });
+      
+      if (!response.ok) {
+        console.error('❌ WHATSAPP API ERROR:', {
+          status: response.status,
+          body: responseText,
+          phoneNumber: customer.phone,
+          storeId: user.storeId
+        });
+        throw new Error(`WhatsApp API error: ${response.status} - ${responseText}`);
+      }
+
+      // ✅ PARSEAR RESPUESTA EXITOSA
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        whatsappMessageId = result.messages?.[0]?.id;
+        whatsappSuccess = true;
+        
+        console.log('✅ WhatsApp message sent successfully:', {
+          messageId: whatsappMessageId,
+          to: customer.phone,
+          status: 'sent'
+        });
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse WhatsApp response:', parseError);
+        throw new Error('Invalid WhatsApp API response');
+      }
+      
+    } catch (whatsappError) {
+      console.error('❌ WhatsApp sending failed:', {
+        error: whatsappError.message,
+        phone: customer.phone,
+        storeId: user.storeId,
+        stack: whatsappError.stack
+      });
+      
+      // ✅ NO HACER THROW - Continuar para guardar en BD
     }
     
-    // ✅ PASO 2: GUARDAR MENSAJE EN LA BASE DE DATOS
+    // ✅ PASO 2: GUARDAR MENSAJE EN LA BASE DE DATOS SIEMPRE
     const messageData = {
       conversationId,
       content: content.trim(),
@@ -1754,7 +1696,6 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
       isRead: true,
       createdAt: new Date(),
       sentAt: new Date(),
-      // ✅ Indicar si se envió exitosamente por WhatsApp
       whatsappMessageId: whatsappMessageId,
       deliveryStatus: whatsappSuccess ? 'sent' : 'failed'
     };
@@ -1766,12 +1707,18 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
       lastMessageAt: new Date(),
     });
     
-    // ✅ RESPUESTA CON INFORMACIÓN DE ESTADO
+    // ✅ RESPUESTA CON INFORMACIÓN DE ESTADO DETALLADA
     const response = {
       ...newMessage,
       whatsappDelivered: whatsappSuccess,
       customerPhone: customer.phone,
-      storeId: user.storeId
+      storeId: user.storeId,
+      debug: {
+        whatsappAttempted: true,
+        whatsappSuccess: whatsappSuccess,
+        whatsappMessageId: whatsappMessageId,
+        configFound: true // Ya sabemos que se encontró porque llegamos aquí
+      }
     };
     
     if (whatsappSuccess) {
@@ -1786,13 +1733,93 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
     }
     
   } catch (error) {
-    console.error('❌ [POST /conversations/:id/messages] Error:', error);
+    console.error('❌ [POST /conversations/:id/messages] Critical Error:', error);
     res.status(500).json({ 
       error: "Failed to send message",
+      details: error.message,
+      debug: {
+        errorType: error.constructor.name,
+        stack: error.stack
+      }
+    });
+  }
+});
+
+// ✅ RUTA ADICIONAL PARA DEBUG (mantener separada)
+router.post('/conversations/:id/test-whatsapp', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const { testMessage = '🧪 Test message from API' } = req.body;
+    const user = req.user as AuthUser;
+    
+    console.log('🧪 [POST /conversations/:id/test-whatsapp] Testing WhatsApp for conversation:', conversationId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const conversation = await tenantStorage.getConversationById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    const customer = await tenantStorage.getCustomerById(conversation.customerId);
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // ✅ ENVÍO DE PRUEBA DIRECTO
+    const { getMasterStorage } = await import('./storage/index.js');
+    const masterStorage = getMasterStorage();
+    const config = await masterStorage.getWhatsAppConfig(user.storeId);
+    
+    if (!config) {
+      return res.status(404).json({ 
+        error: 'WhatsApp config not found',
+        storeId: user.storeId 
+      });
+    }
+
+    const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
+    const payload = {
+      messaging_product: "whatsapp",
+      to: customer.phone,
+      type: "text",
+      text: { body: testMessage }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.accessToken.trim()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    res.json({
+      success: response.ok,
+      status: response.status,
+      phoneNumber: customer.phone,
+      testMessage,
+      result,
+      config: {
+        storeId: user.storeId,
+        phoneNumberId: config.phoneNumberId,
+        hasToken: !!config.accessToken
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Test WhatsApp error:', error);
+    res.status(500).json({ 
+      error: 'Test failed',
       details: error.message 
     });
   }
 });
+
+
 
 // ✅ TAMBIÉN AGREGAR UNA RUTA DE DEBUG PARA PROBAR ENVÍO DIRECTO
 router.post('/conversations/:id/test-whatsapp', authenticateToken, async (req: any, res: any) => {
