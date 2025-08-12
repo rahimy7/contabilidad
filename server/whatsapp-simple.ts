@@ -5930,7 +5930,8 @@ export {
    
   sendInteractiveMessage,
   isWelcomeMessage,
-  handleRegistrationFlow
+  handleRegistrationFlow,
+  sendWhatsAppMessageDirect
 };
 
 export default safeWhatsAppLog;
