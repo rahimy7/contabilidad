@@ -3137,45 +3137,165 @@ function parseOrderFromMessage(orderText: string): Array<{name: string, quantity
   return items;
 }
 
-async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, storeId: number): Promise<void> {
+async function sendWhatsAppMessageDirect(
+  phoneNumber: string, 
+  message: string, 
+  storeId: number
+): Promise<void> {
   try {
-    const storageFactory = await import('./storage/storage-factory.js');
-    const masterStorage = storageFactory.StorageFactory.getInstance().getMasterStorage();
-    const config = await masterStorage.getWhatsAppConfig(storeId);
-    
-    if (!config || !config.accessToken || !config.phoneNumberId) {
-      console.error('❌ WhatsApp config not found or incomplete');
+    console.log(`📤 SENDING WHATSAPP MESSAGE - To: ${phoneNumber}, Store: ${storeId}`);
+
+    // ✅ VALIDACIONES DE ENTRADA
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      console.error('❌ Invalid phone number:', phoneNumber);
       return;
     }
 
-    const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`; // ← v22.0
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      console.error('❌ Invalid message:', message);
+      return;
+    }
+
+    if (!storeId || typeof storeId !== 'number' || storeId <= 0) {
+      console.error('❌ Invalid store ID:', storeId);
+      return;
+    }
+
+    // ✅ IMPORTACIÓN CORRECTA (consistente con otros archivos)
+    const { getMasterStorage } = await import('./storage/index.js');
+    const masterStorage = getMasterStorage();
+    const config = await masterStorage.getWhatsAppConfig(storeId);
     
+    if (!config) {
+      console.error('❌ WhatsApp config not found for store:', storeId);
+      return;
+    }
+
+    if (!config.accessToken || !config.phoneNumberId) {
+      console.error('❌ Incomplete WhatsApp config:', {
+        hasToken: !!config.accessToken,
+        hasPhoneId: !!config.phoneNumberId,
+        storeId: storeId
+      });
+      return;
+    }
+
+    // ✅ LIMPIAR TOKEN DE ESPACIOS Y CARACTERES ESPECIALES
+    const cleanToken = config.accessToken.trim().replace(/\s+/g, '');
+    
+    console.log(`🔧 Using token - Length: ${cleanToken.length}, Store: ${storeId}`);
+
+    const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
+    
+    // ✅ PAYLOAD COMPLETO CON TIPO REQUERIDO
     const data = {
       messaging_product: "whatsapp",
       to: phoneNumber,
+      type: "text", // ← CAMPO REQUERIDO QUE FALTABA
       text: { body: message }
     };
+
+    console.log(`🌐 Making API call to: ${url}`);
+    console.log(`📦 Payload:`, JSON.stringify(data, null, 2));
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${config.accessToken}`,
+        'Authorization': `Bearer ${cleanToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
 
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ WHATSAPP API ERROR:', errorText);
+      console.error('❌ WHATSAPP API ERROR:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText,
+        url: url,
+        phoneNumber: phoneNumber,
+        storeId: storeId
+      });
+      
+      // ✅ REGISTRAR ERROR EN LA BASE DE DATOS
+      try {
+        await masterStorage.addWhatsAppLog({
+          type: 'error',
+          phoneNumber: phoneNumber,
+          messageContent: message,
+          status: 'failed',
+          errorMessage: `${response.status}: ${responseText}`,
+          rawData: JSON.stringify({
+            url,
+            payload: data,
+            responseStatus: response.status,
+            responseBody: responseText
+          }),
+          storeId: storeId
+        });
+      } catch (logError) {
+        console.error('❌ Failed to log error:', logError);
+      }
       return;
     }
 
-    const result = await response.json();
+    // ✅ PARSEAR RESPUESTA EXITOSA
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ Failed to parse response:', parseError);
+      console.log('📄 Raw response:', responseText);
+      return;
+    }
+
     console.log('✅ MESSAGE SENT SUCCESSFULLY:', result);
     
+    // ✅ REGISTRAR ÉXITO EN LA BASE DE DATOS
+    try {
+      await masterStorage.addWhatsAppLog({
+        type: 'outbound',
+        phoneNumber: phoneNumber,
+        messageContent: message,
+        messageId: result.messages?.[0]?.id,
+        status: 'sent',
+        rawData: JSON.stringify(result),
+        storeId: storeId
+      });
+    } catch (logError) {
+      console.error('❌ Failed to log success:', logError);
+    }
+    
   } catch (error) {
-    console.error('❌ ERROR SENDING WHATSAPP MESSAGE:', error);
+    console.error('❌ ERROR SENDING WHATSAPP MESSAGE:', {
+      error: error.message,
+      phoneNumber: phoneNumber,
+      storeId: storeId,
+      stack: error.stack
+    });
+    
+    // ✅ REGISTRAR EXCEPCIÓN EN LA BASE DE DATOS
+    try {
+      const { getMasterStorage } = await import('./storage/index.js');
+      const masterStorage = getMasterStorage();
+      await masterStorage.addWhatsAppLog({
+        type: 'error',
+        phoneNumber: phoneNumber,
+        messageContent: message,
+        status: 'failed',
+        errorMessage: error.message,
+        rawData: JSON.stringify({ 
+          error: error.message, 
+          stack: error.stack,
+          storeId: storeId 
+        }),
+        storeId: storeId
+      });
+    } catch (logError) {
+      console.error('❌ Failed to log exception:', logError);
+    }
   }
 }
 
