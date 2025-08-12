@@ -3137,15 +3137,11 @@ function parseOrderFromMessage(orderText: string): Array<{name: string, quantity
   return items;
 }
 
-async function sendWhatsAppMessageDirect(
-  phoneNumber: string, 
-  message: string, 
-  storeId: number
-): Promise<void> {
+async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, storeId: number): Promise<void> {
   try {
     console.log(`📤 SENDING WHATSAPP MESSAGE - To: ${phoneNumber}, Store: ${storeId}`);
 
-    // ✅ VALIDACIONES DE ENTRADA
+    // ✅ VALIDACIONES DE ENTRADA MEJORADAS
     if (!phoneNumber || typeof phoneNumber !== 'string') {
       console.error('❌ Invalid phone number:', phoneNumber);
       return;
@@ -3156,7 +3152,8 @@ async function sendWhatsAppMessageDirect(
       return;
     }
 
-    if (!storeId || typeof storeId !== 'number' || storeId <= 0) {
+    // ✅ VALIDACIÓN CORREGIDA DE STORE ID
+    if (!storeId || typeof storeId !== 'number' || storeId < 1) {
       console.error('❌ Invalid store ID:', storeId);
       return;
     }
