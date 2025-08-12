@@ -1803,22 +1803,26 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
       return res.status(404).json({ error: 'Customer not found' });
     }
     
-    // Obtener estadísticas básicas sin usar tenantStorage.db directamente
+    // Obtener estadísticas básicas usando métodos existentes
     let totalOrders = 0;
     let totalSpent = '0.00';
     
     try {
-      // Usar los métodos existentes del tenant storage
-      const orders = await tenantStorage.getOrdersByCustomer(customerId);
+      // ✅ CORRECCIÓN: Usar getAllOrders y filtrar por customerId
+      const allOrders = await tenantStorage.getAllOrders();
+      const customerOrders = allOrders.filter(order => order.customerId === customerId);
       
-      totalOrders = orders.length;
+      totalOrders = customerOrders.length;
       
       // Calcular total gastado
-      const totalAmount = orders.reduce((sum: number, order: any) => {
+      const totalAmount = customerOrders.reduce((sum: number, order: any) => {
         return sum + parseFloat(order.totalAmount || '0');
       }, 0);
       
       totalSpent = totalAmount.toFixed(2);
+      
+      console.log(`📊 Customer ${customerId} stats: ${totalOrders} orders, $${totalSpent} spent`);
+      
     } catch (statsError) {
       console.warn('Could not calculate customer stats:', statsError);
       // Usar valores por defecto en caso de error
@@ -1833,18 +1837,19 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
       phone: customer.phone,
       email: customer.email,
       address: customer.address,
-      isVip,
-      totalOrders,
-      totalSpent,
-      createdAt: customer.createdAt,
+      isVip: isVip,
+      totalOrders: totalOrders,
+      totalSpent: totalSpent,
+      createdAt: customer.createdAt
     };
     
     console.log('✅ [GET /customers/:id/details] Customer details:', customerDetails);
     res.json(customerDetails);
+    
   } catch (error) {
     console.error('❌ [GET /customers/:id/details] Error:', error);
     res.status(500).json({ 
-      error: "Failed to fetch customer details",
+      error: "Failed to get customer details",
       details: error.message 
     });
   }

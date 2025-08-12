@@ -599,7 +599,7 @@ export default function ImprovedProductManagement() {
                   )}
                   
                   {/* Fallback cuando la imagen no carga */}
-                  <div className="hidden absolute inset-0 flex items-center justify-center">
+                  <div className="hidden absolute inset-0 items-center justify-center">
                     <Package className="w-16 h-16 text-gray-400" />
                   </div>
                   

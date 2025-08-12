@@ -57,10 +57,26 @@ import  ProductManagement  from "./pages/product-management";
 import AddProduct from "@/pages/add-product";
 
 
+
+
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
   
+  // 🔍 LOG: Debug de ProtectedRoute
+  console.log('🔍 ProtectedRoute - Debug:', {
+    component: Component.name,
+    permission,
+    user: user ? {
+      username: user.username,
+      role: user.role,
+      level: user.level,
+      storeId: user.storeId
+    } : null,
+    isLoading
+  });
+  
   if (isLoading) {
+    console.log('⏳ ProtectedRoute: Cargando...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -69,46 +85,77 @@ function ProtectedRoute({ component: Component, permission }: { component: React
   }
 
   if (!user) {
+    console.log('❌ ProtectedRoute: Sin usuario, redirigiendo a login');
     return <MultiTenantLogin />;
   }
 
-  if (permission && !hasPermission(user.role, permission)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Acceso Denegado
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            No tienes permisos para acceder a esta página.
-          </p>
+  if (permission) {
+    const hasRequiredPermission = hasPermission(user.role, permission);
+    console.log('🔐 ProtectedRoute - Verificando permisos:', {
+      userRole: user.role,
+      requiredPermission: permission,
+      hasPermission: hasRequiredPermission
+    });
+    
+    if (!hasRequiredPermission) {
+      console.log('❌ ProtectedRoute: ACCESO DENEGADO');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Acceso Denegado
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              No tienes permisos para acceder a esta página.
+            </p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
+  console.log('✅ ProtectedRoute: Acceso permitido, renderizando componente');
   return <Component />;
 }
 
 function RoleDashboard() {
   const { user } = useAuth();
   
+  // 🔍 LOG: Debug completo de RoleDashboard
+  console.log('🎯 RoleDashboard - Debug completo:', {
+    user: user ? {
+      username: user.username,
+      role: user.role,
+      level: user.level,
+      storeId: user.storeId
+    } : null,
+    isTechnician: user?.role === 'technician',
+    isSuperAdmin: user?.role === 'super_admin',
+    isAdmin: user?.role === 'admin',
+    isStoreAdmin: user?.role === 'store_admin',
+    shouldGoToDashboard: user?.role === 'admin' || user?.role === 'store_admin'
+  });
+  
   // Redireccionar técnicos a su dashboard específico
   if (user?.role === 'technician') {
+    console.log('🔧 RoleDashboard: Enviando a TechnicianDashboard');
     return <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />;
   }
   
   // Super administradores al Panel de Control General
   if (user?.role === 'super_admin') {
+    console.log('🔥 RoleDashboard: Enviando a GlobalDashboard');
     return <ProtectedRoute component={GlobalDashboard} permission="super_admin" />;
   }
   
   // Administradores de tienda al Dashboard Principal
-  if (user?.role === 'store_admin') {
+  if (user?.role === 'admin' || user?.role === 'store_admin') {
+    console.log('📊 RoleDashboard: Enviando a Dashboard Principal');
     return <ProtectedRoute component={Dashboard} permission="view_dashboard" />;
   }
   
   // Otros roles a conversaciones
+  console.log('💬 RoleDashboard: Enviando a Conversations (otros roles)');
   return <ProtectedRoute component={Conversations} permission="view_conversations" />;
 }
 

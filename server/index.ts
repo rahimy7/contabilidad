@@ -280,9 +280,15 @@ apiRouter.post('/auth/login', async (req, res) => {
     console.log('✅ Global user access granted');
   } 
   // Usuarios de tenant pertenecen automáticamente a la tienda que autenticó
-  else if (user.level === 'tenant') {
-    // Asegurar que ambos valores son números para la comparación
-    const userStoreIdInt = parseInt(user.storeId?.toString() || '0');
+     else if (user.level === 'tenant') {
+  // Asegurar que ambos valores son números para la comparación
+  const userStoreIdInt = parseInt(user.storeId?.toString() || '0');
+  
+  console.log(`🔍 Tenant access validation:`, {
+    userStoreIdInt,
+    targetStoreIdInt,
+    comparison: userStoreIdInt === targetStoreIdInt
+  });
     
     if (userStoreIdInt !== targetStoreIdInt) {
       console.log(`❌ Tenant user ${user.username} belongs to store ${userStoreIdInt}, not ${targetStoreIdInt}`);
