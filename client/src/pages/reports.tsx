@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // import { DatePickerWithRange } from "@/components/ui/date-picker";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter } from "lucide-react";
+import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter, UserCheck } from "lucide-react";
 import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 export default function Reports() {
@@ -22,8 +22,8 @@ export default function Reports() {
     queryKey: ["/api/orders"],
   });
 
-  const { data: users } = useQuery({
-    queryKey: ["/api/users"],
+  const { data: employees } = useQuery({
+    queryKey: ["/api/employees"],
   });
 
   const { data: customers } = useQuery({
@@ -68,26 +68,68 @@ export default function Reports() {
   const averageOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
   const completionRate = totalOrders > 0 ? (completedOrders / totalOrders * 100).toFixed(1) : "0";
 
-  // Performance by technician
-  const technicianPerformance = React.useMemo(() => {
-    if (!Array.isArray(users) || !Array.isArray(filteredOrders)) return [];
+  // Performance by employee (technicians)
+  const employeePerformance = React.useMemo(() => {
+    if (!Array.isArray(employees) || !Array.isArray(filteredOrders)) return [];
     
-    const technicians = users.filter((user: any) => user.role === "technician");
-    return technicians.map((tech: any) => {
-      const techOrders = filteredOrders.filter((order: any) => order.assignedUserId === tech.id);
-      const completed = techOrders.filter((order: any) => order.status === "completed").length;
-      const revenue = techOrders.reduce((sum: number, order: any) => 
+    // Filter employees that are technicians or field workers
+    const technicians = employees.filter((employee: any) => 
+      employee.department === "technical" || 
+      employee.position?.toLowerCase().includes("tecnico") ||
+      employee.position?.toLowerCase().includes("technician") ||
+      employee.user?.status === "active"
+    );
+    
+    return technicians.map((employee: any) => {
+      const employeeOrders = filteredOrders.filter((order: any) => 
+        order.assignedEmployeeId === employee.id || 
+        order.assignedUserId === employee.userId ||
+        order.technicianId === employee.id ||
+        order.employeeId === employee.id
+      );
+      const completed = employeeOrders.filter((order: any) => order.status === "completed").length;
+      const revenue = employeeOrders.reduce((sum: number, order: any) => 
         order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
       
       return {
-        name: tech.name,
-        orders: techOrders.length,
+        id: employee.id,
+        employeeId: employee.employeeId,
+        name: employee.user?.name || "Sin usuario asignado",
+        position: employee.position || "Técnico",
+        department: employee.department || "Technical",
+        orders: employeeOrders.length,
         completed,
         revenue,
-        completionRate: techOrders.length > 0 ? (completed / techOrders.length * 100).toFixed(1) : "0"
+        completionRate: employeeOrders.length > 0 ? (completed / employeeOrders.length * 100).toFixed(1) : "0",
+        phone: employee.user?.phone || null,
+        email: employee.user?.email || null,
+        hireDate: employee.createdAt,
+        isActive: employee.user?.status === "active",
+        maxDailyOrders: employee.maxDailyOrders,
+        currentOrders: employee.currentOrders,
+        skillLevel: employee.skillLevel,
+        serviceRadius: employee.serviceRadius
       };
-    });
-  }, [users, filteredOrders]);
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [employees, filteredOrders]);
+
+  // Employee stats for overview
+  const employeeStats = React.useMemo(() => {
+    if (!Array.isArray(employees)) return { total: 0, active: 0, technicians: 0 };
+    
+    const activeEmployees = employees.filter((emp: any) => emp.user?.status === "active");
+    const technicians = employees.filter((emp: any) => 
+      emp.department === "technical" || 
+      emp.position?.toLowerCase().includes("tecnico") ||
+      emp.position?.toLowerCase().includes("technician")
+    );
+    
+    return {
+      total: employees.length,
+      active: activeEmployees.length,
+      technicians: technicians.length
+    };
+  }, [employees]);
 
   // Orders by status chart data
   const statusChartData = React.useMemo(() => {
@@ -288,13 +330,13 @@ export default function Reports() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-              <Users className="h-4 w-4 mr-2" />
-              Valor Promedio
+              <UserCheck className="h-4 w-4 mr-2" />
+              Empleados Activos
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${averageOrderValue.toLocaleString('es-MX')}</div>
-            <p className="text-sm text-gray-500 mt-1">Por pedido completado</p>
+            <div className="text-2xl font-bold">{employeeStats.active}</div>
+            <p className="text-sm text-gray-500 mt-1">{employeeStats.technicians} técnicos</p>
           </CardContent>
         </Card>
       </div>
@@ -303,7 +345,7 @@ export default function Reports() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
           <TabsTrigger value="overview" className="text-xs md:text-sm">Resumen</TabsTrigger>
-          <TabsTrigger value="performance" className="text-xs md:text-sm">Rendimiento</TabsTrigger>
+          <TabsTrigger value="employees" className="text-xs md:text-sm">Empleados</TabsTrigger>
           <TabsTrigger value="products" className="text-xs md:text-sm">Productos</TabsTrigger>
           <TabsTrigger value="trends" className="text-xs md:text-sm">Tendencias</TabsTrigger>
         </TabsList>
@@ -388,35 +430,88 @@ export default function Reports() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="performance" className="space-y-6">
+        <TabsContent value="employees" className="space-y-6">
+          {/* Employee Overview Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Total Empleados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{employeeStats.total}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Empleados Activos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{employeeStats.active}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Técnicos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{employeeStats.technicians}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Employee Performance */}
           <Card>
             <CardHeader>
-              <CardTitle>Rendimiento por Técnico</CardTitle>
+              <CardTitle>Rendimiento por Empleado</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {technicianPerformance.map((tech) => (
-                  <div key={tech.name} className="flex items-center justify-between p-4 border rounded-lg">
+                {employeePerformance.map((employee) => (
+                  <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-blue-600">
-                          {tech.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                          {employee.employeeId || employee.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                         </span>
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">{tech.name}</h3>
-                        <p className="text-sm text-gray-500">{tech.orders} pedidos asignados</p>
+                        <h3 className="font-medium text-gray-900">{employee.name}</h3>
+                        <p className="text-sm text-gray-500">{employee.position} • {employee.department}</p>
+                        <p className="text-xs text-gray-400">
+                          {employee.orders} pedidos • {employee.currentOrders}/{employee.maxDailyOrders} actuales
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">${tech.revenue.toLocaleString('es-MX')}</div>
-                      <div className="text-sm text-gray-500">{tech.completionRate}% completitud</div>
-                      <Badge variant={parseFloat(tech.completionRate) >= 80 ? "default" : "secondary"}>
-                        {tech.completed} completados
-                      </Badge>
+                      <div className="font-semibold">${employee.revenue.toLocaleString('es-MX')}</div>
+                      <div className="text-sm text-gray-500">{employee.completionRate}% completitud</div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Badge variant={parseFloat(employee.completionRate) >= 80 ? "default" : "secondary"}>
+                          {employee.completed} completados
+                        </Badge>
+                        <Badge variant={employee.isActive ? "default" : "secondary"}>
+                          {employee.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
+                        {employee.skillLevel && (
+                          <Badge variant="outline">
+                            Nivel {employee.skillLevel}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
+                {employeePerformance.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No hay empleados técnicos para mostrar
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

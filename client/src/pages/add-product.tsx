@@ -41,6 +41,7 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
+import { Controller } from 'react-hook-form';
 
 // Schema de validación
 const productSchema = z.object({
@@ -143,6 +144,92 @@ export default function EnhancedAddProduct() {
   const [brandInput, setBrandInput] = useState("");
   const [showBrandInput, setShowBrandInput] = useState(false);
 
+  // Estados para tracking de cambios
+  const [originalData, setOriginalData] = useState<ProductFormData | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Queries para obtener datos reales
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const { data: productData, isLoading: loadingProductData, error: productError } = useQuery<Product>({
+    queryKey: ["/api/products", productId],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+      
+      const response = await fetch(`/api/products/${productId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Producto no encontrado');
+      }
+      
+      return response.json();
+    },
+    enabled: isEditMode && productId !== null,
+    retry: 3,
+  });
+
+  // Configurar formulario
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: "",
+      category: "",
+      type: "product",
+      brand: "",
+      model: "",
+      sku: "",
+      isActive: true,
+      stock: 0,
+      specifications: "",
+      installationCost: "",
+      warrantyMonths: 0,
+      images: [],
+      features: "",
+      warranty: "",
+      availability: "in_stock",
+      stockQuantity: 0,
+      minQuantity: 1,
+      maxQuantity: undefined,
+      weight: "",
+      dimensions: "",
+      tags: "",
+      salePrice: "",
+      isPromoted: false,
+      promotionText: "",
+    },
+  });
+
+  // DEBUGGING DESPUÉS DE TODOS LOS HOOKS
+  console.log('🔍 URL params:', window.location.search);
+  console.log('🔍 isEditMode:', isEditMode);
+  console.log('🔍 productId:', productId);
+  console.log('🔍 Estado actual:', { 
+    isEditMode, 
+    productId, 
+    productData, 
+    loadingProductData,
+    productError 
+  });
+
   // Detectar modo desde URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -160,46 +247,13 @@ export default function EnhancedAddProduct() {
     }
   }, []);
 
-  // Queries para obtener datos reales
-  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
-  const { data: productData, isLoading: loadingProductData } = useQuery<Product>({
-    queryKey: ["/api/products", productId],
-    enabled: isEditMode && !!productId,
-  });
-
-  // Configurar formulario
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      type: "product",
-      isActive: true,
-      stock: 0,
-      warrantyMonths: 0,
-      availability: "in_stock",
-      stockQuantity: 0,
-      minQuantity: 1,
-      isPromoted: false,
-      images: [],
-    },
-  });
-
   // Cargar datos del producto en modo edición
   useEffect(() => {
-    if (isEditMode && productData) {
-      console.log('🔄 Cargando producto para edición:', productData);
+    if (isEditMode && productData && !loadingProductData) {
+      console.log('🔄 Poblando formulario con datos del producto:', productData);
       
-      reset({
-        name: productData.name,
+      const formData = {
+        name: productData.name || "",
         description: productData.description || "",
         price: productData.price || "",
         category: productData.category || "",
@@ -213,22 +267,93 @@ export default function EnhancedAddProduct() {
         installationCost: productData.installationCost || "",
         warrantyMonths: productData.warrantyMonths || 0,
         images: productData.images || [],
+        features: Array.isArray(productData.features) 
+          ? productData.features.join(', ') 
+          : productData.features || "",
+        warranty: productData.warranty || "",
+        availability: productData.availability || "in_stock",
+        stockQuantity: productData.stockQuantity || 0,
+        minQuantity: productData.minQuantity || 1,
+        maxQuantity: productData.maxQuantity,
+        weight: productData.weight || "",
+        dimensions: productData.dimensions || "",
+        tags: Array.isArray(productData.tags) 
+          ? productData.tags.join(', ') 
+          : productData.tags || "",
+        salePrice: productData.salePrice || "",
+        isPromoted: productData.isPromoted || false,
+        promotionText: productData.promotionText || "",
+      };
+      
+      // Guardar datos originales para comparación
+      setOriginalData(formData);
+      
+      // Poblar el formulario
+      Object.entries(formData).forEach(([key, value]) => {
+        setValue(key as keyof ProductFormData, value);
       });
 
       // Cargar imágenes existentes
-      const imagesToLoad = [];
       if (productData.images && productData.images.length > 0) {
-        imagesToLoad.push(...productData.images);
-      }
-      if (productData.imageUrl && !imagesToLoad.includes(productData.imageUrl)) {
-        imagesToLoad.push(productData.imageUrl);
-      }
-      
-      if (imagesToLoad.length > 0) {
-        loadExistingImages(imagesToLoad);
+        loadExistingImages(productData.images);
+      } else if (productData.imageUrl) {
+        loadExistingImages([productData.imageUrl]);
+      } else {
+        setProductImages([]);
       }
     }
-  }, [isEditMode, productData, reset]);
+  }, [isEditMode, productData, loadingProductData, setValue, productId]);
+
+  // Manejo de errores para el producto
+  useEffect(() => {
+    if (productError) {
+      console.error('❌ Error cargando producto:', productError);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el producto para editar",
+        variant: "destructive",
+      });
+    }
+  }, [productError, toast]);
+
+  // Funciones helper
+  const normalizeToArray = (value: any): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.filter(item => item && item.trim());
+    if (typeof value === 'string') {
+      return value.split(',').map(item => item.trim()).filter(item => item);
+    }
+    return [];
+  };
+
+  const normalizeNumericField = (value: any): string | null => {
+    if (!value || value === '' || value === undefined) return null;
+    return String(value);
+  };
+
+  const normalizeTextField = (value: any): string | null => {
+    if (!value || value === '' || value === undefined) return null;
+    return String(value).trim();
+  };
+
+  // Función para detectar cambios
+  const getChangedFields = (currentData: ProductFormData, originalData: ProductFormData) => {
+    const changes: Partial<ProductFormData> = {};
+    
+    Object.keys(currentData).forEach(key => {
+      const fieldKey = key as keyof ProductFormData;
+      const currentValue = currentData[fieldKey];
+      const originalValue = originalData[fieldKey];
+      
+      // Comparar valores (considerando arrays y objetos)
+      if (JSON.stringify(currentValue) !== JSON.stringify(originalValue)) {
+        // ✅ Fix TypeScript: Usar type assertion para asignar el valor
+        (changes as any)[fieldKey] = currentValue;
+      }
+    });
+    
+    return changes;
+  };
 
   // Funciones para gestión de imágenes
   const loadExistingImages = (imageUrls: string[]) => {
@@ -247,7 +372,6 @@ export default function EnhancedAddProduct() {
     setCurrentImageIndex(0);
   };
 
-  // ✅ FUNCIÓN MEJORADA: Upload de archivo a Supabase
   const uploadFileToSupabase = async (file: File): Promise<string> => {
     try {
       console.log('🔄 Subiendo archivo a Supabase:', file.name);
@@ -283,7 +407,6 @@ export default function EnhancedAddProduct() {
     }
   };
 
-  // ✅ FUNCIÓN MEJORADA: Procesar URL de imagen
   const processImageUrl = async (imageUrl: string): Promise<string> => {
     try {
       console.log('🔄 Procesando URL de imagen:', imageUrl);
@@ -317,7 +440,6 @@ export default function EnhancedAddProduct() {
     }
   };
 
-  // ✅ FUNCIÓN MEJORADA: Manejar upload de archivos con progreso
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -347,7 +469,6 @@ export default function EnhancedAddProduct() {
       const id = `file-${Date.now()}-${Math.random()}`;
       const tempUrl = URL.createObjectURL(file);
       
-      // Agregar imagen con estado inicial
       const newImage: ImageData = {
         id,
         url: tempUrl,
@@ -362,10 +483,8 @@ export default function EnhancedAddProduct() {
       setProductImages(prev => [...prev, newImage]);
 
       try {
-        // Subir archivo a Supabase
         const uploadedUrl = await uploadFileToSupabase(file);
         
-        // Actualizar imagen con URL real
         setProductImages(prev => prev.map(img => 
           img.id === id 
             ? { 
@@ -378,7 +497,6 @@ export default function EnhancedAddProduct() {
             : img
         ));
 
-        // Liberar blob temporal
         URL.revokeObjectURL(tempUrl);
 
         toast({
@@ -387,7 +505,6 @@ export default function EnhancedAddProduct() {
         });
 
       } catch (error) {
-        // Marcar como error
         setProductImages(prev => prev.map(img => 
           img.id === id 
             ? { ...img, uploadStatus: 'error' }
@@ -403,17 +520,14 @@ export default function EnhancedAddProduct() {
     }
 
     setIsProcessingImages(false);
-    // Resetear input
     event.target.value = '';
   };
 
-  // ✅ FUNCIÓN MEJORADA: Agregar imagen por URL
   const handleAddImageUrl = async () => {
     const url = prompt("Ingresa la URL de la imagen:");
     if (!url || !url.trim()) return;
 
     try {
-      // Validar URL
       new URL(url.trim());
     } catch {
       toast({
@@ -428,7 +542,6 @@ export default function EnhancedAddProduct() {
 
     const id = `url-${Date.now()}-${Math.random()}`;
     
-    // Agregar imagen con estado inicial
     const newImage: ImageData = {
       id,
       url: url.trim(),
@@ -441,10 +554,8 @@ export default function EnhancedAddProduct() {
     setProductImages(prev => [...prev, newImage]);
 
     try {
-      // Procesar URL a través del backend
       const processedUrl = await processImageUrl(url.trim());
       
-      // Actualizar imagen con URL procesada
       setProductImages(prev => prev.map(img => 
         img.id === id 
           ? { 
@@ -462,7 +573,6 @@ export default function EnhancedAddProduct() {
       });
 
     } catch (error) {
-      // Marcar como error
       setProductImages(prev => prev.map(img => 
         img.id === id 
           ? { ...img, uploadStatus: 'error' }
@@ -491,7 +601,6 @@ export default function EnhancedAddProduct() {
       return newImages;
     });
     
-    // Ajustar el índice actual si es necesario
     setCurrentImageIndex((prevIndex) => {
       const newLength = productImages.length - 1;
       if (newLength === 0) return 0;
@@ -514,7 +623,6 @@ export default function EnhancedAddProduct() {
     }
   };
 
-  // Función para generar SKU automático
   const generateSKU = () => {
     const formValues = watch();
     const category = formValues.category;
@@ -544,25 +652,10 @@ export default function EnhancedAddProduct() {
     });
   };
 
-  // Función para manejar selección/creación de marca
-  const handleBrandSelection = (value: string) => {
-    if (value === "new_brand") {
-      setShowBrandInput(true);
-      setBrandInput("");
-      setValue("brand", "");
-    } else {
-      setShowBrandInput(false);
-      setBrandInput("");
-      setValue("brand", value);
-    }
-  };
-
-  // Función para agregar nueva marca
   const handleAddNewBrand = () => {
     if (brandInput.trim()) {
       const newBrand = brandInput.trim();
       setExistingBrands((prev) => [...prev, newBrand].sort());
-      setValue("brand", newBrand);
       setShowBrandInput(false);
       setBrandInput("");
       toast({
@@ -572,26 +665,63 @@ export default function EnhancedAddProduct() {
     }
   };
 
-  // ✅ MUTATIONS MEJORADAS con integración real
+  // MUTATIONS CORREGIDAS
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
       console.log('🔄 Creando producto:', data);
       
-      // Esperar a que todas las imágenes se suban
       const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
       if (pendingUploads.length > 0) {
         throw new Error('Espera a que terminen de subirse todas las imágenes');
       }
 
-      // Obtener URLs de imágenes exitosas
       const uploadedImages = productImages
         .filter(img => img.uploadStatus === 'success')
         .map(img => img.url);
 
       const productData = {
-        ...data,
-        images: uploadedImages,
+        // Campos requeridos
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        category: data.category,
+        
+        // Arrays
+        images: uploadedImages.length > 0 ? uploadedImages : [],
+        features: normalizeToArray(data.features),
+        tags: normalizeToArray(data.tags),
+        
+        // Campos de texto opcionales
+        sku: normalizeTextField(data.sku),
+        brand: normalizeTextField(data.brand),
+        model: normalizeTextField(data.model),
+        specifications: normalizeTextField(data.specifications),
+        warranty: normalizeTextField(data.warranty),
+        weight: normalizeTextField(data.weight),
+        dimensions: normalizeTextField(data.dimensions),
+        promotionText: normalizeTextField(data.promotionText),
+        
+        // Campos numéricos opcionales
+        installationCost: normalizeNumericField(data.installationCost),
+        salePrice: normalizeNumericField(data.salePrice),
+        maxQuantity: data.maxQuantity ? Number(data.maxQuantity) : null,
+          
+        // Campos numéricos requeridos
+        stock: Number(data.stock) || 0,
+        warrantyMonths: Number(data.warrantyMonths) || 0,
+        stockQuantity: Number(data.stockQuantity) || 0,
+        minQuantity: Number(data.minQuantity) || 1,
+        
+        // Campos con valores por defecto
+        type: data.type || "product",
+        availability: data.availability || "in_stock",
+        
+        // Booleanos
+        isActive: Boolean(data.isActive),
+        isPromoted: Boolean(data.isPromoted),
       };
+
+      console.log('📦 Datos preparados para creación:', productData);
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -636,21 +766,58 @@ export default function EnhancedAddProduct() {
     mutationFn: async (data: ProductFormData) => {
       console.log('🔄 Actualizando producto:', productId, data);
       
-      // Esperar a que todas las imágenes se suban
       const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
       if (pendingUploads.length > 0) {
         throw new Error('Espera a que terminen de subirse todas las imágenes');
       }
 
-      // Obtener URLs de imágenes exitosas
       const uploadedImages = productImages
         .filter(img => img.uploadStatus === 'success')
         .map(img => img.url);
 
       const productData = {
-        ...data,
-        images: uploadedImages,
+        // Campos requeridos
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        category: data.category,
+        
+        // Arrays
+        images: uploadedImages.length > 0 ? uploadedImages : [],
+        features: normalizeToArray(data.features),
+        tags: normalizeToArray(data.tags),
+        
+        // Campos de texto opcionales
+        sku: normalizeTextField(data.sku),
+        brand: normalizeTextField(data.brand),
+        model: normalizeTextField(data.model),
+        specifications: normalizeTextField(data.specifications),
+        warranty: normalizeTextField(data.warranty),
+        weight: normalizeTextField(data.weight),
+        dimensions: normalizeTextField(data.dimensions),
+        promotionText: normalizeTextField(data.promotionText),
+        
+        // Campos numéricos opcionales
+        installationCost: normalizeNumericField(data.installationCost),
+        salePrice: normalizeNumericField(data.salePrice),
+        maxQuantity: data.maxQuantity ? Number(data.maxQuantity) : null,
+          
+        // Campos numéricos requeridos
+        stock: Number(data.stock) || 0,
+        warrantyMonths: Number(data.warrantyMonths) || 0,
+        stockQuantity: Number(data.stockQuantity) || 0,
+        minQuantity: Number(data.minQuantity) || 1,
+        
+        // Campos con valores por defecto
+        type: data.type || "product",
+        availability: data.availability || "in_stock",
+        
+        // Booleanos
+        isActive: Boolean(data.isActive),
+        isPromoted: Boolean(data.isPromoted),
       };
+
+      console.log('📦 Datos preparados para actualización:', productData);
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -693,7 +860,25 @@ export default function EnhancedAddProduct() {
 
   // Función de envío del formulario
   const onSubmit = (data: ProductFormData) => {
-    console.log('📋 Enviando formulario:', data);
+    console.log('📋 DEBUGGING - Datos del formulario:', data);
+    
+    // Verificar cada campo individualmente
+    console.log('🔍 CAMPOS INDIVIDUALES:', {
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      category: data.category,
+      brand: data.brand,
+      model: data.model,
+      sku: data.sku,
+      installationCost: data.installationCost,
+      salePrice: data.salePrice,
+      specifications: data.specifications,
+    });
+    
+    // Verificar valores con watch()
+    const allValues = watch();
+    console.log('👀 VALORES CON WATCH:', allValues);
     
     if (isEditMode) {
       updateProductMutation.mutate(data);
@@ -712,6 +897,45 @@ export default function EnhancedAddProduct() {
             <p className="text-gray-600">
               {loadingCategories ? 'Cargando categorías...' : 'Cargando datos del producto...'}
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si hay error en modo edición y no se pudo cargar el producto
+  if (isEditMode && productError) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">
+              <AlertCircle className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Error al cargar producto</h2>
+              <p className="text-gray-600 mt-2">No se pudo encontrar el producto solicitado</p>
+            </div>
+            <Button onClick={() => window.location.href = '/product-management'}>
+              Volver a gestión de productos
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEditMode && !loadingProductData && !productData) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">
+              <AlertCircle className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Producto no encontrado</h2>
+              <p className="text-gray-600 mt-2">El producto con ID {productId} no existe</p>
+            </div>
+            <Button onClick={() => window.location.href = '/product-management'}>
+              Volver a gestión de productos
+            </Button>
           </div>
         </div>
       </div>
@@ -823,21 +1047,24 @@ export default function EnhancedAddProduct() {
 
                   <div>
                     <Label htmlFor="category">Categoría *</Label>
-                    <Select
-                      value={watch("category")}
-                      onValueChange={(value) => setValue("category", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar categoría" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.name}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      name="category"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar categoría" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                     {errors.category && (
                       <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>
                     )}
@@ -845,18 +1072,21 @@ export default function EnhancedAddProduct() {
 
                   <div>
                     <Label htmlFor="type">Tipo</Label>
-                    <Select
-                      value={watch("type")}
-                      onValueChange={(value) => setValue("type", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="product">Producto</SelectItem>
-                        <SelectItem value="service">Servicio</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      name="type"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value || "product"} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="product">Producto</SelectItem>
+                            <SelectItem value="service">Servicio</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
 
                   <div>
@@ -899,52 +1129,79 @@ export default function EnhancedAddProduct() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="brand">Marca</Label>
-                    {!showBrandInput ? (
-                      <Select
-                        value={watch("brand") || ""}
-                        onValueChange={handleBrandSelection}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar marca" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingBrands.map((brand) => (
-                            <SelectItem key={brand} value={brand}>
-                              {brand}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="new_brand">
-                            <div className="flex items-center gap-2">
-                              <Plus className="w-4 h-4" />
-                              Agregar nueva marca
+                    <Controller
+                      name="brand"
+                      control={control}
+                      render={({ field }) => (
+                        <>
+                          {!showBrandInput ? (
+                            <Select
+                              value={field.value || ""}
+                              onValueChange={(value) => {
+                                if (value === "new_brand") {
+                                  setShowBrandInput(true);
+                                  setBrandInput("");
+                                } else {
+                                  field.onChange(value);
+                                }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar marca" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {existingBrands.map((brand) => (
+                                  <SelectItem key={brand} value={brand}>
+                                    {brand}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="new_brand">
+                                  <div className="flex items-center gap-2">
+                                    <Plus className="w-4 h-4" />
+                                    Agregar nueva marca
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="flex gap-2">
+                              <Input
+                                value={brandInput}
+                                onChange={(e) => setBrandInput(e.target.value)}
+                                placeholder="Nombre de la nueva marca"
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  if (brandInput.trim()) {
+                                    const newBrand = brandInput.trim();
+                                    setExistingBrands((prev) => [...prev, newBrand].sort());
+                                    field.onChange(newBrand);
+                                    setBrandInput("");
+                                    setShowBrandInput(false);
+                                    toast({
+                                      title: "Marca agregada",
+                                      description: `La marca "${newBrand}" ha sido agregada a la lista`,
+                                    });
+                                  }
+                                }}
+                                size="sm"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowBrandInput(false)}
+                                size="sm"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
                             </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          value={brandInput}
-                          onChange={(e) => setBrandInput(e.target.value)}
-                          placeholder="Nombre de la nueva marca"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleAddNewBrand}
-                          size="sm"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowBrandInput(false)}
-                          size="sm"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
+                          )}
+                        </>
+                      )}
+                    />
                   </div>
 
                   <div>
@@ -1019,6 +1276,19 @@ export default function EnhancedAddProduct() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="features">Características</Label>
+                  <Textarea
+                    id="features"
+                    {...register("features")}
+                    placeholder="Características separadas por comas: Resistente al agua, WiFi integrado, Visión nocturna"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Separa cada característica con una coma
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="warrantyMonths">Garantía (meses)</Label>
@@ -1028,6 +1298,15 @@ export default function EnhancedAddProduct() {
                       {...register("warrantyMonths", { valueAsNumber: true })}
                       placeholder="0"
                       min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="warranty">Descripción de Garantía</Label>
+                    <Input
+                      id="warranty"
+                      {...register("warranty")}
+                      placeholder="Ej: Garantía limitada del fabricante"
                     />
                   </div>
 
@@ -1055,6 +1334,20 @@ export default function EnhancedAddProduct() {
                       id="tags"
                       {...register("tags")}
                       placeholder="seguridad, cámara, ip, 4k"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Separa cada etiqueta con una coma
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="salePrice">Precio de Oferta</Label>
+                    <Input
+                      id="salePrice"
+                      {...register("salePrice")}
+                      placeholder="0.00"
+                      type="number"
+                      step="0.01"
                     />
                   </div>
                 </div>
@@ -1297,29 +1590,72 @@ export default function EnhancedAddProduct() {
                       El producto será visible en el catálogo
                     </p>
                   </div>
-                  <Switch
-                    id="isActive"
-                    checked={watch("isActive")}
-                    onCheckedChange={(checked) => setValue("isActive", checked)}
+                  <Controller
+                    name="isActive"
+                    control={control}
+                    render={({ field }) => (
+                      <Switch
+                        id="isActive"
+                        checked={field.value ?? true}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="availability">Disponibilidad</Label>
-                  <Select
-                    value={watch("availability")}
-                    onValueChange={(value) => setValue("availability", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar disponibilidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="in_stock">En Stock</SelectItem>
-                      <SelectItem value="out_of_stock">Agotado</SelectItem>
-                      <SelectItem value="on_order">Por Encargo</SelectItem>
-                      <SelectItem value="discontinued">Descontinuado</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="availability"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value || "in_stock"} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar disponibilidad" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_stock">En Stock</SelectItem>
+                          <SelectItem value="out_of_stock">Agotado</SelectItem>
+                          <SelectItem value="on_order">Por Encargo</SelectItem>
+                          <SelectItem value="discontinued">Descontinuado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="stockQuantity">Cantidad en Stock</Label>
+                    <Input
+                      id="stockQuantity"
+                      type="number"
+                      {...register("stockQuantity", { valueAsNumber: true })}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="minQuantity">Cantidad Mínima</Label>
+                    <Input
+                      id="minQuantity"
+                      type="number"
+                      {...register("minQuantity", { valueAsNumber: true })}
+                      placeholder="1"
+                      min="1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="maxQuantity">Cantidad Máxima</Label>
+                  <Input
+                    id="maxQuantity"
+                    type="number"
+                    {...register("maxQuantity", { valueAsNumber: true })}
+                    placeholder="Sin límite"
+                    min="1"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -1329,10 +1665,16 @@ export default function EnhancedAddProduct() {
                       Destacar este producto en el catálogo
                     </p>
                   </div>
-                  <Switch
-                    id="isPromoted"
-                    checked={watch("isPromoted")}
-                    onCheckedChange={(checked) => setValue("isPromoted", checked)}
+                  <Controller
+                    name="isPromoted"
+                    control={control}
+                    render={({ field }) => (
+                      <Switch
+                        id="isPromoted"
+                        checked={field.value ?? false}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
                   />
                 </div>
 
@@ -1346,29 +1688,6 @@ export default function EnhancedAddProduct() {
                     />
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="minQuantity">Cantidad Mínima</Label>
-                    <Input
-                      id="minQuantity"
-                      type="number"
-                      {...register("minQuantity", { valueAsNumber: true })}
-                      placeholder="1"
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="maxQuantity">Cantidad Máxima</Label>
-                    <Input
-                      id="maxQuantity"
-                      type="number"
-                      {...register("maxQuantity", { valueAsNumber: true })}
-                      placeholder="Sin límite"
-                      min="1"
-                    />
-                  </div>
-                </div>
               </CardContent>
             </Card>
 
@@ -1441,6 +1760,21 @@ export default function EnhancedAddProduct() {
                   {isProcessingImages || hasUploadingImages ? 'Procesando imágenes...' : 'Guardando...'}
                 </div>
               )}
+              
+              {/* DEBUG BUTTON - TEMPORAL */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  console.log('🔍 DEBUG - Todos los valores actuales:', watch());
+                  console.log('🔍 DEBUG - Errores del formulario:', errors);
+                  console.log('🔍 DEBUG - Estado de imágenes:', productImages);
+                }}
+                className="bg-yellow-100 text-yellow-800 text-xs"
+                size="sm"
+              >
+                🐛 Debug
+              </Button>
               
               <Button
                 type="submit"
