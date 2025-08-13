@@ -210,7 +210,7 @@ const updateEmployeeMutation = useMutation({
     if (updates.user && (updates.user.name || updates.user.username || updates.user.role || updates.user.password)) {
       const employee = employees.find(emp => emp.id === data.employeeId);
       if (employee?.userId) {
-        await apiRequest("PUT", `/api/users/${employee.userId}`, updates.user);
+        await apiRequest("PUT", `/api/stores/${user.storeId}/users/${employee.userId}`, updates.user);
       }
     }
     
@@ -243,14 +243,17 @@ const deleteEmployeeMutation = useMutation({
   mutationFn: async (employeeId: number) => {
     const employee = employees.find(emp => emp.id === employeeId);
     
+
+     // ✅ ELIMINAR USUARIO DE TENANT SCHEMA
+    if (employee?.userId) {
+      await apiRequest("DELETE", `/api/stores/${user.storeId}/users/${employee.userId}`);
+    }
+    
+    
     // ✅ ELIMINAR PERFIL DE EMPLEADO
     await apiRequest("DELETE", `/api/employees/${employeeId}`);
     
-    // ✅ ELIMINAR USUARIO DE TENANT SCHEMA
-    if (employee?.userId) {
-      await apiRequest("DELETE", `/api/users/${employee.userId}`);
-    }
-    
+   
     return { success: true };
   },
   onSuccess: () => {

@@ -1861,84 +1861,54 @@ apiRouter.get('/products/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// En index.ts, reemplaza el endpoint POST /products:
+
 apiRouter.post('/products', authenticateToken, async (req, res) => {
   try {
     console.log('🔄 POST /api/products called');
-    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
-    console.log('📋 Request body keys:', Object.keys(req.body || {}));
     
     const user = (req as any).user;
     console.log('📋 User info:', { id: user.id, storeId: user.storeId });
     
-    // Validar que req.body existe y tiene datos
-    if (!req.body || Object.keys(req.body).length === 0) {
-      console.log('❌ Request body is empty');
-      return res.status(400).json({ 
-        error: 'Request body is required',
-        received: req.body 
+    if (!user.storeId) {
+      return res.status(403).json({ 
+        error: 'Store ID is required' 
       });
     }
 
-    // Validar campo name específicamente
+    // Validar nombre del producto
     if (!req.body.name || req.body.name.trim() === '') {
-      console.log('❌ Product name is missing or empty');
-      console.log('📋 Received name field:', req.body.name);
       return res.status(400).json({ 
-        error: 'Product name is required',
-        received: {
-          name: req.body.name,
-          hasName: 'name' in req.body,
-          nameType: typeof req.body.name,
-          allFields: Object.keys(req.body)
-        }
+        error: 'Product name is required'
       });
     }
 
-    console.log('✅ Validation passed, creating product...');
-    
     const tenantStorage = await getTenantStorageWithSchema(user);
 
-    // Preparar datos del producto
+    // ✅ ASIGNAR STOREID AUTOMÁTICAMENTE
     const productData = {
+      ...req.body,
+      storeId: user.storeId,  // ← CRÍTICO: Asignar storeId del usuario
       name: req.body.name.trim(),
       description: req.body.description || '',
       price: req.body.price || '0.00',
       category: req.body.category || 'general',
       status: req.body.status || 'active',
-      imageUrl: req.body.imageUrl || null,
-      images: req.body.images || null,
-      sku: req.body.sku || null,
-      brand: req.body.brand || null,
-      model: req.body.model || null,
-      specifications: req.body.specifications || null,
-      features: req.body.features || null,
-      warranty: req.body.warranty || null,
-      availability: req.body.availability || 'in_stock',
       stockQuantity: parseInt(req.body.stockQuantity) || 0,
       minQuantity: parseInt(req.body.minQuantity) || 1,
-      maxQuantity: req.body.maxQuantity ? parseInt(req.body.maxQuantity) : null,
-      weight: req.body.weight || null,
-      dimensions: req.body.dimensions || null,
-      tags: req.body.tags || null,
-      salePrice: req.body.salePrice || null,
-      isPromoted: Boolean(req.body.isPromoted),
-      storeId: user.storeId,
-      promotionText: req.body.promotionText || null
+      isActive: req.body.isActive !== undefined ? Boolean(req.body.isActive) : true
     };
 
-    console.log('📋 Processed product data:', JSON.stringify(productData, null, 2));
+    console.log('✅ Creating product with storeId:', productData.storeId);
 
     const product = await tenantStorage.createProduct(productData);
     
-    console.log('✅ Product created successfully:', product);
     res.status(201).json(product);
-    
   } catch (error) {
     console.error('❌ Error creating product:', error);
     res.status(500).json({ 
       error: 'Failed to create product',
-      message: error.message,
-      details: error.stack
+      message: error.message 
     });
   }
 });

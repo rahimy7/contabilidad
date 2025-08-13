@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, UserPlus, Eye, Edit, Trash2, Building2, Mail, Phone, Calendar, 
   Shield, Crown, CheckCircle, XCircle, AlertCircle, UserCheck, Key, 
-  Database, Server, Store
+  Database, Server, Store, Save
 } from "lucide-react";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,6 +35,8 @@ interface User {
   source: string;
   createdAt: string;
   lastLogin?: string;
+  permissions?: string[];
+  profileImage?: string;
 }
 
 interface UserResponse {
@@ -74,9 +77,40 @@ const createUserSchema = z.object({
   role: z.string().min(1, "Rol requerido"),
   level: z.enum(['global', 'store', 'tenant']),
   storeId: z.number().optional(),
+  phone: z.string().optional(),
+  permissions: z.array(z.string()).optional(),
+});
+
+const editUserSchema = z.object({
+  name: z.string().min(2, "Nombre requerido"),
+  email: z.string().email("Email válido"),
+  phone: z.string().optional(),
+  role: z.string().min(1, "Rol requerido"),
+  status: z.enum(['active', 'inactive', 'suspended']),
+  storeId: z.number().optional(),
+  permissions: z.array(z.string()).optional(),
+  changePassword: z.boolean().default(false),
+  newPassword: z.string().optional(),
+});
+
+const changePasswordSchema = z.object({
+  newPassword: z.string().min(6, "Contraseña mínimo 6 caracteres"),
+  confirmPassword: z.string().min(6, "Confirmación requerida"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Las contraseñas no coinciden",
+  path: ["confirmPassword"],
 });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
+type EditUserForm = z.infer<typeof editUserSchema>;
+type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
+
+const availablePermissions = [
+  'products.create', 'products.read', 'products.update', 'products.delete',
+  'orders.create', 'orders.read', 'orders.update', 'orders.delete',
+  'customers.read', 'customers.update', 'customers.delete',
+  'reports.read', 'analytics.read', 'settings.update'
+];
 
 export default function SuperAdminUsers() {
   const [activeTab, setActiveTab] = useState("global");
@@ -84,7 +118,9 @@ export default function SuperAdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [userCredentials, setUserCredentials] = useState<{
     username: string;
     tempPassword: string;
@@ -97,12 +133,26 @@ export default function SuperAdminUsers() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const form = useForm<CreateUserForm>({
+  const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       level: "global",
       role: "admin",
+      permissions: [],
     },
+  });
+
+  const editForm = useForm<EditUserForm>({
+    resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      status: "active",
+      changePassword: false,
+      permissions: [],
+    },
+  });
+
+  const passwordForm = useForm<ChangePasswordForm>({
+    resolver: zodResolver(changePasswordSchema),
   });
 
   // Queries
@@ -138,7 +188,7 @@ export default function SuperAdminUsers() {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/user-metrics"] });
       setIsCreateDialogOpen(false);
-      form.reset();
+      createForm.reset();
 
       if (data.tempPassword) {
         const store = stores?.find(s => s.id === data.user.storeId);
@@ -158,6 +208,46 @@ export default function SuperAdminUsers() {
       toast({
         title: "Error",
         description: error.message || "No se pudo crear el usuario",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: EditUserForm & { level: string } }) => 
+      apiRequest("PUT", `/api/super-admin/users/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/users"] });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      editForm.reset();
+      toast({ title: "Usuario actualizado exitosamente" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el usuario",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ id, data, level }: { id: number; data: ChangePasswordForm; level: string }) => 
+      apiRequest("POST", `/api/super-admin/users/${id}/change-password`, { 
+        ...data, 
+        level 
+      }),
+    onSuccess: () => {
+      setIsPasswordDialogOpen(false);
+      setSelectedUser(null);
+      passwordForm.reset();
+      toast({ title: "Contraseña actualizada exitosamente" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo cambiar la contraseña",
         variant: "destructive",
       });
     },
@@ -202,6 +292,51 @@ export default function SuperAdminUsers() {
     createUserMutation.mutate(data);
   };
 
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    editForm.reset({
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+      role: user.role,
+      status: user.status,
+      storeId: user.storeId,
+      permissions: user.permissions || [],
+      changePassword: false,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = (data: EditUserForm) => {
+    if (!selectedUser) return;
+    
+    const updateData = {
+      ...data,
+      level: selectedUser.level
+    };
+    
+    updateUserMutation.mutate({ 
+      id: selectedUser.id, 
+      data: updateData 
+    });
+  };
+
+  const handleChangePassword = (user: User) => {
+    setSelectedUser(user);
+    passwordForm.reset();
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handleSubmitPasswordChange = (data: ChangePasswordForm) => {
+    if (!selectedUser) return;
+    
+    changePasswordMutation.mutate({
+      id: selectedUser.id,
+      data,
+      level: selectedUser.level
+    });
+  };
+
   const handleResetPassword = (user: User) => {
     resetPasswordMutation.mutate({
       id: user.id,
@@ -243,6 +378,15 @@ export default function SuperAdminUsers() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'inactive': return 'bg-gray-100 text-gray-800';
+      case 'suspended': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const users = usersResponse?.users || [];
 
   return (
@@ -259,14 +403,14 @@ export default function SuperAdminUsers() {
               Nuevo Usuario
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Crear Usuario</DialogTitle>
             </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreateUser)} className="space-y-4">
+            <Form {...createForm}>
+              <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-4">
                 <FormField
-                  control={form.control}
+                  control={createForm.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
@@ -280,7 +424,7 @@ export default function SuperAdminUsers() {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={createForm.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
@@ -294,7 +438,21 @@ export default function SuperAdminUsers() {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={createForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teléfono (Opcional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
                   name="level"
                   render={({ field }) => (
                     <FormItem>
@@ -316,9 +474,9 @@ export default function SuperAdminUsers() {
                   )}
                 />
 
-                {form.watch("level") !== "global" && (
+                {createForm.watch("level") !== "global" && (
                   <FormField
-                    control={form.control}
+                    control={createForm.control}
                     name="storeId"
                     render={({ field }) => (
                       <FormItem>
@@ -347,14 +505,63 @@ export default function SuperAdminUsers() {
                 )}
 
                 <FormField
-                  control={form.control}
+                  control={createForm.control}
                   name="role"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Rol</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="admin, user, etc." />
+                        <Input {...field} placeholder="admin, user, manager, etc." />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
+                  name="permissions"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Permisos</FormLabel>
+                      <FormDescription>
+                        Selecciona los permisos para este usuario
+                      </FormDescription>
+                      <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                        {availablePermissions.map((permission) => (
+                          <FormField
+                            key={permission}
+                            control={createForm.control}
+                            name="permissions"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={permission}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(permission)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value || [], permission])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== permission
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="text-sm font-normal">
+                                    {permission}
+                                  </FormLabel>
+                                </FormItem>
+                              )
+                            }}
+                          />
+                        ))}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -527,10 +734,19 @@ export default function SuperAdminUsers() {
                                 <Badge className={getContextColor(user.level)}>
                                   {user.level}
                                 </Badge>
+                                <Badge className={getStatusColor(user.status)}>
+                                  {user.status}
+                                </Badge>
                               </h3>
                               <p className="text-sm text-muted-foreground">
                                 @{user.username} • {user.email}
                               </p>
+                              {user.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                  <Phone className="h-3 w-3 inline mr-1" />
+                                  {user.phone}
+                                </p>
+                              )}
                               {user.storeName && (
                                 <p className="text-sm text-muted-foreground">
                                   <Building2 className="h-3 w-3 inline mr-1" />
@@ -544,10 +760,24 @@ export default function SuperAdminUsers() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleChangePassword(user)}
+                            >
+                              <Key className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleResetPassword(user)}
                               disabled={resetPasswordMutation.isPending}
                             >
-                              <Key className="h-4 w-4" />
+                              <Shield className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="destructive"
@@ -565,10 +795,10 @@ export default function SuperAdminUsers() {
                             <div className="font-medium">{user.role}</div>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Estado:</span>
-                            <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                              {user.status}
-                            </Badge>
+                            <span className="text-muted-foreground">Permisos:</span>
+                            <div className="font-medium">
+                              {user.permissions?.length || 0} asignados
+                            </div>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Creado:</span>
@@ -586,6 +816,264 @@ export default function SuperAdminUsers() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de edición de usuario */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Usuario</DialogTitle>
+            <DialogDescription>
+              Modificar información y permisos del usuario
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleUpdateUser)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rol</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Activo</SelectItem>
+                            <SelectItem value="inactive">Inactivo</SelectItem>
+                            <SelectItem value="suspended">Suspendido</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {selectedUser.level !== "global" && (
+                    <FormField
+                      control={editForm.control}
+                      name="storeId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tienda</FormLabel>
+                          <Select 
+                            onValueChange={(value) => field.onChange(parseInt(value))} 
+                            value={field.value?.toString() || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar tienda" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {stores?.map((store) => (
+                                <SelectItem key={store.id} value={store.id.toString()}>
+                                  {store.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="permissions"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Permisos</FormLabel>
+                      <FormDescription>
+                        Selecciona los permisos para este usuario
+                      </FormDescription>
+                      <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-3">
+                        {availablePermissions.map((permission) => (
+                          <FormField
+                            key={permission}
+                            control={editForm.control}
+                            name="permissions"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={permission}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(permission)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value || [], permission])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== permission
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="text-sm font-normal">
+                                    {permission}
+                                  </FormLabel>
+                                </FormItem>
+                              )
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsEditDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={updateUserMutation.isPending}>
+                    {updateUserMutation.isPending ? "Actualizando..." : "Actualizar"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de cambio de contraseña */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar Contraseña</DialogTitle>
+            <DialogDescription>
+              Establece una nueva contraseña para {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <Form {...passwordForm}>
+              <form onSubmit={passwordForm.handleSubmit(handleSubmitPasswordChange)} className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-blue-800">
+                    <UserCheck className="h-4 w-4" />
+                    <span className="font-medium">Usuario: {selectedUser.name}</span>
+                  </div>
+                  <p className="text-sm text-blue-600 mt-1">
+                    @{selectedUser.username} • {selectedUser.email}
+                  </p>
+                </div>
+
+                <FormField
+                  control={passwordForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nueva Contraseña</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} placeholder="Mínimo 6 caracteres" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={passwordForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Contraseña</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} placeholder="Repetir nueva contraseña" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsPasswordDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={changePasswordMutation.isPending}>
+                    {changePasswordMutation.isPending ? "Cambiando..." : "Cambiar Contraseña"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de credenciales */}
       <Dialog open={isCredentialsDialogOpen} onOpenChange={setIsCredentialsDialogOpen}>
@@ -664,6 +1152,11 @@ export default function SuperAdminUsers() {
                 <p className="text-sm text-muted-foreground">
                   {selectedUser.email} • Contexto: {selectedUser.level}
                 </p>
+                {selectedUser.storeName && (
+                  <p className="text-sm text-muted-foreground">
+                    Tienda: {selectedUser.storeName}
+                  </p>
+                )}
               </div>
             </div>
           )}

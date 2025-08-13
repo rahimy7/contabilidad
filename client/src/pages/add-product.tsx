@@ -38,6 +38,8 @@ import {
   Package,
   Wand2,
   AlertCircle,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 // Schema de validación
@@ -79,6 +81,8 @@ interface ImageData {
   isUploaded: boolean;
   source: 'file' | 'url';
   name: string;
+  uploadStatus?: 'pending' | 'uploading' | 'success' | 'error';
+  uploadProgress?: number;
 }
 
 interface Category {
@@ -118,14 +122,6 @@ interface Product {
   promotionText?: string;
 }
 
-// Datos de ejemplo para demostración
-const mockCategories: Category[] = [
-  { id: 1, name: "Cámaras", description: "Cámaras de seguridad IP y análogas" },
-  { id: 2, name: "Alarmas", description: "Sistemas de alarma y sensores" },
-  { id: 3, name: "Servicios", description: "Servicios de instalación y mantenimiento" },
-  { id: 4, name: "Accesorios", description: "Cables, soportes y accesorios" }
-];
-
 const mockBrands = ["Hikvision", "Dahua", "DSC", "Honeywell", "Bosch", "Axis", "Pelco"];
 
 export default function EnhancedAddProduct() {
@@ -164,32 +160,15 @@ export default function EnhancedAddProduct() {
     }
   }, []);
 
-  // Usar datos mock para demostración
-  const categories = mockCategories;
-  const loadingCategories = false;
+  // Queries para obtener datos reales
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
 
-  // Simular producto para edición
-  const mockProduct: Product = {
-    id: 1,
-    name: "Cámara de Seguridad IP 4K",
-    description: "Cámara de alta resolución con visión nocturna y detección de movimiento",
-    price: "2500",
-    category: "Cámaras",
-    type: "product",
-    brand: "Hikvision",
-    model: "DS-2CD2043G2",
-    sku: "CAM-HIK-4K-001",
-    isActive: true,
-    stock: 15,
-    specifications: "Resolución 4K, Visión nocturna 30m, IP67",
-    installationCost: "500",
-    warrantyMonths: 24,
-    images: [
-      "https://picsum.photos/400/300?random=1",
-      "https://picsum.photos/400/300?random=2",
-      "https://picsum.photos/400/300?random=3"
-    ]
-  };
+  const { data: productData, isLoading: loadingProductData } = useQuery<Product>({
+    queryKey: ["/api/products", productId],
+    enabled: isEditMode && !!productId,
+  });
 
   // Configurar formulario
   const {
@@ -216,134 +195,292 @@ export default function EnhancedAddProduct() {
 
   // Cargar datos del producto en modo edición
   useEffect(() => {
-    if (isEditMode && productId) {
-      setIsLoadingProduct(true);
+    if (isEditMode && productData) {
+      console.log('🔄 Cargando producto para edición:', productData);
       
-      // Simular carga de datos
-      setTimeout(() => {
-        const product = mockProduct; // En producción sería una query real
-        
-        console.log('🔄 Cargando producto para edición:', product);
-        console.log('📸 Imágenes del producto:', product.images);
-        
-        reset({
-          name: product.name,
-          description: product.description || "",
-          price: product.price || "",
-          category: product.category || "",
-          type: product.type || "product",
-          brand: product.brand || "",
-          model: product.model || "",
-          sku: product.sku || "",
-          isActive: product.isActive ?? true,
-          stock: product.stock || 0,
-          specifications: product.specifications || "",
-          installationCost: product.installationCost || "",
-          warrantyMonths: product.warrantyMonths || 0,
-          images: product.images || [],
-        });
+      reset({
+        name: productData.name,
+        description: productData.description || "",
+        price: productData.price || "",
+        category: productData.category || "",
+        type: productData.type || "product",
+        brand: productData.brand || "",
+        model: productData.model || "",
+        sku: productData.sku || "",
+        isActive: productData.isActive ?? true,
+        stock: productData.stock || 0,
+        specifications: productData.specifications || "",
+        installationCost: productData.installationCost || "",
+        warrantyMonths: productData.warrantyMonths || 0,
+        images: productData.images || [],
+      });
 
-        // Cargar imágenes tanto del array images como del imageUrl
-        const imagesToLoad = [];
-        
-        if (product.images && product.images.length > 0) {
-          imagesToLoad.push(...product.images);
-        }
-        
-        if (product.imageUrl && !imagesToLoad.includes(product.imageUrl)) {
-          imagesToLoad.push(product.imageUrl);
-        }
-        
-        console.log('📸 Imágenes a cargar:', imagesToLoad);
-        
-        if (imagesToLoad.length > 0) {
-          loadExistingImages(imagesToLoad);
-        } else {
-          console.log('⚠️ No hay imágenes para cargar');
-          setProductImages([]);
-        }
-        
-        setIsLoadingProduct(false);
-      }, 1000);
+      // Cargar imágenes existentes
+      const imagesToLoad = [];
+      if (productData.images && productData.images.length > 0) {
+        imagesToLoad.push(...productData.images);
+      }
+      if (productData.imageUrl && !imagesToLoad.includes(productData.imageUrl)) {
+        imagesToLoad.push(productData.imageUrl);
+      }
+      
+      if (imagesToLoad.length > 0) {
+        loadExistingImages(imagesToLoad);
+      }
     }
-  }, [isEditMode, productId, reset]);
+  }, [isEditMode, productData, reset]);
 
   // Funciones para gestión de imágenes
   const loadExistingImages = (imageUrls: string[]) => {
-    console.log('📸 loadExistingImages llamado con:', imageUrls);
+    console.log('📸 Cargando imágenes existentes:', imageUrls);
     
     const existingImages: ImageData[] = imageUrls.map((url, index) => ({
       id: `existing-${index}-${Date.now()}-${Math.random()}`,
       url,
       isUploaded: true,
       source: 'url' as const,
-      name: `imagen-${index + 1}`
+      name: `imagen-${index + 1}`,
+      uploadStatus: 'success'
     }));
     
-    console.log('📸 Imágenes creadas:', existingImages);
     setProductImages(existingImages);
-    setCurrentImageIndex(0); // Resetear el índice a la primera imagen
+    setCurrentImageIndex(0);
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ FUNCIÓN MEJORADA: Upload de archivo a Supabase
+  const uploadFileToSupabase = async (file: File): Promise<string> => {
+    try {
+      console.log('🔄 Subiendo archivo a Supabase:', file.name);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al subir imagen');
+      }
+
+      const data = await response.json();
+      console.log('✅ Archivo subido exitosamente:', data.imageUrl);
+      
+      return data.imageUrl;
+    } catch (error) {
+      console.error('❌ Error subiendo archivo:', error);
+      throw error;
+    }
+  };
+
+  // ✅ FUNCIÓN MEJORADA: Procesar URL de imagen
+  const processImageUrl = async (imageUrl: string): Promise<string> => {
+    try {
+      console.log('🔄 Procesando URL de imagen:', imageUrl);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+      
+      const response = await fetch('/api/process-image-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al procesar URL');
+      }
+
+      const data = await response.json();
+      console.log('✅ URL procesada exitosamente:', data.imageUrl);
+      
+      return data.imageUrl;
+    } catch (error) {
+      console.error('❌ Error procesando URL:', error);
+      throw error;
+    }
+  };
+
+  // ✅ FUNCIÓN MEJORADA: Manejar upload de archivos con progreso
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file) => {
-      const id = `file-${Date.now()}-${Math.random()}`;
-      const url = URL.createObjectURL(file);
-      
-      setProductImages((prev) => [
-        ...prev,
-        {
-          id,
-          url,
-          file,
-          isUploaded: false,
-          source: 'file',
-          name: file.name,
-        },
-      ]);
-    });
-  };
+    setIsProcessingImages(true);
 
-  const handleAddImageUrl = () => {
-    const url = prompt("Ingresa la URL de la imagen:");
-    if (url && url.trim()) {
-      // Validar que sea una URL válida
-      try {
-        new URL(url.trim());
-        const id = `url-${Date.now()}-${Math.random()}`;
-        console.log('🔗 Agregando imagen por URL:', url.trim());
-        
-        setProductImages((prev) => [
-          ...prev,
-          {
-            id,
-            url: url.trim(),
-            isUploaded: true,
-            source: 'url',
-            name: 'Imagen externa',
-          },
-        ]);
-        
+    for (const file of Array.from(files)) {
+      // Validaciones
+      if (!file.type.startsWith('image/')) {
         toast({
-          title: "Imagen agregada",
-          description: "La imagen se ha agregado correctamente",
+          title: "Archivo inválido",
+          description: `${file.name} no es una imagen válida`,
+          variant: "destructive",
         });
-      } catch (error) {
+        continue;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
         toast({
-          title: "URL inválida",
-          description: "Por favor ingresa una URL válida",
+          title: "Archivo muy grande",
+          description: `${file.name} excede el límite de 5MB`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      const id = `file-${Date.now()}-${Math.random()}`;
+      const tempUrl = URL.createObjectURL(file);
+      
+      // Agregar imagen con estado inicial
+      const newImage: ImageData = {
+        id,
+        url: tempUrl,
+        file,
+        isUploaded: false,
+        source: 'file',
+        name: file.name,
+        uploadStatus: 'uploading',
+        uploadProgress: 0,
+      };
+
+      setProductImages(prev => [...prev, newImage]);
+
+      try {
+        // Subir archivo a Supabase
+        const uploadedUrl = await uploadFileToSupabase(file);
+        
+        // Actualizar imagen con URL real
+        setProductImages(prev => prev.map(img => 
+          img.id === id 
+            ? { 
+                ...img, 
+                url: uploadedUrl, 
+                isUploaded: true, 
+                uploadStatus: 'success',
+                uploadProgress: 100
+              }
+            : img
+        ));
+
+        // Liberar blob temporal
+        URL.revokeObjectURL(tempUrl);
+
+        toast({
+          title: "Imagen subida",
+          description: `${file.name} se ha subido correctamente`,
+        });
+
+      } catch (error) {
+        // Marcar como error
+        setProductImages(prev => prev.map(img => 
+          img.id === id 
+            ? { ...img, uploadStatus: 'error' }
+            : img
+        ));
+
+        toast({
+          title: "Error al subir imagen",
+          description: `No se pudo subir ${file.name}: ${error.message}`,
           variant: "destructive",
         });
       }
     }
+
+    setIsProcessingImages(false);
+    // Resetear input
+    event.target.value = '';
+  };
+
+  // ✅ FUNCIÓN MEJORADA: Agregar imagen por URL
+  const handleAddImageUrl = async () => {
+    const url = prompt("Ingresa la URL de la imagen:");
+    if (!url || !url.trim()) return;
+
+    try {
+      // Validar URL
+      new URL(url.trim());
+    } catch {
+      toast({
+        title: "URL inválida",
+        description: "Por favor ingresa una URL válida",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessingImages(true);
+
+    const id = `url-${Date.now()}-${Math.random()}`;
+    
+    // Agregar imagen con estado inicial
+    const newImage: ImageData = {
+      id,
+      url: url.trim(),
+      isUploaded: false,
+      source: 'url',
+      name: 'Imagen externa',
+      uploadStatus: 'uploading',
+    };
+
+    setProductImages(prev => [...prev, newImage]);
+
+    try {
+      // Procesar URL a través del backend
+      const processedUrl = await processImageUrl(url.trim());
+      
+      // Actualizar imagen con URL procesada
+      setProductImages(prev => prev.map(img => 
+        img.id === id 
+          ? { 
+              ...img, 
+              url: processedUrl, 
+              isUploaded: true, 
+              uploadStatus: 'success'
+            }
+          : img
+      ));
+
+      toast({
+        title: "Imagen agregada",
+        description: "La imagen se ha procesado y agregado correctamente",
+      });
+
+    } catch (error) {
+      // Marcar como error
+      setProductImages(prev => prev.map(img => 
+        img.id === id 
+          ? { ...img, uploadStatus: 'error' }
+          : img
+      ));
+
+      toast({
+        title: "Error al procesar imagen",
+        description: `No se pudo procesar la URL: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+
+    setIsProcessingImages(false);
   };
 
   const removeImage = (id: string) => {
     console.log('🗑️ Removiendo imagen con ID:', id);
-    console.log('📸 Imágenes antes de remover:', productImages.length);
     
     setProductImages((prev) => {
       const imageToRemove = prev.find(img => img.id === id);
@@ -351,7 +488,6 @@ export default function EnhancedAddProduct() {
         URL.revokeObjectURL(imageToRemove.url);
       }
       const newImages = prev.filter(img => img.id !== id);
-      console.log('📸 Imágenes después de remover:', newImages.length);
       return newImages;
     });
     
@@ -366,17 +502,15 @@ export default function EnhancedAddProduct() {
 
   const nextImage = () => {
     if (productImages.length > 0) {
-      const newIndex = (currentImageIndex + 1) % productImages.length;
-      console.log('➡️ Navegando a imagen:', newIndex, productImages[newIndex]?.url);
-      setCurrentImageIndex(newIndex);
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % productImages.length);
     }
   };
 
   const prevImage = () => {
     if (productImages.length > 0) {
-      const newIndex = (currentImageIndex - 1 + productImages.length) % productImages.length;
-      console.log('⬅️ Navegando a imagen:', newIndex, productImages[newIndex]?.url);
-      setCurrentImageIndex(newIndex);
+      setCurrentImageIndex((prevIndex) => 
+        (prevIndex - 1 + productImages.length) % productImages.length
+      );
     }
   };
 
@@ -396,7 +530,6 @@ export default function EnhancedAddProduct() {
       return;
     }
     
-    // Crear SKU: CATEGORIA-MARCA-NOMBRE-RANDOM
     const categoryCode = category.substring(0, 3).toUpperCase();
     const brandCode = brand ? brand.substring(0, 3).toUpperCase() : "GEN";
     const nameCode = name.substring(0, 3).toUpperCase();
@@ -439,19 +572,47 @@ export default function EnhancedAddProduct() {
     }
   };
 
-  // Mutations simuladas
+  // ✅ MUTATIONS MEJORADAS con integración real
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      setIsProcessingImages(true);
+      console.log('🔄 Creando producto:', data);
       
-      // Simular proceso de creación
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Creando producto:', data);
-      console.log('Imágenes:', productImages);
-      
-      setIsProcessingImages(false);
-      return { id: Date.now(), ...data };
+      // Esperar a que todas las imágenes se suban
+      const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
+      if (pendingUploads.length > 0) {
+        throw new Error('Espera a que terminen de subirse todas las imágenes');
+      }
+
+      // Obtener URLs de imágenes exitosas
+      const uploadedImages = productImages
+        .filter(img => img.uploadStatus === 'success')
+        .map(img => img.url);
+
+      const productData = {
+        ...data,
+        images: uploadedImages,
+      };
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(productData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear producto');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -459,7 +620,7 @@ export default function EnhancedAddProduct() {
         description: "El producto se ha creado correctamente",
       });
       
-      // Redireccionar a gestión de productos
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       window.location.href = '/product-management';
     },
     onError: (error: any) => {
@@ -468,22 +629,49 @@ export default function EnhancedAddProduct() {
         description: error.message || "Error al crear el producto",
         variant: "destructive",
       });
-      setIsProcessingImages(false);
     }
   });
 
   const updateProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      setIsProcessingImages(true);
+      console.log('🔄 Actualizando producto:', productId, data);
       
-      // Simular proceso de actualización
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Actualizando producto:', productId, data);
-      console.log('Imágenes:', productImages);
-      
-      setIsProcessingImages(false);
-      return { id: productId, ...data };
+      // Esperar a que todas las imágenes se suban
+      const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
+      if (pendingUploads.length > 0) {
+        throw new Error('Espera a que terminen de subirse todas las imágenes');
+      }
+
+      // Obtener URLs de imágenes exitosas
+      const uploadedImages = productImages
+        .filter(img => img.uploadStatus === 'success')
+        .map(img => img.url);
+
+      const productData = {
+        ...data,
+        images: uploadedImages,
+      };
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No hay token de autenticación disponible');
+      }
+
+      const response = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(productData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar producto');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -491,7 +679,7 @@ export default function EnhancedAddProduct() {
         description: "El producto se ha actualizado correctamente",
       });
       
-      // Redireccionar a gestión de productos
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       window.location.href = '/product-management';
     },
     onError: (error: any) => {
@@ -500,13 +688,12 @@ export default function EnhancedAddProduct() {
         description: error.message || "Error al actualizar el producto",
         variant: "destructive",
       });
-      setIsProcessingImages(false);
     }
   });
 
   // Función de envío del formulario
   const onSubmit = (data: ProductFormData) => {
-    console.log('Enviando formulario:', data);
+    console.log('📋 Enviando formulario:', data);
     
     if (isEditMode) {
       updateProductMutation.mutate(data);
@@ -516,18 +703,24 @@ export default function EnhancedAddProduct() {
   };
 
   // Estados de carga
-  if (isLoadingProduct) {
+  if (loadingCategories || (isEditMode && loadingProductData)) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-gray-600">Cargando datos del producto...</p>
+            <p className="text-gray-600">
+              {loadingCategories ? 'Cargando categorías...' : 'Cargando datos del producto...'}
+            </p>
           </div>
         </div>
       </div>
     );
   }
+
+  // Verificar si hay imágenes pendientes o fallidas
+  const hasUploadingImages = productImages.some(img => img.uploadStatus === 'uploading');
+  const hasFailedImages = productImages.some(img => img.uploadStatus === 'error');
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
@@ -561,6 +754,33 @@ export default function EnhancedAddProduct() {
           </Badge>
         )}
       </div>
+
+      {/* Alerta para imágenes pendientes o fallidas */}
+      {(hasUploadingImages || hasFailedImages) && (
+        <div className="mb-6">
+          {hasUploadingImages && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-blue-800 font-medium">
+                  Subiendo imágenes... Por favor espera antes de guardar.
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {hasFailedImages && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span className="text-red-800 font-medium">
+                  Algunas imágenes fallaron al subirse. Elimina las imágenes con error y vuelve a intentarlo.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -743,7 +963,7 @@ export default function EnhancedAddProduct() {
                         id="sku"
                         {...register("sku")}
                         placeholder="Ej: CAM-HIK-4K-001"
-                        disabled={isEditMode} // SKU solo lectura en modo edición
+                        disabled={isEditMode}
                         className={isEditMode ? "bg-gray-50" : ""}
                       />
                       {!isEditMode && (
@@ -856,24 +1076,62 @@ export default function EnhancedAddProduct() {
                 {/* Galería de imágenes */}
                 {productImages.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="text-xs text-gray-500 mb-2">
-                      {productImages.length} imagen{productImages.length !== 1 ? 'es' : ''} cargada{productImages.length !== 1 ? 's' : ''}
+                    <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+                      <span>{productImages.length} imagen{productImages.length !== 1 ? 'es' : ''}</span>
+                      {hasUploadingImages && (
+                        <span className="flex items-center gap-1 text-blue-600">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Subiendo...
+                        </span>
+                      )}
+                      {hasFailedImages && (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <AlertCircle className="w-3 h-3" />
+                          Con errores
+                        </span>
+                      )}
                     </div>
                     
                     {/* Imagen principal */}
                     <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={productImages[currentImageIndex]?.url}
-                        alt={`Imagen ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                        onLoad={() => console.log('✅ Imagen cargada exitosamente:', productImages[currentImageIndex]?.url)}
-                        onError={(e) => {
-                          console.error('❌ Error cargando imagen:', productImages[currentImageIndex]?.url);
-                          console.error('Error completo:', e);
-                          // Reemplazar con imagen de placeholder si falla
-                          e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Imagen+No+Disponible';
-                        }}
-                      />
+                      {productImages[currentImageIndex] && (
+                        <>
+                          <img
+                            src={productImages[currentImageIndex].url}
+                            alt={`Imagen ${currentImageIndex + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('❌ Error cargando imagen:', productImages[currentImageIndex]?.url);
+                              e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Error+al+cargar';
+                            }}
+                          />
+
+                          {/* Overlay de estado de upload */}
+                          {productImages[currentImageIndex].uploadStatus === 'uploading' && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                              <div className="text-center text-white">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                                <p className="text-sm">Subiendo...</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {productImages[currentImageIndex].uploadStatus === 'error' && (
+                            <div className="absolute inset-0 bg-red-500 bg-opacity-50 flex items-center justify-center">
+                              <div className="text-center text-white">
+                                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                                <p className="text-sm">Error al subir</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {productImages[currentImageIndex].uploadStatus === 'success' && (
+                            <div className="absolute top-2 left-2 bg-green-500 bg-opacity-80 text-white p-1 rounded">
+                              <Check className="w-4 h-4" />
+                            </div>
+                          )}
+                        </>
+                      )}
                       
                       {/* Controles de navegación */}
                       {productImages.length > 1 && (
@@ -905,10 +1163,7 @@ export default function EnhancedAddProduct() {
                         variant="destructive"
                         size="sm"
                         className="absolute top-2 right-2 opacity-80 hover:opacity-100"
-                        onClick={() => {
-                          console.log('🗑️ Eliminando imagen:', productImages[currentImageIndex]?.id);
-                          removeImage(productImages[currentImageIndex]?.id);
-                        }}
+                        onClick={() => removeImage(productImages[currentImageIndex]?.id)}
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -928,23 +1183,38 @@ export default function EnhancedAddProduct() {
                           <button
                             key={image.id}
                             type="button"
-                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                            className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
                               index === currentImageIndex ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                             }`}
-                            onClick={() => {
-                              console.log('🖼️ Cambiando a imagen:', index, image.url);
-                              setCurrentImageIndex(index);
-                            }}
+                            onClick={() => setCurrentImageIndex(index)}
                           >
                             <img
                               src={image.url}
                               alt={`Miniatura ${index + 1}`}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                // Fallback para miniaturas también
                                 e.currentTarget.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=?';
                               }}
                             />
+                            
+                            {/* Indicador de estado en miniatura */}
+                            {image.uploadStatus === 'uploading' && (
+                              <div className="absolute inset-0 bg-blue-500 bg-opacity-70 flex items-center justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              </div>
+                            )}
+                            
+                            {image.uploadStatus === 'error' && (
+                              <div className="absolute inset-0 bg-red-500 bg-opacity-70 flex items-center justify-center">
+                                <AlertCircle className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                            
+                            {image.uploadStatus === 'success' && (
+                              <div className="absolute top-0 right-0 bg-green-500 text-white p-0.5">
+                                <Check className="w-2 h-2" />
+                              </div>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -973,8 +1243,13 @@ export default function EnhancedAddProduct() {
                       size="sm"
                       onClick={() => document.getElementById('image-upload')?.click()}
                       className="flex items-center gap-2 flex-1"
+                      disabled={isProcessingImages}
                     >
-                      <Upload className="w-4 h-4" />
+                      {isProcessingImages ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
                       Subir Imagen
                     </Button>
                     <Button
@@ -983,6 +1258,7 @@ export default function EnhancedAddProduct() {
                       size="sm"
                       onClick={handleAddImageUrl}
                       className="flex items-center gap-2 flex-1"
+                      disabled={isProcessingImages}
                     >
                       <LinkIcon className="w-4 h-4" />
                       Agregar URL
@@ -1159,19 +1435,19 @@ export default function EnhancedAddProduct() {
             </div>
 
             <div className="flex items-center gap-3">
-              {(isProcessingImages || isSubmitting) && (
+              {(isProcessingImages || isSubmitting || hasUploadingImages) && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <div className="animate-spin w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full" />
-                  {isProcessingImages ? 'Procesando imágenes...' : 'Guardando...'}
+                  {isProcessingImages || hasUploadingImages ? 'Procesando imágenes...' : 'Guardando...'}
                 </div>
               )}
               
               <Button
                 type="submit"
-                disabled={isSubmitting || isProcessingImages}
+                disabled={isSubmitting || isProcessingImages || hasUploadingImages || hasFailedImages}
                 className="min-w-[120px]"
               >
-                {isSubmitting || isProcessingImages ? (
+                {isSubmitting ? (
                   <>
                     <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />
                     {isEditMode ? 'Actualizando...' : 'Creando...'}
@@ -1185,8 +1461,16 @@ export default function EnhancedAddProduct() {
               </Button>
             </div>
           </div>
+          
+          {/* Mensaje de ayuda para estado del botón */}
+          {(hasUploadingImages || hasFailedImages) && (
+            <div className="mt-3 text-xs text-gray-500">
+              {hasUploadingImages && "⏳ Espera a que terminen de subirse todas las imágenes"}
+              {hasFailedImages && "❌ Elimina las imágenes con error antes de continuar"}
+            </div>
+          )}
         </div>
       </form>
     </div>
   );
-} 
+}

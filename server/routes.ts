@@ -81,7 +81,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // MULTER CONFIGURATION
 // ================================
 const upload = multer({
-  dest: "uploads/",
+  storage: multer.memoryStorage(), // ← CRÍTICO: usar memoria en lugar de disco
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -677,7 +677,47 @@ const validateImageUrlHandler = async (req: any, res: any) => {
   }
 };
 
+// Reemplaza el uploadImageHandler en routes.ts con esto:
+
 const uploadImageHandler = async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const user = req.user as AuthUser;
+    console.log('📁 Processing uploaded file:', req.file.originalname);
+    
+    // ✅ USAR SUPABASE en lugar de local storage
+    const { SupabaseStorageManager } = await import('./supabase-storage');
+    const storageManager = new SupabaseStorageManager(user.storeId);
+    
+    // Upload usando el buffer del archivo
+    const imageUrl = await storageManager.uploadFromBuffer(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+    
+    console.log('✅ Image uploaded to Supabase:', imageUrl);
+    
+    res.json({ 
+      success: true, 
+      imageUrl,
+      originalName: req.file.originalname,
+      message: 'Imagen subida a Supabase exitosamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error uploading to Supabase:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload image',
+      message: (error as Error).message 
+    });
+  }
+};
+//carga a folder public
+/* const uploadImageHandler = async (req: any, res: any) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -702,7 +742,7 @@ const uploadImageHandler = async (req: any, res: any) => {
       message: (error as Error).message 
     });
   }
-};
+}; */
 
 // ================================
 // USER MANAGEMENT FUNCTIONS
@@ -3523,7 +3563,7 @@ router.post('/stores/:storeId/users', authenticateToken, async (req: any, res: a
     const user = req.user as AuthUser;
     
     // Verificar permisos: solo super_admin o admin de la misma tienda
-    if (user.role !== 'super_admin' && user.storeId !== storeId) {
+     if (!['super_admin', 'store_admin'].includes(user.role) && user.storeId !== storeId) {
       return res.status(403).json({ error: 'Not authorized to create users for this store' });
     }
     
@@ -3606,8 +3646,9 @@ router.put('/stores/:storeId/users/:userId', authenticateToken, async (req: any,
     const userId = parseInt(req.params.userId);
     const user = req.user as AuthUser;
     
-    // Verificar permisos
-    if (user.role !== 'super_admin' && user.storeId !== storeId) {
+    
+    // ✅ PERMITIR store_admin
+    if (!['super_admin', 'store_admin'].includes(user.role) && user.storeId !== storeId) {
       return res.status(403).json({ error: 'Not authorized to update users for this store' });
     }
     
@@ -3619,7 +3660,8 @@ router.put('/stores/:storeId/users/:userId', authenticateToken, async (req: any,
     }
     
     // Actualizar usuario usando master storage
-    const updatedUser = await masterStorage.updateStoreUser(userId, updateData);
+   const tenantStorage = await storageFactory.getTenantStorage(storeId);
+const updatedUser = await tenantStorage.updateUser(userId, updateData);
     
     if (!updatedUser) {
       return res.status(404).json({ error: 'User not found' });
@@ -3644,7 +3686,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     const user = req.user as AuthUser;
     
     // Verificar permisos
-    if (user.role !== 'super_admin' && user.storeId !== storeId) {
+     if (!['super_admin', 'store_admin'].includes(user.role) && user.storeId !== storeId) {
       return res.status(403).json({ error: 'Not authorized to delete users for this store' });
     }
     

@@ -226,17 +226,21 @@ export default function ImprovedProductManagement() {
 
   // Mutation para eliminar producto
   const deleteProductMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await fetch(`/api/products/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al eliminar el producto');
+   mutationFn: async (id: number) => {
+    const response = await fetch(`/api/products/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Content-Type': 'application/json'
       }
+    });
 
-      return response.json();
-    },
+    if (!response.ok) {
+      throw new Error('Error al eliminar el producto');
+    }
+
+    return response.json();
+  },
     onSuccess: () => {
       toast({
         title: "Producto eliminado",
@@ -336,6 +340,11 @@ export default function ImprovedProductManagement() {
       window.location.href = `/add-product?mode=edit&id=${product.id}`;
       return;
     }
+
+     if (mode === 'create') {
+    window.location.href = `/add-product`;
+    return;
+  }
     
     setDialogMode(mode);
     setSelectedProduct(product || null);

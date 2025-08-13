@@ -239,15 +239,7 @@ export class SupabaseStorageManager {
   }): string {
     const { data } = supabaseAdmin.storage
       .from(this.bucket)
-      .getPublicUrl(path, {
-        transform: options ? {
-          width: options.width,
-          height: options.height,
-          quality: options.quality || 80,
-          format: options.format
-        } : undefined
-      });
-    
+      .getPublicUrl(path)
     return data.publicUrl;
   }
 
