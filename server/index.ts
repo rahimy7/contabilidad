@@ -1418,13 +1418,29 @@ apiRouter.post('/employees/generate-id', authenticateToken, async (req, res) => 
 
 apiRouter.get('/store-responses', authenticateToken, async (req, res) => {
   try {
-    const user = (req as any).user as { storeId: number };
-    const responses = await masterStorage.getAllAutoResponses(user.storeId);
+    const user = (req as any).user; 
+    
+    console.log(`🔍 Fetching store-responses for store: ${user.storeId}`);
+    
+    // ✅ USAR TENANT STORAGE en lugar de master storage
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    let responses = await tenantStorage.getAllAutoResponses();
+    
+    console.log(`📋 Found ${responses.length} auto-responses`);
+    
+    // Si no hay respuestas, crear las por defecto
+    if (responses.length === 0) {
+      console.log(`⚠️ No responses found for store ${user.storeId}, creating defaults...`);
+      await tenantStorage.createDefaultAutoResponses();
+      responses = await tenantStorage.getAllAutoResponses();
+      console.log(`✅ Created ${responses.length} default responses`);
+    }
+    
     res.setHeader('Content-Type', 'application/json');
     res.json(responses);
   } catch (error) {
-    console.error('Error fetching auto-responses:', error);
-    res.status(500).json({ error: 'Failed to fetch auto-responses' });
+    console.error('Error fetching store-responses:', error);
+    res.status(500).json({ error: 'Failed to fetch store-responses', details: error.message });
   }
 });
 

@@ -164,9 +164,10 @@ export default function AutoResponsesPage() {
   const { toast } = useToast();
 
   // Fetch auto responses
-  const { data: responses, isLoading } = useQuery<AutoResponse[]>({
-    queryKey: ["/api/store-responses"],
-  });
+ const { data: responses, isLoading } = useQuery<AutoResponse[]>({
+  queryKey: ["/api/store-responses"],
+  queryFn: () => apiRequest("GET", "/api/store-responses"),
+});
 
   // Create response mutation
   const createResponseMutation = useMutation({
