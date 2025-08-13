@@ -1558,141 +1558,57 @@ router.get('/conversations/:id/messages', authenticateToken, async (req: any, re
 
 // En routes.ts - ELIMINAR la segunda definición duplicada y mantener solo esta:
 
+// Reemplaza la ruta actual con esta versión que copia el envío automático
+
 router.post('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
-  console.log('🚀 [ROUTE START] POST /conversations/:id/messages - Function called');
+  console.log('🚀 [WORKING ROUTE] Using auto-message implementation');
   
   try {
     const conversationId = parseInt(req.params.id);
     const { content, messageType = 'text' } = req.body;
     const user = req.user as AuthUser;
     
-    console.log('📤 [STEP 1] Route parameters:', {
-      conversationId,
-      content: content?.substring(0, 50),
-      messageType,
-      userId: user.id,
-      storeId: user.storeId
-    });
+    console.log('📤 [STEP 1] Route parameters:', { conversationId, storeId: user.storeId });
     
     if (!content || content.trim() === '') {
-      console.log('❌ [VALIDATION] Content validation failed');
       return res.status(400).json({ error: 'Message content is required' });
     }
     
-    console.log('✅ [STEP 2] Getting tenant storage...');
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    console.log('✅ [STEP 3] Fetching conversation...');
     const conversation = await tenantStorage.getConversationById(conversationId);
     if (!conversation) {
-      console.log('❌ [ERROR] Conversation not found:', conversationId);
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    console.log('✅ [STEP 4] Fetching customer...');
     const customer = await tenantStorage.getCustomerById(conversation.customerId);
     if (!customer) {
-      console.log('❌ [ERROR] Customer not found:', conversation.customerId);
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    console.log(`📞 [STEP 5] Customer details:`, {
-      customerId: customer.id,
-      phone: customer.phone,
-      conversationId
-    });
+    console.log(`📞 Customer phone: ${customer.phone}`);
     
-    // ✅ ENVÍO POR WHATSAPP CON LOGS DETALLADOS
+    // ✅ USAR LA MISMA FUNCIÓN QUE LOS MENSAJES AUTOMÁTICOS
     let whatsappSuccess = false;
     let whatsappMessageId = null;
     
     try {
-      console.log('🔄 [WHATSAPP START] Attempting WhatsApp send...');
+      console.log('📤 [WHATSAPP] Using sendWhatsAppMessageDirect from auto-messages');
       
-      console.log('📚 [IMPORT] Importing storage...');
-      const { getMasterStorage } = await import('./storage/index.js');
-      const masterStorage = getMasterStorage();
+      // ✅ IMPORTAR LA FUNCIÓN QUE FUNCIONA
+      const { sendWhatsAppMessageDirect } = await import('./whatsapp-simple.js');
       
-      console.log('⚙️ [CONFIG] Getting WhatsApp config for store:', user.storeId);
-      const config = await masterStorage.getWhatsAppConfig(user.storeId);
+      // ✅ LLAMAR EXACTAMENTE IGUAL QUE LOS AUTOMÁTICOS
+      await sendWhatsAppMessageDirect(customer.phone, content, user.storeId);
       
-      if (!config) {
-        console.log('❌ [CONFIG ERROR] No WhatsApp config found');
-        throw new Error(`No WhatsApp config for store ${user.storeId}`);
-      }
-      
-      console.log('🔍 [CONFIG CHECK] Config validation:', {
-        hasAccessToken: !!config.accessToken,
-        hasPhoneNumberId: !!config.phoneNumberId,
-        tokenLength: config.accessToken?.length,
-        phoneNumberId: config.phoneNumberId
-      });
-
-      if (!config.accessToken || !config.phoneNumberId) {
-        console.log('❌ [CONFIG ERROR] Incomplete WhatsApp configuration');
-        throw new Error('Incomplete WhatsApp configuration');
-      }
-      
-      const cleanToken = config.accessToken.trim().replace(/\s+/g, '');
-      const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
-      
-      const payload = {
-        messaging_product: "whatsapp",
-        to: customer.phone,
-        type: "text",
-        text: { body: content }
-      };
-
-      console.log('🌐 [API CALL] Making WhatsApp API request:', {
-        url,
-        to: customer.phone,
-        contentLength: content.length,
-        tokenPreview: cleanToken.substring(0, 20) + '...'
-      });
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${cleanToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-      
-      console.log('📡 [API RESPONSE] WhatsApp API responded:', {
-        status: response.status,
-        statusText: response.statusText,
-        bodyPreview: responseText.substring(0, 100),
-        ok: response.ok
-      });
-
-      if (response.ok) {
-        const result = JSON.parse(responseText);
-        whatsappMessageId = result.messages?.[0]?.id;
-        whatsappSuccess = true;
-        
-        console.log('✅ [WHATSAPP SUCCESS] Message sent:', {
-          messageId: whatsappMessageId,
-          to: customer.phone
-        });
-      } else {
-        console.log('❌ [WHATSAPP ERROR] API error:', {
-          status: response.status,
-          body: responseText
-        });
-      }
+      whatsappSuccess = true;
+      console.log('✅ [WHATSAPP] Message sent using auto-message function');
       
     } catch (whatsappError) {
-      console.log('❌ [WHATSAPP EXCEPTION] Error in WhatsApp sending:', {
-        error: whatsappError.message,
-        type: whatsappError.constructor.name,
-        stack: whatsappError.stack?.split('\n')[0]
-      });
+      console.error('❌ [WHATSAPP] Error:', whatsappError.message);
     }
     
-    console.log('💾 [DATABASE] Saving message to database...');
+    // Guardar en BD
     const messageData = {
       conversationId,
       content: content.trim(),
@@ -1706,16 +1622,8 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
       deliveryStatus: whatsappSuccess ? 'sent' : 'failed'
     };
     
-    console.log('📝 [DATABASE] Message data to save:', {
-      conversationId: messageData.conversationId,
-      contentLength: messageData.content.length,
-      deliveryStatus: messageData.deliveryStatus,
-      whatsappMessageId: messageData.whatsappMessageId
-    });
-    
     const newMessage = await tenantStorage.createMessage(messageData);
     
-    console.log('🔄 [DATABASE] Updating conversation...');
     await tenantStorage.updateConversation(conversationId, {
       lastMessageAt: new Date(),
     });
@@ -1727,21 +1635,11 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
       storeId: user.storeId
     };
     
-    console.log('🏁 [ROUTE END] Response ready:', {
-      messageId: newMessage.id,
-      whatsappDelivered: whatsappSuccess,
-      success: true
-    });
-    
+    console.log('🏁 [ROUTE END] Response ready, whatsappSuccess:', whatsappSuccess);
     res.status(201).json(response);
     
   } catch (error) {
-    console.log('💥 [ROUTE ERROR] Critical error in message route:', {
-      error: error.message,
-      type: error.constructor.name,
-      stack: error.stack?.split('\n').slice(0, 3)
-    });
-    
+    console.error('💥 [ROUTE ERROR]:', error.message);
     res.status(500).json({ 
       error: "Failed to send message",
       details: error.message
