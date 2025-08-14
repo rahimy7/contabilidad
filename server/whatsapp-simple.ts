@@ -3080,7 +3080,7 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
   try {
     console.log(`📤 SENDING WHATSAPP MESSAGE - To: ${phoneNumber}, Store: ${storeId}`);
 
-    // ✅ VALIDACIONES DE ENTRADA BÁSICAS (no bloquear por storeId)
+    // ✅ VALIDACIONES DE ENTRADA
     if (!phoneNumber || typeof phoneNumber !== 'string') {
       console.error('❌ Invalid phone number:', phoneNumber);
       return;
@@ -3091,37 +3091,22 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
       return;
     }
 
-    // ⚠️ CAMBIO IMPORTANTE: NO VALIDAR storeId como número estricto
-    // Solo advertir si es inválido, pero continuar
-    if (!storeId || isNaN(Number(storeId))) {
-      console.warn('⚠️ Warning: Invalid store ID, using fallback:', storeId);
-      storeId = 6; // Usar ID de tienda por defecto
+    // ✅ VALIDACIÓN MEJORADA DE STORE ID - No bloquear por ID inválido
+    if (!storeId || typeof storeId !== 'number') {
+      console.warn('⚠️ Warning: Invalid store ID, but continuing:', storeId);
+      // No hacer return aquí, continuar con el envío
     }
 
-    // ✅ OBTENER CONFIGURACIÓN DE WHATSAPP
+    // ✅ IMPORTACIÓN CORRECTA
     const { getMasterStorage } = await import('./storage/index.js');
     const masterStorage = getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
     
     if (!config) {
       console.error('❌ WhatsApp config not found for store:', storeId);
-      
-      // 🔄 INTENTAR CON STORE ID POR DEFECTO
-      if (storeId !== 6) {
-        console.log('🔄 Trying with default store ID: 6');
-        const defaultConfig = await masterStorage.getWhatsAppConfig(6);
-        if (defaultConfig) {
-          console.log('✅ Using default store config');
-          await sendWhatsAppMessageWithConfig(phoneNumber, message, defaultConfig, 6);
-          return;
-        }
-      }
-      
-      console.error('❌ No valid WhatsApp configuration found');
       return;
     }
 
-    // ✅ VALIDAR QUE LA CONFIGURACIÓN ESTÉ COMPLETA
     if (!config.accessToken || !config.phoneNumberId) {
       console.error('❌ Incomplete WhatsApp config:', {
         hasToken: !!config.accessToken,
@@ -3131,32 +3116,7 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
       return;
     }
 
-    // ✅ ENVIAR MENSAJE CON LA CONFIGURACIÓN VÁLIDA
-    await sendWhatsAppMessageWithConfig(phoneNumber, message, config, storeId);
-
-  } catch (error: any) {
-    console.error('❌ CRITICAL ERROR in sendWhatsAppMessageDirect:', error);
-    
-    // ✅ REGISTRAR ERROR CON VALIDACIÓN SEGURA
-    await safeWhatsAppLog({
-      type: 'error',
-      phoneNumber: phoneNumber,
-      messageContent: message,
-      status: 'failed',
-      errorMessage: error.message || 'Unknown error',
-      rawData: JSON.stringify({ error: error.stack || error }),
-      storeId: storeId || 6
-    });
-  }
-}
-async function sendWhatsAppMessageWithConfig(
-  phoneNumber: string, 
-  message: string, 
-  config: any, 
-  storeId: number
-): Promise<void> {
-  try {
-    // ✅ LIMPIAR TOKEN (CRÍTICO)
+    // ✅ LIMPIAR TOKEN
     const cleanToken = config.accessToken.trim().replace(/\s+/g, '');
     
     const url = `https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`;
@@ -3169,8 +3129,6 @@ async function sendWhatsAppMessageWithConfig(
     };
 
     console.log(`🌐 Making API call to: ${url}`);
-    console.log(`📱 Phone: ${phoneNumber}`);
-    console.log(`📝 Message length: ${message.length} chars`);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -3193,7 +3151,7 @@ async function sendWhatsAppMessageWithConfig(
         storeId: storeId
       });
       
-      // ✅ REGISTRAR ERROR DETALLADO
+      // ✅ REGISTRAR ERROR CON VALIDACIÓN SEGURA
       await safeWhatsAppLog({
         type: 'error',
         phoneNumber: phoneNumber,
@@ -3217,13 +3175,12 @@ async function sendWhatsAppMessageWithConfig(
       result = JSON.parse(responseText);
     } catch (parseError) {
       console.error('❌ Failed to parse response:', parseError);
-      console.error('Raw response:', responseText);
       return;
     }
 
     console.log('✅ MESSAGE SENT SUCCESSFULLY:', result);
     
-    // ✅ REGISTRAR ÉXITO
+    // ✅ REGISTRAR ÉXITO CON VALIDACIÓN SEGURA
     await safeWhatsAppLog({
       type: 'outbound',
       phoneNumber: phoneNumber,
@@ -3234,157 +3191,18 @@ async function sendWhatsAppMessageWithConfig(
     });
 
   } catch (error: any) {
-    console.error('❌ ERROR in sendWhatsAppMessageWithConfig:', error);
-    throw error;
-  }
-}
-
-
-export async function compareAutoVsDirectMessaging(storeId: number = 6): Promise<{
-  autoResponseConfig: any;
-  directMessageConfig: any;
-  differences: string[];
-  recommendations: string[];
-}> {
-  try {
-    console.log(`🔍 COMPARING AUTO vs DIRECT messaging configurations for store ${storeId}`);
+    console.error('❌ CRITICAL ERROR in sendWhatsAppMessageDirect:', error);
     
-    const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
-    
-    // Obtener configuración actual
-    const config = await masterStorage.getWhatsAppConfig(storeId);
-    
-    const autoResponseConfig = {
-      exists: !!config,
-      hasToken: !!config?.accessToken,
-      hasPhoneId: !!config?.phoneNumberId,
-      tokenLength: config?.accessToken?.length || 0,
-      phoneNumberId: config?.phoneNumberId,
-      storeId: config?.storeId
-    };
-    
-    // Para mensajes directos, usar la misma configuración
-    const directMessageConfig = {
-      ...autoResponseConfig,
-      usesFunction: 'sendWhatsAppMessageDirect',
-      callsStack: [
-        'routes.ts -> sendWhatsAppMessageDirect',
-        'sendWhatsAppMessageDirect -> getMasterStorage',
-        'getMasterStorage -> getWhatsAppConfig'
-      ]
-    };
-    
-    const differences: string[] = [];
-    const recommendations: string[] = [];
-    
-    if (!config) {
-      differences.push('❌ No WhatsApp configuration found');
-      recommendations.push('Configure WhatsApp settings for the store');
-    } else {
-      if (!config.accessToken) {
-        differences.push('❌ Missing access token');
-        recommendations.push('Add valid WhatsApp access token');
-      }
-      
-      if (!config.phoneNumberId) {
-        differences.push('❌ Missing phone number ID');
-        recommendations.push('Add valid WhatsApp phone number ID');
-      }
-      
-      if (config.accessToken && config.accessToken.length < 100) {
-        differences.push('⚠️ Access token seems too short');
-        recommendations.push('Verify access token is complete');
-      }
-    }
-    
-    if (differences.length === 0) {
-      differences.push('✅ No differences found - configuration appears identical');
-      recommendations.push('Check API call implementation details');
-      recommendations.push('Verify network connectivity to Meta WhatsApp API');
-      recommendations.push('Check rate limiting and webhook status');
-    }
-    
-    return {
-      autoResponseConfig,
-      directMessageConfig,
-      differences,
-      recommendations
-    };
-    
-  } catch (error: any) {
-    return {
-      autoResponseConfig: { error: error.message },
-      directMessageConfig: { error: error.message },
-      differences: [`❌ Error during comparison: ${error.message}`],
-      recommendations: ['Fix configuration errors first']
-    };
-  }
-}
-
-/**
- * 🧪 FUNCIÓN DE PRUEBA: Enviar mensaje de test
- */
-export async function testDirectMessage(phoneNumber: string, storeId: number = 6): Promise<{
-  success: boolean;
-  steps: string[];
-  error?: string;
-  config?: any;
-}> {
-  const steps: string[] = [];
-  
-  try {
-    steps.push('🧪 Starting direct message test');
-    
-    // Paso 1: Validar parámetros
-    if (!phoneNumber) {
-      throw new Error('Phone number is required');
-    }
-    steps.push(`✅ Phone number: ${phoneNumber}`);
-    
-    // Paso 2: Obtener configuración
-    steps.push('📋 Getting WhatsApp configuration...');
-    const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
-    const config = await masterStorage.getWhatsAppConfig(storeId);
-    
-    if (!config) {
-      throw new Error(`No WhatsApp config found for store ${storeId}`);
-    }
-    steps.push('✅ Configuration found');
-    
-    // Paso 3: Validar configuración
-    if (!config.accessToken || !config.phoneNumberId) {
-      throw new Error('Incomplete configuration - missing token or phone ID');
-    }
-    steps.push('✅ Configuration validated');
-    
-    // Paso 4: Enviar mensaje de prueba
-    const testMessage = `🧪 Test directo - ${new Date().toLocaleString('es')}`;
-    steps.push('📤 Sending test message...');
-    
-    await sendWhatsAppMessageDirect(phoneNumber, testMessage, storeId);
-    steps.push('✅ Message sent successfully');
-    
-    return {
-      success: true,
-      steps,
-      config: {
-        storeId: config.storeId,
-        phoneNumberId: config.phoneNumberId,
-        hasToken: !!config.accessToken,
-        tokenLength: config.accessToken?.length
-      }
-    };
-    
-  } catch (error: any) {
-    steps.push(`❌ Error: ${error.message}`);
-    
-    return {
-      success: false,
-      steps,
-      error: error.message
-    };
+    // ✅ REGISTRAR ERROR CRÍTICO CON VALIDACIÓN SEGURA
+    await safeWhatsAppLog({
+      type: 'error',
+      phoneNumber: phoneNumber,
+      messageContent: message,
+      status: 'failed',
+      errorMessage: error.message || 'Unknown error',
+      rawData: JSON.stringify({ error: error.stack || error }),
+      storeId: storeId
+    });
   }
 }
 
