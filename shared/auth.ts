@@ -84,6 +84,19 @@ export const rolePermissions = {
     'view_notifications',
     'manage_assignments'
   ],
+  admin: [
+    'view_dashboard',
+    'manage_users',
+    'manage_orders',
+    'manage_customers',
+    'manage_products',
+    'view_reports',
+    'manage_settings',
+    'view_conversations',
+    'send_messages',
+    'view_notifications',
+    'manage_assignments'
+  ],
   technician: [
     'view_dashboard',
     'technician_work',
@@ -144,6 +157,7 @@ export const rolePermissions = {
 
 export function hasPermission(userRole: string, permission: string): boolean {
   const permissions = rolePermissions[userRole as keyof typeof rolePermissions];
+  console.log(permission, permissions)
   return permissions?.includes(permission) || false;
 }
 
