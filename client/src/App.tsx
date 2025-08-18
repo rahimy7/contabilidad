@@ -150,7 +150,7 @@ function RoleDashboard() {
   
   // Administradores de tienda al Dashboard Principal
   if (user?.role === 'admin' || user?.role === 'store_admin') {
-  //  console.log('📊 RoleDashboard: Enviando a Dashboard Principal');
+    console.log(user.role + '📊 RoleDashboard: Enviando a Dashboard Principal');
     return <ProtectedRoute component={Dashboard} permission="view_dashboard" />;
   }
   

@@ -36,7 +36,7 @@ interface EmployeeUpdateData {
     phone?: string | null;
     email?: string | null;
     address?: string | null;
-    role?: "store_admin" | "technician" | "seller" | "delivery" | "support" | "customer_service";
+    role?: "admin" | "technician" | "seller" | "delivery" | "support" | "customer_service";
     password?: string;
   };
 }
@@ -46,13 +46,13 @@ const createEmployeeSchema = z.object({
   username: z.string().min(3, "Usuario debe tener al menos 3 caracteres"),
   password: z.string().min(6, "Contraseña debe tener al menos 6 caracteres"),
   name: z.string().min(2, "Nombre es requerido"),
-  role: z.enum(["store_admin", "technician", "seller", "delivery", "support", "customer_service"]),
+  role: z.enum(["admin", "technician", "seller", "delivery", "support", "customer_service"]),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional(),
   address: z.string().optional(),
   
   // Employee profile data
-  department: z.enum(["technical", "sales", "delivery", "support", "store_admin"]),
+  department: z.enum(["technical", "sales", "delivery", "support", "admin"]),
   position: z.string().min(2, "Posición es requerida"),
   specializations: z.string().optional(),
   emergencyContact: z.string().optional(),
@@ -83,7 +83,7 @@ interface EmployeeWithUser extends EmployeeProfile {
 }
 
 const roleColors = {
-  store_admin: "bg-red-100 text-red-800",
+  admin: "bg-red-100 text-red-800",
   technician: "bg-blue-100 text-blue-800", 
   seller: "bg-green-100 text-green-800",
   delivery: "bg-yellow-100 text-yellow-800",
@@ -96,11 +96,11 @@ const departmentIcons = {
   sales: Users,
   delivery: Truck,
   support: Headphones,
-  store_admin: Shield,
+  admin: Shield,
 };
 
 const roleLabels = {
-  store_admin: "Administrador",
+  admin: "Administrador",
   technician: "Técnico",
   seller: "Vendedor", 
   delivery: "Delivery",
@@ -113,7 +113,7 @@ const departmentLabels = {
   sales: "Ventas",
   delivery: "Delivery",
   support: "Soporte",
-  store_admin: "Administración",
+  admin: "Administración",
 };
 
 export default function Employees() {
@@ -323,11 +323,11 @@ const deleteEmployeeMutation = useMutation({
       name: employee.user?.name || "",
       username: employee.user?.username || "",
       password: "", // Don't populate password for security
-      role: (employee.user?.role || "technician") as "store_admin" | "technician" | "seller" | "delivery" | "support" | "customer_service",
+      role: (employee.user?.role || "technician") as "admin" | "technician" | "seller" | "delivery" | "support" | "customer_service",
       phone: employee.user?.phone || "",
       email: employee.user?.email || "",
       address: employee.user?.address || "",
-      department: employee.department as "store_admin" | "delivery" | "support" | "technical" | "sales", // ✅ Type assertion
+      department: employee.department as "admin" | "delivery" | "support" | "technical" | "sales", // ✅ Type assertion
       position: employee.position,
       specializations: employee.specializations?.join(', ') || "",
       emergencyContact: employee.emergencyContact || "",
@@ -493,7 +493,7 @@ const deleteEmployeeMutation = useMutation({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="store_admin">Administrador</SelectItem>
+                            <SelectItem value="admin">Administrador</SelectItem>
                             <SelectItem value="technician">Técnico</SelectItem>
                             <SelectItem value="seller">Vendedor</SelectItem>
                             <SelectItem value="delivery">Delivery</SelectItem>
@@ -519,7 +519,7 @@ const deleteEmployeeMutation = useMutation({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="store_admin">Administración</SelectItem>
+                            <SelectItem value="admin">Administración</SelectItem>
                             <SelectItem value="technical">Técnico</SelectItem>
                             <SelectItem value="sales">Ventas</SelectItem>
                             <SelectItem value="delivery">Delivery</SelectItem>
@@ -642,7 +642,7 @@ const deleteEmployeeMutation = useMutation({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los departamentos</SelectItem>
-            <SelectItem value="store_admin">Administración</SelectItem>
+            <SelectItem value="admin">Administración</SelectItem>
             <SelectItem value="technical">Técnico</SelectItem>
             <SelectItem value="sales">Ventas</SelectItem>
             <SelectItem value="delivery">Delivery</SelectItem>
@@ -656,7 +656,7 @@ const deleteEmployeeMutation = useMutation({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los roles</SelectItem>
-            <SelectItem value="store_admin">Administrador</SelectItem>
+            <SelectItem value="admin">Administrador</SelectItem>
             <SelectItem value="technician">Técnico</SelectItem>
             <SelectItem value="seller">Vendedor</SelectItem>
             <SelectItem value="delivery">Delivery</SelectItem>
@@ -891,7 +891,7 @@ const deleteEmployeeMutation = useMutation({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="store_admin">Administrador</SelectItem>
+                          <SelectItem value="admin">Administrador</SelectItem>
                           <SelectItem value="technician">Técnico</SelectItem>
                           <SelectItem value="seller">Vendedor</SelectItem>
                           <SelectItem value="delivery">Delivery</SelectItem>
@@ -947,7 +947,7 @@ const deleteEmployeeMutation = useMutation({
                         <SelectContent>
                           <SelectItem value="technical">Técnico</SelectItem>
                           <SelectItem value="sales">Ventas</SelectItem>
-                          <SelectItem value="store_admin">Administrativo</SelectItem>
+                          <SelectItem value="admin">Administrativo</SelectItem>
                           <SelectItem value="delivery">Delivery</SelectItem>
                           <SelectItem value="support">Soporte</SelectItem>
                         </SelectContent>
