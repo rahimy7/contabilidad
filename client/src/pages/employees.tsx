@@ -19,13 +19,15 @@ import { Plus, User, Users, Briefcase, Truck, Headphones, Shield, Search, Filter
 import type { User as UserType, EmployeeProfile, InsertEmployeeProfile, InsertUser, CustomerRegistrationFlow } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
 
+
+
 interface EmployeeUpdateData {
   position?: string;
-  specializations?: string[];
+  specializations?: string[]; // ← Array como espera la base de datos
   emergencyContact?: string | null;
   emergencyPhone?: string | null;
   vehicleInfo?: string | null;
-  certifications?: string[];
+  certifications?: string[]; // ← Array como espera la base de datos
   territory?: string | null;
   notes?: string | null;
   user?: {
@@ -38,7 +40,6 @@ interface EmployeeUpdateData {
     password?: string;
   };
 }
-
 // Validation schemas
 const createEmployeeSchema = z.object({
   // User data
@@ -72,7 +73,7 @@ type CreateEmployeeForm = z.infer<typeof createEmployeeSchema>;
 
 // Edit schema with optional password
 const editEmployeeSchema = createEmployeeSchema.extend({
-  password: z.string().optional(),
+  password: z.string().optional(), // Make password optional for editing
 });
 
 type EditEmployeeForm = z.infer<typeof editEmployeeSchema>;
@@ -128,142 +129,145 @@ export default function Employees() {
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeWithUser | null>(null);
 
   // Fetch employees
-  const { data: employees = [], isLoading } = useQuery<EmployeeWithUser[]>({
-    queryKey: ["/api/employees"],
-  });
+ const { data: employees = [], isLoading } = useQuery<EmployeeWithUser[]>({
+  queryKey: ["/api/employees"], // ← Usar el endpoint real
+});
 
   // Fetch registration flows
   const { data: registrationFlows = [] } = useQuery<CustomerRegistrationFlow[]>({
     queryKey: ["/api/registration-flows"],
   });
 
-  // Create employee mutation
-  const createEmployeeMutation = useMutation({
-    mutationFn: async (employeeData: CreateEmployeeForm) => {
-      // 1. Crear usuario en schema de tienda
-      const userData = {
-        username: employeeData.username,
-        password: employeeData.password,
-        name: employeeData.name,
-        role: employeeData.role,
-        email: employeeData.email || null,
-        phone: employeeData.phone || null,
-        status: 'active',
-        isActive: true
-      };
+// Create employee mutation - CORREGIDO
 
-      const newUser = await apiRequest("POST", "/api/tenant-users", userData) as { id: number };
 
-      // 2. Generar ID de empleado
-      const { employeeId } = await apiRequest("POST", "/api/employees/generate-id", { 
-        department: employeeData.department 
-      }) as { employeeId: string };
+     const createEmployeeMutation = useMutation({
+  mutationFn: async (employeeData: CreateEmployeeForm) => {
+    // 1. Crear usuario en schema de tienda
+    const userData = {
+      username: employeeData.username,
+      password: employeeData.password,
+      name: employeeData.name,
+      role: employeeData.role,
+      email: employeeData.email || null,
+      phone: employeeData.phone || null,
+      status: 'active',
+      isActive: true
+    };
 
-      // 3. Crear perfil de empleado
-      const profileData = {
-        userId: newUser.id,
-        employeeId,
-        department: employeeData.department,
-        position: employeeData.position,
-        specializations: employeeData.specializations ? 
-          employeeData.specializations.split(',').map(s => s.trim()) : [],
-        emergencyContact: employeeData.emergencyContact || null,
-        emergencyPhone: employeeData.emergencyPhone || null,
-        vehicleInfo: employeeData.vehicleInfo || null,
-        certifications: employeeData.certifications ? 
-          employeeData.certifications.split(',').map(s => s.trim()) : [],
-        territory: employeeData.territory || null,
-        notes: employeeData.notes || null,
-      };
+    // ✅ USAR NUEVO ENDPOINT PARA USUARIOS DE TIENDA
+    const newUser = await apiRequest("POST", "/api/tenant-users", userData) as { id: number };
 
-      return apiRequest("POST", "/api/employees", profileData);
-    },
+    // 2. Generar ID de empleado
+    const { employeeId } = await apiRequest("POST", "/api/employees/generate-id", { 
+      department: employeeData.department 
+    }) as { employeeId: string };
+
+    // 3. Crear perfil de empleado
+    const profileData = {
+      userId: newUser.id,
+      employeeId,
+      department: employeeData.department,
+      position: employeeData.position,
+      specializations: employeeData.specializations ? 
+        employeeData.specializations.split(',').map(s => s.trim()) : [],
+      emergencyContact: employeeData.emergencyContact || null,
+      emergencyPhone: employeeData.emergencyPhone || null,
+      vehicleInfo: employeeData.vehicleInfo || null,
+      certifications: employeeData.certifications ? 
+        employeeData.certifications.split(',').map(s => s.trim()) : [],
+      territory: employeeData.territory || null,
+      notes: employeeData.notes || null,
+    };
+
+    return apiRequest("POST", "/api/employees", profileData);
+  },
     
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      setIsCreateDialogOpen(false);
-      toast({
-        title: "Empleado creado",
-        description: "El empleado ha sido creado exitosamente.",
-      });
-    },
-    onError: (error: Error) => {
-      console.error('❌ Employee creation failed:', error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    setIsCreateDialogOpen(false);
+    toast({
+      title: "Empleado creado",
+      description: "El empleado ha sido creado exitosamente.",
+    });
+  },
+  onError: (error: Error) => {
+    console.error('❌ Employee creation failed:', error);
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  },
+});
 
-  // Update employee mutation
-  const updateEmployeeMutation = useMutation({
-    mutationFn: async (data: { employeeId: number; updates: EmployeeUpdateData }) => {
-      const { updates } = data;
-      
-      // Actualizar usuario en tenant schema
-      if (updates.user && (updates.user.name || updates.user.username || updates.user.role || updates.user.password)) {
-        const employee = employees.find(emp => emp.id === data.employeeId);
-        if (employee?.userId) {
-          await apiRequest("PUT", `/api/stores/${user.storeId}/users/${employee.userId}`, updates.user);
-        }
-      }
-      
-      // Actualizar perfil de empleado
-      const employeeUpdates = { ...updates };
-      delete employeeUpdates.user;
-      
-      return apiRequest("PUT", `/api/employees/${data.employeeId}`, employeeUpdates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      setIsEditDialogOpen(false);
-      setEditingEmployee(null);
-      toast({
-        title: "Empleado actualizado",
-        description: "Los datos del empleado se han actualizado correctamente.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete employee mutation
-  const deleteEmployeeMutation = useMutation({
-    mutationFn: async (employeeId: number) => {
-      const employee = employees.find(emp => emp.id === employeeId);
-      
-      // Eliminar usuario de tenant schema
+// Update employee mutation - CORREGIDO
+const updateEmployeeMutation = useMutation({
+  mutationFn: async (data: { employeeId: number; updates: EmployeeUpdateData }) => {
+    const { updates } = data;
+    
+    // ✅ ACTUALIZAR USUARIO EN TENANT SCHEMA
+    if (updates.user && (updates.user.name || updates.user.username || updates.user.role || updates.user.password)) {
+      const employee = employees.find(emp => emp.id === data.employeeId);
       if (employee?.userId) {
-        await apiRequest("DELETE", `/api/stores/${user.storeId}/users/${employee.userId}`);
+        await apiRequest("PUT", `/api/users/${employee.userId}`, updates.user);
       }
-      
-      // Eliminar perfil de empleado
-      await apiRequest("DELETE", `/api/employees/${employeeId}`);
-      
-      return { success: true };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "Empleado eliminado",
-        description: "El empleado ha sido eliminado exitosamente.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+    }
+    
+    // ✅ ACTUALIZAR PERFIL DE EMPLEADO
+    const employeeUpdates = { ...updates };
+    delete employeeUpdates.user;
+    
+    return apiRequest("PUT", `/api/employees/${data.employeeId}`, employeeUpdates);
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    setIsEditDialogOpen(false);
+    setEditingEmployee(null);
+    toast({
+      title: "Empleado actualizado",
+      description: "Los datos del empleado se han actualizado correctamente.",
+    });
+  },
+  onError: (error: Error) => {
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  },
+});
+
+// Delete employee mutation - CORREGIDO
+const deleteEmployeeMutation = useMutation({
+  mutationFn: async (employeeId: number) => {
+    const employee = employees.find(emp => emp.id === employeeId);
+    
+    // ✅ ELIMINAR PERFIL DE EMPLEADO
+    await apiRequest("DELETE", `/api/employees/${employeeId}`);
+    
+    // ✅ ELIMINAR USUARIO DE TENANT SCHEMA
+    if (employee?.userId) {
+      await apiRequest("DELETE", `/api/users/${employee.userId}`);
+    }
+    
+    return { success: true };
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    toast({
+      title: "Empleado eliminado",
+      description: "El empleado ha sido eliminado exitosamente.",
+    });
+  },
+  onError: (error: Error) => {
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  },
+});
 
   const form = useForm<CreateEmployeeForm>({
     resolver: zodResolver(createEmployeeSchema),
@@ -283,47 +287,47 @@ export default function Employees() {
   });
 
   const onEditSubmit = (data: EditEmployeeForm) => {
-    if (!editingEmployee) return;
-    
-    const updates: EmployeeUpdateData = {
-      position: data.position,
-      specializations: data.specializations ? 
-        data.specializations.split(',').map(s => s.trim()) : [],
-      emergencyContact: data.emergencyContact || null,
-      emergencyPhone: data.emergencyPhone || null,
-      vehicleInfo: data.vehicleInfo || null,
-      certifications: data.certifications ? 
-        data.certifications.split(',').map(s => s.trim()) : [],
-      territory: data.territory || null,
-      notes: data.notes || null,
-      user: {
-        name: data.name,
-        username: data.username,
-        phone: data.phone || null,
-        email: data.email || null,
-        address: data.address || null,
-        role: data.role,
-        ...(data.password && { password: data.password }),
-      }
-    };
-
-    updateEmployeeMutation.mutate({
-      employeeId: editingEmployee.id,
-      updates
-    });
+  if (!editingEmployee) return;
+  
+  const updates: EmployeeUpdateData = {
+    position: data.position,
+    specializations: data.specializations ? 
+      data.specializations.split(',').map(s => s.trim()) : [],
+    emergencyContact: data.emergencyContact || null,
+    emergencyPhone: data.emergencyPhone || null,
+    vehicleInfo: data.vehicleInfo || null,
+    certifications: data.certifications ? 
+      data.certifications.split(',').map(s => s.trim()) : [],
+    territory: data.territory || null,
+    notes: data.notes || null,
+    user: {
+      name: data.name,
+      username: data.username,
+      phone: data.phone || null,
+      email: data.email || null,
+      address: data.address || null,
+      role: data.role,
+      ...(data.password && { password: data.password }),
+    }
   };
+
+  updateEmployeeMutation.mutate({
+    employeeId: editingEmployee.id,
+    updates
+  });
+};
 
   const openEditModal = (employee: EmployeeWithUser) => {
     setEditingEmployee(employee);
     editForm.reset({
       name: employee.user?.name || "",
       username: employee.user?.username || "",
-      password: "",
+      password: "", // Don't populate password for security
       role: (employee.user?.role || "technician") as "store_admin" | "technician" | "seller" | "delivery" | "support" | "customer_service",
       phone: employee.user?.phone || "",
       email: employee.user?.email || "",
       address: employee.user?.address || "",
-      department: employee.department as "store_admin" | "delivery" | "support" | "technical" | "sales",
+      department: employee.department as "store_admin" | "delivery" | "support" | "technical" | "sales", // ✅ Type assertion
       position: employee.position,
       specializations: employee.specializations?.join(', ') || "",
       emergencyContact: employee.emergencyContact || "",
@@ -355,6 +359,7 @@ export default function Employees() {
 
   // Filter employees
   const filteredEmployees = employees.filter(employee => {
+    // Defensive check to ensure user exists
     if (!employee.user) return false;
     
     const matchesSearch = employee.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

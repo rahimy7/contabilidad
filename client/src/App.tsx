@@ -53,7 +53,7 @@ import { useEffect, useRef } from 'react';
 import { ErrorBoundary } from "./ErrorBoundary";
 import React from "react";
 import { ToastProvider } from '@/components/ui/use-toast';
-import  ProductManagement  from "./pages/product-management";
+import ProductManagement from "./pages/product-management";
 import AddProduct from "@/pages/add-product";
 
 
@@ -63,7 +63,7 @@ function ProtectedRoute({ component: Component, permission }: { component: React
   const { user, isLoading } = useAuth();
   
   // 🔍 LOG: Debug de ProtectedRoute
-  console.log('🔍 ProtectedRoute - Debug:', {
+ /*  console.log('🔍 ProtectedRoute - Debug:', {
     component: Component.name,
     permission,
     user: user ? {
@@ -73,10 +73,10 @@ function ProtectedRoute({ component: Component, permission }: { component: React
       storeId: user.storeId
     } : null,
     isLoading
-  });
+  }); */
   
   if (isLoading) {
-    console.log('⏳ ProtectedRoute: Cargando...');
+    // console.log('⏳ ProtectedRoute: Cargando...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -85,20 +85,20 @@ function ProtectedRoute({ component: Component, permission }: { component: React
   }
 
   if (!user) {
-    console.log('❌ ProtectedRoute: Sin usuario, redirigiendo a login');
+   // console.log('❌ ProtectedRoute: Sin usuario, redirigiendo a login');
     return <MultiTenantLogin />;
   }
 
   if (permission) {
     const hasRequiredPermission = hasPermission(user.role, permission);
-    console.log('🔐 ProtectedRoute - Verificando permisos:', {
+   /*  console.log('🔐 ProtectedRoute - Verificando permisos:', {
       userRole: user.role,
       requiredPermission: permission,
       hasPermission: hasRequiredPermission
-    });
+    }); */
     
     if (!hasRequiredPermission) {
-      console.log('❌ ProtectedRoute: ACCESO DENEGADO');
+     // console.log('❌ ProtectedRoute: ACCESO DENEGADO');
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
@@ -114,7 +114,7 @@ function ProtectedRoute({ component: Component, permission }: { component: React
     }
   }
 
-  console.log('✅ ProtectedRoute: Acceso permitido, renderizando componente');
+ // console.log('✅ ProtectedRoute: Acceso permitido, renderizando componente');
   return <Component />;
 }
 
@@ -122,7 +122,7 @@ function RoleDashboard() {
   const { user } = useAuth();
   
   // 🔍 LOG: Debug completo de RoleDashboard
-  console.log('🎯 RoleDashboard - Debug completo:', {
+/*   console.log('🎯 RoleDashboard - Debug completo:', {
     user: user ? {
       username: user.username,
       role: user.role,
@@ -134,28 +134,28 @@ function RoleDashboard() {
     isAdmin: user?.role === 'admin',
     isStoreAdmin: user?.role === 'store_admin',
     shouldGoToDashboard: user?.role === 'admin' || user?.role === 'store_admin'
-  });
+  }); */
   
   // Redireccionar técnicos a su dashboard específico
   if (user?.role === 'technician') {
-    console.log('🔧 RoleDashboard: Enviando a TechnicianDashboard');
+   // console.log('🔧 RoleDashboard: Enviando a TechnicianDashboard');
     return <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />;
   }
   
   // Super administradores al Panel de Control General
   if (user?.role === 'super_admin') {
-    console.log('🔥 RoleDashboard: Enviando a GlobalDashboard');
+  //  console.log('🔥 RoleDashboard: Enviando a GlobalDashboard');
     return <ProtectedRoute component={GlobalDashboard} permission="super_admin" />;
   }
   
   // Administradores de tienda al Dashboard Principal
   if (user?.role === 'admin' || user?.role === 'store_admin') {
-    console.log('📊 RoleDashboard: Enviando a Dashboard Principal');
+  //  console.log('📊 RoleDashboard: Enviando a Dashboard Principal');
     return <ProtectedRoute component={Dashboard} permission="view_dashboard" />;
   }
   
   // Otros roles a conversaciones
-  console.log('💬 RoleDashboard: Enviando a Conversations (otros roles)');
+//  console.log('💬 RoleDashboard: Enviando a Conversations (otros roles)');
   return <ProtectedRoute component={Conversations} permission="view_conversations" />;
 }
 
@@ -177,7 +177,6 @@ function Router() {
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} permission="manage_settings" />} />
       <Route path="/whatsapp-settings" component={() => <ProtectedRoute component={WhatsAppSettings} permission="manage_settings" />} />
       <Route path="/auto-responses" component={() => <ProtectedRoute component={AutoResponses} permission="manage_settings" />} />
-      <Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
       <Route path="/customers" component={() => <ProtectedRoute component={Customers} permission="manage_customers" />} />
       <Route path="/assignment-rules" component={() => <ProtectedRoute component={AssignmentRules} permission="manage_assignments" />} />
       <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} permission="view_notifications" />} />
@@ -185,7 +184,7 @@ function Router() {
       <Route path="/super-admin-dashboard" component={() => <ProtectedRoute component={SuperAdminDashboard} permission="super_admin" />} />
       <Route path="/global-users-management" component={() => <ProtectedRoute component={GlobalUsersManagement} permission="super_admin" />} />
       <Route path="/super-admin/dashboard" component={() => <ProtectedRoute component={GlobalDashboard} permission="super_admin" />} />
-
+<Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
       <Route path="/super-admin/subscriptions" component={() => <ProtectedRoute component={Subscriptions} permission="super_admin" />} />
       <Route path="/super-admin/global-orders" component={() => <ProtectedRoute component={GlobalOrders} permission="super_admin" />} />
       <Route path="/super-admin/users" component={() => <ProtectedRoute component={SuperAdminUsers} permission="super_admin" />} />
@@ -252,43 +251,16 @@ function AppWithAuth() {
         ) : (
           <AppLayout>
             <Router />
-          
-                <Route path="/test-conversations" element={<ConversationsTest />} /></AppLayout>
+          </AppLayout>
         )}
       </Route>
     </Switch>
   );
 }
 
+// ✅ FUNCIÓN TEMPORALMENTE DESHABILITADA
 export function ReactDebugComponent() {
-  const renderCount = useRef(0);
-  const maxRenders = 50; // Límite antes de mostrar error
-  
-  useEffect(() => {
-    renderCount.current += 1;
-    
-    if (renderCount.current > maxRenders) {
-      console.error('🚨 BUCLE INFINITO DETECTADO!');
-      console.error(`Componente re-renderizado ${renderCount.current} veces`);
-      console.trace('Stack trace del bucle infinito:');
-      
-      // Mostrar información útil para debugging
-      console.group('🔍 INFORMACIÓN DE DEBUG');
-      console.log('URL actual:', window.location.href);
-      
-      console.log('Re-renders:', renderCount.current);
-      console.groupEnd();
-      
-      // Opcional: lanzar error para detener la ejecución
-      throw new Error(`Bucle infinito detectado: ${renderCount.current} re-renders`);
-    }
-    
-    if (renderCount.current > 10) {
-      console.warn(`⚠️ Muchos re-renders detectados: ${renderCount.current}`);
-    }
-  });
-  
-  return null; // Este componente no renderiza nada
+  return null; // Componente deshabilitado temporalmente
 }
 
 function App() {
