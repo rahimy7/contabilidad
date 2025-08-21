@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@shared/auth";
+import { DollarSign } from "lucide-react";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -50,8 +51,8 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   });
 
   // Fetch notification counts for the current user
-  const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
-    queryKey: ["/api/notifications/count", { userId: user?.id }],
+  const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery<{total: number, unread: number}>({
+  queryKey: ["/api/notifications/count", { userId: user?.id }],
     queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
     refetchInterval: 30000, // Refetch every 30 seconds
     enabled: !!user && hasPermission(user.role, 'view_notifications'),
@@ -128,6 +129,14 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       permission: "manage_products",
       excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
     },
+    {
+  href: "/exchange-rates",
+  icon: DollarSign,
+  label: "Tasas de Cambio",
+  badge: null,
+  permission: "manage_settings", // o "admin" según tu sistema
+  excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+},
     {
       href: "/reports",
       icon: BarChart3,

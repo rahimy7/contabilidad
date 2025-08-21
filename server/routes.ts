@@ -6,6 +6,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { sql, eq, count, and, isNull, or, max, desc, asc } from "drizzle-orm";
+import { exchangeRateRoutes } from './exchange-rate.routes';
+import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 
 
 // Schema and Types
@@ -94,6 +96,9 @@ const upload = multer({
     }
   },
 });
+
+
+
 
 // ================================
 // HELPER FUNCTIONS
@@ -979,8 +984,8 @@ router.post('/debug/clear-cache', authenticateToken, (req, res) => {
   // PRODUCT ROUTES
   // ================================
 
-  router.get('/products', authenticateToken, getProductsHandler);
-  router.get('/products/:id', authenticateToken, getProductByIdHandler);
+  router.get('/api/products', authenticateToken, productCurrencyMiddleware, getProductsHandler);
+  router.get('/api/products/:id', authenticateToken, productCurrencyMiddleware, getProductByIdHandler);
 router.post('/products', authenticateToken, createProductHandler);
       
     
@@ -4085,6 +4090,45 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     }
   });
 
+
+  // Nuevo endpoint para actualizar moneda base de producto
+app.patch('/api/products/:id/currency', authenticateToken, requireTenantStorage, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const productId = parseInt(req.params.id);
+    const { base_currency } = req.body;
+
+    if (!base_currency || !['USD', 'DOP'].includes(base_currency)) {
+      return res.status(400).json({ error: 'Moneda base inválida. Use USD o DOP.' });
+    }
+
+    const tenantStorage = req.tenantStorage;
+    
+    // Actualizar producto con nueva moneda base
+    const updatedProduct = await tenantStorage.updateProductCurrency(productId, base_currency);
+    
+    if (!updatedProduct) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    res.json(updatedProduct);
+  } catch (error) {
+    console.error('Error updating product currency:', error);
+    res.status(500).json({ error: 'Error actualizando moneda del producto' });
+  }
+});
+
+// Endpoint para obtener configuración de monedas soportadas
+app.get('/api/currencies/supported', authenticateToken, (req: any, res: any) => {
+  res.json({
+    supported: [
+      { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
+      { code: 'DOP', name: 'Peso Dominicano', symbol: 'RD$' }
+    ],
+    default: 'DOP'
+  });
+});
+
   // ================================
   // STATIC FILE SERVING
   // ================================
@@ -4130,6 +4174,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   // ================================
 
   app.use("/api", router);
+  app.use('/api/exchange-rates', exchangeRateRoutes);
   
   console.log("✅ Routes registered successfully with migrated storage");
 }

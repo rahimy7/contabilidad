@@ -238,6 +238,7 @@ export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+   baseCurrency: text("base_currency").notNull(), // 'USD', 'DOP'
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   category: text("category").notNull(), // 'product', 'service'
   status: text("status").notNull().default("active"), // 'active', 'inactive'
@@ -561,6 +562,18 @@ export const insertCustomerSchema = makeInsertSchema(customers, {
  totalSpent: z.string().optional(),
 isVip: z.boolean().optional(),
 }, ["id", "createdAt", "updatedAt"]);
+
+export const exchangeRates = pgTable("exchange_rates", {
+  id: serial("id").primaryKey(),
+  baseCurrency: text("base_currency").notNull(), // 'USD', 'DOP'
+  targetCurrency: text("target_currency").notNull(), // 'USD', 'DOP'
+  rate: decimal("rate", { precision: 10, scale: 6 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true),
+  storeId: integer("store_id").notNull(),
+  updatedBy: integer("updated_by").references(() => users.id), // Usuario que actualizó
+});
 
 
 export const insertProductSchema = makeInsertSchema(products);

@@ -109,6 +109,72 @@ async getAllProducts() {
       }
     },
 
+    /**
+ * Actualiza la moneda base de un producto
+ */
+async updateProductCurrency(productId: number, baseCurrency: string): Promise<any> {
+  try {
+    console.log(`🔄 Updating product ${productId} base currency to ${baseCurrency}`);
+    
+    const updatedProduct = await this.tenantDb
+      .update(schema.products)
+      .set({ 
+        baseCurrency: baseCurrency,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.products.id, productId))
+      .returning();
+
+    if (updatedProduct.length === 0) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    console.log(`✅ Product currency updated successfully`);
+    return updatedProduct[0];
+  } catch (error) {
+    console.error('Error updating product currency:', error);
+    throw error;
+  }
+},
+
+/**
+ * Obtiene productos con información de moneda
+ */
+async getProductsWithCurrency(): Promise<any[]> {
+  try {
+    const products = await this.tenantDb
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        description: schema.products.description,
+        price: schema.products.price,
+        baseCurrency: schema.products.baseCurrency,
+        salePrice: schema.products.salePrice,
+        category: schema.products.category,
+        status: schema.products.status,
+        imageUrl: schema.products.imageUrl,
+        images: schema.products.images,
+        sku: schema.products.sku,
+        brand: schema.products.brand,
+        model: schema.products.model,
+        availability: schema.products.availability,
+        stockQuantity: schema.products.stockQuantity,
+        isPromoted: schema.products.isPromoted,
+        promotionText: schema.products.promotionText,
+        createdAt: schema.products.createdAt,
+        updatedAt: schema.products.updatedAt
+      })
+      .from(schema.products)
+      .where(eq(schema.products.status, 'active'))
+      .orderBy(desc(schema.products.createdAt));
+
+    return products;
+  } catch (error) {
+    console.error('Error getting products with currency:', error);
+    throw error;
+  }
+},
+
     async getAllCategories() {
       try {
         if (schema.productCategories) {
