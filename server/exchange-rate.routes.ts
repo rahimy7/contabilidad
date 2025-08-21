@@ -9,12 +9,14 @@ import type { AuthUser } from '@shared/auth';
 const router = Router();
 
 // Middleware para validar acceso a tienda
+// Cambiar requireTenantAccess por solo verificar autenticación
 const requireTenantAccess = async (req: any, res: any, next: any) => {
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) {
       return res.status(400).json({ error: 'Store ID required' });
     }
+    // Quitar validación de permisos aquí - ya se valida en el frontend
     next();
   } catch (error) {
     res.status(500).json({ error: 'Access validation failed' });
@@ -92,7 +94,7 @@ router.post('/', authenticateToken, requireTenantAccess, async (req: any, res: a
     const user = req.user as AuthUser;
     
     // Verificar permisos de admin
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'store_admin') {
       return res.status(403).json({ error: 'Permisos insuficientes' });
     }
 

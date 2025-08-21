@@ -25,7 +25,8 @@ import setupCorsForRailway from '../cors-config-railway.js';
 import multer from 'multer';
 import fs from 'fs';
 import { SupabaseStorageManager } from './supabase-storage.js';
-;
+import { exchangeRateRoutes } from './exchange-rate.routes';
+
 
 // ================================
 // 🔥 INSTANCIAS DE STORAGE
@@ -143,6 +144,7 @@ app.use(express.urlencoded({ extended: true }));
 registerRoutes(app);
 
 const apiRouter = express.Router();
+app.use('/api/exchange-rates', exchangeRateRoutes);
 
 // ✅ REGISTRAR EL apiRouter PARA ENDPOINTS ADICIONALES
 app.use('/api', apiRouter);
@@ -793,6 +795,8 @@ console.log('✅ API Router mounted successfully');
     } else {
       const staticPath = path.join(__dirname, '../dist/public');
       app.use(express.static(staticPath));
+
+        
       
       app.get('*', (req, res) => {
         if (req.path.startsWith('/api/')) {
@@ -802,6 +806,8 @@ console.log('✅ API Router mounted successfully');
       });
     }
 
+  
+    
     // WebSocket Server
     const wss = new WebSocketServer({ 
       server,

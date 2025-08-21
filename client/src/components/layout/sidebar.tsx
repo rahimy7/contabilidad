@@ -135,7 +135,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   label: "Tasas de Cambio",
   badge: null,
   permission: "manage_settings", // o "admin" según tu sistema
-  excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+  //excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
 },
     {
       href: "/reports",
