@@ -34,9 +34,25 @@ export default function ExchangeRateManagement() {
 
   // Obtener historial
   const { data: history = [] } = useQuery<ExchangeRate[]>({
-    queryKey: ['/api/exchange-rates/history', fromCurrency, toCurrency],
-    enabled: !!fromCurrency && !!toCurrency
-  });
+  queryKey: ['/api/exchange-rates/history', fromCurrency, toCurrency],
+  enabled: !!fromCurrency && !!toCurrency,
+queryFn: async () => {
+  const response = await fetch(
+    `/api/exchange-rates/history/${fromCurrency}/${toCurrency}?limit=10`,
+    {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      }
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error('Error fetching history');
+  }
+  
+  return response.json();
+}
+});
 
   // Mutation para actualizar tasa
   const updateRateMutation = useMutation({

@@ -207,6 +207,8 @@ export class ExchangeRateService {
     return this.getCurrentRate(from, to, storeId);
   }
 
+  
+
   /**
    * Valida si una tasa está dentro de rangos aceptables
    */
@@ -233,4 +235,6 @@ export class ExchangeRateService {
 
     return { valid: true };
   }
+
+  
 }
