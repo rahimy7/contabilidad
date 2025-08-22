@@ -1,3 +1,6 @@
+// client/src/pages/product-management.tsx
+// CAMBIOS MÍNIMOS: Solo agregar selector de moneda al precio
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -48,13 +51,24 @@ import {
   Link as LinkIcon,
   ChevronLeft,
   ChevronRight,
+  Globe,
 } from 'lucide-react';
 
-// Esquemas de validación
+// Monedas soportadas
+const SUPPORTED_CURRENCIES = [
+  { code: 'MXN', name: 'Peso Mexicano', symbol: '$' },
+  { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'CAD', name: 'Dólar Canadiense', symbol: 'C$' },
+  { code: 'GBP', name: 'Libra Esterlina', symbol: '£' },
+];
+
+// Esquemas de validación - ACTUALIZADO
 const productSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
   price: z.string().min(1, 'El precio es requerido'),
+  currency: z.string().min(1, 'La moneda es requerida'),
   category: z.string().min(1, 'La categoría es requerida'),
   type: z.string().default('product'),
   brand: z.string().optional(),
@@ -75,6 +89,7 @@ interface Product {
   name: string;
   description?: string;
   price?: string;
+  currency?: string;
   category?: string;
   type?: string;
   brand?: string;
@@ -126,7 +141,7 @@ export default function ImprovedProductManagement() {
     queryKey: ["/api/categories"],
   });
 
-  // Mutations para crear/actualizar productos
+  // Mutations para crear/actualizar productos - ACTUALIZADO
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
       const formData = new FormData();
@@ -257,13 +272,7 @@ export default function ImprovedProductManagement() {
     }
   });
 
-  // Log para debugging
-  console.log('📦 Productos cargados:', products);
-  console.log('📂 Categorías cargadas:', categories);
-  console.log('❌ Error productos:', productsError);
-  console.log('❌ Error categorías:', categoriesError);
-
-  // Formulario
+  // Formulario - ACTUALIZADO con currency
   const {
     register,
     handleSubmit,
@@ -279,16 +288,18 @@ export default function ImprovedProductManagement() {
       stock: 0,
       warrantyMonths: 0,
       images: [],
+      currency: "MXN", // Moneda por defecto
     },
   });
 
-  // Efectos
+  // Efectos - ACTUALIZADO
   useEffect(() => {
     if (selectedProduct && (dialogMode === 'edit' || dialogMode === 'view')) {
       reset({
         name: selectedProduct.name,
         description: selectedProduct.description || "",
         price: selectedProduct.price || "",
+        currency: selectedProduct.currency || "MXN", // Migración automática
         category: selectedProduct.category || "",
         type: selectedProduct.type || "product",
         brand: selectedProduct.brand || "",
@@ -317,12 +328,13 @@ export default function ImprovedProductManagement() {
         stock: 0,
         warrantyMonths: 0,
         images: [],
+        currency: "MXN",
       });
       setProductImages([]);
     }
   }, [selectedProduct, dialogMode, reset]);
 
-  // Funciones auxiliares
+  // Funciones auxiliares (sin cambios)
   const loadExistingImages = (imageUrls: string[]) => {
     const existingImages: ImageData[] = imageUrls.map((url, index) => ({
       id: `existing-${index}-${Date.now()}`,
@@ -336,15 +348,14 @@ export default function ImprovedProductManagement() {
 
   const openDialog = (mode: 'create' | 'edit' | 'view', product?: Product) => {
     if (mode === 'edit' && product) {
-      // Para editar, navegar a la página de agregar productos con parámetros
       window.location.href = `/add-product?mode=edit&id=${product.id}`;
       return;
     }
 
-     if (mode === 'create') {
-    window.location.href = `/add-product`;
-    return;
-  }
+    if (mode === 'create') {
+      window.location.href = `/add-product`;
+      return;
+    }
     
     setDialogMode(mode);
     setSelectedProduct(product || null);
@@ -359,7 +370,6 @@ export default function ImprovedProductManagement() {
     reset();
   };
 
-  // Función de envío del formulario
   const onSubmit = (data: ProductFormData) => {
     console.log('Enviando formulario:', data);
     console.log('Imágenes:', productImages);
@@ -371,14 +381,13 @@ export default function ImprovedProductManagement() {
     }
   };
 
-  // Función para eliminar producto
   const handleDeleteProduct = (productId: number) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       deleteProductMutation.mutate(productId);
     }
   };
 
-  // Gestión de imágenes
+  // Gestión de imágenes (sin cambios)
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -440,7 +449,7 @@ export default function ImprovedProductManagement() {
     }
   };
 
-  // Filtrado
+  // Filtrado (sin cambios)
   const filteredProducts = products.filter((product) => {
     const matchesSearch = 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -448,25 +457,28 @@ export default function ImprovedProductManagement() {
       (product.sku || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = filterCategory === "all" || product.category === filterCategory;
-    
-    // Filtrar solo productos activos si no están en modo debug
     const isActive = product.isActive !== false;
     
     return matchesSearch && matchesCategory && isActive;
   });
 
-  const formatCurrency = (price: string | number) => {
+  // Función de formateo de moneda - ACTUALIZADA
+  const formatCurrency = (price: string | number, currency: string = 'MXN') => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     if (isNaN(numPrice)) return '$0.00';
+    
+    const currencyInfo = SUPPORTED_CURRENCIES.find(c => c.code === currency);
+    const symbol = currencyInfo?.symbol || '$';
+    
     return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(numPrice);
+      style: 'decimal',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numPrice) + ' ' + symbol;
   };
 
-  // Función para obtener la imagen principal del producto
+  // Funciones de imagen (sin cambios)
   const getProductMainImage = (product: Product) => {
-    // Prioridad: images[0] -> imageUrl -> null
     if (product.images && product.images.length > 0) {
       return product.images[0];
     }
@@ -476,16 +488,13 @@ export default function ImprovedProductManagement() {
     return null;
   };
 
-  // Función para obtener todas las imágenes del producto
   const getProductImages = (product: Product) => {
     const images = [];
     
-    // Agregar images array si existe
     if (product.images && product.images.length > 0) {
       images.push(...product.images);
     }
     
-    // Agregar imageUrl si existe y no está ya en images
     if (product.imageUrl && !images.includes(product.imageUrl)) {
       images.push(product.imageUrl);
     }
@@ -501,7 +510,6 @@ export default function ImprovedProductManagement() {
     );
   }
 
-  // Mostrar error si hay problemas cargando los datos
   if (productsError || categoriesError) {
     return (
       <div className="container mx-auto p-6">
@@ -598,7 +606,6 @@ export default function ImprovedProductManagement() {
                       alt={product.name}
                       className="w-full h-full object-cover rounded-lg"
                       onError={(e) => {
-                        // Si la imagen falla al cargar, mostrar el fallback
                         e.currentTarget.style.display = 'none';
                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
                       }}
@@ -607,19 +614,16 @@ export default function ImprovedProductManagement() {
                     <Package className="w-16 h-16 text-gray-400" />
                   )}
                   
-                  {/* Fallback cuando la imagen no carga */}
                   <div className="hidden absolute inset-0 items-center justify-center">
                     <Package className="w-16 h-16 text-gray-400" />
                   </div>
                   
-                  {/* Indicador de múltiples imágenes */}
                   {getProductImages(product).length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
                       +{getProductImages(product).length - 1} más
                     </div>
                   )}
 
-                  {/* Overlay con acciones */}
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <div className="flex gap-2">
                       <Button
@@ -656,7 +660,7 @@ export default function ImprovedProductManagement() {
               <CardContent className="pt-0">
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-xl font-bold text-green-600">
-                    {formatCurrency(product.price || "0")}
+                    {formatCurrency(product.price || "0", product.currency)}
                   </div>
                   <Badge variant="secondary" className="text-xs">
                     {product.category}
@@ -697,7 +701,7 @@ export default function ImprovedProductManagement() {
           ))}
         </div>
       ) : (
-        // Vista de tabla (implementación simplificada)
+        // Vista de tabla
         <Card>
           <CardHeader>
             <CardTitle>Productos ({filteredProducts.length})</CardTitle>
@@ -721,7 +725,6 @@ export default function ImprovedProductManagement() {
                       ) : (
                         <Package className="w-8 h-8 text-gray-400" />
                       )}
-                      {/* Fallback */}
                       <div className="hidden">
                         <Package className="w-8 h-8 text-gray-400" />
                       </div>
@@ -735,7 +738,7 @@ export default function ImprovedProductManagement() {
                         </Badge>
                         <Badge variant="outline">{product.category}</Badge>
                         <span className="text-sm font-medium text-green-600">
-                          {formatCurrency(product.price || "0")}
+                          {formatCurrency(product.price || "0", product.currency)}
                         </span>
                         {getProductImages(product).length > 1 && (
                           <Badge variant="outline" className="text-xs">
@@ -776,7 +779,7 @@ export default function ImprovedProductManagement() {
         </Card>
       )}
 
-      {/* Dialog solo para modo view */}
+      {/* Dialog solo para modo view - ACTUALIZADO con campo moneda */}
       <Dialog open={isDialogOpen && dialogMode === 'view'} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
           <DialogHeader>
@@ -809,23 +812,31 @@ export default function ImprovedProductManagement() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
                     <Label>Precio</Label>
                     <Input
-                      value={formatCurrency(selectedProduct?.price || "0")}
+                      value={formatCurrency(selectedProduct?.price || "0", selectedProduct?.currency)}
                       disabled
                       className="bg-gray-50"
                     />
                   </div>
                   <div>
-                    <Label>Costo Instalación</Label>
-                    <Input
-                      value={selectedProduct?.installationCost ? formatCurrency(selectedProduct.installationCost) : 'No especificado'}
-                      disabled
-                      className="bg-gray-50"
-                    />
+                    <Label>Moneda</Label>
+                    <div className="bg-gray-50 border rounded-md px-3 py-2 text-sm flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      {SUPPORTED_CURRENCIES.find(c => c.code === selectedProduct?.currency)?.name || selectedProduct?.currency || 'MXN'}
+                    </div>
                   </div>
+                </div>
+
+                <div>
+                  <Label>Costo Instalación</Label>
+                  <Input
+                    value={selectedProduct?.installationCost ? formatCurrency(selectedProduct.installationCost, selectedProduct?.currency) : 'No especificado'}
+                    disabled
+                    className="bg-gray-50"
+                  />
                 </div>
 
                 <div>
@@ -1018,7 +1029,7 @@ export default function ImprovedProductManagement() {
                         <div>
                           <span className="text-gray-600">Costo instalación:</span>
                           <span className="ml-2 font-medium text-green-600">
-                            {formatCurrency(selectedProduct.installationCost)}
+                            {formatCurrency(selectedProduct.installationCost, selectedProduct?.currency)}
                           </span>
                         </div>
                       )}

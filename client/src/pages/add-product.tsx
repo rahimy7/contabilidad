@@ -43,11 +43,11 @@ import {
 } from 'lucide-react';
 import { Controller } from 'react-hook-form';
 
-// Schema de validación
 const productSchema = z.object({
   name: z.string().min(1, "El nombre del producto es requerido"),
   description: z.string().min(1, "La descripción es requerida"),
   price: z.string().min(1, "El precio es requerido"),
+  currency: z.string().min(1, "La moneda es requerida"), // AGREGAR ESTA LÍNEA
   category: z.string().min(1, "La categoría es requerida"),
   type: z.string().default("product"),
   brand: z.string().optional(),
@@ -73,6 +73,14 @@ const productSchema = z.object({
   promotionText: z.string().optional(),
 });
 
+const SUPPORTED_CURRENCIES = [
+  { code: 'DOP', name: 'Peso Dominicano', symbol: 'RD$' },
+  { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'CAD', name: 'Dólar Canadiense', symbol: 'C$' },
+  { code: 'GBP', name: 'Libra Esterlina', symbol: '£' },
+];
+
 type ProductFormData = z.infer<typeof productSchema>;
 
 interface ImageData {
@@ -97,6 +105,7 @@ interface Product {
   name: string;
   description?: string;
   price?: string;
+  currency?: string;
   category?: string;
   type?: string;
   brand?: string;
@@ -192,6 +201,7 @@ export default function EnhancedAddProduct() {
       name: "",
       description: "",
       price: "",
+      currency: "DOP",
       category: "",
       type: "product",
       brand: "",
@@ -256,6 +266,7 @@ export default function EnhancedAddProduct() {
         name: productData.name || "",
         description: productData.description || "",
         price: productData.price || "",
+        currency: productData.currency || "DOP",
         category: productData.category || "",
         type: productData.type || "product",
         brand: productData.brand || "",
@@ -684,6 +695,7 @@ export default function EnhancedAddProduct() {
         name: data.name,
         description: data.description,
         price: data.price,
+        currency: data.currency,
         category: data.category,
         
         // Arrays
@@ -780,6 +792,7 @@ export default function EnhancedAddProduct() {
         name: data.name,
         description: data.description,
         price: data.price,
+        currency: data.currency,
         category: data.category,
         
         // Arrays
@@ -1089,19 +1102,49 @@ export default function EnhancedAddProduct() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="price">Precio *</Label>
-                    <Input
-                      id="price"
-                      {...register("price")}
-                      placeholder="0.00"
-                      type="number"
-                      step="0.01"
-                    />
-                    {errors.price && (
-                      <p className="text-sm text-red-600 mt-1">{errors.price.message}</p>
-                    )}
-                  </div>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="md:col-span-2">
+    <Label htmlFor="price">Precio *</Label>
+    <Input
+      id="price"
+      {...register("price")}
+      placeholder="0.00"
+      type="number"
+      step="0.01"
+    />
+    {errors.price && (
+      <p className="text-sm text-red-600 mt-1">{errors.price.message}</p>
+    )}
+  </div>
+
+  <div>
+    <Label htmlFor="currency">Moneda *</Label>
+    <Controller
+      name="currency"
+      control={control}
+      render={({ field }) => (
+        <Select value={field.value || "DOP"} onValueChange={field.onChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Moneda" />
+          </SelectTrigger>
+          <SelectContent>
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <SelectItem key={currency.code} value={currency.code}>
+                <div className="flex items-center gap-2">
+                  <span>{currency.symbol}</span>
+                  <span>{currency.code}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    />
+    {errors.currency && (
+      <p className="text-sm text-red-600 mt-1">{errors.currency.message}</p>
+    )}
+  </div>
+</div>
 
                   <div>
                     <Label htmlFor="installationCost">Costo de Instalación</Label>
