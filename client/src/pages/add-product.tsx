@@ -42,33 +42,38 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Controller } from 'react-hook-form';
+import { Globe } from 'lucide-react';
 
 const productSchema = z.object({
-  name: z.string().min(1, "El nombre del producto es requerido"),
-  description: z.string().min(1, "La descripción es requerida"),
-  price: z.string().min(1, "El precio es requerido"),
-  currency: z.string().min(1, "La moneda es requerida"), // AGREGAR ESTA LÍNEA
-  category: z.string().min(1, "La categoría es requerida"),
-  type: z.string().default("product"),
+  name: z.string().min(1, 'El nombre es requerido'),
+  description: z.string().min(1, 'La descripción es requerida'),
+  price: z.string().min(1, 'El precio es requerido'),
+  currency: z.enum(['DOP', 'USD'], { 
+    errorMap: () => ({ message: 'Selecciona una moneda válida (DOP o USD)' })
+  }),
+  category: z.string().min(1, 'La categoría es requerida'),
+  type: z.string().default('product'),
   brand: z.string().optional(),
   model: z.string().optional(),
   sku: z.string().optional(),
   isActive: z.boolean().default(true),
-  stock: z.number().min(0, "El stock no puede ser negativo").default(0),
+  stock: z.number().min(0).default(0),
   specifications: z.string().optional(),
   installationCost: z.string().optional(),
   warrantyMonths: z.number().min(0).default(0),
   images: z.array(z.string()).default([]),
+  
+  // ✅ CAMPOS FALTANTES:
   features: z.string().optional(),
   warranty: z.string().optional(),
-  availability: z.string().default("in_stock"),
-  stockQuantity: z.number().min(0).default(0),
-  minQuantity: z.number().min(1).default(1),
-  maxQuantity: z.number().optional(),
   weight: z.string().optional(),
   dimensions: z.string().optional(),
   tags: z.string().optional(),
   salePrice: z.string().optional(),
+  availability: z.string().optional(),
+  stockQuantity: z.number().min(0).default(0),
+  minQuantity: z.number().min(1).default(1),
+  maxQuantity: z.number().min(1).optional(),
   isPromoted: z.boolean().default(false),
   promotionText: z.string().optional(),
 });
@@ -76,9 +81,6 @@ const productSchema = z.object({
 const SUPPORTED_CURRENCIES = [
   { code: 'DOP', name: 'Peso Dominicano', symbol: 'RD$' },
   { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'CAD', name: 'Dólar Canadiense', symbol: 'C$' },
-  { code: 'GBP', name: 'Libra Esterlina', symbol: '£' },
 ];
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -105,7 +107,8 @@ interface Product {
   name: string;
   description?: string;
   price?: string;
-  currency?: string;
+  currency?: string;        // Para compatibilidad con frontend
+  baseCurrency?: string;    // ✅ AGREGADO: Campo del backend
   category?: string;
   type?: string;
   brand?: string;
@@ -120,19 +123,51 @@ interface Product {
   imageUrl?: string;
   features?: string;
   warranty?: string;
-  availability?: string;
-  stockQuantity?: number;
-  minQuantity?: number;
-  maxQuantity?: number;
   weight?: string;
   dimensions?: string;
   tags?: string;
   salePrice?: string;
+  availability?: string;
+  stockQuantity?: number;
+  minQuantity?: number;
+  maxQuantity?: number;
   isPromoted?: boolean;
   promotionText?: string;
 }
 
 const mockBrands = ["Hikvision", "Dahua", "DSC", "Honeywell", "Bosch", "Axis", "Pelco"];
+
+const formatCurrency = (price: string | number, currency: string = 'DOP') => {
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  
+  if (isNaN(numPrice)) return 'N/A';
+
+  // Usar la configuración correcta para cada moneda
+  const currencyConfig = SUPPORTED_CURRENCIES.find(c => c.code === currency);
+  
+  if (!currencyConfig) {
+    return `${numPrice.toFixed(2)} ${currency}`;
+  }
+
+  // Formatear según la moneda
+  if (currency === 'USD') {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numPrice);
+  } else if (currency === 'DOP') {
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numPrice);
+  }
+
+  return `${currencyConfig.symbol}${numPrice.toFixed(2)}`;
+};
 
 export default function EnhancedAddProduct() {
   const { toast } = useToast();
@@ -188,45 +223,28 @@ export default function EnhancedAddProduct() {
 
   // Configurar formulario
   const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      price: "",
-      currency: "DOP",
-      category: "",
-      type: "product",
-      brand: "",
-      model: "",
-      sku: "",
-      isActive: true,
-      stock: 0,
-      specifications: "",
-      installationCost: "",
-      warrantyMonths: 0,
-      images: [],
-      features: "",
-      warranty: "",
-      availability: "in_stock",
-      stockQuantity: 0,
-      minQuantity: 1,
-      maxQuantity: undefined,
-      weight: "",
-      dimensions: "",
-      tags: "",
-      salePrice: "",
-      isPromoted: false,
-      promotionText: "",
-    },
-  });
+  register,
+  handleSubmit,
+  setValue,
+  watch,
+  reset,
+  control, // ✅ AGREGAR: Incluir control
+  formState: { errors, isSubmitting },
+} = useForm<ProductFormData>({
+  resolver: zodResolver(productSchema),
+  defaultValues: {
+    type: "product",
+    isActive: true,
+    stock: 0,
+    warrantyMonths: 0,
+    images: [],
+    currency: "DOP",
+    stockQuantity: 0,
+  minQuantity: 1,
+  isPromoted: false,
+  availability: "in_stock",
+  },
+});
 
   // DEBUGGING DESPUÉS DE TODOS LOS HOOKS
   console.log('🔍 URL params:', window.location.search);
@@ -257,63 +275,69 @@ export default function EnhancedAddProduct() {
     }
   }, []);
 
-  // Cargar datos del producto en modo edición
-  useEffect(() => {
-    if (isEditMode && productData && !loadingProductData) {
-      console.log('🔄 Poblando formulario con datos del producto:', productData);
-      
-      const formData = {
-        name: productData.name || "",
-        description: productData.description || "",
-        price: productData.price || "",
-        currency: productData.currency || "DOP",
-        category: productData.category || "",
-        type: productData.type || "product",
-        brand: productData.brand || "",
-        model: productData.model || "",
-        sku: productData.sku || "",
-        isActive: productData.isActive ?? true,
-        stock: productData.stock || 0,
-        specifications: productData.specifications || "",
-        installationCost: productData.installationCost || "",
-        warrantyMonths: productData.warrantyMonths || 0,
-        images: productData.images || [],
-        features: Array.isArray(productData.features) 
-          ? productData.features.join(', ') 
-          : productData.features || "",
-        warranty: productData.warranty || "",
-        availability: productData.availability || "in_stock",
-        stockQuantity: productData.stockQuantity || 0,
-        minQuantity: productData.minQuantity || 1,
-        maxQuantity: productData.maxQuantity,
-        weight: productData.weight || "",
-        dimensions: productData.dimensions || "",
-        tags: Array.isArray(productData.tags) 
-          ? productData.tags.join(', ') 
-          : productData.tags || "",
-        salePrice: productData.salePrice || "",
-        isPromoted: productData.isPromoted || false,
-        promotionText: productData.promotionText || "",
-      };
-      
-      // Guardar datos originales para comparación
-      setOriginalData(formData);
-      
-      // Poblar el formulario
-      Object.entries(formData).forEach(([key, value]) => {
-        setValue(key as keyof ProductFormData, value);
-      });
+  const validateCurrency = (currency: string | undefined): "DOP" | "USD" => {
+  if (currency === "DOP" || currency === "USD") {
+    return currency;
+  }
+  return "DOP";
+};
 
-      // Cargar imágenes existentes
-      if (productData.images && productData.images.length > 0) {
-        loadExistingImages(productData.images);
-      } else if (productData.imageUrl) {
-        loadExistingImages([productData.imageUrl]);
-      } else {
-        setProductImages([]);
-      }
+  // Cargar datos del producto en modo edición
+useEffect(() => {
+  if (isEditMode && productData) { // ✅ CORRECTO: Usar variables que sí existen
+    console.log('📋 Loading existing product data:', productData);
+    
+    reset({
+      name: productData.name,
+      description: productData.description || "",
+      price: productData.price || "",
+      // ✅ MAPEAR CORRECTAMENTE baseCurrency A currency PARA EL FRONTEND
+     currency: validateCurrency(productData.baseCurrency || productData.currency),
+      category: productData.category || "",
+      type: productData.type || "product",
+      brand: productData.brand || "",
+      model: productData.model || "",
+      sku: productData.sku || "",
+      isActive: productData.isActive ?? true,
+      stock: productData.stock || 0,
+      specifications: productData.specifications || "",
+      installationCost: productData.installationCost || "",
+      warrantyMonths: productData.warrantyMonths || 0,
+      images: productData.images || [],
+       features: productData.features || "",
+  warranty: productData.warranty || "",
+  weight: productData.weight || "",
+  dimensions: productData.dimensions || "",
+  tags: productData.tags || "",
+  salePrice: productData.salePrice || "",
+  availability: productData.availability || "in_stock",
+  stockQuantity: productData.stockQuantity || 0,
+  minQuantity: productData.minQuantity || 1,
+  maxQuantity: productData.maxQuantity || undefined,
+  isPromoted: productData.isPromoted ?? false,
+  promotionText: productData.promotionText || "",
+    });
+
+    console.log('💱 Loaded currency:', productData.baseCurrency || productData.currency || "DOP");
+
+    // Cargar imágenes existentes si las hay
+    if (productData.images && productData.images.length > 0) {
+      loadExistingImages(productData.images);
+    } else if (productData.imageUrl) {
+      loadExistingImages([productData.imageUrl]);
     }
-  }, [isEditMode, productData, loadingProductData, setValue, productId]);
+  } else if (!isEditMode) {
+    // Modo crear - usar valores por defecto
+    reset({
+      type: "product",
+      isActive: true,
+      stock: 0,
+      warrantyMonths: 0,
+      images: [],
+      currency: "DOP", // ✅ VALOR POR DEFECTO DOP
+    });
+  }
+}, [isEditMode, productData, reset]); 
 
   // Manejo de errores para el producto
   useEffect(() => {
@@ -675,201 +699,128 @@ export default function EnhancedAddProduct() {
       });
     }
   };
+const getAuthToken = () => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    throw new Error('No hay token de autenticación disponible');
+  }
+  return token;
+};
+
+const getProcessedImages = () => {
+  return productImages
+    .filter(img => img.isUploaded && img.uploadStatus === 'success')
+    .map(img => img.url);
+};
 
   // MUTATIONS CORREGIDAS
-  const createProductMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => {
-      console.log('🔄 Creando producto:', data);
-      
-      const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
-      if (pendingUploads.length > 0) {
-        throw new Error('Espera a que terminen de subirse todas las imágenes');
-      }
+const createProductMutation = useMutation({
+  mutationFn: async (data: ProductFormData) => {
+    console.log('🔄 Creating product with data:', data);
+    const token = getAuthToken();
+const processedImages = getProcessedImages();
+    // Preparar datos para envío
+    const productData = {
+      ...data,
+      // ✅ MAPEAR currency A baseCurrency PARA EL BACKEND
+      baseCurrency: data.currency,
+      // Remover el campo currency para evitar confusión
+      currency: undefined,
+      images: processedImages,
+    };
 
-      const uploadedImages = productImages
-        .filter(img => img.uploadStatus === 'success')
-        .map(img => img.url);
+    console.log('💱 Sending product with baseCurrency:', productData.baseCurrency);
 
-      const productData = {
-        // Campos requeridos
-        name: data.name,
-        description: data.description,
-        price: data.price,
-        currency: data.currency,
-        category: data.category,
-        
-        // Arrays
-        images: uploadedImages.length > 0 ? uploadedImages : [],
-        features: normalizeToArray(data.features),
-        tags: normalizeToArray(data.tags),
-        
-        // Campos de texto opcionales
-        sku: normalizeTextField(data.sku),
-        brand: normalizeTextField(data.brand),
-        model: normalizeTextField(data.model),
-        specifications: normalizeTextField(data.specifications),
-        warranty: normalizeTextField(data.warranty),
-        weight: normalizeTextField(data.weight),
-        dimensions: normalizeTextField(data.dimensions),
-        promotionText: normalizeTextField(data.promotionText),
-        
-        // Campos numéricos opcionales
-        installationCost: normalizeNumericField(data.installationCost),
-        salePrice: normalizeNumericField(data.salePrice),
-        maxQuantity: data.maxQuantity ? Number(data.maxQuantity) : null,
-          
-        // Campos numéricos requeridos
-        stock: Number(data.stock) || 0,
-        warrantyMonths: Number(data.warrantyMonths) || 0,
-        stockQuantity: Number(data.stockQuantity) || 0,
-        minQuantity: Number(data.minQuantity) || 1,
-        
-        // Campos con valores por defecto
-        type: data.type || "product",
-        availability: data.availability || "in_stock",
-        
-        // Booleanos
-        isActive: Boolean(data.isActive),
-        isPromoted: Boolean(data.isPromoted),
-      };
+    const response = await fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(productData),
+    });
 
-      console.log('📦 Datos preparados para creación:', productData);
-
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No hay token de autenticación disponible');
-      }
-
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(productData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear producto');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Producto creado",
-        description: "El producto se ha creado correctamente",
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      window.location.href = '/product-management';
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Error al crear el producto",
-        variant: "destructive",
-      });
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Create product error:', errorData);
+      throw new Error(errorData.error || 'Error al crear producto');
     }
-  });
 
-  const updateProductMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => {
-      console.log('🔄 Actualizando producto:', productId, data);
-      
-      const pendingUploads = productImages.filter(img => img.uploadStatus === 'uploading');
-      if (pendingUploads.length > 0) {
-        throw new Error('Espera a que terminen de subirse todas las imágenes');
-      }
+    const result = await response.json();
+    console.log('✅ Product created successfully:', result);
+    return result;
+  },
+  onSuccess: () => {
+    toast({
+      title: "Producto creado",
+      description: "El producto se ha creado correctamente con la moneda especificada",
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    window.location.href = '/product-management';
+  },
+  onError: (error: any) => {
+    console.error('Create product mutation error:', error);
+    toast({
+      title: "Error",
+      description: error.message || "Error al crear el producto",
+      variant: "destructive",
+    });
+  }
+});
 
-      const uploadedImages = productImages
-        .filter(img => img.uploadStatus === 'success')
-        .map(img => img.url);
+const updateProductMutation = useMutation({
+  mutationFn: async (data: ProductFormData) => {
+    console.log('🔄 Updating product with data:', data);
+    const token = getAuthToken();
+const processedImages = getProcessedImages();
+    // Preparar datos para actualización
+    const productData = {
+      ...data,
+      // ✅ MAPEAR currency A baseCurrency PARA EL BACKEND
+      baseCurrency: data.currency,
+      // Remover el campo currency para evitar confusión
+      currency: undefined,
+      images: processedImages,
+    };
 
-      const productData = {
-        // Campos requeridos
-        name: data.name,
-        description: data.description,
-        price: data.price,
-        currency: data.currency,
-        category: data.category,
-        
-        // Arrays
-        images: uploadedImages.length > 0 ? uploadedImages : [],
-        features: normalizeToArray(data.features),
-        tags: normalizeToArray(data.tags),
-        
-        // Campos de texto opcionales
-        sku: normalizeTextField(data.sku),
-        brand: normalizeTextField(data.brand),
-        model: normalizeTextField(data.model),
-        specifications: normalizeTextField(data.specifications),
-        warranty: normalizeTextField(data.warranty),
-        weight: normalizeTextField(data.weight),
-        dimensions: normalizeTextField(data.dimensions),
-        promotionText: normalizeTextField(data.promotionText),
-        
-        // Campos numéricos opcionales
-        installationCost: normalizeNumericField(data.installationCost),
-        salePrice: normalizeNumericField(data.salePrice),
-        maxQuantity: data.maxQuantity ? Number(data.maxQuantity) : null,
-          
-        // Campos numéricos requeridos
-        stock: Number(data.stock) || 0,
-        warrantyMonths: Number(data.warrantyMonths) || 0,
-        stockQuantity: Number(data.stockQuantity) || 0,
-        minQuantity: Number(data.minQuantity) || 1,
-        
-        // Campos con valores por defecto
-        type: data.type || "product",
-        availability: data.availability || "in_stock",
-        
-        // Booleanos
-        isActive: Boolean(data.isActive),
-        isPromoted: Boolean(data.isPromoted),
-      };
+    console.log('💱 Updating product with baseCurrency:', productData.baseCurrency);
 
-      console.log('📦 Datos preparados para actualización:', productData);
+    const response = await fetch(`/api/products/${productId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(productData),
+    });
 
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No hay token de autenticación disponible');
-      }
-
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(productData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al actualizar producto');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Producto actualizado",
-        description: "El producto se ha actualizado correctamente",
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      window.location.href = '/product-management';
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el producto",
-        variant: "destructive",
-      });
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Update product error:', errorData);
+      throw new Error(errorData.error || 'Error al actualizar producto');
     }
-  });
+
+    const result = await response.json();
+    console.log('✅ Product updated successfully:', result);
+    return result;
+  },
+  onSuccess: () => {
+    toast({
+      title: "Producto actualizado",
+      description: "El producto se ha actualizado correctamente con la nueva moneda",
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    window.location.href = '/product-management';
+  },
+  onError: (error: any) => {
+    console.error('Update product mutation error:', error);
+    toast({
+      title: "Error",
+      description: error.message || "Error al actualizar el producto",
+      variant: "destructive",
+    });
+  }
+});
 
   // Función de envío del formulario
   const onSubmit = (data: ProductFormData) => {
@@ -1102,49 +1053,49 @@ export default function EnhancedAddProduct() {
                     />
                   </div>
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div className="md:col-span-2">
-    <Label htmlFor="price">Precio *</Label>
-    <Input
-      id="price"
-      {...register("price")}
-      placeholder="0.00"
-      type="number"
-      step="0.01"
-    />
-    {errors.price && (
-      <p className="text-sm text-red-600 mt-1">{errors.price.message}</p>
-    )}
-  </div>
+<div>
+  <Label htmlFor="price">Precio *</Label>
+  <Input
+    id="price"
+    {...register('price')}
+    placeholder="0.00"
+    className={errors.price ? 'border-red-500' : ''}
+  />
+  {errors.price && (
+    <p className="text-sm text-red-500 mt-1">{errors.price.message}</p>
+  )}
+</div>
 
-  <div>
-    <Label htmlFor="currency">Moneda *</Label>
-    <Controller
-      name="currency"
-      control={control}
-      render={({ field }) => (
-        <Select value={field.value || "DOP"} onValueChange={field.onChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Moneda" />
+{/* ✅ NUEVO: Campo de Moneda */}
+
+ <div>
+        <Label htmlFor="currency">Moneda *</Label>
+        <Select
+          value={watch('currency')}
+          onValueChange={(value) => {
+            setValue('currency', value as 'DOP' | 'USD');
+            console.log('💱 Currency changed to:', value);
+          }}
+        >
+          <SelectTrigger className={errors.currency ? 'border-red-500' : ''}>
+            <SelectValue placeholder="Selecciona una moneda" />
           </SelectTrigger>
           <SelectContent>
             {SUPPORTED_CURRENCIES.map((currency) => (
               <SelectItem key={currency.code} value={currency.code}>
                 <div className="flex items-center gap-2">
                   <span>{currency.symbol}</span>
-                  <span>{currency.code}</span>
+                  <span>{currency.name}</span>
+                  <span className="text-xs text-gray-500">({currency.code})</span>
                 </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      )}
-    />
-    {errors.currency && (
-      <p className="text-sm text-red-600 mt-1">{errors.currency.message}</p>
-    )}
-  </div>
-</div>
+        {errors.currency && (
+          <p className="text-sm text-red-500 mt-1">{errors.currency.message}</p>
+        )}
+      </div>
 
                   <div>
                     <Label htmlFor="installationCost">Costo de Instalación</Label>

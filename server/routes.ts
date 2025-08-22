@@ -312,9 +312,6 @@ const getProductByIdHandler = async (req: any, res: any) => {
 
 const createProductHandler = async (req: any, res: any) => {
   try {
-    console.log('🔍 Headers:', req.headers);
-    console.log('🔍 Content-Type:', req.headers['content-type']);
-    console.log('🔍 Raw body:', req.body);
     const user = req.user as AuthUser;
     
     if (!user.storeId) {
@@ -328,32 +325,54 @@ const createProductHandler = async (req: any, res: any) => {
 
     // ✅ VALIDACIÓN EXPLÍCITA DEL NOMBRE
     if (!req.body || !req.body.name || req.body.name.trim() === '') {
-      console.log('❌ Product name validation failed:', {
-        hasBody: !!req.body,
-        name: req.body?.name,
-        nameType: typeof req.body?.name
-      });
       return res.status(400).json({
         error: "El nombre del producto es requerido"
       });
     }
 
+    // ✅ NUEVA VALIDACIÓN DE MONEDA
+    const supportedCurrencies = ['USD', 'DOP'];
+    const requestedCurrency = req.body.baseCurrency || req.body.currency || 'DOP';
+    
+    if (!supportedCurrencies.includes(requestedCurrency.toUpperCase())) {
+      return res.status(400).json({
+        error: `Moneda no soportada: ${requestedCurrency}. Monedas soportadas: ${supportedCurrencies.join(', ')}`
+      });
+    }
+
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // ✅ CONSTRUCCIÓN EXPLÍCITA DE PRODUCTDATA
+    // ✅ FUNCIÓN PARA NORMALIZAR ARRAYS (MISMA QUE EN UPDATE)
+    const normalizeArrayField = (value: any): string[] => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value.filter(item => item && typeof item === 'string' && item.trim());
+      if (typeof value === 'string') {
+        if (value.trim() === '') return [];
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed.filter(item => item && typeof item === 'string' && item.trim()) : [value.trim()];
+        } catch {
+          return value.trim() ? [value.trim()] : [];
+        }
+      }
+      return [];
+    };
+
+    // ✅ CONSTRUCCIÓN EXPLÍCITA DE PRODUCTDATA CON ARRAYS NORMALIZADOS
     const productData = {
-      name: req.body.name.trim(),  // ← Asegurar que el name está presente
+      name: req.body.name.trim(),
       description: req.body.description || '',
       price: req.body.price || '0.00',
+      baseCurrency: requestedCurrency.toUpperCase(), // ✅ AGREGADO: Campo de moneda
       category: req.body.category || 'general',
       status: req.body.status || 'active',
       imageUrl: req.body.imageUrl || null,
-      images: req.body.images || [],
+      images: normalizeArrayField(req.body.images),    // ✅ NORMALIZADO
       sku: req.body.sku || null,
       brand: req.body.brand || null,
       model: req.body.model || null,
       specifications: req.body.specifications || null,
-      features: req.body.features || null,
+      features: normalizeArrayField(req.body.features), // ✅ NORMALIZADO - CRÍTICO
       warranty: req.body.warranty || null,
       availability: req.body.availability || 'in_stock',
       stockQuantity: parseInt(req.body.stockQuantity) || 0,
@@ -361,14 +380,18 @@ const createProductHandler = async (req: any, res: any) => {
       maxQuantity: req.body.maxQuantity ? parseInt(req.body.maxQuantity) : null,
       weight: req.body.weight || null,
       dimensions: req.body.dimensions || null,
-      tags: req.body.tags || null,
+      tags: normalizeArrayField(req.body.tags),        // ✅ NORMALIZADO - CRÍTICO
       salePrice: req.body.salePrice || null,
       isPromoted: Boolean(req.body.isPromoted),
       promotionText: req.body.promotionText || null,
       isActive: req.body.isActive !== undefined ? req.body.isActive : true
     };
 
-    console.log('📋 Final productData to send:', JSON.stringify(productData, null, 2));
+    console.log('📋 Final productData with normalized arrays:', {
+      features: { original: req.body.features, normalized: productData.features },
+      tags: { original: req.body.tags, normalized: productData.tags },
+      images: { original: req.body.images, normalized: productData.images }
+    });
 
     // Si hay archivos subidos, procesarlos
     if (req.files && req.files.length > 0) {
@@ -383,7 +406,7 @@ const createProductHandler = async (req: any, res: any) => {
 
     const product = await tenantStorage.createProduct(productData);
     
-    console.log('✅ Product created in tenant schema:', product.id);
+    console.log('✅ Product created in tenant schema with currency:', product.baseCurrency);
     res.status(201).json(product);
     
   } catch (error) {
@@ -422,6 +445,7 @@ const updateProductHandler = async (req: any, res: any) => {
     }
 
     console.log('✏️ Updating product', productId, 'for store:', user.storeId);
+    console.log('📋 Update request body:', JSON.stringify(req.body, null, 2));
 
     const tenantStorage = await getTenantStorageWithSchema(user);
     
@@ -431,11 +455,63 @@ const updateProductHandler = async (req: any, res: any) => {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    // Procesar datos de actualización
-    const updateData = {
-      ...req.body,
-      updatedAt: new Date()
+    // ✅ NUEVA VALIDACIÓN DE MONEDA SI SE ESTÁ ACTUALIZANDO
+    const supportedCurrencies = ['USD', 'DOP'];
+    let updateData = { ...req.body, updatedAt: new Date() };
+
+    // Si se está actualizando la moneda, validarla
+    if (req.body.baseCurrency || req.body.currency) {
+      const requestedCurrency = req.body.baseCurrency || req.body.currency;
+      
+      if (!supportedCurrencies.includes(requestedCurrency.toUpperCase())) {
+        console.log('❌ Currency validation failed in update:', {
+          requested: requestedCurrency,
+          supported: supportedCurrencies
+        });
+        return res.status(400).json({
+          error: `Moneda no soportada: ${requestedCurrency}. Monedas soportadas: ${supportedCurrencies.join(', ')}`
+        });
+      }
+
+      // Actualizar el campo baseCurrency
+      updateData.baseCurrency = requestedCurrency.toUpperCase();
+      console.log('💱 Updating product currency to:', updateData.baseCurrency);
+    }
+
+    // ✅ FUNCIÓN PARA NORMALIZAR ARRAYS
+    const normalizeArrayField = (value: any): string[] => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value.filter(item => item && typeof item === 'string' && item.trim());
+      if (typeof value === 'string') {
+        if (value.trim() === '') return [];
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed.filter(item => item && typeof item === 'string' && item.trim()) : [value.trim()];
+        } catch {
+          // Si es un string simple, convertir a array de un elemento
+          return value.trim() ? [value.trim()] : [];
+        }
+      }
+      return [];
     };
+
+    // ✅ NORMALIZAR TODOS LOS CAMPOS DE ARRAY PROBLEMÁTICOS
+    const normalizedArrayFields = {
+      images: normalizeArrayField(updateData.images),
+      features: normalizeArrayField(updateData.features), // ← CRÍTICO
+      tags: normalizeArrayField(updateData.tags),         // ← CRÍTICO
+    };
+
+    // Aplicar las normalizaciones
+    updateData.images = normalizedArrayFields.images;
+    updateData.features = normalizedArrayFields.features;
+    updateData.tags = normalizedArrayFields.tags;
+
+    console.log('📋 Normalized array fields:', {
+      images: { original: req.body.images, normalized: normalizedArrayFields.images },
+      features: { original: req.body.features, normalized: normalizedArrayFields.features },
+      tags: { original: req.body.tags, normalized: normalizedArrayFields.tags }
+    });
 
     // Si hay archivos nuevos, procesarlos
     if (req.files && req.files.length > 0) {
@@ -450,7 +526,10 @@ const updateProductHandler = async (req: any, res: any) => {
 
     const product = await tenantStorage.updateProduct(productId, updateData);
     
-    console.log('✅ Product updated in tenant schema');
+    console.log('✅ Product updated in tenant schema:', {
+      id: product.id,
+      baseCurrency: product.baseCurrency
+    });
     res.json(product);
     
   } catch (error) {
