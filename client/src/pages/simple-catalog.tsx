@@ -764,11 +764,11 @@ ${orderItems}
                             <p className="text-emerald-600 font-bold">
                               {formatCurrency(itemPrice, 'DOP')}
                             </p>
-                            {item.conversionApplied && (
+                            {/* {item.conversionApplied && (
                               <p className="text-xs text-gray-500">
                                 Original: {item.originalFormattedPrice}
                               </p>
-                            )}
+                            )} */}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -894,11 +894,11 @@ ${orderItems}
                           <div className="text-2xl font-bold text-emerald-600">
                             {product.formattedPrice}
                           </div>
-                          {product.conversionApplied && (
+                         {/*  {product.conversionApplied && (
                             <div className="text-xs text-gray-500">
                               Original: {product.originalFormattedPrice}
                             </div>
-                          )}
+                          )} */}
                         </div>
                         {product.brand && (
                           <Badge variant="outline" className="text-xs">
