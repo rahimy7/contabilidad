@@ -31,6 +31,7 @@ import { db as masterDb } from './db'; // ✅ Usar db como masterDb
 import * as schema from '@shared/schema'; // ✅ Importar schema directamente
 import { getTenantDb } from "./multi-tenant-db.js";
 import { createTenantStorage } from "./tenant-storage.js";
+import { NotificationService } from "./notification-service.js";
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
   return user.role === 'super_admin' ? 'public' : 'tenant';
@@ -2049,16 +2050,23 @@ router.get('/notifications', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/notifications/count', authenticateToken, async (req, res) => {
+router.get('/notifications/count', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = (req as any).user;
-    const userId = parseInt(req.query.userId as string) || user.id;
+    const user = req.user as AuthUser;
     const tenantStorage = await getTenantStorageWithSchema(user);
-    const counts = await tenantStorage.getNotificationCounts(userId);
+    
+    console.log(`🔢 Getting notification counts for user ${user.id}, store ${user.storeId}`);
+    
+    const counts = await tenantStorage.getNotificationCounts(user.id);
+    
     res.json(counts);
   } catch (error) {
     console.error('Error fetching notification counts:', error);
-    res.status(500).json({ error: 'Failed to fetch notification counts' });
+    res.status(500).json({ 
+      error: 'Failed to fetch notification counts',
+      total: 0,
+      unread: 0 
+    });
   }
 });
 
@@ -2545,6 +2553,14 @@ items: items.map((item: any) => ({
       
       // Crear la orden
       const order = await tenantStorage.createOrder(orderData);
+
+       // ✅ TRIGGER NOTIFICACIÓN DE CREACIÓN
+    const notificationService = new NotificationService(tenantStorage, user.storeId);
+    await notificationService.triggerOrderNotifications({
+      orderId: order.id,
+      eventType: 'order_created',
+      customData: { source: 'manual_creation' }
+    });
       
       // Si hay items, crearlos también
       if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
@@ -2569,7 +2585,7 @@ items: items.map((item: any) => ({
     }
   });
 
-  router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
+/*   router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
@@ -2590,7 +2606,7 @@ items: items.map((item: any) => ({
       console.error('❌ Error updating order:', error);
       res.status(500).json({ error: 'Failed to update order' });
     }
-  });
+  }); */
 
   router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
   try {
@@ -2697,6 +2713,34 @@ items: items.map((item: any) => ({
       if (!order) {
         return res.status(404).json({ error: 'Order not found' });
       }
+
+      // ✅ TRIGGER NOTIFICACIONES DE CAMBIO
+    const notificationService = new NotificationService(tenantStorage, user.storeId);
+     // Obtener estado anterior
+    const previousOrder = await tenantStorage.getOrderById(id);
+        // Si cambió el estado
+    if (previousOrder?.status !== order.status) {
+      await notificationService.triggerOrderNotifications({
+        orderId: order.id,
+        eventType: 'order_status_changed',
+        customData: { 
+          previousStatus: previousOrder?.status,
+          newStatus: order.status 
+        }
+      });
+    }
+    
+    // Si cambió la asignación
+    if (previousOrder?.assignedUserId !== order.assignedUserId) {
+      await notificationService.triggerOrderNotifications({
+        orderId: order.id,
+        eventType: 'assignment_changed',
+        customData: {
+          previousTechnician: previousOrder?.assignedUserId,
+          newTechnician: order.assignedUserId
+        }
+      });
+    }
       
       res.json(order);
     } catch (error) {
@@ -4247,6 +4291,122 @@ app.get('/api/currencies/supported', authenticateToken, (req: any, res: any) => 
       message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   });
+
+  // Configuración de canales
+router.get('/notification-channels', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const channels = await tenantStorage.getNotificationChannels();
+    res.json(channels);
+  } catch (error) {
+    console.error('Error fetching notification channels:', error);
+    res.status(500).json({ error: 'Failed to fetch notification channels' });
+  }
+});
+
+router.put('/notification-channels/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const channel = await tenantStorage.updateNotificationChannel(id, req.body);
+    res.json(channel);
+  } catch (error) {
+    console.error('Error updating notification channel:', error);
+    res.status(500).json({ error: 'Failed to update notification channel' });
+  }
+});
+
+// Eventos de notificación
+router.get('/notification-events', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const events = await tenantStorage.getNotificationEvents();
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching notification events:', error);
+    res.status(500).json({ error: 'Failed to fetch notification events' });
+  }
+});
+
+// Configuraciones de notificación
+router.get('/notification-configs', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const configs = await tenantStorage.getNotificationConfigs();
+    res.json(configs);
+  } catch (error) {
+    console.error('Error fetching notification configs:', error);
+    res.status(500).json({ error: 'Failed to fetch notification configs' });
+  }
+});
+
+router.post('/notification-configs', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const config = await tenantStorage.createNotificationConfig(req.body);
+    res.json(config);
+  } catch (error) {
+    console.error('Error creating notification config:', error);
+    res.status(500).json({ error: 'Failed to create notification config' });
+  }
+});
+
+router.put('/notification-configs/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const config = await tenantStorage.updateNotificationConfig(id, req.body);
+    res.json(config);
+  } catch (error) {
+    console.error('Error updating notification config:', error);
+    res.status(500).json({ error: 'Failed to update notification config' });
+  }
+});
+
+router.delete('/notification-configs/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    await tenantStorage.deleteNotificationConfig(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notification config:', error);
+    res.status(500).json({ error: 'Failed to delete notification config' });
+  }
+});
+
+// Historial de notificaciones
+router.get('/notification-history', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const { page = 1, limit = 20, orderId, channel, status } = req.query;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const history = await tenantStorage.getNotificationHistory({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      orderId: orderId ? parseInt(orderId) : undefined,
+      channel,
+      status
+    });
+    
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching notification history:', error);
+    res.status(500).json({ error: 'Failed to fetch notification history' });
+  }
+});
 
   // ================================
   // MOUNT ROUTER ON APP

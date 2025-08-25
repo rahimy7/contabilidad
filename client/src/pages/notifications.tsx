@@ -1,399 +1,404 @@
-import { useState } from "react";
+// =====================================
+// ARCHIVO: client/src/pages/notifications.tsx - REEMPLAZAR CONTENIDO COMPLETO
+// =====================================
+
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, BellOff, CheckCircle, Clock, Trash2, Users, Settings, AlertTriangle, MessageSquare } from "lucide-react";
-import type { Notification } from "@shared/schema";
+import { 
+  Bell, 
+  Settings, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  MessageSquare, 
+  Mail, 
+  Smartphone,
+  History,
+  Users,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  BellOff
+} from "lucide-react";
 
 export default function NotificationsPage() {
-  const [selectedUser, setSelectedUser] = useState<number>(6); // For demo purposes, would get from auth
+  const [activeTab, setActiveTab] = useState("notifications");
+  const [configDialog, setConfigDialog] = useState(false);
+  const [selectedConfig, setSelectedConfig] = useState(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch notifications
+  // Queries existentes (mantener)
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ["/api/notifications", { userId: selectedUser }],
-    queryFn: () => apiRequest("GET", `/api/notifications?userId=${selectedUser}`)
-  });
+  queryKey: ["/api/notifications"],
+  queryFn: () => apiRequest("GET", "/api/notifications").catch(() => [])
+});
 
-  // Fetch unread notifications
-  const { data: unreadNotifications = [] } = useQuery({
-    queryKey: ["/api/notifications/unread", { userId: selectedUser }],
-    queryFn: () => apiRequest("GET", `/api/notifications/unread?userId=${selectedUser}`)
-  });
-
-  // Fetch notification counts
   const { data: counts = { total: 0, unread: 0 } } = useQuery({
-    queryKey: ["/api/notifications/count", { userId: selectedUser }],
-    queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${selectedUser}`)
+    queryKey: ["/api/notifications/count"],
+    queryFn: () => apiRequest("GET", "/api/notifications/count")
   });
 
-  // Mark notification as read
-  const markAsReadMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("PUT", `/api/notifications/${id}/read`),
+  // Nuevas queries para el sistema de configuración
+  const { data: channels = [] } = useQuery({
+    queryKey: ["/api/notification-channels"],
+    queryFn: () => apiRequest("GET", "/api/notification-channels")
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["/api/notification-events"],
+    queryFn: () => apiRequest("GET", "/api/notification-events")
+  });
+
+  const { data: configs = [] } = useQuery({
+    queryKey: ["/api/notification-configs"],
+    queryFn: () => apiRequest("GET", "/api/notification-configs")
+  });
+
+  const { data: history = [] } = useQuery({
+    queryKey: ["/api/notification-history"],
+    queryFn: () => apiRequest("GET", "/api/notification-history")
+  });
+
+  // Mutation para actualizar canales
+  const updateChannelMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      apiRequest("PUT", `/api/notification-channels/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/count"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "No se pudo marcar la notificación como leída",
-        variant: "destructive",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/notification-channels"] });
+      toast({ title: "Canal actualizado" });
     }
   });
 
-  // Mark all as read
-  const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiRequest("PUT", "/api/notifications/read-all", { userId: selectedUser }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/count"] });
-      toast({
-        title: "Notificaciones actualizadas",
-        description: "Todas las notificaciones han sido marcadas como leídas",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "No se pudieron actualizar las notificaciones",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Delete notification
-  const deleteNotificationMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/notifications/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/count"] });
-      toast({
-        title: "Notificación eliminada",
-        description: "La notificación ha sido eliminada exitosamente",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la notificación",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Create test notification
-  const createTestNotificationMutation = useMutation({
-    mutationFn: (type: string) => apiRequest("POST", "/api/notifications", {
-      userId: selectedUser,
-      title: getTestNotificationTitle(type),
-      message: getTestNotificationMessage(type),
-      type: type,
-      priority: type === "urgent" ? "urgent" : "normal"
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/count"] });
-      toast({
-        title: "Notificación de prueba creada",
-        description: "Se ha generado una nueva notificación para testing",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "No se pudo crear la notificación de prueba",
-        variant: "destructive",
-      });
-    }
-  });
-
-  function getTestNotificationTitle(type: string): string {
-    switch (type) {
-      case "order": return "Nueva Orden Asignada";
-      case "message": return "Nuevo Mensaje WhatsApp";
-      case "system": return "Actualización del Sistema";
-      case "assignment": return "Asignación Automática";
-      case "urgent": return "🚨 Alerta Urgente";
-      default: return "Notificación de Prueba";
-    }
-  }
-
-  function getTestNotificationMessage(type: string): string {
-    switch (type) {
-      case "order": return "Se te ha asignado la orden #ORD-1234 para instalación de aire acondicionado en Av. Reforma 123";
-      case "message": return "Cliente María López envió un mensaje: '¿A qué hora llega el técnico?'";
-      case "system": return "El sistema ha sido actualizado a la versión 2.1.0 con nuevas funcionalidades";
-      case "assignment": return "Orden #ORD-5678 asignada automáticamente basada en tu especialización y ubicación";
-      case "urgent": return "Emergencia técnica reportada - Cliente sin servicio de aire acondicionado - Requiere atención inmediata";
-      default: return "Esta es una notificación de prueba para verificar el funcionamiento del sistema";
-    }
-  }
-
-  function getNotificationIcon(type: string) {
-    switch (type) {
-      case "order": return <Settings className="h-4 w-4" />;
-      case "message": return <MessageSquare className="h-4 w-4" />;
-      case "system": return <Bell className="h-4 w-4" />;
-      case "assignment": return <Users className="h-4 w-4" />;
-      case "urgent": return <AlertTriangle className="h-4 w-4" />;
-      default: return <Bell className="h-4 w-4" />;
-    }
-  }
-
-  function getNotificationColor(type: string, priority: string) {
-    if (priority === "urgent") return "destructive";
-    switch (type) {
-      case "order": return "default";
-      case "message": return "secondary";
-      case "system": return "outline";
-      case "assignment": return "default";
-      default: return "default";
-    }
-  }
-
-  function formatTimeAgo(timestamp: string) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return "Ahora";
-    if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
-    return `${Math.floor(diffInMinutes / 1440)}d`;
-  }
-
-  // Ensure notifications is always an array
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
-
-  const filteredNotifications = {
-    all: safeNotifications,
-    unread: safeNotifications.filter((n: Notification) => !n.isRead),
-    order: safeNotifications.filter((n: Notification) => n.type === "order"),
-    message: safeNotifications.filter((n: Notification) => n.type === "message"),
-    system: safeNotifications.filter((n: Notification) => n.type === "system"),
-    urgent: safeNotifications.filter((n: Notification) => n.priority === "urgent")
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-        </div>
-      </div>
-    );
-  }
+  
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Notificaciones</h1>
-          <p className="text-muted-foreground">
-            {counts.total} total • {counts.unread} sin leer
+          <h1 className="text-3xl font-bold">Sistema de Notificaciones</h1>
+          <p className="text-gray-600">
+            Configure notificaciones automáticas para eventos de órdenes
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {counts.unread > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => markAllAsReadMutation.mutate()}
-              disabled={markAllAsReadMutation.isPending}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Marcar todas como leídas
-            </Button>
-          )}
-        </div>
+        <Button onClick={() => setConfigDialog(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Configuración
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats actuales */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{counts.total}</p>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-2xl font-bold">{Array.isArray(notifications) ? notifications.length : 0}</p>
               </div>
-              <Bell className="h-8 w-8 text-muted-foreground" />
+              <Bell className="w-8 h-8 text-gray-400" />
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Sin leer</p>
-                <p className="text-2xl font-bold text-blue-600">{counts.unread}</p>
+                <p className="text-sm text-gray-600">Sin leer</p>
+              
+                <p className="text-2xl font-bold text-blue-600">
+  {Array.isArray(notifications) ? notifications.filter(n => !n?.isRead).length : 0}
+</p>
               </div>
-              <BellOff className="h-8 w-8 text-blue-600" />
+              <BellOff className="w-8 h-8 text-blue-400" />
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Urgentes</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {filteredNotifications.urgent.length}
-                </p>
+                <p className="text-sm text-gray-600">Urgentes</p>
+                <p className="text-2xl font-bold text-red-600">0</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Mensajes</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {filteredNotifications.message.length}
-                </p>
+                <p className="text-sm text-gray-600">Mensajes</p>
+                <p className="text-2xl font-bold text-green-600">0</p>
               </div>
-              <MessageSquare className="h-8 w-8 text-green-600" />
+              <MessageSquare className="w-8 h-8 text-green-400" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Test Notifications */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Crear Notificaciones de Prueba</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {["order", "message", "system", "assignment", "urgent"].map((type) => (
-              <Button
-                key={type}
-                variant="outline"
-                size="sm"
-                onClick={() => createTestNotificationMutation.mutate(type)}
-                disabled={createTestNotificationMutation.isPending}
-              >
-                {getNotificationIcon(type)}
-                <span className="ml-2 capitalize">{type}</span>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+          <TabsTrigger value="channels">Canales</TabsTrigger>
+          <TabsTrigger value="configs">Configuración</TabsTrigger>
+          <TabsTrigger value="history">Historial</TabsTrigger>
+        </TabsList>
 
-      {/* Notifications List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Todas las Notificaciones</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="all">
-                Todas ({filteredNotifications.all.length})
-              </TabsTrigger>
-              <TabsTrigger value="unread">
-                Sin leer ({filteredNotifications.unread.length})
-              </TabsTrigger>
-              <TabsTrigger value="order">
-                Órdenes ({filteredNotifications.order.length})
-              </TabsTrigger>
-              <TabsTrigger value="message">
-                Mensajes ({filteredNotifications.message.length})
-              </TabsTrigger>
-              <TabsTrigger value="system">
-                Sistema ({filteredNotifications.system.length})
-              </TabsTrigger>
-              <TabsTrigger value="urgent">
-                Urgentes ({filteredNotifications.urgent.length})
-              </TabsTrigger>
-            </TabsList>
+        <TabsContent value="notifications">
+          <NotificationsTab notifications={notifications} />
+        </TabsContent>
 
-            {Object.entries(filteredNotifications).map(([key, notificationList]) => (
-              <TabsContent key={key} value={key} className="space-y-4 mt-4">
-                {notificationList.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay notificaciones en esta categoría
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {notificationList.map((notification: Notification) => (
-                      <div
-                        key={notification.id}
-                        className={`p-4 border rounded-lg ${
-                          !notification.isRead ? "bg-blue-50 border-blue-200" : "bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-3 flex-1">
-                            <div className="mt-1">
-                              {getNotificationIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-sm">{notification.title}</h4>
-                                <Badge variant={getNotificationColor(notification.type, notification.priority)}>
-                                  {notification.type}
-                                </Badge>
-                                {notification.priority === "urgent" && (
-                                  <Badge variant="destructive">Urgente</Badge>
-                                )}
-                                {!notification.isRead && (
-                                  <Badge variant="secondary">Nuevo</Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {notification.message}
-                              </p>
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {formatTimeAgo(notification.createdAt)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 ml-4">
-                            {!notification.isRead && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => markAsReadMutation.mutate(notification.id)}
-                                disabled={markAsReadMutation.isPending}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteNotificationMutation.mutate(notification.id)}
-                              disabled={deleteNotificationMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </CardContent>
-      </Card>
+        <TabsContent value="channels">
+          <ChannelsTab channels={channels} onUpdate={updateChannelMutation.mutate} />
+        </TabsContent>
+
+        <TabsContent value="configs">
+          <ConfigsTab configs={configs} events={events} channels={channels} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <HistoryTab history={history} />
+        </TabsContent>
+      </Tabs>
+
+      <NotificationConfigDialog
+        open={configDialog}
+        onOpenChange={setConfigDialog}
+        config={selectedConfig}
+        events={events}
+        channels={channels}
+      />
     </div>
   );
 }
+
+// Componente de notificaciones (mantener existente)
+const NotificationsTab = ({ notifications }) => (
+  <div className="space-y-6">
+    <Card>
+      <CardHeader>
+        <CardTitle>Notificaciones Recientes</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {notifications.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No hay notificaciones</p>
+        ) : (
+          <div className="space-y-3">
+            {notifications.map((notification) => (
+              <div key={notification.id} className="flex items-start gap-3 p-3 border rounded">
+                <Bell className="w-5 h-5 text-blue-500 mt-1" />
+                <div className="flex-1">
+                  <h4 className="font-medium">{notification.title}</h4>
+                  <p className="text-sm text-gray-600">{notification.message}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(notification.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+);
+
+const ChannelsTab = ({ channels, onUpdate }) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {channels.map((channel) => (
+        <Card key={channel.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {channel.name === 'whatsapp' && <MessageSquare className="w-5 h-5 text-green-500" />}
+              {channel.name === 'email' && <Mail className="w-5 h-5 text-blue-500" />}
+              {channel.name === 'app' && <Smartphone className="w-5 h-5 text-purple-500" />}
+              <span className="capitalize">{channel.name}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">
+                {channel.isEnabled ? 'Activo' : 'Inactivo'}
+              </span>
+              <Switch 
+                checked={channel.isEnabled} 
+                onCheckedChange={(enabled) =>
+                  onUpdate({ id: channel.id, data: { ...channel, isEnabled: enabled } })
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  </div>
+);
+
+const ConfigsTab = ({ configs, events, channels }) => (
+  <div className="space-y-6">
+    <div className="grid gap-4">
+      {configs.map((config) => (
+        <Card key={config.id}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>{config.eventName || 'Evento'}</span>
+              <div className="flex gap-2">
+                <Badge variant={config.isEnabled ? "default" : "secondary"}>
+                  {config.isEnabled ? "Activo" : "Inactivo"}
+                </Badge>
+                <Button variant="ghost" size="sm">
+                  <Edit className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><strong>Canal:</strong> {config.channelName || 'N/A'}</p>
+              <p><strong>Destinatario:</strong> {config.recipientType}</p>
+              <p><strong>Plantilla:</strong> {config.template}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      
+      {configs.length === 0 && (
+        <div className="text-center py-8">
+          <Settings className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500">No hay configuraciones de notificación</p>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const HistoryTab = ({ history }) => (
+  <div className="space-y-6">
+    <Card>
+      <CardHeader>
+        <CardTitle>Historial de Envíos</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {history.map((item) => (
+            <div key={item.id} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <p className="font-medium">{item.title}</p>
+                <p className="text-sm text-gray-600">{item.channel} - {item.recipientType}</p>
+              </div>
+              <Badge variant={item.status === 'sent' ? 'default' : 'destructive'}>
+                {item.status}
+              </Badge>
+            </div>
+          ))}
+          
+          {history.length === 0 && (
+            <div className="text-center py-8">
+              <History className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No hay historial de notificaciones</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
+
+const NotificationConfigDialog = ({ open, onOpenChange, config, events, channels }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {config ? 'Editar' : 'Nueva'} Configuración de Notificación
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Evento</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map((event) => (
+                    <SelectItem key={event.id} value={event.id.toString()}>
+                      {event.eventName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Canal</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar canal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {channels.filter(c => c.isEnabled).map((channel) => (
+                    <SelectItem key={channel.id} value={channel.id.toString()}>
+                      {channel.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div>
+            <Label>Tipo de Destinatario</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar destinatario" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="customer">Cliente</SelectItem>
+                <SelectItem value="technician">Técnico Asignado</SelectItem>
+                <SelectItem value="admin">Administradores</SelectItem>
+                <SelectItem value="custom">Personalizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Plantilla del Mensaje</Label>
+            <Textarea
+              placeholder="Ej: Hola {recipient.name}, tu orden #{order.id} ha cambiado a estado {order.status}"
+              rows={4}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};

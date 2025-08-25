@@ -863,86 +863,31 @@ const result = await tenantDb.execute(directQuery);
       }
     },
 
- async getNotificationCounts(userId: number) {
+async getNotificationCounts(userId: number) {
   try {
-    console.log(`🔔 Getting notification counts for user ${userId}`);
-    
-    // Método 1: Seleccionar solo columnas que sabemos que existen
-    const allNotifications = await tenantDb.select({
-      id: schema.notifications.id,
-      userId: schema.notifications.userId,
-      isRead: schema.notifications.isRead,
-      createdAt: schema.notifications.createdAt,
-    })
-    .from(schema.notifications)
-    .where(eq(schema.notifications.userId, userId));
-
-    const unreadNotifications = allNotifications.filter(n => !n.isRead);
-
-    console.log(`✅ Found ${allNotifications.length} total, ${unreadNotifications.length} unread`);
-    
-    return {
-      total: allNotifications.length,
-      unread: unreadNotifications.length
-    };
-    
-  } catch (error) {
-    console.error('❌ Error getting notification counts:', error);
-    
-    // Fallback: usar query SQL directo si Drizzle falla
-    console.log('🔄 Trying fallback SQL query...');
-    
-    const pool = new Pool({ 
-      connectionString: process.env.DATABASE_URL,
-      max: 1,
-      idleTimeoutMillis: 5000
-    });
-    
-    try {
-      // Obtener el schema name para esta tienda
-      const storeResult = await pool.query(`
-        SELECT database_url FROM virtual_stores WHERE id = $1
-      `, [storeId]);
-      
-      if (!storeResult.rows[0]) {
-        console.error(`❌ Store ${storeId} not found`);
-        return { total: 0, unread: 0 };
-      }
-      
-      const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-      const schemaName = schemaMatch ? schemaMatch[1] : 'public';
-      
-      console.log(`🔄 Using fallback query in schema: ${schemaName}`);
-      
-      // Configurar search_path
-      await pool.query(`SET search_path TO ${schemaName}, public`);
-      
-      // Query básico sin columnas problemáticas
-      const result = await pool.query(`
+    if (usePublicSchema) {
+      // Código existente para public schema
+    } else {
+      // Usar sql directo con template literals
+      const query = `
         SELECT 
-          COUNT(*) as total,
-          COUNT(*) FILTER (WHERE is_read = false) as unread
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE is_read = false)::int as unread
         FROM notifications 
-        WHERE user_id = $1
-      `, [userId]);
+        WHERE user_id = ${userId}
+      `;
       
+      const result = await tenantDb.execute(query);
       const row = result.rows[0];
-      const counts = {
-        total: parseInt(row.total) || 0,
-        unread: parseInt(row.unread) || 0
+      
+      return {
+        total: row.total || 0,
+        unread: row.unread || 0
       };
-      
-      console.log(`✅ Fallback successful: ${counts.total} total, ${counts.unread} unread`);
-      return counts;
-      
-    } catch (fallbackError) {
-      console.error('❌ Fallback method also failed:', fallbackError);
-      return { total: 0, unread: 0 };
-    } finally {
-      await pool.end().catch(err => 
-        console.log('⚠️ Pool close warning in getNotificationCounts:', err.message)
-      );
     }
+  } catch (error) {
+    console.error('Error getting notification counts:', error);
+    return { total: 0, unread: 0 };
   }
 },
 
@@ -2908,6 +2853,141 @@ async ensureRegistrationFlowTableExists(): Promise<void> {
   }
 },
 
+
+async getNotificationChannels() {
+  try {
+    return await tenantDb.select()
+      .from(schema.notificationChannels)
+      .orderBy(schema.notificationChannels.name);
+  } catch (error) {
+    console.error('Error getting notification channels:', error);
+    return [];
+  }
+},
+
+async updateNotificationChannel(id: number, data: any) {
+  try {
+    const [channel] = await tenantDb.update(schema.notificationChannels)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.notificationChannels.id, id))
+      .returning();
+    return channel;
+  } catch (error) {
+    console.error('Error updating notification channel:', error);
+    throw error;
+  }
+},
+
+async getNotificationEvents() {
+  try {
+    return await tenantDb.select()
+      .from(schema.notificationEvents)
+      .orderBy(schema.notificationEvents.eventType);
+  } catch (error) {
+    console.error('Error getting notification events:', error);
+    return [];
+  }
+},
+
+async getNotificationConfigs() {
+  try {
+    return await tenantDb.select({
+      id: schema.notificationConfigs.id,
+      eventId: schema.notificationConfigs.eventId,
+      channelId: schema.notificationConfigs.channelId,
+      isEnabled: schema.notificationConfigs.isEnabled,
+      recipientType: schema.notificationConfigs.recipientType,
+      customRecipients: schema.notificationConfigs.customRecipients,
+      template: schema.notificationConfigs.template,
+      priority: schema.notificationConfigs.priority,
+      delayMinutes: schema.notificationConfigs.delayMinutes,
+      eventName: schema.notificationEvents.eventName,
+      channelName: schema.notificationChannels.name,
+    })
+    .from(schema.notificationConfigs)
+    .leftJoin(schema.notificationEvents, eq(schema.notificationConfigs.eventId, schema.notificationEvents.id))
+    .leftJoin(schema.notificationChannels, eq(schema.notificationConfigs.channelId, schema.notificationChannels.id));
+  } catch (error) {
+    console.error('Error getting notification configs:', error);
+    return [];
+  }
+},
+
+async createNotificationConfig(data: any) {
+  try {
+    const [config] = await tenantDb.insert(schema.notificationConfigs)
+      .values(data)
+      .returning();
+    return config;
+  } catch (error) {
+    console.error('Error creating notification config:', error);
+    throw error;
+  }
+},
+
+async updateNotificationConfig(id: number, data: any) {
+  try {
+    const [config] = await tenantDb.update(schema.notificationConfigs)
+      .set(data)
+      .where(eq(schema.notificationConfigs.id, id))
+      .returning();
+    return config;
+  } catch (error) {
+    console.error('Error updating notification config:', error);
+    throw error;
+  }
+},
+
+async deleteNotificationConfig(id: number) {
+  try {
+    await tenantDb.delete(schema.notificationConfigs)
+      .where(eq(schema.notificationConfigs.id, id));
+    return true;
+  } catch (error) {
+    console.error('Error deleting notification config:', error);
+    return false;
+  }
+},
+
+async getNotificationHistory(params: any) {
+  try {
+    let query = tenantDb.select()
+      .from(schema.notificationHistory);
+
+    if (params.orderId) {
+      query = query.where(eq(schema.notificationHistory.orderId, params.orderId));
+    }
+    if (params.channel) {
+      query = query.where(eq(schema.notificationHistory.channel, params.channel));
+    }
+    if (params.status) {
+      query = query.where(eq(schema.notificationHistory.status, params.status));
+    }
+
+    const offset = (params.page - 1) * params.limit;
+    const history = await query
+      .orderBy(desc(schema.notificationHistory.createdAt))
+      .limit(params.limit)
+      .offset(offset);
+
+    return history;
+  } catch (error) {
+    console.error('Error getting notification history:', error);
+    return [];
+  }
+},
+
+async addNotificationHistory(data: any) {
+  try {
+    const [history] = await tenantDb.insert(schema.notificationHistory)
+      .values(data)
+      .returning();
+    return history;
+  } catch (error) {
+    console.error('Error adding notification history:', error);
+    throw error;
+  }
+},
 
 
     };

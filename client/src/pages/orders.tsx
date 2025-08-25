@@ -100,9 +100,12 @@ export default function OrdersPage() {
   });
 
   // Fetch users for assignment
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-  });
+ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
+  queryKey: ["/api/employees/technicians"],
+  queryFn: () => apiRequest<User[]>("GET", "/api/employees?department=technical"),
+  staleTime: 30_000,
+  initialData: [],
+});
 
   // Effect to handle URL parameters from dashboard
   useEffect(() => {

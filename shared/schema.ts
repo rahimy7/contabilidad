@@ -576,6 +576,57 @@ export const exchangeRates = pgTable("exchange_rates", {
 });
 
 
+// Configuración de canales de notificación
+export const notificationChannels = pgTable("notification_channels", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // whatsapp, email, app
+  isEnabled: boolean("is_enabled").default(true),
+  settings: jsonb("settings"), // Configuraciones específicas del canal
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Configuración de eventos de notificación
+export const notificationEvents = pgTable("notification_events", {
+  id: serial("id").primaryKey(),
+  eventType: text("event_type").notNull(), // order_created, order_status_changed, assignment_changed
+  eventName: text("event_name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Configuración de notificaciones por evento
+export const notificationConfigs = pgTable("notification_configs", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").references(() => notificationEvents.id).notNull(),
+  channelId: integer("channel_id").references(() => notificationChannels.id).notNull(),
+  isEnabled: boolean("is_enabled").default(true),
+  recipientType: text("recipient_type").notNull(), // customer, technician, admin, custom
+  customRecipients: text("custom_recipients").array(), // Para recipientType = custom
+  template: text("template").notNull(), // Template del mensaje
+  priority: text("priority").default("normal"), // low, normal, high, urgent
+  delayMinutes: integer("delay_minutes").default(0), // Retraso en envío
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Historial de notificaciones enviadas
+export const notificationHistory = pgTable("notification_history", {
+  id: serial("id").primaryKey(),
+  configId: integer("config_id").references(() => notificationConfigs.id),
+  orderId: integer("order_id"), // Referencia a la orden que disparó la notificación
+  recipientId: integer("recipient_id"), // ID del usuario destinatario
+  recipientType: text("recipient_type").notNull(),
+  channel: text("channel").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  status: text("status").default("pending"), // pending, sent, delivered, failed
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"), // Datos adicionales (IDs de WhatsApp, etc.)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertProductSchema = makeInsertSchema(products);
 
 export const insertOrderSchema = makeInsertSchema(orders, {
