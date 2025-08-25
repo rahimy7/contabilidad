@@ -4,7 +4,7 @@ import { User } from "@shared/schema";
 
 export default function TeamStatus() {
   const { data: users, isLoading } = useQuery({
-    queryKey: ["/api/users"],
+    queryKey: ["/api/employees"],
   });
 
   const getStatusColor = (status: string) => {

@@ -19,25 +19,53 @@ const EXCHANGE_RATES = {
   'DOP_TO_USD': 0.017  // 1 DOP = 0.017 USD
 };
 
-// ✅ HOOK PERSONALIZADO PARA CONVERSIÓN A DOP
-const useCurrencyConversion = () => {
+// ✅ HOOK ACTUALIZADO PARA USAR TASAS REALES DEL SISTEMA
+const useCurrencyConversion = (storeId: string | number | null) => {
+  // Consultar tasas de cambio reales de la API
+  const { data: exchangeRates = [], isLoading: ratesLoading } = useQuery({
+    queryKey: [`/api/public/stores/${storeId}/exchange-rates`],
+    queryFn: async () => {
+      const response = await fetch(`/api/public/stores/${storeId}/exchange-rates`);
+      if (!response.ok) {
+        throw new Error('Error loading exchange rates');
+      }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    enabled: !!storeId
+  });
+
+  // Función para obtener tasa de conversión
+  const getConversionRate = (fromCurrency: string, toCurrency: string): number => {
+    if (fromCurrency === toCurrency) return 1;
+
+    // Buscar tasa directa
+    const directRate = exchangeRates.find((rate: any) => 
+      rate.baseCurrency === fromCurrency && rate.targetCurrency === toCurrency && rate.isActive
+    );
+    
+    if (directRate) return parseFloat(directRate.rate);
+
+    // Buscar tasa inversa
+    const inverseRate = exchangeRates.find((rate: any) => 
+      rate.baseCurrency === toCurrency && rate.targetCurrency === fromCurrency && rate.isActive
+    );
+    
+    if (inverseRate) return 1 / parseFloat(inverseRate.rate);
+
+    // ⚠️ FALLBACK: Si no hay tasas en BD, usar tasas por defecto
+    console.warn(`⚠️ No se encontró tasa para ${fromCurrency} a ${toCurrency}, usando fallback`);
+    if (fromCurrency === 'USD' && toCurrency === 'DOP') return 58.5;
+    if (fromCurrency === 'DOP' && toCurrency === 'USD') return 0.017;
+    
+    return 1;
+  };
+
   const convertToTargetCurrency = (price: number, fromCurrency: string, targetCurrency: string = 'DOP') => {
-    // Si ya está en la moneda objetivo, no convertir
-    if (fromCurrency === targetCurrency) {
-      return price;
-    }
-
-    // Convertir USD a DOP
-    if (fromCurrency === 'USD' && targetCurrency === 'DOP') {
-      return price * EXCHANGE_RATES.USD_TO_DOP;
-    }
-
-    // Convertir DOP a USD
-    if (fromCurrency === 'DOP' && targetCurrency === 'USD') {
-      return price * EXCHANGE_RATES.DOP_TO_USD;
-    }
-
-    return price; // Fallback
+    if (fromCurrency === targetCurrency) return price;
+    
+    const rate = getConversionRate(fromCurrency, targetCurrency);
+    return price * rate;
   };
 
   const formatCurrency = (amount: number, currency: string = 'DOP') => {
@@ -45,7 +73,6 @@ const useCurrencyConversion = () => {
     
     if (!currencyConfig) return `${amount.toFixed(2)}`;
 
-    // Formatear según la moneda
     if (currency === 'USD') {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -84,11 +111,26 @@ const useCurrencyConversion = () => {
     };
   };
 
+  // Información sobre las tasas para mostrar en UI
+  const getRateInfo = () => {
+    const usdToDop = exchangeRates.find((r: any) => r.baseCurrency === 'USD' && r.targetCurrency === 'DOP');
+    const dopToUsd = exchangeRates.find((r: any) => r.baseCurrency === 'DOP' && r.targetCurrency === 'USD');
+    
+    return {
+      usdToDop: usdToDop ? parseFloat(usdToDop.rate) : null,
+      dopToUsd: dopToUsd ? parseFloat(dopToUsd.rate) : null,
+      lastUpdate: usdToDop?.updatedAt || dopToUsd?.updatedAt,
+      hasRates: exchangeRates.length > 0
+    };
+  };
+
   return {
     convertToTargetCurrency,
     formatCurrency,
     convertProduct,
-    displayCurrency: 'DOP' // ✅ SIEMPRE DOP
+    displayCurrency: 'DOP',
+    ratesLoading,
+    getRateInfo
   };
 };
 
@@ -102,15 +144,16 @@ const fetchPublicData = async (endpoint: string) => {
 };
 
 // Modal de detalle del producto
-const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: { 
+const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: { 
   product: any; 
   isOpen: boolean; 
   onClose: () => void;
   onAddToCart: (product: any) => void;
+  storeId: string | number | null;
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
-  const { convertProduct, formatCurrency } = useCurrencyConversion();
+  const { convertProduct, formatCurrency } = useCurrencyConversion(storeId);
 
   if (!isOpen || !product) return null;
 
@@ -381,7 +424,7 @@ export default function SimpleCatalog() {
   const [storeId, setStoreId] = useState<number | null>(null);
 
   // ✅ HOOK DE CONVERSIÓN DE MONEDA
-  const { convertProduct, formatCurrency } = useCurrencyConversion();
+  const { convertProduct, formatCurrency, ratesLoading, getRateInfo } = useCurrencyConversion(storeId);
 
   // Detectar scroll para header compacto
   useEffect(() => {
@@ -696,12 +739,13 @@ ${orderItems}
       </div>
 
       {/* Modal de detalle del producto */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={showProductDetail}
-        onClose={closeProductDetail}
-        onAddToCart={addToCart}
-      />
+     <ProductDetailModal
+  product={selectedProduct}
+  isOpen={showProductDetail}
+  onClose={closeProductDetail}
+  onAddToCart={addToCart}
+  storeId={storeId}
+/>
 
       {/* Botón flotante del carrito */}
       {getCartItemsCount() > 0 && !showCart && (

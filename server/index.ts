@@ -26,6 +26,7 @@ import multer from 'multer';
 import fs from 'fs';
 import { SupabaseStorageManager } from './supabase-storage.js';
 import { exchangeRateRoutes } from './exchange-rate.routes';
+import { ExchangeRateService } from './services/exchange-rate.service.ts';
 
 
 // ================================
@@ -400,6 +401,87 @@ apiRouter.delete('/categories/:id', authenticateToken, async (req, res) => {
   }
 });
 
+
+
+
+
+//=================================
+// TASA DIVISA
+//=================================
+
+// Endpoint público para obtener tasas de cambio por store
+app.get('/api/public/stores/:storeId/exchange-rates', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    
+    if (!storeId || isNaN(parseInt(storeId))) {
+      return res.status(400).json({ error: 'Store ID válido requerido' });
+    }
+
+    const storeIdInt = parseInt(storeId);
+    
+    const tenantDb = await getTenantDb(storeIdInt);
+    const exchangeService = new ExchangeRateService(tenantDb);
+    
+    const rates = await exchangeService.getAllRates(storeIdInt);
+    
+    const formattedRates = rates.map(rate => ({
+      id: rate.id,
+      baseCurrency: rate.baseCurrency,
+      targetCurrency: rate.targetCurrency,
+      rate: rate.rate,
+      updatedAt: rate.updatedAt,
+      isActive: rate.isActive
+    }));
+
+    res.setHeader('Content-Type', 'application/json');
+    res.json(formattedRates);
+    
+  } catch (error) {
+    console.error('Error getting public exchange rates:', error);
+    res.status(500).json({ 
+      error: 'Error obteniendo tasas de cambio públicas',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Endpoint para obtener tasa específica entre dos monedas
+app.get('/api/public/stores/:storeId/exchange-rates/:from/:to', async (req, res) => {
+  try {
+    const { storeId, from, to } = req.params;
+    
+    if (!storeId || isNaN(parseInt(storeId))) {
+      return res.status(400).json({ error: 'Store ID válido requerido' });
+    }
+
+    const storeIdInt = parseInt(storeId);
+    
+    const tenantDb = await getTenantDb(storeIdInt);
+    const exchangeService = new ExchangeRateService(tenantDb);
+    
+    const rate = await exchangeService.getCurrentRate(
+      from.toUpperCase(), 
+      to.toUpperCase(), 
+      storeIdInt
+    );
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ 
+      from: from.toUpperCase(), 
+      to: to.toUpperCase(), 
+      rate,
+      storeId: storeIdInt
+    });
+    
+  } catch (error) {
+    console.error('Error getting specific public rate:', error);
+    res.status(404).json({ 
+      error: 'Tasa de cambio no encontrada',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 // ================================
 // SCHEMA VALIDATION ENDPOINTS
 // ================================
