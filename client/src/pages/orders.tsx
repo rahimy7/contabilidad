@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon, Download, Printer, ShoppingCart } from "lucide-react";
-import type { User } from "@shared/schema";
+import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon, User, Download, Printer, ShoppingCart } from "lucide-react";
 import AssignmentModal from "@/components/orders/assignment-modal";
 
 type OrderWithDetails = {
@@ -128,14 +127,15 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
           setIsViewDialogOpen(true);
           setLocation('/orders');
         }
-      } else if (editId) {
-        const order = orders.find(o => o.id === parseInt(editId));
-        if (order) {
-          setSelectedOrder(order);
-          setIsEditDialogOpen(true);
-          setLocation('/orders');
-        }
-      } else if (assignId) {
+      } else if (editId && !usersLoading) {
+  const order = orders.find(o => o.id === parseInt(editId));
+  if (order) {
+    setSelectedOrder(order);
+    setIsEditDialogOpen(true);
+    setLocation('/orders');
+  }
+}
+ else if (assignId) {
         const order = orders.find(o => o.id === parseInt(assignId));
         if (order) {
           setSelectedOrder(order);
@@ -393,44 +393,54 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
     setIsViewDialogOpen(true);
   };
 
-  const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!selectedOrder) return;
+const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  if (!selectedOrder) return;
 
-    const formData = new FormData(e.currentTarget);
-    
-    const updates = {
-      status: formData.get("status") as string,
-      priority: formData.get("priority") as string,
-      notes: formData.get("notes") as string,
-      description: formData.get("description") as string,
-      deliveryAddress: formData.get("deliveryAddress") as string,
-      contactNumber: formData.get("contactNumber") as string,
-      paymentMethod: formData.get("paymentMethod") as string,
-      paymentStatus: formData.get("paymentStatus") as string,
-      assignedUserId: formData.get("assignedUserId") as string
-    };
+  const formData = new FormData(e.currentTarget);
 
-    // Handle assigned user ID conversion
-    if (updates.assignedUserId === "unassigned") {
-      updates.assignedUserId = null as any;
-    } else if (updates.assignedUserId) {
-      updates.assignedUserId = parseInt(updates.assignedUserId) as any;
-    }
-
-    // Filter empty fields
-    const filteredUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([key, value]) => {
-        if (key === 'assignedUserId') return true; // Always include assignedUserId even if null
-        return value !== null && value !== "" && value !== "none";
-      })
-    );
-
-    updateOrderMutation.mutate({ 
-      id: selectedOrder.id, 
-      ...filteredUpdates 
-    });
+  const updates: Partial<OrderWithDetails> = {
+    status: formData.get("status") as string,
+    priority: formData.get("priority") as string,
+    notes: formData.get("notes") as string,
+    description: formData.get("description") as string,
+    deliveryAddress: formData.get("deliveryAddress") as string,
+    contactNumber: formData.get("contactNumber") as string,
+    paymentMethod: formData.get("paymentMethod") as string,
+    paymentStatus: formData.get("paymentStatus") as string,
   };
+
+  // ✅ Lógica sólida para assignedUserId: detectar cambio real
+  const formAssignedUserId = formData.get("assignedUserId") as string;
+
+  let assignedUserId: number | null | undefined = undefined;
+  if (formAssignedUserId === "unassigned") {
+    assignedUserId = null;
+  } else if (formAssignedUserId) {
+    assignedUserId = parseInt(formAssignedUserId);
+  }
+
+  if (
+    (assignedUserId === null && selectedOrder.assignedUserId !== null) ||
+    (assignedUserId !== null && assignedUserId !== selectedOrder.assignedUserId)
+  ) {
+    updates.assignedUserId = assignedUserId;
+  }
+
+  // ✅ Filtrado de campos vacíos o no modificados
+  const filteredUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) =>
+      value !== null && value !== "" && value !== "none"
+    )
+  );
+
+  updateOrderMutation.mutate({
+    id: selectedOrder.id,
+    ...filteredUpdates,
+  });
+};
+
+
 
   const handleEditOrder = (order: OrderWithDetails) => {
     setSelectedOrder(order);
@@ -508,7 +518,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
           </div>
           <div>
             <strong>Total:</strong> ${formatCurrency(order.totalAmount)}<br>
-            <strong>Asignado a:</strong> ${assignedUser(order.assignedUserId)}
+            <strong>Asignado a:</strong> ${assignedUser(order)}
           </div>
         </div>
 
@@ -591,11 +601,24 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
     setIsProductsModalOpen(true);
   };
 
-  const assignedUser = (userId: number | null) => {
-    if (!userId) return "Sin asignar";
-    const user = users.find(u => u.id === userId);
-    return user ? user.name : "Usuario no encontrado";
-  };
+const assignedUser = (order: OrderWithDetails) => {
+  if (!order.assignedUserId) return "Sin asignar";
+  
+  // ✅ Usar la información del usuario que YA viene en la orden
+  if (order.assignedUser && order.assignedUser.name) {
+    return order.assignedUser.name;
+  }
+  
+  // ✅ Fallback: buscar en users[] si no viene en la orden
+  const user = users.find(u => u.id === order.assignedUserId);
+  if (user) {
+    return user.name;
+  }
+  
+  // ✅ Último recurso: mostrar ID en lugar de "no encontrado"
+  console.warn(`⚠️ Usuario ${order.assignedUserId} no encontrado para orden ${order.id}`);
+  return `Usuario ${order.assignedUserId} (no disponible)`;
+};
 
   if (isLoading) {
     return (
@@ -782,7 +805,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
                       </div>
                       <div className="flex items-center gap-2">
                         <span>👷</span>
-                        <span>{assignedUser(order.assignedUserId)}</span>
+                       <span>{assignedUser(order)}</span>
                       </div>
                     </div>
                   </div>
@@ -885,7 +908,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
       {/* Edit Order Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleUpdateOrder}>
+          <form key={selectedOrder?.id} onSubmit={handleUpdateOrder}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Edit className="w-5 h-5" />
@@ -935,25 +958,58 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assignedUserId">Asignar a</Label>
-                  <Select name="assignedUserId" defaultValue={selectedOrder?.assignedUserId?.toString() || "unassigned"}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar usuario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Sin asignar</SelectItem>
-                      {users.filter(user => 
-                        ['technician', 'admin', 'manager', 'specialist'].includes(user.role?.toLowerCase() || '')
-                      ).map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.name} ({user.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+               <div className="space-y-2">
+  <Label htmlFor="assignedUserId">Asignar a</Label>
+  <Select
+    name="assignedUserId"
+    defaultValue={
+      selectedOrder?.assignedUserId !== null && selectedOrder?.assignedUserId !== undefined
+        ? selectedOrder.assignedUserId.toString()
+        : "unassigned"
+    }
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Seleccionar usuario" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="unassigned">Sin asignar</SelectItem>
+      {users.map((user) => (
+        <SelectItem key={user.id} value={user.id.toString()}>
+          {user.name} ({user.role})
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
               </div>
+
+              {/* ✅ INFORMACIÓN DE ASIGNACIÓN ACTUAL */}
+              {selectedOrder?.assignedUser && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-blue-800 mb-1">
+                    Actualmente asignado a:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-blue-700">
+                      {selectedOrder.assignedUser.name}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {selectedOrder.assignedUser.role}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* ✅ DEBUG INFO (OPCIONAL) */}
+              {process.env.NODE_ENV === 'development' && selectedOrder && (
+                <div className="p-3 bg-gray-50 rounded text-xs text-gray-600">
+                  <strong>Debug:</strong> 
+                  assignedUserId: {selectedOrder.assignedUserId || 'null'} | 
+                  assignedUser: {selectedOrder.assignedUser?.name || 'null'}
+                </div>
+              )}
 
               {/* Información de contacto y entrega */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1179,7 +1235,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Asignado a</Label>
-                  <p className="text-sm">{assignedUser(selectedOrder.assignedUserId)}</p>
+                  <p className="text-sm">{assignedUser(selectedOrder)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Fecha de Creación</Label>
