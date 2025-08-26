@@ -1,9 +1,9 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
-import { eq, desc, and, or, count, sql, ilike, asc, like, lt } from "drizzle-orm";
+import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "drizzle-orm";
 import { getTenantDb } from "./multi-tenant-db.js";
-import { ConversationWithDetails, CustomerRegistrationFlow } from "../shared/schema.js";
+import { ConversationWithDetails, CustomerRegistrationFlow, User } from "../shared/schema.js";
 
 export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
   // ✅ VALIDACIÓN CRÍTICA AL INICIO
@@ -2986,6 +2986,50 @@ async addNotificationHistory(data: any) {
   } catch (error) {
     console.error('Error adding notification history:', error);
     throw error;
+  }
+},
+
+async getStoreEmployeesAndAdmins(): Promise<User[]> {
+  try {
+    const users = await this.db
+      .select()
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.storeId, this.storeId),
+          inArray(schema.users.role, ['technician', 'specialist', 'field_worker', 'admin']),
+          eq(schema.users.status, 'active'), // Solo usuarios activos
+          eq(schema.users.isActive, true)
+        )
+      );
+    
+    console.log(`📋 Found ${users.length} assignable users for store ${this.storeId}`);
+    return users;
+  } catch (error) {
+    console.error('❌ Error fetching store employees and admins:', error);
+    throw error;
+  }
+},
+
+/**
+ * Obtiene la carga de trabajo actual de un usuario
+ */
+async getUserWorkload(userId: number): Promise<number> {
+  try {
+    const activeOrders = await this.db
+      .select({ count: count() })
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.assignedUserId, userId),
+          inArray(schema.orders.status, ['assigned', 'in_progress', 'preparing'])
+        )
+      );
+    
+    return activeOrders[0]?.count || 0;
+  } catch (error) {
+    console.error(`❌ Error getting workload for user ${userId}:`, error);
+    return 0;
   }
 },
 

@@ -100,9 +100,9 @@ export default function OrdersPage() {
   });
 
   // Fetch users for assignment
- const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
-  queryKey: ["/api/employees/technicians"],
-  queryFn: () => apiRequest<User[]>("GET", "/api/employees?department=technical"),
+const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
+  queryKey: ["/api/tenant-users/assignable"],
+  queryFn: () => apiRequest<User[]>("GET", "/api/tenant-users/assignable"),
   staleTime: 30_000,
   initialData: [],
 });

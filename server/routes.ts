@@ -2749,135 +2749,122 @@ items: items.map((item: any) => ({
     }
   });
  // ✅ NUEVO: Endpoint de auto-asignación de órdenes
-  router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: any) => {
-    try {
-      const orderId = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      if (isNaN(orderId)) {
-        return res.status(400).json({ error: 'Invalid order ID' });
-      }
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      // Verificar que la orden existe
-      const order = await tenantStorage.getOrderById(orderId);
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      // Si ya está asignada, no hacer nada
-      if (order.assignedUserId) {
-        return res.status(400).json({ 
-          error: 'Order is already assigned',
-          assignedUser: order.assignedUserId
-        });
-      }
-      
-      try {
-        // Obtener todos los usuarios disponibles
-        const users = await tenantStorage.getAllUsers();
-        
-        // Filtrar usuarios que pueden ser asignados (técnicos, especialistas, etc.)
-        const availableUsers = users.filter((u: any) => 
-          ['technician', 'specialist', 'field_worker', 'admin'].includes(u.role?.toLowerCase() || '')
-        );
-        
-        if (availableUsers.length === 0) {
-          return res.status(404).json({ 
-            error: 'No available users for assignment',
-            message: 'No users with appropriate roles found'
-          });
-        }
-        
-        // Algoritmo simple de asignación (se puede mejorar con reglas más complejas)
-        let selectedUser = null;
-        
-        // 1. Buscar usuarios con menos órdenes asignadas
-        const userWorkloads = await Promise.all(
-          availableUsers.map(async (u: any) => {
-            const userOrders = await tenantStorage.getAllOrders();
-            const assignedCount = userOrders.filter((o: any) => 
-              o.assignedUserId === u.id && 
-              ['assigned', 'in_progress', 'preparing'].includes(o.status)
-            ).length;
-            
-            return {
-              user: u,
-              currentWorkload: assignedCount
-            };
-          })
-        );
-        
-        // Ordenar por carga de trabajo (menor a mayor)
-        userWorkloads.sort((a, b) => a.currentWorkload - b.currentWorkload);
-        
-        // 2. Aplicar reglas adicionales si existen
-        // Por ahora, seleccionar el usuario con menor carga de trabajo
-        selectedUser = userWorkloads[0].user;
-        
-        // 3. Asignar la orden
-        const updateData = {
-          assignedUserId: selectedUser.id,
-          status: order.status === 'pending' ? 'assigned' : order.status,
-          lastStatusUpdate: new Date().toISOString()
-        };
-        
-        const updatedOrder = await tenantStorage.updateOrder(orderId, updateData);
-        
-        // 4. Log de la asignación
-        console.log(`✅ Order ${orderId} auto-assigned to user ${selectedUser.id} (${selectedUser.name})`);
-        
-        res.json({
-          success: true,
-          message: `Order assigned to ${selectedUser.name}`,
-          assignedUser: {
-            id: selectedUser.id,
-            name: selectedUser.name,
-            role: selectedUser.role
-          },
-          order: updatedOrder,
-          algorithm: {
-            method: 'workload_balancing',
-            selectedFrom: availableUsers.length,
-            userWorkload: userWorkloads.find(w => w.user.id === selectedUser.id)?.currentWorkload || 0
-          }
-        });
-        
-      } catch (assignmentError) {
-        console.error('❌ Error in assignment algorithm:', assignmentError);
-        return res.status(500).json({ 
-          error: 'Assignment algorithm failed',
-          message: 'Could not determine best user for assignment'
-        });
-      }
-      
-    } catch (error) {
-      console.error('❌ Error in auto-assignment:', error);
-      res.status(500).json({ error: 'Failed to auto-assign order' });
+router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: any) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
     }
-  });
-
-  // ✅ NUEVO: Endpoint para obtener estadísticas de asignación
-  router.get('/orders/assignment/stats', authenticateToken, async (req: any, res: any) => {
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la orden existe
+    const order = await tenantStorage.getOrderById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Si ya está asignada, no hacer nada
+    if (order.assignedUserId) {
+      return res.status(400).json({ 
+        error: 'Order is already assigned',
+        assignedUser: order.assignedUserId
+      });
+    }
+    
     try {
-      const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageWithSchema(user);
+      // ✅ CORRECCIÓN: Usar método específico para empleados/admins de la tienda
+      const availableUsers = await tenantStorage.getStoreEmployeesAndAdmins();
       
-      const [orders, users] = await Promise.all([
-        tenantStorage.getAllOrders(),
-        tenantStorage.getAllUsers()
-      ]);
+      if (availableUsers.length === 0) {
+        return res.status(404).json({ 
+          error: 'No available users for assignment',
+          message: 'No active employees or administrators found in this store'
+        });
+      }
       
-      const availableUsers = users.filter((u: any) => 
-        ['technician', 'specialist', 'field_worker', 'admin'].includes(u.role?.toLowerCase() || '')
+      console.log(`🎯 Found ${availableUsers.length} assignable users for store ${user.storeId}`);
+      
+      // ✅ OPTIMIZACIÓN: Calcular carga de trabajo más eficientemente
+      const userWorkloads = await Promise.all(
+        availableUsers.map(async (u: any) => {
+          const currentWorkload = await tenantStorage.getUserWorkload(u.id);
+          return {
+            user: u,
+            currentWorkload
+          };
+        })
       );
       
-      const assignedOrders = orders.filter((o: any) => o.assignedUserId);
-      const unassignedOrders = orders.filter((o: any) => !o.assignedUserId);
+      // Ordenar por carga de trabajo (menor a mayor)
+      userWorkloads.sort((a, b) => a.currentWorkload - b.currentWorkload);
       
-      // Estadísticas por usuario
-      const userStats = availableUsers.map((u: any) => {
+      // Seleccionar usuario con menor carga
+      const selectedUser = userWorkloads[0].user;
+      
+      // Asignar la orden
+      const updateData = {
+        assignedUserId: selectedUser.id,
+        status: order.status === 'pending' ? 'assigned' : order.status,
+        lastStatusUpdate: new Date().toISOString()
+      };
+      
+      const updatedOrder = await tenantStorage.updateOrder(orderId, updateData);
+      
+      console.log(`✅ Order ${orderId} auto-assigned to user ${selectedUser.id} (${selectedUser.name}) in store ${user.storeId}`);
+      
+      res.json({
+        success: true,
+        message: `Order assigned to ${selectedUser.name}`,
+        assignedUser: {
+          id: selectedUser.id,
+          name: selectedUser.name,
+          role: selectedUser.role,
+          storeId: user.storeId
+        },
+        order: updatedOrder,
+        algorithm: {
+          method: 'workload_balancing',
+          selectedFrom: availableUsers.length,
+          userWorkload: userWorkloads[0].currentWorkload,
+          storeId: user.storeId
+        }
+      });
+      
+    } catch (assignmentError) {
+      console.error('❌ Error in assignment algorithm:', assignmentError);
+      return res.status(500).json({ 
+        error: 'Assignment algorithm failed',
+        message: 'Could not determine best user for assignment'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in auto-assignment:', error);
+    res.status(500).json({ error: 'Failed to auto-assign order' });
+  }
+});
+
+  // ✅ NUEVO: Endpoint para obtener estadísticas de asignación
+
+     router.get('/orders/assignment/stats', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const [orders, availableUsers] = await Promise.all([
+      tenantStorage.getAllOrders(),
+      tenantStorage.getStoreEmployeesAndAdmins() // ✅ CORRECCIÓN: Usar método específico
+    ]);
+    
+    const assignedOrders = orders.filter((o: any) => o.assignedUserId);
+    const unassignedOrders = orders.filter((o: any) => !o.assignedUserId);
+    
+    // Estadísticas por usuario - solo empleados/admins de la tienda
+    const userStats = await Promise.all(
+      availableUsers.map(async (u: any) => {
         const userOrders = orders.filter((o: any) => o.assignedUserId === u.id);
         const activeOrders = userOrders.filter((o: any) => 
           ['assigned', 'in_progress', 'preparing'].includes(o.status)
@@ -2891,33 +2878,28 @@ items: items.map((item: any) => ({
           activeOrders: activeOrders.length,
           completedOrders: userOrders.filter((o: any) => o.status === 'completed').length
         };
-      });
-      
-      res.json({
-        summary: {
-          totalOrders: orders.length,
-          assignedOrders: assignedOrders.length,
-          unassignedOrders: unassignedOrders.length,
-          availableUsers: availableUsers.length,
-          assignmentRate: orders.length > 0 ? (assignedOrders.length / orders.length * 100).toFixed(1) : 0
-        },
-        userStats,
-        unassignedOrders: unassignedOrders.map((o: any) => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          status: o.status,
-          priority: o.priority || 'normal',
-          createdAt: o.createdAt,
-          customerName: o.customer?.name || 'Unknown'
-        }))
-      });
-      
-    } catch (error) {
-      console.error('❌ Error fetching assignment stats:', error);
-      res.status(500).json({ error: 'Failed to fetch assignment statistics' });
-    }
-  });
-      
+      })
+    );
+    
+    res.json({
+      storeId: user.storeId,
+      summary: {
+        totalOrders: orders.length,
+        assignedOrders: assignedOrders.length,
+        unassignedOrders: unassignedOrders.length,
+        availableUsers: availableUsers.length,
+        assignmentRate: orders.length > 0 ? 
+          Math.round((assignedOrders.length / orders.length) * 100) : 0
+      },
+      userStats: userStats.sort((a, b) => b.activeOrders - a.activeOrders),
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error fetching assignment stats:', error);
+    res.status(500).json({ error: 'Failed to fetch assignment statistics' });
+  }
+}); 
 
 
   // ================================
@@ -4385,6 +4367,42 @@ router.delete('/notification-configs/:id', authenticateToken, async (req: any, r
     res.status(500).json({ error: 'Failed to delete notification config' });
   }
 });
+
+
+// Endpoint específico para obtener usuarios asignables (técnicos, especialistas, admin)
+router.get('/tenant-users/assignable', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log(`🎯 Getting assignable users for store ${user.storeId}`);
+    
+    // Usar el nuevo método que filtra solo empleados/admins asignables
+    const assignableUsers = await tenantStorage.getStoreEmployeesAndAdmins();
+    
+    // Formatear respuesta para el frontend
+    const formattedUsers = assignableUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      email: u.email,
+      phone: u.phone,
+      status: u.status,
+      storeId: u.storeId
+    }));
+    
+    console.log(`✅ Found ${formattedUsers.length} assignable users`);
+    
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error('❌ Error fetching assignable users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch assignable users',
+      users: [] // Fallback vacío
+    });
+  }
+});
+
 
 // Historial de notificaciones
 router.get('/notification-history', authenticateToken, async (req: any, res: any) => {

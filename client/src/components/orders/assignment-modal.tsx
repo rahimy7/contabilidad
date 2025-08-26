@@ -49,10 +49,21 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   const [selectedUserId, setSelectedUserId] = useState<string>("unassigned");
 
   // Fetch available users
-  const { data: users = [], isLoading: usersLoading } = useQuery<UserType[]>({
-    queryKey: ["/api/users"],
-    enabled: isOpen, // Solo cargar cuando el modal esté abierto
-  });
+ const { data: users = [], isLoading: usersLoading } = useQuery<UserType[]>({
+  queryKey: ['/tenant-users/assignable'],
+  enabled: isOpen,
+  queryFn: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/tenant-users/assignable', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Error fetching assignable users');
+    return response.json();
+  },
+});
+
 
   // Assign order mutation
   const assignOrderMutation = useMutation({
