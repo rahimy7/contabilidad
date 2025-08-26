@@ -101,8 +101,14 @@ export default function OrdersPage() {
 
   // Fetch users for assignment
 const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
-  queryKey: ["/api/tenant-users/assignable"],
-  queryFn: () => apiRequest<User[]>("GET", "/api/tenant-users/assignable"),
+  queryKey: ["/api/employees/users"],
+  queryFn: async () => {
+    const employees = await apiRequest<any[]>("GET", "/api/employees");
+    return employees
+      .filter(emp => emp.user && emp.user.status === 'active')
+      .filter(emp => ['technician', 'specialist', 'field_worker', 'admin', 'store_admin'].includes(emp.user.role))
+      .map(emp => emp.user);
+  },
   staleTime: 30_000,
   initialData: [],
 });

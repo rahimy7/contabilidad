@@ -13,6 +13,18 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { User as UserType } from '@shared/schema';
 
+interface AssignableUser {
+  id: number;
+  name: string;
+  role: string;
+  email?: string;
+  phone?: string;
+  status: string;
+  employeeId?: string;
+  department?: string;
+  position?: string;
+}
+
 interface OrderWithDetails {
   id: number;
   orderNumber: string;
@@ -48,21 +60,37 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   const { toast } = useToast();
   const [selectedUserId, setSelectedUserId] = useState<string>("unassigned");
 
-  // Fetch available users
- const { data: users = [], isLoading: usersLoading } = useQuery<UserType[]>({
-  queryKey: ['/tenant-users/assignable'],
+const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>({
+  queryKey: ['/api/employees/assignable'],
   enabled: isOpen,
   queryFn: async () => {
-    const token = localStorage.getItem('token');
-    const response = await fetch('/tenant-users/assignable', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!response.ok) throw new Error('Error fetching assignable users');
-    return response.json();
+    // Obtener todos los empleados usando el endpoint que funciona
+    const employees = await apiRequest<any[]>("GET", "/api/employees");
+    
+    // Filtrar solo empleados con usuarios válidos y roles asignables
+    const assignableUsers: AssignableUser[] = employees
+      .filter(emp => 
+        emp.user && // Tiene usuario válido
+        emp.user.status === 'active' && // Usuario activo
+        ['technician', 'specialist', 'field_worker', 'admin', 'store_admin', 'delivery'].includes(emp.user.role?.toLowerCase() || '')
+      )
+      .map(emp => ({
+        id: emp.user.id,
+        name: emp.user.name || 'Sin nombre',
+        role: emp.user.role || 'Sin rol',
+        email: emp.user.email || undefined,
+        phone: emp.user.phone || undefined,
+        status: emp.user.status || 'active',
+        employeeId: emp.employeeId || undefined,
+        department: emp.department || undefined,
+        position: emp.position || undefined
+      }));
+    
+    console.log(`✅ Modal: Filtered ${assignableUsers.length} assignable users from ${employees.length} employees`);
+    return assignableUsers;
   },
 });
+
 
 
   // Assign order mutation
@@ -114,9 +142,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   }, [order]);
 
   // Filtrar usuarios que pueden ser asignados (técnicos, admins, etc.)
-  const availableUsers = users.filter(user => 
-    ['technician', 'admin', 'manager', 'specialist'].includes(user.role?.toLowerCase() || '')
-  );
+const availableUsers = users;
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: any }> = {

@@ -2989,21 +2989,30 @@ async addNotificationHistory(data: any) {
   }
 },
 
-async getStoreEmployeesAndAdmins(): Promise<User[]> {
+async getStoreEmployeesAndAdmins() {
   try {
-    const users = await this.db
+    console.log(`📋 Getting assignable users for store ${storeId}`);
+    
+    // ✅ CORRECCIÓN: Usar tenantDb en lugar de this.db
+    const users = await tenantDb
       .select()
       .from(schema.users)
       .where(
         and(
-          eq(schema.users.storeId, this.storeId),
-          inArray(schema.users.role, ['technician', 'specialist', 'field_worker', 'admin']),
+          eq(schema.users.storeId, storeId),
+          // Filtrar solo roles asignables
+          or(
+            eq(schema.users.role, 'technician'),
+            eq(schema.users.role, 'specialist'),
+            eq(schema.users.role, 'field_worker'),
+            eq(schema.users.role, 'admin')
+          ),
           eq(schema.users.status, 'active'), // Solo usuarios activos
           eq(schema.users.isActive, true)
         )
       );
     
-    console.log(`📋 Found ${users.length} assignable users for store ${this.storeId}`);
+    console.log(`✅ Found ${users.length} assignable users for store ${storeId}`);
     return users;
   } catch (error) {
     console.error('❌ Error fetching store employees and admins:', error);
@@ -3011,22 +3020,25 @@ async getStoreEmployeesAndAdmins(): Promise<User[]> {
   }
 },
 
-/**
- * Obtiene la carga de trabajo actual de un usuario
- */
-async getUserWorkload(userId: number): Promise<number> {
+async getUserWorkload(userId: number) {
   try {
-    const activeOrders = await this.db
+    const activeOrders = await tenantDb
       .select({ count: count() })
       .from(schema.orders)
       .where(
         and(
           eq(schema.orders.assignedUserId, userId),
-          inArray(schema.orders.status, ['assigned', 'in_progress', 'preparing'])
+          or(
+            eq(schema.orders.status, 'assigned'),
+            eq(schema.orders.status, 'in_progress'),
+            eq(schema.orders.status, 'preparing')
+          )
         )
       );
     
-    return activeOrders[0]?.count || 0;
+    const workload = activeOrders[0]?.count || 0;
+    console.log(`📊 User ${userId} workload: ${workload} active orders`);
+    return workload;
   } catch (error) {
     console.error(`❌ Error getting workload for user ${userId}:`, error);
     return 0;

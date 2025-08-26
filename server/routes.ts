@@ -4372,6 +4372,12 @@ router.delete('/notification-configs/:id', authenticateToken, async (req: any, r
 // Endpoint específico para obtener usuarios asignables (técnicos, especialistas, admin)
 router.get('/tenant-users/assignable', authenticateToken, async (req: any, res: any) => {
   try {
+
+     res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
     const user = req.user as AuthUser;
     const tenantStorage = await getTenantStorageWithSchema(user);
     
