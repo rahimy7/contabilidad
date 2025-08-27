@@ -40,27 +40,46 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ["/api/orders"],
-    enabled: !!user && hasPermission(user.role, 'view_orders'),
-  });
+  const isSuperAdmin = user?.role === 'super_admin';
+const isStoreUser = user && !isSuperAdmin;
 
-  const { data: conversations = [] } = useQuery({
-    queryKey: ["/api/conversations"],
-    enabled: !!user && hasPermission(user.role, 'view_conversations'),
-  });
+const { data: orders = [] } = useQuery({
+  queryKey: ["/api/orders"],
+  enabled: isStoreUser && hasPermission(user.role, 'view_orders'), // Solo para usuarios de tienda
+});
 
-  // Fetch notification counts for the current user
-  const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery<{total: number, unread: number}>({
+const { data: conversations = [] } = useQuery({
+  queryKey: ["/api/conversations"],
+  enabled: isStoreUser && hasPermission(user.role, 'view_conversations'),
+});
+
+// Solo obtener notificaciones para usuarios de tienda
+const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
   queryKey: ["/api/notifications/count", { userId: user?.id }],
-    queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
-    refetchInterval: 30000, // Refetch every 30 seconds
-    enabled: !!user && hasPermission(user.role, 'view_notifications'),
-  });
+  queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
+  refetchInterval: 30000,
+  enabled: isStoreUser && hasPermission(user.role, 'view_notifications'),
+});
+
+
+// Para super admin, obtener métricas globales si las necesita en el sidebar
+const { data: superAdminMetrics } = useQuery({
+  queryKey: ["/api/super-admin/metrics"],
+  enabled: isSuperAdmin,
+  refetchInterval: 60000, // Refetch every minute for super admin metrics
+});
 
   const pendingOrders = Array.isArray(orders) ? orders.filter((order: any) => order.status === "pending").length : 0;
   const activeConversations = Array.isArray(conversations) ? conversations.filter((conv: any) => conv.unreadCount > 0).length : 0;
-  const unreadNotifications = typeof notificationCounts === 'object' && 'unread' in notificationCounts ? notificationCounts.unread || 0 : 0;
+  const unreadNotifications = (() => {
+    if (!notificationCounts || typeof notificationCounts !== 'object') return 0;
+    if ('unread' in notificationCounts) {
+      const unread = notificationCounts.unread;
+      return typeof unread === 'number' ? unread : 0;
+    }
+    return 0;
+  })();
+
 
   // Configurar elementos del menú basado en el rol del usuario
   const allNavItems: NavItem[] = [
