@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
 import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "drizzle-orm";
 import { getTenantDb } from "./multi-tenant-db.js";
-import { ConversationWithDetails, CustomerRegistrationFlow, User } from "../shared/schema.js";
+import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, User } from "../shared/schema.js";
 
 export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
   // ✅ VALIDACIÓN CRÍTICA AL INICIO
@@ -374,6 +374,201 @@ async deleteOrderItem(id: number) {
   }
 },
 
+async getTechnicianOrders(userId: number) {
+  try {
+    console.log('🔧 Getting orders for technician:', userId);
+    
+    // Obtener órdenes asignadas al técnico
+    const orders = await tenantDb.select()
+      .from(schema.orders)
+      .where(eq(schema.orders.assignedUserId, userId))
+      .orderBy(desc(schema.orders.createdAt));
+    
+    console.log('📦 Found basic orders:', orders.length);
+    
+    // Enriquecer con detalles de cliente y productos
+    const enrichedOrders = await Promise.all(
+      orders.map(async (order) => {
+        try {
+          // Obtener información del cliente
+          let customer = null;
+          if (order.customerId) {
+            const [customerResult] = await tenantDb.select()
+              .from(schema.customers)
+              .where(eq(schema.customers.id, order.customerId))
+              .limit(1);
+            customer = customerResult;
+          }
+          
+          // Obtener items de la orden
+          const items = await tenantDb.select({
+            id: schema.orderItems.id,
+            orderId: schema.orderItems.orderId,
+            productId: schema.orderItems.productId,
+            quantity: schema.orderItems.quantity,
+            unitPrice: schema.orderItems.unitPrice,
+            totalPrice: schema.orderItems.totalPrice,
+            installationCost: schema.orderItems.installationCost,
+            partsCost: schema.orderItems.partsCost,
+            laborHours: schema.orderItems.laborHours,
+            laborRate: schema.orderItems.laborRate,
+            deliveryCost: schema.orderItems.deliveryCost,
+            deliveryDistance: schema.orderItems.deliveryDistance,
+            notes: schema.orderItems.notes,
+            // Información del producto
+            productName: schema.products.name,
+            productDescription: schema.products.description,
+            productCategory: schema.products.category,
+            productPrice: schema.products.price
+          })
+          .from(schema.orderItems)
+          .leftJoin(schema.products, eq(schema.orderItems.productId, schema.products.id))
+          .where(eq(schema.orderItems.orderId, order.id));
+          
+          // Obtener usuario asignado
+          let assignedUser = null;
+          if (order.assignedUserId) {
+            const [user] = await tenantDb.select()
+              .from(schema.users)
+              .where(eq(schema.users.id, order.assignedUserId))
+              .limit(1);
+            assignedUser = user;
+          }
+          
+          return {
+            ...order,
+            customer: customer ? {
+              id: customer.id,
+              name: customer.name || 'Cliente',
+              phone: customer.phone || order.contactNumber,
+              email: customer.email,
+              address: customer.address || order.deliveryAddress
+            } : {
+              id: order.customerId || 0,
+              name: 'Cliente no encontrado',
+              phone: order.contactNumber || '',
+              email: null,
+              address: order.deliveryAddress || ''
+            },
+            
+            assignedUser: assignedUser ? {
+              id: assignedUser.id,
+              name: assignedUser.name,
+              role: assignedUser.role
+            } : null,
+            
+            items: items.map((item: any) => ({
+              id: item.id,
+              orderId: item.orderId,
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              installationCost: item.installationCost || '0.00',
+              partsCost: item.partsCost || '0.00',
+              laborHours: item.laborHours || '0',
+              laborRate: item.laborRate || '0.00',
+              deliveryCost: item.deliveryCost || '0.00',
+              deliveryDistance: item.deliveryDistance || '0',
+              notes: item.notes,
+              product: {
+                id: item.productId,
+                name: item.productName || 'Producto sin nombre',
+                description: item.productDescription || '',
+                category: item.productCategory || 'product',
+                price: item.productPrice || item.unitPrice
+              }
+            }))
+          };
+        } catch (orderError) {
+          console.error(`❌ Error enriching order ${order.id}:`, orderError);
+          // En caso de error, devolver orden básica con estructura mínima
+          return {
+            ...order,
+            customer: {
+              id: order.customerId || 0,
+              name: 'Cliente',
+              phone: order.contactNumber || '',
+              email: null,
+              address: order.deliveryAddress || ''
+            },
+            assignedUser: null,
+            items: []
+          };
+        }
+      })
+    );
+    
+    console.log('✅ Found enriched orders for technician:', enrichedOrders.length);
+    return enrichedOrders;
+    
+  } catch (error) {
+    console.error('❌ Error getting technician orders:', error);
+    throw error;
+  }
+},
+
+// También agregar este método después de getTechnicianOrders en server/tenant-storage.ts
+
+async getTechnicianMetrics(userId: number) {
+  try {
+    console.log('📊 Getting metrics for technician:', userId);
+    
+    // Obtener todas las órdenes del técnico
+    const allOrders = await this.getTechnicianOrders(userId);
+    
+    // Calcular métricas
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const ordersToday = allOrders.filter(order => {
+      const orderDate = new Date(order.createdAt);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    });
+    
+    const pendingOrders = allOrders.filter(order => 
+      order.status === 'assigned' || order.status === 'pending'
+    );
+    
+    const inProgressOrders = allOrders.filter(order => 
+      order.status === 'in_progress'
+    );
+    
+    const completedOrders = allOrders.filter(order => 
+      order.status === 'completed'
+    );
+    
+    // Calcular ingresos del día
+    const todayIncome = ordersToday
+      .filter(order => order.status === 'completed')
+      .reduce((sum, order) => sum + parseFloat(order.totalAmount || '0'), 0);
+    
+    const metrics = {
+      ordersToday: ordersToday.length,
+      pendingOrders: pendingOrders.length,
+      inProgressOrders: inProgressOrders.length,
+      completedOrders: completedOrders.length,
+      todayIncome: todayIncome
+    };
+    
+    console.log('✅ Calculated technician metrics:', metrics);
+    return metrics;
+    
+  } catch (error) {
+    console.error('❌ Error getting technician metrics:', error);
+    return {
+      ordersToday: 0,
+      pendingOrders: 0,
+      inProgressOrders: 0,
+      completedOrders: 0,
+      todayIncome: 0
+    };
+  }
+},
+
+
+
 async updateCustomerLocation(customerId: number, locationData: {
   address: string;
   latitude?: number;
@@ -419,6 +614,34 @@ async getStoreLocation(storeId: number): Promise<any | null> {
     return null;
   }
 },
+
+// Agregar este método en tu TenantStorage class
+async updateUser(userId: number, updates: Partial<InsertUser>): Promise<User> {
+  try {
+    console.log('👤 Updating user:', userId, 'with:', updates);
+    
+    const [updatedUser] = await this.db
+      .update(schema.users)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.users.id, userId))
+      .returning();
+    
+    if (!updatedUser) {
+      throw new Error('User not found');
+    }
+    
+    console.log('✅ User updated successfully:', userId);
+    return updatedUser;
+    
+  } catch (error) {
+    console.error('❌ Error updating user:', error);
+    throw error;
+  }
+},
+
 
     // PRODUCTS
 
@@ -797,19 +1020,7 @@ async createOrUpdateCustomer(customerData: any) {
       }
     },
 
-    async updateUser(id: number, userData: any) {
-      try {
-        const [user] = await tenantDb.update(schema.users)
-          .set({ ...userData, updatedAt: new Date() })
-          .where(eq(schema.users.id, id))
-          .returning();
-        return user;
-      } catch (error) {
-        console.error('Error updating user:', error);
-        throw error;
-      }
-    },
-
+ 
     // NOTIFICATIONS
 
 async getUserNotifications(userId: number) {

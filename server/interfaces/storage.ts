@@ -402,6 +402,7 @@ export interface TenantStorage extends BaseStorage {
   getAllEmployeeProfiles(): Promise<(EmployeeProfile & { user: User })[]>;
   getEmployeeProfile(userId: number): Promise<EmployeeProfile | null>;
   getEmployeeProfileByEmployeeId(employeeId: string): Promise<EmployeeProfile | null>;
+  getTechnicianOrders(userId: number): Promise<OrderWithDetails[]>;
   createEmployeeProfile(profileData: InsertEmployeeProfile): Promise<EmployeeProfile>;
   updateEmployeeProfile(id: number, updates: Partial<InsertEmployeeProfile>): Promise<EmployeeProfile>;
   deleteEmployeeProfile(id: number): Promise<void>;

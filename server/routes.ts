@@ -1019,6 +1019,45 @@ export async function registerRoutes(app: express.Application) {
     }
   });
 
+  // Agregar este endpoint en server/routes.ts (sección de AUTH)
+
+router.get('/auth/me', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    console.log('👤 [GET /auth/me] Getting user info for:', user.id);
+    
+    // Si es super admin, obtener de master storage
+    if (user.role === 'super_admin') {
+      const masterStorage = storageFactory.getMasterStorage();
+      const globalUser = await masterStorage.getGlobalUserById(user.id);
+      
+      if (globalUser) {
+        const { password, ...safeUser } = globalUser;
+        return res.json(safeUser);
+      }
+    }
+    
+    // Para usuarios de tienda, obtener de tenant storage
+    if (user.storeId) {
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const tenantUser = await tenantStorage.getUserById(user.id);
+      
+      if (tenantUser) {
+        const { password, ...safeUser } = tenantUser;
+        return res.json(safeUser);
+      }
+    }
+    
+    
+  } catch (error) {
+    console.error('❌ [GET /auth/me] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch user information",
+      details: error.message 
+    });
+  }
+});
   // ================================
   // WEBHOOK ENDPOINTS
   // ================================
@@ -2450,99 +2489,7 @@ items: items.map((item: any) => ({
     }
   });
 
-  router.get('/orders/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid order ID' });
-      }
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const order = await tenantStorage.getOrderById(id);
-      
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      // Enriquecer la orden individual con información completa
-      let customer = null;
-      if (order.customerId) {
-        customer = await tenantStorage.getCustomerById(order.customerId);
-      }
-      
-      let assignedUser = null;
-      if (order.assignedUserId) {
-        try {
-          assignedUser = await tenantStorage.getUserById(order.assignedUserId);
-        } catch (err) {
-          console.warn(`⚠️ User ${order.assignedUserId} not found`);
-        }
-      }
-      
-      // Obtener items si existe el método
-      let items = [];
-      try {
-        if (tenantStorage.getOrderItems) {
-          items = await tenantStorage.getOrderItemsByOrderId(order.id);
-        }
-      } catch (err) {
-        console.log(`ℹ️ No items found for order ${order.id}`);
-      }
-      
-      const enrichedOrder = {
-        ...order,
-        customer: customer ? {
-          id: customer.id,
-          name: customer.name || 'Cliente',
-          phone: customer.phone || order.contactNumber,
-          email: customer.email,
-          address: customer.address || order.deliveryAddress
-        } : {
-          id: order.customerId,
-          name: 'Cliente no encontrado',
-          phone: order.contactNumber,
-          email: null,
-          address: order.deliveryAddress
-        },
-        assignedUser: assignedUser ? {
-          id: assignedUser.id,
-          name: assignedUser.name,
-          role: assignedUser.role
-        } : null,
-        items: items.map((item: any) => ({
-          id: item.id,
-          orderId: item.orderId,
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          installationCost: item.installationCost || '0.00',
-          partsCost: item.partsCost || '0.00',
-          laborHours: item.laborHours || '0',
-          laborRate: item.laborRate || '0.00',
-          deliveryCost: item.deliveryCost || '0.00',
-          deliveryDistance: item.deliveryDistance || '0',
-          notes: item.notes,
-          product: item.product || {
-            id: item.productId,
-            name: 'Producto',
-            description: '',
-            category: '',
-            price: item.unitPrice
-          }
-        })),
-        totalItems: items.length,
-        priority: order.priority || 'normal'
-      };
-      
-      res.json(enrichedOrder);
-    } catch (error) {
-      console.error('❌ Error fetching order:', error);
-      res.status(500).json({ error: 'Failed to fetch order' });
-    }
-  });
+
 
   router.post('/orders', authenticateToken, async (req: any, res: any) => {
     try {
@@ -2902,6 +2849,259 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
 }); 
 
 
+// ================================
+// TECHNICIAN SPECIFIC ENDPOINTS
+// ================================
+
+// Endpoint para obtener órdenes del técnico
+router.get('/orders/technician', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    // Verificar que el usuario sea técnico
+    if (user.role !== 'technician') {
+      return res.status(403).json({ error: 'Access denied. Technician role required.' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('🔧 [GET /orders/technician] Getting orders for technician:', user.id);
+    
+    // Obtener órdenes asignadas al técnico
+    const orders = await tenantStorage.getTechnicianOrders(user.id);
+    
+    console.log('✅ [GET /orders/technician] Found orders:', orders.length);
+    res.json(orders);
+  } catch (error) {
+    console.error('❌ [GET /orders/technician] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch technician orders",
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint para métricas específicas del técnico
+router.get('/dashboard/technician/metrics', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    // Verificar que el usuario sea técnico
+    if (user.role !== 'technician') {
+      return res.status(403).json({ error: 'Access denied. Technician role required.' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('📊 [GET /dashboard/technician/metrics] Getting metrics for technician:', user.id);
+    
+    // Obtener órdenes del técnico
+    const allOrders = await tenantStorage.getTechnicianOrders(user.id);
+    
+    // Calcular métricas
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const ordersToday = allOrders.filter(order => {
+      const orderDate = new Date(order.createdAt);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    });
+    
+    const pendingOrders = allOrders.filter(order => 
+      order.status === 'assigned' || order.status === 'pending'
+    );
+    
+    const inProgressOrders = allOrders.filter(order => 
+      order.status === 'in_progress'
+    );
+    
+    const completedOrders = allOrders.filter(order => 
+      order.status === 'completed'
+    );
+    
+    // Calcular ingresos del día
+    const todayIncome = ordersToday
+      .filter(order => order.status === 'completed')
+      .reduce((sum, order) => sum + parseFloat(order.totalAmount || '0'), 0);
+    
+    const metrics = {
+      ordersToday: ordersToday.length,
+      pendingOrders: pendingOrders.length,
+      inProgressOrders: inProgressOrders.length,
+      completedOrders: completedOrders.length,
+      todayIncome: todayIncome
+    };
+    
+    console.log('✅ [GET /dashboard/technician/metrics] Calculated metrics:', metrics);
+    res.json(metrics);
+  } catch (error) {
+    console.error('❌ [GET /dashboard/technician/metrics] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch technician metrics",
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint adicional: Obtener órdenes asignadas al técnico por estado
+router.get('/orders/technician/status/:status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const status = req.params.status;
+    
+    // Verificar que el usuario sea técnico
+    if (user.role !== 'technician') {
+      return res.status(403).json({ error: 'Access denied. Technician role required.' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('🔧 [GET /orders/technician/status] Getting orders by status:', status, 'for technician:', user.id);
+    
+    // Obtener órdenes del técnico filtradas por estado
+    const allOrders = await tenantStorage.getTechnicianOrders(user.id);
+    const filteredOrders = allOrders.filter(order => order.status === status);
+    
+    console.log('✅ [GET /orders/technician/status] Found orders:', filteredOrders.length);
+    res.json(filteredOrders);
+  } catch (error) {
+    console.error('❌ [GET /orders/technician/status] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch technician orders by status",
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint para actualizar el estado del técnico (disponible, ocupado, etc.)
+router.patch('/users/:userId/status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const user = req.user as AuthUser;
+    const { status } = req.body;
+    
+    // Verificar que el usuario pueda actualizar su propio estado o sea admin
+    if (user.id !== userId && user.role !== 'admin' && user.role !== 'store_admin') {
+      return res.status(403).json({ error: 'Access denied. Can only update own status.' });
+    }
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('👤 [PATCH /users/:userId/status] Updating status for user:', userId, 'to:', status);
+    
+    // Actualizar el estado del usuario
+    const updatedUser = await tenantStorage.updateUser(userId, { status });
+    
+    console.log('✅ [PATCH /users/:userId/status] Status updated successfully');
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('❌ [PATCH /users/:userId/status] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to update user status",
+      details: error.message 
+    });
+  }
+});
+
+
+  router.get('/orders/:id', authenticateToken, async (req: any, res: any) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user as AuthUser;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid order ID' });
+      }
+      
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const order = await tenantStorage.getOrderById(id);
+      
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      
+      // Enriquecer la orden individual con información completa
+      let customer = null;
+      if (order.customerId) {
+        customer = await tenantStorage.getCustomerById(order.customerId);
+      }
+      
+      let assignedUser = null;
+      if (order.assignedUserId) {
+        try {
+          assignedUser = await tenantStorage.getUserById(order.assignedUserId);
+        } catch (err) {
+          console.warn(`⚠️ User ${order.assignedUserId} not found`);
+        }
+      }
+      
+      // Obtener items si existe el método
+      let items = [];
+      try {
+        if (tenantStorage.getOrderItems) {
+          items = await tenantStorage.getOrderItemsByOrderId(order.id);
+        }
+      } catch (err) {
+        console.log(`ℹ️ No items found for order ${order.id}`);
+      }
+      
+      const enrichedOrder = {
+        ...order,
+        customer: customer ? {
+          id: customer.id,
+          name: customer.name || 'Cliente',
+          phone: customer.phone || order.contactNumber,
+          email: customer.email,
+          address: customer.address || order.deliveryAddress
+        } : {
+          id: order.customerId,
+          name: 'Cliente no encontrado',
+          phone: order.contactNumber,
+          email: null,
+          address: order.deliveryAddress
+        },
+        assignedUser: assignedUser ? {
+          id: assignedUser.id,
+          name: assignedUser.name,
+          role: assignedUser.role
+        } : null,
+        items: items.map((item: any) => ({
+          id: item.id,
+          orderId: item.orderId,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          installationCost: item.installationCost || '0.00',
+          partsCost: item.partsCost || '0.00',
+          laborHours: item.laborHours || '0',
+          laborRate: item.laborRate || '0.00',
+          deliveryCost: item.deliveryCost || '0.00',
+          deliveryDistance: item.deliveryDistance || '0',
+          notes: item.notes,
+          product: item.product || {
+            id: item.productId,
+            name: 'Producto',
+            description: '',
+            category: '',
+            price: item.unitPrice
+          }
+        })),
+        totalItems: items.length,
+        priority: order.priority || 'normal'
+      };
+      
+      res.json(enrichedOrder);
+    } catch (error) {
+      console.error('❌ Error fetching order:', error);
+      res.status(500).json({ error: 'Failed to fetch order' });
+    }
+  });
   // ================================
   // REGISTRATION FLOW ROUTES
   // ================================
