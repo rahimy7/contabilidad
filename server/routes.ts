@@ -3229,60 +3229,38 @@ router.get('/stores', authenticateToken, requireSuperAdmin, async (req: any, res
 
 
 // PUT - Actualizar usuario (contexto unificado)
-router.put('/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+// Endpoint específico para admins de tienda
+router.put('/users/:id', authenticateToken, async (req: any, res: any) => {
   try {
-    const id = parseInt(req.params.id);
-    const { storeId, level, ...updates } = req.body;
     const user = req.user as AuthUser;
-
-    // Validaciones de seguridad
-    if (updates.role === 'super_admin' && user.role !== 'super_admin') {
-      return res.status(403).json({ error: "Only super admin can assign super admin role" });
+    const id = parseInt(req.params.id);
+    
+    // Solo admins de tienda pueden usar este endpoint
+    if (!['admin', 'store_admin', 'store_owner'].includes(user.role)) {
+      return res.status(403).json({ 
+        error: 'Store admin access required' 
+      });
     }
-
-    let updatedUser;
-
-    // Determinar contexto y actualizar
-    if (level === 'global') {
-      // Actualizar usuario global
-      if (updates.password) {
-        updates.password = await bcrypt.hash(updates.password, 10);
-      }
-      updatedUser = await masterStorage.updateGlobalUser(id, updates);
-    } 
-    else if (level === 'store') {
-      // Actualizar usuario de tienda (system_users)
-      if (updates.password) {
-        updates.password = await bcrypt.hash(updates.password, 10);
-      }
-      updatedUser = await masterStorage.updateStoreUser(id, updates);
-    } 
-    else if (level === 'tenant' && storeId) {
-      // Actualizar usuario de tenant (schema específico)
-      const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
-      if (updates.password) {
-        updates.password = await bcrypt.hash(updates.password, 10);
-      }
-      updatedUser = await tenantStorage.updateUser(id, updates);
-    } 
-    else {
-      return res.status(400).json({ error: "Missing level or storeId for context" });
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const updateData = { ...req.body };
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
     }
-
+    
+    const updatedUser = await tenantStorage.updateUser(id, updateData);
+    
     if (!updatedUser) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
-
-    // Remover password de la respuesta
+    
     const { password, ...safeUser } = updatedUser;
-    res.json({
-      user: safeUser,
-      message: `User updated successfully in ${level} context`
-    });
-
+    res.json(safeUser);
+    
   } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ error: "Failed to update user" });
+    console.error('Error updating store user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
