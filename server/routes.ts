@@ -32,14 +32,24 @@ import * as schema from '@shared/schema'; // ✅ Importar schema directamente
 import { getTenantDb } from "./multi-tenant-db.js";
 import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
+import superAdminRoutes from './routes/super-admin-routes';
+
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
   return user.role === 'super_admin' ? 'public' : 'tenant';
 }
 
-export async function getTenantStorageWithSchema(user: AuthUser) {
-  // El StorageFactory ya maneja los esquemas correctamente según el rol del usuario
-  return await storageFactory.getTenantStorage(user.storeId);
+export async function getTenantStorageWithSchema(user: any) {
+  // ✅ Super admins no usan tenant storage
+  if (user.role === 'super_admin') {
+    throw new Error('Super admin should use /api/super-admin/ endpoints');
+  }
+  
+  if (!user.storeId) {
+    throw new Error('Store ID required for tenant operations');
+  }
+  
+  return storageFactory.getTenantStorage(user.storeId);
 }
 
 const storageFactory = StorageFactory.getInstance();
@@ -4432,6 +4442,7 @@ router.get('/notification-history', authenticateToken, async (req: any, res: any
 
   app.use("/api", router);
   app.use('/api/exchange-rates', exchangeRateRoutes);
+  app.use('/api/super-admin', superAdminRoutes);
   
   console.log("✅ Routes registered successfully with migrated storage");
 }
