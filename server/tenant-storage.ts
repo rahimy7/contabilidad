@@ -2096,7 +2096,152 @@ async getAllConversationsFallback() {
   }
 },
 
-    // CONVERSATIONS
+// Agregar este método en server/tenant-storage.ts junto con getTechnicianOrders
+
+async getTechnicianConversations(userId: number) {
+  try {
+    console.log('💬 Getting conversations for technician:', userId);
+    
+    // Obtener órdenes asignadas al técnico (solo activas)
+    const assignedOrders = await tenantDb.select()
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.assignedUserId, userId),
+        // Solo órdenes abiertas (no completadas ni canceladas)
+        or(
+          eq(schema.orders.status, 'assigned'),
+          eq(schema.orders.status, 'pending'),
+          eq(schema.orders.status, 'in_progress'),
+          eq(schema.orders.status, 'confirmed')
+        )
+      ));
+
+    if (assignedOrders.length === 0) {
+      console.log('ℹ️ No assigned orders found for technician:', userId);
+      return [];
+    }
+
+    const orderIds = assignedOrders.map(order => order.id);
+    console.log('📋 Found assigned order IDs:', orderIds);
+    
+    // Obtener conversaciones relacionadas con estas órdenes
+    const conversations = await tenantDb.select({
+      // Campos de conversación
+      id: schema.conversations.id,
+      customerId: schema.conversations.customerId,
+      orderId: schema.conversations.orderId,
+      conversationType: schema.conversations.conversationType,
+      status: schema.conversations.status,
+      lastMessageAt: schema.conversations.lastMessageAt,
+      createdAt: schema.conversations.createdAt,
+      updatedAt: schema.conversations.updatedAt,
+      
+      // Información del cliente
+      customerPhone: schema.customers.phone,
+      customerName: schema.customers.name,
+      customerAddress: schema.customers.address,
+      customerEmail: schema.customers.email,
+
+      // Información de la orden
+      orderNumber: schema.orders.orderNumber,
+      orderStatus: schema.orders.status,
+      orderTotalAmount: schema.orders.totalAmount
+    })
+    .from(schema.conversations)
+    .leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
+    .leftJoin(schema.orders, eq(schema.conversations.orderId, schema.orders.id))
+    .where(and(
+      inArray(schema.conversations.orderId, orderIds),
+      // Solo conversaciones activas
+      eq(schema.conversations.status, 'active')
+    ))
+    .orderBy(desc(schema.conversations.lastMessageAt));
+
+    console.log('💬 Found conversations for technician:', conversations.length);
+    
+    // Enriquecer con el conteo de mensajes no leídos
+    const enrichedConversations = await Promise.all(
+      conversations.map(async (conversation) => {
+        try {
+          // Contar mensajes no leídos del cliente
+          const [unreadCount] = await tenantDb.select({
+            count: count()
+          })
+          .from(schema.messages)
+          .where(and(
+            eq(schema.messages.conversationId, conversation.id),
+            eq(schema.messages.senderType, 'customer'),
+            eq(schema.messages.isRead, false)
+          ));
+
+          return {
+            ...conversation,
+            unreadCount: unreadCount?.count || 0,
+            // Formatear información adicional
+            customer: {
+              id: conversation.customerId,
+              name: conversation.customerName || 'Cliente desconocido',
+              phone: conversation.customerPhone || '',
+              email: conversation.customerEmail || null,
+              address: conversation.customerAddress || null
+            },
+            order: conversation.orderId ? {
+              id: conversation.orderId,
+              orderNumber: conversation.orderNumber || `ORD-${conversation.orderId}`,
+              status: conversation.orderStatus || 'unknown',
+              totalAmount: conversation.orderTotalAmount || '0'
+            } : null
+          };
+        } catch (error) {
+          console.error('Error enriching conversation:', conversation.id, error);
+          return {
+            ...conversation,
+            unreadCount: 0,
+            customer: {
+              id: conversation.customerId,
+              name: conversation.customerName || 'Cliente desconocido',
+              phone: conversation.customerPhone || '',
+              email: conversation.customerEmail || null,
+              address: conversation.customerAddress || null
+            },
+            order: null
+          };
+        }
+      })
+    );
+
+    console.log('✅ Enriched conversations for technician:', enrichedConversations.length);
+    return enrichedConversations;
+    
+  } catch (error) {
+    console.error('❌ Error getting technician conversations:', error);
+    throw error;
+  }
+},   
+async markConversationMessagesAsRead(conversationId: number) {
+  try {
+    console.log('📖 Marking messages as read for conversation:', conversationId);
+    
+    const result = await tenantDb.update(schema.messages)
+      .set({ 
+        isRead: true,
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(schema.messages.conversationId, conversationId),
+        eq(schema.messages.senderType, 'customer'),
+        eq(schema.messages.isRead, false)
+      ));
+
+    console.log('✅ Marked messages as read for conversation:', conversationId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error marking messages as read:', error);
+    return false;
+  }
+},
+
+// CONVERSATIONS
 
 
     async getConversationById(id: number) {

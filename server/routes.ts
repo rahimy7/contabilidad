@@ -1602,39 +1602,7 @@ router.get('/conversations', authenticateToken, async (req: any, res: any) => {
 });
 
 
-  router.get('/conversations/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      console.log('📞 [GET /conversations/:id] ID:', id, 'User store:', user.storeId);
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const conversation = await tenantStorage.getConversationById(id);
-      
-      if (!conversation) {
-        console.log('⚠️ [GET /conversations/:id] Not found:', id);
-        return res.status(404).json({ error: 'Conversation not found' });
-      }
-      
-      // También obtener los mensajes
-      const messages = await tenantStorage.getMessagesByConversation(id);
-      
-      const result = {
-        ...conversation,
-        messages: messages || []
-      };
-      
-      console.log('✅ [GET /conversations/:id] Success:', id, 'with', messages?.length || 0, 'messages');
-      res.json(result);
-    } catch (error) {
-      console.error('❌ [GET /conversations/:id] Error:', error);
-      res.status(500).json({ 
-        error: 'Failed to fetch conversation',
-        details: error.message 
-      });
-    }
-  });
+
 
   router.post('/conversations', authenticateToken, async (req: any, res: any) => {
     try {
@@ -1662,6 +1630,60 @@ router.get('/conversations', authenticateToken, async (req: any, res: any) => {
     }
   });
 
+  router.get('/conversations/technician', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    // Verificar que el usuario sea técnico
+    if (user.role !== 'technician') {
+      return res.status(403).json({ error: 'Access denied. Technician role required.' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('💬 [GET /conversations/technician] Getting conversations for technician:', user.id);
+    
+    // Obtener conversaciones de órdenes asignadas al técnico
+    const conversations = await tenantStorage.getTechnicianConversations(user.id);
+    
+    console.log('✅ [GET /conversations/technician] Found conversations:', conversations.length);
+    res.json(conversations);
+  } catch (error) {
+    console.error('❌ [GET /conversations/technician] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch technician conversations",
+      details: error.message 
+    });
+  }
+});
+router.patch('/conversations/:id/mark-read', authenticateToken, async (req: any, res: any) => {
+  try {
+    const conversationId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    console.log('📖 [PATCH /conversations/:id/mark-read] Marking as read:', conversationId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la conversación existe
+    const conversation = await tenantStorage.getConversationById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    // Marcar mensajes como leídos
+    await tenantStorage.markConversationMessagesAsRead(conversationId);
+    
+    console.log('✅ [PATCH /conversations/:id/mark-read] Marked as read:', conversationId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ [PATCH /conversations/:id/mark-read] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to mark messages as read",
+      details: error.message 
+    });
+  }
+});
   router.put('/conversations/:id', authenticateToken, async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
@@ -1691,10 +1713,50 @@ router.get('/conversations', authenticateToken, async (req: any, res: any) => {
     }
   });
 
+// Corregir el endpoint en server/routes.ts para validar el ID antes de procesar
+router.get('/conversations/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    // Validación para evitar NaN
+    if (isNaN(id) || !Number.isInteger(id) || id <= 0) {
+      console.log('⚠️ [GET /conversations/:id] Invalid ID provided:', req.params.id);
+      return res.status(400).json({ error: 'Invalid conversation ID' });
+    }
+    
+    console.log('📞 [GET /conversations/:id] ID:', id, 'User store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const conversation = await tenantStorage.getConversationById(id);
+    
+    if (!conversation) {
+      console.log('⚠️ [GET /conversations/:id] Not found:', id);
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    
+    console.log('✅ [GET /conversations/:id] Found:', id);
+    res.json(conversation);
+  } catch (error) {
+    console.error('❌ [GET /conversations/:id] Error:', error);
+    res.status(500).json({ 
+      error: "Failed to fetch conversation",
+      details: error.message 
+    });
+  }
+});
+
+// También corregir el endpoint de mensajes
 router.get('/conversations/:id/messages', authenticateToken, async (req: any, res: any) => {
   try {
     const conversationId = parseInt(req.params.id);
     const user = req.user as AuthUser;
+    
+    // Validación para evitar NaN
+    if (isNaN(conversationId) || !Number.isInteger(conversationId) || conversationId <= 0) {
+      console.log('⚠️ [GET /conversations/:id/messages] Invalid ID provided:', req.params.id);
+      return res.status(400).json({ error: 'Invalid conversation ID' });
+    }
     
     console.log('📋 [GET /conversations/:id/messages] Getting messages for conversation:', conversationId);
     

@@ -56,6 +56,8 @@ import { ToastProvider } from '@/components/ui/use-toast';
 import ProductManagement from "./pages/product-management";
 import AddProduct from "@/pages/add-product";
 import ExchangeRateManagement from '@/pages/exchange-rates';
+import TechnicianConversations from "./pages/technician-conversations";
+
 
 
 
@@ -160,12 +162,27 @@ function RoleDashboard() {
   return <ProtectedRoute component={Conversations} permission="view_conversations" />;
 }
 
+function ConversationsWrapper() {
+  const { user } = useAuth();
+  
+  console.log('🔍 ConversationsWrapper - User role:', user?.role); // DEBUG
+  
+  if (user?.role === 'technician') {
+    console.log('👨‍🔧 Loading TechnicianConversations'); // DEBUG
+    return <ProtectedRoute component={TechnicianConversations} permission="view_conversations" />;
+  }
+  
+  console.log('👤 Loading regular Conversations'); // DEBUG
+  return <ProtectedRoute component={Conversations} permission="view_conversations" />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={RoleDashboard} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} permission="view_dashboard" />} />
       <Route path="/technician-dashboard" component={() => <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />} />
+     <Route path="/conversations" component={ConversationsWrapper} />
       <Route path="/orders" component={() => <ProtectedRoute component={Orders} permission="manage_orders" />} />
       <Route path="/order-management" component={() => <ProtectedRoute component={OrderManagement} permission="manage_orders" />} />
       <Route path="/conversations" component={() => <ProtectedRoute component={Conversations} permission="view_conversations" />} />
