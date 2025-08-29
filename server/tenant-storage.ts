@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
 import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "drizzle-orm";
 import { getTenantDb } from "./multi-tenant-db.js";
-import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, User } from "../shared/schema.js";
+import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
+import { ProductBrand, InsertProductBrand } from "@shared/types.js";
 
 export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
   // ✅ VALIDACIÓN CRÍTICA AL INICIO
@@ -109,6 +110,8 @@ async getAllProducts() {
       }
     },
 
+    
+
     /**
  * Actualiza la moneda base de un producto
  */
@@ -175,35 +178,94 @@ async getProductsWithCurrency(): Promise<any[]> {
   }
 },
 
-    async getAllCategories() {
-      try {
-        if (schema.productCategories) {
-          return await tenantDb.select()
-            .from(schema.productCategories)
-            .orderBy(desc(schema.productCategories.createdAt));
-        }
-        return [];
-      } catch (error) {
-        console.error('Error getting all categories:', error);
-        return [];
-      }
-    },
+// ================================
+// MÉTODOS DE CATEGORÍAS
+// ================================
 
-    async getCategoryById(id: number) {
-      try {
-        if (schema.productCategories) {
-          const [category] = await tenantDb.select()
-            .from(schema.productCategories)
-            .where(eq(schema.productCategories.id, id))
-            .limit(1);
-          return category || null;
-        }
-        return null;
-      } catch (error) {
-        console.error('Error getting category by ID:', error);
-        return null;
+async getAllCategories() {
+  try {
+    if (schema.productCategories) {
+      const categories = await tenantDb.select()
+        .from(schema.productCategories)
+        .orderBy(asc(schema.productCategories.sortOrder), asc(schema.productCategories.name));
+      
+      console.log(`✅ Retrieved ${categories.length} categories from tenant DB`);
+      return categories;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting all categories:', error);
+    return [];
+  }
+},
+
+async createCategory(categoryData) {
+  try {
+    if (schema.productCategories) {
+      const [newCategory] = await tenantDb.insert(schema.productCategories)
+        .values({
+          name: categoryData.name,
+          description: categoryData.description || null,
+          icon: categoryData.icon || null,
+          isActive: categoryData.isActive !== undefined ? categoryData.isActive : true,
+          sortOrder: categoryData.sortOrder || 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      console.log('✅ Category created:', newCategory.name);
+      return newCategory;
+    }
+    throw new Error('productCategories schema not available');
+  } catch (error) {
+    console.error('Error creating category:', error);
+    throw error;
+  }
+},
+
+async updateCategory(id, updates) {
+  try {
+    if (schema.productCategories) {
+      const [updatedCategory] = await tenantDb.update(schema.productCategories)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.productCategories.id, id))
+        .returning();
+      
+      if (!updatedCategory) {
+        throw new Error('Category not found');
       }
-    },
+      
+      console.log('✅ Category updated:', updatedCategory.name);
+      return updatedCategory;
+    }
+    throw new Error('productCategories schema not available');
+  } catch (error) {
+    console.error('Error updating category:', error);
+    throw error;
+  }
+},
+
+
+async getActiveCategories() {
+  try {
+    if (schema.productCategories) {
+      const categories = await tenantDb.select()
+        .from(schema.productCategories)
+        .where(eq(schema.productCategories.isActive, true))
+        .orderBy(asc(schema.productCategories.sortOrder), asc(schema.productCategories.name));
+      
+      return categories;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting active categories:', error);
+    return [];
+  }
+},
     // ORDERS
     async getAllOrders() {
       try {
@@ -2098,6 +2160,8 @@ async getAllConversationsFallback() {
 
 // Agregar este método en server/tenant-storage.ts junto con getTechnicianOrders
 
+// Reemplazar el método getTechnicianConversations en server/tenant-storage.ts
+
 async getTechnicianConversations(userId: number) {
   try {
     console.log('💬 Getting conversations for technician:', userId);
@@ -2120,12 +2184,23 @@ async getTechnicianConversations(userId: number) {
       console.log('ℹ️ No assigned orders found for technician:', userId);
       return [];
     }
+// Ejecutar consulta para obtener las órdenes del técnico
+const technicianOrders = await tenantDb
+  .select({ customerId: schema.orders.customerId })
+  .from(schema.orders)
+  .where(eq(schema.orders.assignedUserId, userId));
 
-    const orderIds = assignedOrders.map(order => order.id);
-    console.log('📋 Found assigned order IDs:', orderIds);
-    
-    // Obtener conversaciones relacionadas con estas órdenes
-    const conversations = await tenantDb.select({
+const customerIds = technicianOrders
+  .map(order => order.customerId)
+  .filter((id): id is number => typeof id === 'number' && !isNaN(id));
+
+// Si el array está vacío, retorna temprano
+if (customerIds.length === 0) {
+  console.log('⚠️ No valid customer IDs found for technician');
+  return [];
+}
+
+const conversations = await tenantDb.select({
       // Campos de conversación
       id: schema.conversations.id,
       customerId: schema.conversations.customerId,
@@ -2142,29 +2217,28 @@ async getTechnicianConversations(userId: number) {
       customerAddress: schema.customers.address,
       customerEmail: schema.customers.email,
 
-      // Información de la orden
+      // Información de la orden (si existe)
       orderNumber: schema.orders.orderNumber,
       orderStatus: schema.orders.status,
       orderTotalAmount: schema.orders.totalAmount
     })
     .from(schema.conversations)
-    .leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
-    .leftJoin(schema.orders, eq(schema.conversations.orderId, schema.orders.id))
-    .where(and(
-      inArray(schema.conversations.orderId, orderIds),
-      // Solo conversaciones activas
-      eq(schema.conversations.status, 'active')
-    ))
-    .orderBy(desc(schema.conversations.lastMessageAt));
+.leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
+.leftJoin(schema.orders, eq(schema.conversations.orderId, schema.orders.id))
+.where(and(
+  inArray(schema.conversations.customerId, customerIds), // Ahora customerIds es number[]
+  eq(schema.conversations.status, 'active')
+))
+.orderBy(desc(schema.conversations.lastMessageAt));
 
-    console.log('💬 Found conversations for technician:', conversations.length);
+    console.log('💬 Found conversations for technician customers:', conversations.length);
     
-    // Enriquecer con el conteo de mensajes no leídos
+    // Enriquecer con información adicional
     const enrichedConversations = await Promise.all(
       conversations.map(async (conversation) => {
         try {
           // Contar mensajes no leídos del cliente
-          const [unreadCount] = await tenantDb.select({
+          const [unreadResult] = await tenantDb.select({
             count: count()
           })
           .from(schema.messages)
@@ -2174,10 +2248,26 @@ async getTechnicianConversations(userId: number) {
             eq(schema.messages.isRead, false)
           ));
 
+          // Buscar la orden más reciente asignada al técnico para este cliente
+          const [latestOrder] = await tenantDb.select()
+            .from(schema.orders)
+            .where(and(
+              eq(schema.orders.customerId, conversation.customerId),
+              eq(schema.orders.assignedUserId, userId),
+              or(
+                eq(schema.orders.status, 'assigned'),
+                eq(schema.orders.status, 'pending'),
+                eq(schema.orders.status, 'in_progress'),
+                eq(schema.orders.status, 'confirmed')
+              )
+            ))
+            .orderBy(desc(schema.orders.createdAt))
+            .limit(1);
+
           return {
             ...conversation,
-            unreadCount: unreadCount?.count || 0,
-            // Formatear información adicional
+            unreadCount: unreadResult?.count || 0,
+            // Información del cliente
             customer: {
               id: conversation.customerId,
               name: conversation.customerName || 'Cliente desconocido',
@@ -2185,12 +2275,18 @@ async getTechnicianConversations(userId: number) {
               email: conversation.customerEmail || null,
               address: conversation.customerAddress || null
             },
-            order: conversation.orderId ? {
+            // Información de la orden más relevante
+            order: latestOrder ? {
+              id: latestOrder.id,
+              orderNumber: latestOrder.orderNumber || `ORD-${latestOrder.id}`,
+              status: latestOrder.status || 'unknown',
+              totalAmount: latestOrder.totalAmount || '0'
+            } : (conversation.orderId ? {
               id: conversation.orderId,
               orderNumber: conversation.orderNumber || `ORD-${conversation.orderId}`,
               status: conversation.orderStatus || 'unknown',
               totalAmount: conversation.orderTotalAmount || '0'
-            } : null
+            } : null)
           };
         } catch (error) {
           console.error('Error enriching conversation:', conversation.id, error);
@@ -2215,9 +2311,9 @@ async getTechnicianConversations(userId: number) {
     
   } catch (error) {
     console.error('❌ Error getting technician conversations:', error);
-    throw error;
+    return []; // Devolver array vacío en lugar de throw para evitar crashes
   }
-},   
+},  
 async markConversationMessagesAsRead(conversationId: number) {
   try {
     console.log('📖 Marking messages as read for conversation:', conversationId);
@@ -3386,6 +3482,145 @@ async getUserWorkload(userId: number) {
   } catch (error) {
     console.error(`❌ Error getting workload for user ${userId}:`, error);
     return 0;
+  }
+},
+
+
+async getAllBrands(): Promise<ProductBrand[]> {
+  try {
+    if (schema.productBrands) {
+      return await tenantDb.select()
+        .from(schema.productBrands)
+        .orderBy(desc(schema.productBrands.sortOrder), asc(schema.productBrands.name));
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting all brands:', error);
+    return [];
+  }
+},
+
+async getBrandById(id: number): Promise<ProductBrand | null> {
+  try {
+    if (schema.productBrands) {
+      const [brand] = await tenantDb.select()
+        .from(schema.productBrands)
+        .where(eq(schema.productBrands.id, id))
+        .limit(1);
+      return brand || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting brand by ID:', error);
+    return null;
+  }
+},
+
+async getBrandByName(name: string): Promise<ProductBrand | null> {
+  try {
+    if (schema.productBrands) {
+      const [brand] = await tenantDb.select()
+        .from(schema.productBrands)
+        .where(eq(schema.productBrands.name, name))
+        .limit(1);
+      return brand || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting brand by name:', error);
+    return null;
+  }
+},
+
+async createBrand(brandData: InsertProductBrand): Promise<ProductBrand> {
+  try {
+    if (!schema.productBrands) {
+      throw new Error('Brands table not available in tenant schema');
+    }
+
+    const [brand] = await tenantDb.insert(schema.productBrands)
+      .values({
+        ...brandData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+
+    return brand;
+  } catch (error) {
+    console.error('Error creating brand:', error);
+    throw error;
+  }
+},
+
+async updateBrand(id: number, updates: Partial<InsertProductBrand>): Promise<ProductBrand> {
+  try {
+    if (!schema.productBrands) {
+      throw new Error('Brands table not available in tenant schema');
+    }
+
+    const [brand] = await tenantDb.update(schema.productBrands)
+      .set({ 
+        ...updates, 
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.productBrands.id, id))
+      .returning();
+
+    if (!brand) {
+      throw new Error('Brand not found');
+    }
+
+    return brand;
+  } catch (error) {
+    console.error('Error updating brand:', error);
+    throw error;
+  }
+},
+
+async deleteBrand(id: number): Promise<void> {
+  try {
+    if (!schema.productBrands) {
+      throw new Error('Brands table not available in tenant schema');
+    }
+
+    await tenantDb.delete(schema.productBrands)
+      .where(eq(schema.productBrands.id, id));
+  } catch (error) {
+    console.error('Error deleting brand:', error);
+    throw error;
+  }
+},
+
+async getActiveBrands(): Promise<ProductBrand[]> {
+  try {
+    if (schema.productBrands) {
+      return await tenantDb.select()
+        .from(schema.productBrands)
+        .where(eq(schema.productBrands.isActive, true))
+        .orderBy(asc(schema.productBrands.sortOrder), asc(schema.productBrands.name));
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting active brands:', error);
+    return [];
+  }
+},
+
+async getProductsByBrand(brandId: number) {
+  try {
+    const query = `
+      SELECT p.* 
+      FROM products p
+      INNER JOIN brands b ON p.brand = b.name
+      WHERE b.id = ? AND p."isActive" = true
+    `;
+    
+    const result = await this.db.execute(query, [brandId]);
+    return result.rows || [];
+  } catch (error) {
+    console.error('Error in getProductsByBrand:', error);
+    throw error;
   }
 },
 

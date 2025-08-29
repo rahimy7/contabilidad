@@ -241,17 +241,8 @@ const updateEmployeeMutation = useMutation({
 // Delete employee mutation - CORREGIDO
 const deleteEmployeeMutation = useMutation({
   mutationFn: async (employeeId: number) => {
-    const employee = employees.find(emp => emp.id === employeeId);
-    
-    // ✅ ELIMINAR PERFIL DE EMPLEADO
-    await apiRequest("DELETE", `/api/employees/${employeeId}`);
-    
-    // ✅ ELIMINAR USUARIO DE TENANT SCHEMA
-    if (employee?.userId) {
-      await apiRequest("DELETE", `/api/users/${employee.userId}`);
-    }
-    
-    return { success: true };
+    // ✅ SOLO UNA LLAMADA - El endpoint ya elimina usuario y perfil
+    return apiRequest("DELETE", `/api/employees/${employeeId}`);
   },
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ["/api/employees"] });

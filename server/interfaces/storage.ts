@@ -43,7 +43,15 @@ import {
   type OrderItemWithProduct,
   type OrderWithDetails,
   type ConversationWithDetails,
+  Brand,
+  NotificationConfig,
+  NotificationHistory,
+  RegistrationFlow,
+  UserWorkload,
+  NotificationChannel,
+  NotificationEvent,
 } from "@shared/schema";
+import { InsertProductBrand, ProductBrand } from "@shared/types";
 
 // ================================
 // TIPOS ESPECÍFICOS PARA USUARIOS
@@ -314,6 +322,17 @@ export interface TenantStorage extends BaseStorage {
   getActiveCategories(): Promise<ProductCategory[]>;
 
   // ========================================
+// BRANDS
+// ========================================
+getAllBrands(): Promise<ProductBrand[]>;
+getBrandById(id: number): Promise<ProductBrand | null>;
+getBrandByName(name: string): Promise<ProductBrand | null>;
+createBrand(brandData: InsertProductBrand): Promise<ProductBrand>;
+updateBrand(id: number, updates: Partial<InsertProductBrand>): Promise<ProductBrand>;
+deleteBrand(id: number): Promise<void>;
+getActiveBrands(): Promise<ProductBrand[]>;
+
+  // ========================================
   // CUSTOMERS
   // ========================================
   getAllCustomers(): Promise<Customer[]>;
@@ -432,6 +451,7 @@ export interface TenantStorage extends BaseStorage {
   markAllNotificationsAsRead(userId: number): Promise<void>;
   deleteNotification(id: number): Promise<void>;
   getNotificationCounts(userId: number): Promise<{ total: number; unread: number }>;
+getNotificationEvents(): Promise<NotificationEvent[]>;
 
   // ========================================
   // SHOPPING CART
@@ -475,6 +495,70 @@ export interface TenantStorage extends BaseStorage {
 
 
   getOrderItems(orderId: number): Promise<any[]>;
+
+
+  // ========================================
+// BRANDS MANAGEMENT
+// ========================================
+getAllBrands(): Promise<Brand[]>;
+getBrandById(id: number): Promise<Brand | null>;
+createBrand(brandData: any): Promise<Brand>;
+updateBrand(id: number, updates: any): Promise<Brand>;
+deleteBrand(id: number): Promise<void>;
+getProductsByBrand(brandId: number): Promise<Product[]>;
+
+// ========================================
+// NOTIFICATION MANAGEMENT
+// ========================================
+getNotificationConfigs(): Promise<NotificationConfig[]>;
+
+getNotificationChannels(): Promise<NotificationChannel[]>;
+getNotificationConfigById(id: number): Promise<NotificationConfig | null>;
+createNotificationConfig(configData: any): Promise<NotificationConfig>;
+updateNotificationConfig(id: number, updates: any): Promise<NotificationConfig>;
+updateNotificationChannel(id: string, updates: any): Promise<NotificationChannel>;
+deleteNotificationConfig(id: number): Promise<void>;
+getNotificationCounts(userId: number): Promise<{ total: number; unread: number }>;
+getUserNotifications(userId: number): Promise<Notification[]>;
+markNotificationAsRead(id: number): Promise<void>;
+markAllNotificationsAsRead(userId: number): Promise<void>;
+createNotification(notificationData: any): Promise<Notification>;
+getNotificationHistory(userId: number): Promise<NotificationHistory[]>;
+
+// ========================================
+// TECHNICIAN & CONVERSATIONS
+// ========================================
+getTechnicianConversations(technicianId: number): Promise<ConversationWithDetails[]>;
+markConversationMessagesAsRead(conversationId: number, userId: number): Promise<void>;
+
+// ========================================
+// ORDER & ITEMS
+// ========================================
+getOrderItemsByOrderId(orderId: number): Promise<OrderItem[]>;
+
+// ========================================
+// STORE EMPLOYEES & SETTINGS
+// ========================================
+getStoreEmployeesAndAdmins(): Promise<User[]>;
+getUserWorkload(userId: number): Promise<UserWorkload>;
+testConnection(): Promise<boolean>;
+
+// ========================================
+// REGISTRATION FLOW
+// ========================================
+getRegistrationFlowById(id: number): Promise<RegistrationFlow | null>;
+createRegistrationFlow(flowData: any): Promise<RegistrationFlow>;
+updateRegistrationFlow(id: number, updates: any): Promise<RegistrationFlow>;
+repairRegistrationFlow(flowData: any): Promise<RegistrationFlow>;
+
+// ========================================
+// EMPLOYEE PROFILES
+// ========================================
+getAllEmployeeProfiles(): Promise<EmployeeProfile[]>;
+getEmployeeProfileById(id: number): Promise<EmployeeProfile | null>;
+createEmployeeProfile(profileData: any): Promise<EmployeeProfile>;
+updateEmployeeProfile(id: number, updates: any): Promise<EmployeeProfile>;
+deleteEmployeeProfile(id: number): Promise<void>;
 
   // ========================================
   // METRICS & ANALYTICS

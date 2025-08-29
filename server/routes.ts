@@ -32,14 +32,24 @@ import * as schema from '@shared/schema'; // ✅ Importar schema directamente
 import { getTenantDb } from "./multi-tenant-db.js";
 import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
+import superAdminRoutes from './routes/super-admin-routes';
+
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
   return user.role === 'super_admin' ? 'public' : 'tenant';
 }
 
-export async function getTenantStorageWithSchema(user: AuthUser) {
-  // El StorageFactory ya maneja los esquemas correctamente según el rol del usuario
-  return await storageFactory.getTenantStorage(user.storeId);
+export async function getTenantStorageWithSchema(user: any) {
+  // ✅ Super admins no usan tenant storage
+  if (user.role === 'super_admin') {
+    throw new Error('Super admin should use /api/super-admin/ endpoints');
+  }
+  
+  if (!user.storeId) {
+    throw new Error('Store ID required for tenant operations');
+  }
+  
+  return storageFactory.getTenantStorage(user.storeId);
 }
 
 const storageFactory = StorageFactory.getInstance();
@@ -729,6 +739,193 @@ const deleteCategoryHandler = async (req: any, res: any) => {
   }
 };
 
+
+
+
+// BRAND HANDLERS - Agregar a server/routes.ts
+// ================================
+
+const getBrandsHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🏷️ Getting brands for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brands = await tenantStorage.getAllBrands();
+    
+    console.log(`✅ Retrieved ${brands.length} brands from tenant schema`);
+    res.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const createBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🏷️ Creating brand for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const brandData = { 
+      ...req.body,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      sortOrder: req.body.sortOrder || 0
+    };
+    
+    const brand = await tenantStorage.createBrand(brandData);
+
+    console.log('✅ Brand created in tenant schema:', brand.name);
+    res.status(201).json(brand);
+  } catch (error) {
+    console.error('Error creating brand:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate') || error.message.includes('unique')) {
+        return res.status(400).json({
+          error: "Ya existe una marca con este nombre"
+        });
+      }
+    }
+    
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const updateBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('✏️ Updating brand', brandId, 'for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la marca existe
+    const existingBrand = await tenantStorage.getBrandById(brandId);
+    if (!existingBrand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+    
+    const brand = await tenantStorage.updateBrand(brandId, updateData);
+    
+    console.log('✅ Brand updated in tenant schema:', brand.name);
+    res.json(brand);
+  } catch (error) {
+    console.error('Error updating brand:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate') || error.message.includes('unique')) {
+        return res.status(400).json({
+          error: "Ya existe una marca con este nombre"
+        });
+      }
+    }
+    
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const deleteBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🗑️ Deleting brand', brandId, 'for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la marca existe
+    const existingBrand = await tenantStorage.getBrandById(brandId);
+    if (!existingBrand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    // Verificar si la marca tiene productos asociados
+    const productsWithBrand = await tenantStorage.getProductsByBrand(brandId);
+    if (productsWithBrand && productsWithBrand.length > 0) {
+      return res.status(400).json({
+        error: `No se puede eliminar la marca porque tiene ${productsWithBrand.length} productos asociados`
+      });
+    }
+    
+    await tenantStorage.deleteBrand(brandId);
+    
+    console.log('✅ Brand deleted from tenant schema');
+    res.json({ success: true, message: "Marca eliminada exitosamente" });
+  } catch (error) {
+    console.error('Error deleting brand:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const getBrandByIdHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brand = await tenantStorage.getBrandById(brandId);
+    
+    if (!brand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    res.json(brand);
+  } catch (error) {
+    console.error('Error fetching brand:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
 // ================================
 // IMAGE HANDLERS
 // ================================
@@ -1120,6 +1317,16 @@ router.post('/products', authenticateToken, createProductHandler);
   router.post('/categories', authenticateToken, createCategoryHandler);
   router.put('/categories/:id', authenticateToken, updateCategoryHandler);
   router.delete('/categories/:id', authenticateToken, deleteCategoryHandler);
+
+  // ================================
+// BRAND ROUTES - AGREGAR DESPUÉS DE CATEGORY ROUTES
+// ================================
+
+// Agregar después de las rutas de categorías:
+router.get('/brands', authenticateToken, getBrandsHandler);
+router.post('/brands', authenticateToken, createBrandHandler);
+router.put('/brands/:id', authenticateToken, updateBrandHandler);
+router.delete('/brands/:id', authenticateToken, deleteBrandHandler);
 
 //===================================
 // SUPER ADMIN 
@@ -1672,7 +1879,7 @@ router.patch('/conversations/:id/mark-read', authenticateToken, async (req: any,
     }
     
     // Marcar mensajes como leídos
-    await tenantStorage.markConversationMessagesAsRead(conversationId);
+      await tenantStorage.markConversationMessagesAsRead(conversationId, user.id);
     
     console.log('✅ [PATCH /conversations/:id/mark-read] Marked as read:', conversationId);
     res.json({ success: true });
@@ -2561,7 +2768,7 @@ items: items.map((item: any) => ({
       const tenantStorage = await getTenantStorageWithSchema(user);
       
       // Crear la orden
-      const order = await tenantStorage.createOrder(orderData);
+    const order = await tenantStorage.createOrder(orderData, req.body.items || []);
 
        // ✅ TRIGGER NOTIFICACIÓN DE CREACIÓN
     const notificationService = new NotificationService(tenantStorage, user.storeId);
@@ -2808,7 +3015,7 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
       );
       
       // Ordenar por carga de trabajo (menor a mayor)
-      userWorkloads.sort((a, b) => a.currentWorkload - b.currentWorkload);
+      userWorkloads.sort((a, b) => a.currentWorkload.workloadScore - b.currentWorkload.workloadScore);
       
       // Seleccionar usuario con menor carga
       const selectedUser = userWorkloads[0].user;
@@ -4529,7 +4736,7 @@ router.get('/notification-channels', authenticateToken, async (req: any, res: an
 
 router.put('/notification-channels/:id', authenticateToken, async (req: any, res: any) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = req.params.id; // Mantener como string
     const user = req.user as AuthUser;
     const tenantStorage = await getTenantStorageWithSchema(user);
     
@@ -4657,13 +4864,7 @@ router.get('/notification-history', authenticateToken, async (req: any, res: any
     const { page = 1, limit = 20, orderId, channel, status } = req.query;
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    const history = await tenantStorage.getNotificationHistory({
-      page: parseInt(page),
-      limit: parseInt(limit),
-      orderId: orderId ? parseInt(orderId) : undefined,
-      channel,
-      status
-    });
+   const history = await tenantStorage.getNotificationHistory(user.id);
     
     res.json(history);
   } catch (error) {
@@ -4678,6 +4879,7 @@ router.get('/notification-history', authenticateToken, async (req: any, res: any
 
   app.use("/api", router);
   app.use('/api/exchange-rates', exchangeRateRoutes);
+  app.use('/api/super-admin', superAdminRoutes);
   
   console.log("✅ Routes registered successfully with migrated storage");
 }

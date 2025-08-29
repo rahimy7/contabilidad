@@ -627,6 +627,27 @@ export const notificationHistory = pgTable("notification_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const productBrands = pgTable("product_brands", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  logo: text("logo"), // URL del logo de la marca
+  website: text("website"),
+  countryOfOrigin: text("country_of_origin"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProductBrandSchema = makeInsertSchema(productBrands, {
+  storeId: z.number(),
+  name: z.string().min(1, "Nombre es requerido"),
+  description: z.string().optional(),
+  website: z.string().url().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
 export const insertProductSchema = makeInsertSchema(products);
 
 export const insertOrderSchema = makeInsertSchema(orders, {
@@ -802,12 +823,91 @@ export type InsertSystemUser = z.infer<typeof insertSystemUserSchema>;
 export type SystemAuditLog = typeof systemAuditLog.$inferSelect;
 export type InsertSystemAuditLog = z.infer<typeof insertSystemAuditLogSchema>;
 
+export type Brand = {
+  id: number;
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  isActive: boolean;
+  storeId: number;
+  createdAt: Date;
+  updatedAt?: Date;
+};
+
+// NotificationConfig types  
+export type NotificationConfig = {
+  id: number;
+  storeId: number;
+  eventName: string;
+  channel: string;
+  isEnabled: boolean;
+  template: string;
+  recipients: string; // JSON string
+  createdAt: Date;
+  updatedAt?: Date;
+};
+
+// NotificationHistory types
+export type NotificationHistory = {
+  id: number;
+  configId: number;
+  orderId: number;
+  recipientId: number;
+  recipientType: string;
+  channel: string;
+  title: string;
+  message: string;
+  status: string;
+  sentAt?: Date;
+  errorMessage?: string;
+  createdAt: Date;
+};
+
+// UserWorkload types
+export type UserWorkload = {
+  userId: number;
+  assignedOrders: number;
+  activeConversations: number;
+  completedOrdersToday: number;
+  averageResponseTime: number;
+  workloadScore: number;
+};
+
+// RegistrationFlow types
+export type RegistrationFlow = {
+  id: number;
+  storeId: number;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  steps: string; // JSON string
+  createdAt: Date;
+  updatedAt?: Date;
+};
+
 // Extended types for multi-tenant API responses
 export type VirtualStoreWithOwner = VirtualStore & {
   owner?: SystemUser;
   userCount?: number;
   orderCount?: number;
   lastActivity?: Date;
+};
+
+
+export type NotificationChannel = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description?: string;
+};
+
+// En shared/schema.ts:
+export type NotificationEvent = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
 };
 
 export type SystemUserWithStore = SystemUser & {
