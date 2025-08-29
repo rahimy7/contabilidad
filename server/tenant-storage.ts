@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
 import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "drizzle-orm";
 import { getTenantDb } from "./multi-tenant-db.js";
-import { ConversationWithDetails, CustomerRegistrationFlow, User } from "../shared/schema.js";
+import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
 
 export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
   // ✅ VALIDACIÓN CRÍTICA AL INICIO
@@ -420,6 +420,8 @@ async getStoreLocation(storeId: number): Promise<any | null> {
   }
 },
 
+// Agregar este método en tu TenantStorage class
+
     // PRODUCTS
 
 
@@ -676,6 +678,203 @@ async ensureCorrectSchema(): Promise<boolean> {
     await pool.end().catch(err => 
       console.log('⚠️ Pool close warning:', err.message)
     );
+  }
+},
+
+// Agregar este método a la clase TenantStorage en server/tenant-storage.ts
+
+// Agregar este método al objeto que se retorna en la función createTenantStorage()
+// en server/tenant-storage.ts
+
+// OPCIÓN 2: Agregar validación adicional al método getTechnicianOrders en server/tenant-storage.ts
+
+async getTechnicianOrders(userId: number) {
+  try {
+    console.log('🔧 Getting orders for technician:', userId);
+    
+    // Obtener órdenes asignadas al técnico usando tenantDb
+    const orders = await tenantDb.select()
+      .from(schema.orders)
+      .where(eq(schema.orders.assignedUserId, userId))
+      .orderBy(desc(schema.orders.createdAt));
+    
+    console.log('📦 Found basic orders:', orders.length);
+    
+    if (orders.length === 0) {
+      console.log('ℹ️ No orders found for technician:', userId);
+      return [];
+    }
+    
+    // Enriquecer con detalles de cliente y productos
+    const enrichedOrders = await Promise.all(
+      orders.map(async (order) => {
+        try {
+          // ✅ VALIDACIÓN: Verificar que order existe y tiene ID
+          if (!order || !order.id) {
+            console.warn('⚠️ Invalid order found:', order);
+            return null;
+          }
+
+          // Obtener información del cliente con validación
+          let customer = null;
+          if (order.customerId) {
+            try {
+              const [customerResult] = await tenantDb.select()
+                .from(schema.customers)
+                .where(eq(schema.customers.id, order.customerId))
+                .limit(1);
+              customer = customerResult;
+            } catch (customerError) {
+              console.warn('⚠️ Error getting customer for order:', order.id, customerError);
+            }
+          }
+          
+          // Obtener información del usuario asignado con validación
+          let assignedUser = null;
+          if (order.assignedUserId) {
+            try {
+              const [userResult] = await tenantDb.select()
+                .from(schema.users)
+                .where(eq(schema.users.id, order.assignedUserId))
+                .limit(1);
+              assignedUser = userResult;
+            } catch (userError) {
+              console.warn('⚠️ Error getting assigned user for order:', order.id, userError);
+            }
+          }
+          
+          // Obtener items de la orden con validación
+          let orderItems = [];
+          try {
+            orderItems = await tenantDb.select()
+              .from(schema.orderItems)
+              .where(eq(schema.orderItems.orderId, order.id));
+          } catch (itemsError) {
+            console.warn('⚠️ Error getting order items for order:', order.id, itemsError);
+          }
+          
+          // Enriquecer items con información de productos
+          const itemsWithProducts = await Promise.all(
+            orderItems.map(async (item) => {
+              try {
+                if (!item || !item.productId) {
+                  console.warn('⚠️ Invalid item found:', item);
+                  return {
+                    ...item,
+                    productName: 'Producto desconocido',
+                    productPrice: 0
+                  };
+                }
+
+                const [product] = await tenantDb.select()
+                  .from(schema.products)
+                  .where(eq(schema.products.id, item.productId))
+                  .limit(1);
+                
+                return {
+                  ...item,
+                  productName: product?.name || `Producto ${item.productId}`,
+                  productPrice: product?.price ? parseFloat(product.price.toString()) : 0
+                };
+              } catch (error) {
+                console.error('❌ Error getting product for item:', item?.productId, error);
+                return {
+                  ...item,
+                  productName: `Producto ${item?.productId || 'desconocido'}`,
+                  productPrice: 0
+                };
+              }
+            })
+          );
+          
+          // ✅ ESTRUCTURA FINAL CON VALIDACIONES
+          const enrichedOrder = {
+            ...order,
+            // Asegurar que customer siempre tenga una estructura válida
+            customer: customer ? {
+              id: customer.id || 0,
+              name: customer.name || 'Cliente desconocido',
+              phone: customer.phone || order.contactNumber || '',
+              email: customer.email || null,
+              address: customer.address || order.deliveryAddress || null
+            } : {
+              id: order.customerId || 0,
+              name: 'Cliente desconocido',
+              phone: order.contactNumber || '',
+              email: null,
+              address: order.deliveryAddress || null
+            },
+            // Asegurar que assignedUser tenga una estructura válida
+            assignedUser: assignedUser ? {
+              id: assignedUser.id,
+              username: assignedUser.username || 'Usuario',
+              firstName: assignedUser.firstName || null,
+              lastName: assignedUser.lastName || null,
+              role: assignedUser.role || 'technician'
+            } : null,
+            // Asegurar que items siempre sea un array
+            items: itemsWithProducts || []
+          };
+
+          // ✅ VALIDACIÓN FINAL: Verificar que la orden tiene la estructura mínima necesaria
+          if (!enrichedOrder.orderNumber) {
+            enrichedOrder.orderNumber = `ORD-${enrichedOrder.id}`;
+          }
+          if (!enrichedOrder.status) {
+            enrichedOrder.status = 'pending';
+          }
+          if (!enrichedOrder.createdAt) {
+            enrichedOrder.createdAt = new Date().toISOString();
+          }
+          if (!enrichedOrder.updatedAt) {
+            enrichedOrder.updatedAt = enrichedOrder.createdAt;
+          }
+
+          return enrichedOrder;
+          
+        } catch (error) {
+          console.error('❌ Error enriching order:', order?.id, error);
+          
+          // ✅ FALLBACK: En caso de error, devolver orden básica pero válida
+          return {
+            ...order,
+            orderNumber: order.orderNumber || `ORD-${order.id}`,
+            status: order.status || 'pending',
+            createdAt: order.createdAt || new Date().toISOString(),
+            updatedAt: order.updatedAt || order.createdAt || new Date().toISOString(),
+            customer: {
+              id: order.customerId || 0,
+              name: 'Cliente desconocido',
+              phone: order.contactNumber || '',
+              email: null,
+              address: order.deliveryAddress || null
+            },
+            assignedUser: null,
+            items: []
+          };
+        }
+      })
+    );
+    
+    // ✅ FILTRAR ÓRDENES NULAS y verificar que tenemos datos válidos
+    const validOrders = enrichedOrders.filter(order => order !== null && order !== undefined);
+    
+    console.log('✅ Found enriched orders for technician:', validOrders.length);
+    console.log('📊 Sample order structure:', validOrders[0] ? {
+      id: validOrders[0].id,
+      orderNumber: validOrders[0].orderNumber,
+      hasCustomer: !!validOrders[0].customer,
+      customerName: validOrders[0].customer?.name,
+      itemsCount: validOrders[0].items?.length || 0,
+      sampleItem: validOrders[0].items?.[0]?.productName
+    } : 'No orders found');
+    
+    return validOrders;
+    
+  } catch (error) {
+    console.error('❌ Error getting technician orders:', error);
+    // En lugar de throw, devolver array vacío para evitar crashes
+    return [];
   }
 },
 
@@ -1897,7 +2096,186 @@ async getAllConversationsFallback() {
   }
 },
 
-    // CONVERSATIONS
+// Agregar este método en server/tenant-storage.ts junto con getTechnicianOrders
+
+// Reemplazar el método getTechnicianConversations en server/tenant-storage.ts
+
+async getTechnicianConversations(userId: number) {
+  try {
+    console.log('💬 Getting conversations for technician:', userId);
+    
+    // Obtener órdenes asignadas al técnico (solo activas)
+    const assignedOrders = await tenantDb.select()
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.assignedUserId, userId),
+        // Solo órdenes abiertas (no completadas ni canceladas)
+        or(
+          eq(schema.orders.status, 'assigned'),
+          eq(schema.orders.status, 'pending'),
+          eq(schema.orders.status, 'in_progress'),
+          eq(schema.orders.status, 'confirmed')
+        )
+      ));
+
+    if (assignedOrders.length === 0) {
+      console.log('ℹ️ No assigned orders found for technician:', userId);
+      return [];
+    }
+// Ejecutar consulta para obtener las órdenes del técnico
+const technicianOrders = await tenantDb
+  .select({ customerId: schema.orders.customerId })
+  .from(schema.orders)
+  .where(eq(schema.orders.assignedUserId, userId));
+
+const customerIds = technicianOrders
+  .map(order => order.customerId)
+  .filter((id): id is number => typeof id === 'number' && !isNaN(id));
+
+// Si el array está vacío, retorna temprano
+if (customerIds.length === 0) {
+  console.log('⚠️ No valid customer IDs found for technician');
+  return [];
+}
+
+const conversations = await tenantDb.select({
+      // Campos de conversación
+      id: schema.conversations.id,
+      customerId: schema.conversations.customerId,
+      orderId: schema.conversations.orderId,
+      conversationType: schema.conversations.conversationType,
+      status: schema.conversations.status,
+      lastMessageAt: schema.conversations.lastMessageAt,
+      createdAt: schema.conversations.createdAt,
+      updatedAt: schema.conversations.updatedAt,
+      
+      // Información del cliente
+      customerPhone: schema.customers.phone,
+      customerName: schema.customers.name,
+      customerAddress: schema.customers.address,
+      customerEmail: schema.customers.email,
+
+      // Información de la orden (si existe)
+      orderNumber: schema.orders.orderNumber,
+      orderStatus: schema.orders.status,
+      orderTotalAmount: schema.orders.totalAmount
+    })
+    .from(schema.conversations)
+.leftJoin(schema.customers, eq(schema.conversations.customerId, schema.customers.id))
+.leftJoin(schema.orders, eq(schema.conversations.orderId, schema.orders.id))
+.where(and(
+  inArray(schema.conversations.customerId, customerIds), // Ahora customerIds es number[]
+  eq(schema.conversations.status, 'active')
+))
+.orderBy(desc(schema.conversations.lastMessageAt));
+
+    console.log('💬 Found conversations for technician customers:', conversations.length);
+    
+    // Enriquecer con información adicional
+    const enrichedConversations = await Promise.all(
+      conversations.map(async (conversation) => {
+        try {
+          // Contar mensajes no leídos del cliente
+          const [unreadResult] = await tenantDb.select({
+            count: count()
+          })
+          .from(schema.messages)
+          .where(and(
+            eq(schema.messages.conversationId, conversation.id),
+            eq(schema.messages.senderType, 'customer'),
+            eq(schema.messages.isRead, false)
+          ));
+
+          // Buscar la orden más reciente asignada al técnico para este cliente
+          const [latestOrder] = await tenantDb.select()
+            .from(schema.orders)
+            .where(and(
+              eq(schema.orders.customerId, conversation.customerId),
+              eq(schema.orders.assignedUserId, userId),
+              or(
+                eq(schema.orders.status, 'assigned'),
+                eq(schema.orders.status, 'pending'),
+                eq(schema.orders.status, 'in_progress'),
+                eq(schema.orders.status, 'confirmed')
+              )
+            ))
+            .orderBy(desc(schema.orders.createdAt))
+            .limit(1);
+
+          return {
+            ...conversation,
+            unreadCount: unreadResult?.count || 0,
+            // Información del cliente
+            customer: {
+              id: conversation.customerId,
+              name: conversation.customerName || 'Cliente desconocido',
+              phone: conversation.customerPhone || '',
+              email: conversation.customerEmail || null,
+              address: conversation.customerAddress || null
+            },
+            // Información de la orden más relevante
+            order: latestOrder ? {
+              id: latestOrder.id,
+              orderNumber: latestOrder.orderNumber || `ORD-${latestOrder.id}`,
+              status: latestOrder.status || 'unknown',
+              totalAmount: latestOrder.totalAmount || '0'
+            } : (conversation.orderId ? {
+              id: conversation.orderId,
+              orderNumber: conversation.orderNumber || `ORD-${conversation.orderId}`,
+              status: conversation.orderStatus || 'unknown',
+              totalAmount: conversation.orderTotalAmount || '0'
+            } : null)
+          };
+        } catch (error) {
+          console.error('Error enriching conversation:', conversation.id, error);
+          return {
+            ...conversation,
+            unreadCount: 0,
+            customer: {
+              id: conversation.customerId,
+              name: conversation.customerName || 'Cliente desconocido',
+              phone: conversation.customerPhone || '',
+              email: conversation.customerEmail || null,
+              address: conversation.customerAddress || null
+            },
+            order: null
+          };
+        }
+      })
+    );
+
+    console.log('✅ Enriched conversations for technician:', enrichedConversations.length);
+    return enrichedConversations;
+    
+  } catch (error) {
+    console.error('❌ Error getting technician conversations:', error);
+    return []; // Devolver array vacío en lugar de throw para evitar crashes
+  }
+},  
+async markConversationMessagesAsRead(conversationId: number) {
+  try {
+    console.log('📖 Marking messages as read for conversation:', conversationId);
+    
+    const result = await tenantDb.update(schema.messages)
+      .set({ 
+        isRead: true,
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(schema.messages.conversationId, conversationId),
+        eq(schema.messages.senderType, 'customer'),
+        eq(schema.messages.isRead, false)
+      ));
+
+    console.log('✅ Marked messages as read for conversation:', conversationId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error marking messages as read:', error);
+    return false;
+  }
+},
+
+// CONVERSATIONS
 
 
     async getConversationById(id: number) {
@@ -2989,21 +3367,30 @@ async addNotificationHistory(data: any) {
   }
 },
 
-async getStoreEmployeesAndAdmins(): Promise<User[]> {
+async getStoreEmployeesAndAdmins() {
   try {
-    const users = await this.db
+    console.log(`📋 Getting assignable users for store ${storeId}`);
+    
+    // ✅ CORRECCIÓN: Usar tenantDb en lugar de this.db
+    const users = await tenantDb
       .select()
       .from(schema.users)
       .where(
         and(
-          eq(schema.users.storeId, this.storeId),
-          inArray(schema.users.role, ['technician', 'specialist', 'field_worker', 'admin']),
+          eq(schema.users.storeId, storeId),
+          // Filtrar solo roles asignables
+          or(
+            eq(schema.users.role, 'technician'),
+            eq(schema.users.role, 'specialist'),
+            eq(schema.users.role, 'field_worker'),
+            eq(schema.users.role, 'admin')
+          ),
           eq(schema.users.status, 'active'), // Solo usuarios activos
           eq(schema.users.isActive, true)
         )
       );
     
-    console.log(`📋 Found ${users.length} assignable users for store ${this.storeId}`);
+    console.log(`✅ Found ${users.length} assignable users for store ${storeId}`);
     return users;
   } catch (error) {
     console.error('❌ Error fetching store employees and admins:', error);
@@ -3011,27 +3398,274 @@ async getStoreEmployeesAndAdmins(): Promise<User[]> {
   }
 },
 
-/**
- * Obtiene la carga de trabajo actual de un usuario
- */
-async getUserWorkload(userId: number): Promise<number> {
+async getUserWorkload(userId: number) {
   try {
-    const activeOrders = await this.db
+    const activeOrders = await tenantDb
       .select({ count: count() })
       .from(schema.orders)
       .where(
         and(
           eq(schema.orders.assignedUserId, userId),
-          inArray(schema.orders.status, ['assigned', 'in_progress', 'preparing'])
+          or(
+            eq(schema.orders.status, 'assigned'),
+            eq(schema.orders.status, 'in_progress'),
+            eq(schema.orders.status, 'preparing')
+          )
         )
       );
     
-    return activeOrders[0]?.count || 0;
+    const workload = activeOrders[0]?.count || 0;
+    console.log(`📊 User ${userId} workload: ${workload} active orders`);
+    return workload;
   } catch (error) {
     console.error(`❌ Error getting workload for user ${userId}:`, error);
     return 0;
   }
 },
+
+
+async getAllBrands() {
+  try {
+    const query = `
+      SELECT 
+        id,
+        name,
+        description,
+        website,
+        logo,
+        "isActive",
+        "sortOrder",
+        "createdAt",
+        "updatedAt",
+        (
+          SELECT COUNT(*) 
+          FROM products p 
+          WHERE p.brand = brands.name AND p."isActive" = true
+        ) as "productsCount"
+      FROM brands 
+      ORDER BY "sortOrder" ASC, name ASC
+    `;
+    
+    const result = await this.db.execute(query);
+    return result.rows || [];
+  } catch (error) {
+    console.error('Error in getAllBrands:', error);
+    throw error;
+  }
+},
+
+async getBrandById(id: number) {
+  try {
+    const query = `
+      SELECT 
+        id,
+        name,
+        description,
+        website,
+        logo,
+        "isActive",
+        "sortOrder",
+        "createdAt",
+        "updatedAt",
+        (
+          SELECT COUNT(*) 
+          FROM products p 
+          WHERE p.brand = brands.name AND p."isActive" = true
+        ) as "productsCount"
+      FROM brands 
+      WHERE id = ?
+    `;
+    
+    const result = await this.db.execute(query, [id]);
+    return result.rows?.[0] || null;
+  } catch (error) {
+    console.error('Error in getBrandById:', error);
+    throw error;
+  }
+},
+
+async createBrand(brandData: {
+  name: string;
+  description?: string;
+  website?: string;
+  logo?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}) {
+  try {
+    const {
+      name,
+      description = '',
+      website = null,
+      logo = null,
+      isActive = true,
+      sortOrder = 0
+    } = brandData;
+
+    const query = `
+      INSERT INTO brands (
+        name, 
+        description, 
+        website, 
+        logo, 
+        "isActive", 
+        "sortOrder", 
+        "createdAt", 
+        "updatedAt"
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+
+    const now = new Date();
+    const result = await this.db.execute(query, [
+      name,
+      description,
+      website,
+      logo,
+      isActive,
+      sortOrder,
+      now,
+      now
+    ]);
+
+    const createdBrand = result.rows?.[0];
+    if (!createdBrand) {
+      throw new Error('Failed to create brand');
+    }
+
+    console.log('✅ Brand created in DB:', createdBrand.name);
+    return createdBrand;
+  } catch (error) {
+    console.error('Error in createBrand:', error);
+    throw error;
+  }
+},
+
+async updateBrand(id: number, brandData: {
+  name?: string;
+  description?: string;
+  website?: string;
+  logo?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}) {
+  try {
+    const updateFields = [];
+    const values = [];
+
+    if (brandData.name !== undefined) {
+      updateFields.push('name = ?');
+      values.push(brandData.name);
+    }
+    if (brandData.description !== undefined) {
+      updateFields.push('description = ?');
+      values.push(brandData.description);
+    }
+    if (brandData.website !== undefined) {
+      updateFields.push('website = ?');
+      values.push(brandData.website);
+    }
+    if (brandData.logo !== undefined) {
+      updateFields.push('logo = ?');
+      values.push(brandData.logo);
+    }
+    if (brandData.isActive !== undefined) {
+      updateFields.push('"isActive" = ?');
+      values.push(brandData.isActive);
+    }
+    if (brandData.sortOrder !== undefined) {
+      updateFields.push('"sortOrder" = ?');
+      values.push(brandData.sortOrder);
+    }
+
+    updateFields.push('"updatedAt" = ?');
+    values.push(new Date());
+    values.push(id);
+
+    const query = `
+      UPDATE brands 
+      SET ${updateFields.join(', ')}
+      WHERE id = ?
+      RETURNING *
+    `;
+
+    const result = await this.db.execute(query, values);
+    const updatedBrand = result.rows?.[0];
+    
+    if (!updatedBrand) {
+      throw new Error('Brand not found or failed to update');
+    }
+
+    console.log('✅ Brand updated in DB:', updatedBrand.name);
+    return updatedBrand;
+  } catch (error) {
+    console.error('Error in updateBrand:', error);
+    throw error;
+  }
+},
+
+async deleteBrand(id: number) {
+  try {
+    // Primero verificar si la marca tiene productos asociados
+    const productsQuery = `
+      SELECT COUNT(*) as count 
+      FROM products 
+      WHERE brand = (SELECT name FROM brands WHERE id = ?)
+    `;
+    
+    const productsResult = await this.db.execute(productsQuery, [id]);
+    const productsCount = productsResult.rows?.[0]?.count || 0;
+    
+    if (productsCount > 0) {
+      throw new Error(`Cannot delete brand: ${productsCount} products are associated with this brand`);
+    }
+
+    const query = `DELETE FROM brands WHERE id = ?`;
+    const result = await this.db.execute(query, [id]);
+
+    console.log('✅ Brand deleted from DB, ID:', id);
+    return { success: true, deletedId: id };
+  } catch (error) {
+    console.error('Error in deleteBrand:', error);
+    throw error;
+  }
+},
+
+async getProductsByBrand(brandId: number) {
+  try {
+    const query = `
+      SELECT p.* 
+      FROM products p
+      INNER JOIN brands b ON p.brand = b.name
+      WHERE b.id = ? AND p."isActive" = true
+    `;
+    
+    const result = await this.db.execute(query, [brandId]);
+    return result.rows || [];
+  } catch (error) {
+    console.error('Error in getProductsByBrand:', error);
+    throw error;
+  }
+},
+
+// Método helper para obtener marcas activas (para usar en selects)
+async getActiveBrands() {
+  try {
+    const query = `
+      SELECT id, name, description
+      FROM brands 
+      WHERE "isActive" = true
+      ORDER BY "sortOrder" ASC, name ASC
+    `;
+    
+    const result = await this.db.execute(query);
+    return result.rows || [];
+  } catch (error) {
+    console.error('Error in getActiveBrands:', error);
+    throw error;
+  }
+}
 
 
     };

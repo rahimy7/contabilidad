@@ -403,7 +403,116 @@ apiRouter.delete('/categories/:id', authenticateToken, async (req, res) => {
 
 
 
+// Brands CRUD
+apiRouter.get('/brands', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    
+    if (!user.storeId) {
+      return res.status(403).json({ error: 'Store ID required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brands = await tenantStorage.getAllBrands();
+    res.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    res.status(500).json({ error: 'Failed to fetch brands' });
+  }
+});
 
+apiRouter.post('/brands', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    
+    if (!user.storeId) {
+      return res.status(403).json({ error: 'Store ID required' });
+    }
+
+    if (!req.body.name || req.body.name.trim() === '') {
+      return res.status(400).json({ error: 'Brand name is required' });
+    }
+
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const brandData = {
+      ...req.body,
+      name: req.body.name.trim(),
+      description: req.body.description || '',
+      website: req.body.website || null,
+      logo: req.body.logo || null,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      sortOrder: req.body.sortOrder || 0
+    };
+
+    const brand = await tenantStorage.createBrand(brandData);
+    console.log('✅ Brand created:', brand.name);
+    
+    res.status(201).json(brand);
+  } catch (error) {
+    console.error('Error creating brand:', error);
+    res.status(500).json({ error: 'Failed to create brand' });
+  }
+});
+
+apiRouter.get('/brands/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brand = await tenantStorage.getBrandById(id);
+    
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+    
+    res.json(brand);
+  } catch (error) {
+    console.error('Error fetching brand:', error);
+    res.status(500).json({ error: 'Failed to fetch brand' });
+  }
+});
+
+apiRouter.put('/brands/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que existe
+    const existingBrand = await tenantStorage.getBrandById(id);
+    if (!existingBrand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+    
+    const brandData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+
+    const brand = await tenantStorage.updateBrand(id, brandData);
+    res.json(brand);
+  } catch (error) {
+    console.error('Error updating brand:', error);
+    res.status(500).json({ error: 'Failed to update brand' });
+  }
+});
+
+apiRouter.delete('/brands/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    await tenantStorage.deleteBrand(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting brand:', error);
+    res.status(500).json({ error: 'Failed to delete brand' });
+  }
+});
 
 //=================================
 // TASA DIVISA

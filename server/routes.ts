@@ -739,6 +739,191 @@ const deleteCategoryHandler = async (req: any, res: any) => {
   }
 };
 
+
+// BRAND HANDLERS - Agregar a server/routes.ts
+// ================================
+
+const getBrandsHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🏷️ Getting brands for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brands = await tenantStorage.getAllBrands();
+    
+    console.log(`✅ Retrieved ${brands.length} brands from tenant schema`);
+    res.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const createBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🏷️ Creating brand for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const brandData = { 
+      ...req.body,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      sortOrder: req.body.sortOrder || 0
+    };
+    
+    const brand = await tenantStorage.createBrand(brandData);
+
+    console.log('✅ Brand created in tenant schema:', brand.name);
+    res.status(201).json(brand);
+  } catch (error) {
+    console.error('Error creating brand:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate') || error.message.includes('unique')) {
+        return res.status(400).json({
+          error: "Ya existe una marca con este nombre"
+        });
+      }
+    }
+    
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const updateBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('✏️ Updating brand', brandId, 'for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la marca existe
+    const existingBrand = await tenantStorage.getBrandById(brandId);
+    if (!existingBrand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+    
+    const brand = await tenantStorage.updateBrand(brandId, updateData);
+    
+    console.log('✅ Brand updated in tenant schema:', brand.name);
+    res.json(brand);
+  } catch (error) {
+    console.error('Error updating brand:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate') || error.message.includes('unique')) {
+        return res.status(400).json({
+          error: "Ya existe una marca con este nombre"
+        });
+      }
+    }
+    
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const deleteBrandHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    console.log('🗑️ Deleting brand', brandId, 'for store:', user.storeId);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la marca existe
+    const existingBrand = await tenantStorage.getBrandById(brandId);
+    if (!existingBrand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    // Verificar si la marca tiene productos asociados
+    const productsWithBrand = await tenantStorage.getProductsByBrand(brandId);
+    if (productsWithBrand && productsWithBrand.length > 0) {
+      return res.status(400).json({
+        error: `No se puede eliminar la marca porque tiene ${productsWithBrand.length} productos asociados`
+      });
+    }
+    
+    await tenantStorage.deleteBrand(brandId);
+    
+    console.log('✅ Brand deleted from tenant schema');
+    res.json({ success: true, message: "Marca eliminada exitosamente" });
+  } catch (error) {
+    console.error('Error deleting brand:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
+const getBrandByIdHandler = async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const brandId = parseInt(req.params.id);
+    
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID es requerido"
+      });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const brand = await tenantStorage.getBrandById(brandId);
+    
+    if (!brand) {
+      return res.status(404).json({ error: "Marca no encontrada" });
+    }
+    
+    res.json(brand);
+  } catch (error) {
+    console.error('Error fetching brand:', error);
+    res.status(500).json({
+      error: "Error interno del servidor"
+    });
+  }
+};
+
 // ================================
 // IMAGE HANDLERS
 // ================================
@@ -1028,6 +1213,15 @@ export async function registerRoutes(app: express.Application) {
       res.status(500).json({ error: "Failed to authenticate" });
     }
   });
+
+  router.get("/brands", authenticateToken, getBrandsHandler);
+router.post("/brands", authenticateToken, createBrandHandler);
+router.get("/brands/:id", authenticateToken, getBrandByIdHandler);
+router.put("/brands/:id", authenticateToken, updateBrandHandler);
+router.delete("/brands/:id", authenticateToken, deleteBrandHandler);
+
+console.log("✅ Brand routes registered");
+
 
   // ================================
   // WEBHOOK ENDPOINTS
