@@ -15,8 +15,8 @@
         "gpt:explain": "node ai-tools/gpt5nano.mjs",
         "gpt:refactor": "node ai-tools/gpt5nano.mjs --mode=refactor",
         "gpt:tests": "node ai-tools/gpt5nano.mjs --mode=tests",
-         "test": "vitest run",
-  "test:ui": "vitest --ui"
+        "test": "vitest run",
+        "test:ui": "vitest --ui"
     },
     "engines": {
         "node": ">=18.0.0",
