@@ -53,6 +53,10 @@ import {
   ChevronRight,
   Globe,
 } from 'lucide-react';
+import { useLocation } from 'wouter';
+
+
+
 
 // Monedas soportadas
 const SUPPORTED_CURRENCIES = [
@@ -131,6 +135,7 @@ export default function ImprovedProductManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [productImages, setProductImages] = useState<ImageData[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [, setLocation] = useLocation();
 
   // Queries para obtener datos reales
   const { data: products = [], isLoading: loadingProducts, error: productsError } = useQuery<Product[]>({
@@ -618,30 +623,49 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
 
   return (
     <div className="container mx-auto p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Productos</h1>
-          <p className="text-gray-600 mt-1">
-            Administra tu catálogo de productos y servicios
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
-            variant="outline"
-          >
-            {viewMode === 'grid' ? 'Vista Tabla' : 'Vista Tarjetas'}
-          </Button>
-          <Button
-            onClick={() => openDialog('create')}
-            className="flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo Producto
-          </Button>
-        </div>
-      </div>
+   {/* Header */}
+<div className="flex justify-between items-center mb-6">
+  <div>
+    <h1 className="text-3xl font-bold text-gray-900">Gestión de Productos</h1>
+    <p className="text-gray-600 mt-1">
+      Administra tu catálogo de productos y servicios
+    </p>
+  </div>
+  <div className="flex gap-2">
+    <Button
+      onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
+      variant="outline"
+    >
+      {viewMode === 'grid' ? 'Vista Tabla' : 'Vista Tarjetas'}
+    </Button>
+    <Button
+      onClick={() => openDialog('create')}
+      className="flex items-center gap-2"
+    >
+      <Plus className="w-4 h-4" />
+      Nuevo Producto
+    </Button>
+
+    {/* 🚀 Nuevos botones de navegación */}
+    <Button
+      variant="secondary"
+      onClick={() => setLocation('/admin/brands')}
+      className="flex items-center gap-2"
+    >
+      <Tag className="w-4 h-4" />
+      Gestión Marcas
+    </Button>
+    <Button
+      variant="secondary"
+      onClick={() => setLocation('/admin/categories-brands')}
+      className="flex items-center gap-2"
+    >
+      <Tag className="w-4 h-4" />
+      Gestión Categorías
+    </Button>
+  </div>
+</div>
+
 
       {/* Búsqueda y filtros */}
       <Card className="mb-6">

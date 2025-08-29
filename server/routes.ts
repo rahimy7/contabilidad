@@ -786,6 +786,7 @@ const createBrandHandler = async (req: any, res: any) => {
     
     const brandData = { 
       ...req.body,
+      storeId: user.storeId,
       isActive: req.body.isActive !== undefined ? req.body.isActive : true,
       sortOrder: req.body.sortOrder || 0
     };
