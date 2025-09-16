@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, ShoppingBag, Plus, Minus, ShoppingCart, Package, Eye, X, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
+import { WebOrderModal } from '../components/WebOrderModal'; // Asumiendo que creates el componente en esta ubicación
+import { MessageCircle } from 'lucide-react'; // Si no está importado
+import { toast } from '@/hooks/use-toast';
 
 // ✅ CONFIGURACIÓN DE MONEDAS - DOP POR DEFECTO
 const SUPPORTED_CURRENCIES = [
@@ -132,6 +135,14 @@ const useCurrencyConversion = (storeId: string | number | null) => {
     ratesLoading,
     getRateInfo
   };
+};
+
+// Agregar esta función después de los hooks de conversión
+const getProductImages = (product: any): string[] => {
+  if (product.image_url) return [product.image_url];
+  if (product.images && Array.isArray(product.images)) return product.images;
+  if (product.imageUrl) return [product.imageUrl];
+  return [];
 };
 
 // ✅ FUNCIÓN para hacer requests a endpoints públicos
@@ -336,79 +347,52 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
 
 // Componente para mostrar imágenes
 const ProductImage = ({ product, className = "", onClick }: { product: any; className?: string; onClick?: () => void }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-
-  const getImageUrl = () => {
-    if (product.image_url) return product.image_url;
-    if (product.images && product.images.length > 0) return product.images[0];
-    if (product.imageUrl) return product.imageUrl;
-    return null;
-  };
-
-  const imageUrl = getImageUrl();
-
-  const handleImageError = () => {
-    setImageError(true);
-    setImageLoading(false);
-  };
-
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-  };
-
-  React.useEffect(() => {
-    setImageError(false);
-    setImageLoading(true);
-  }, [product.id]);
-
-  const ImagePlaceholder = () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-emerald-100 to-teal-100">
-      <Package className="w-12 h-12 text-emerald-400 mb-2" />
-      <span className="text-xs text-emerald-600 font-medium text-center px-2">
-        {product.name?.slice(0, 20)}...
-      </span>
-    </div>
-  );
-
-  if (!imageUrl || imageError) {
-    return (
-      <div className={`cursor-pointer ${className}`} onClick={onClick}>
-        <ImagePlaceholder />
-      </div>
-    );
-  }
+  const { images, mainImage } = normalizeProductImages(product);
 
   return (
-    <div className={`relative overflow-hidden cursor-pointer ${className}`} onClick={onClick}>
-      {imageLoading && (
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
-          <div className="animate-spin w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full" />
-        </div>
-      )}
+    <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
       <img
-        src={imageUrl}
-        alt={product.name || 'Producto'}
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        onError={handleImageError}
-        onLoad={handleImageLoad}
-        style={{
-          display: imageLoading ? 'none' : 'block'
+        src={mainImage}
+        alt={product.name}
+        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+        onError={(e) => {
+          console.log('Error cargando imagen del producto:', mainImage);
+          e.currentTarget.src = 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen';
         }}
       />
-      {/* Overlay con icono de vista */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-        <Eye className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
-      {/* Indicador de múltiples imágenes */}
-      {product.images && product.images.length > 1 && (
-        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-          +{product.images.length}
+      {images.length > 1 && (
+        <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+          +{images.length - 1}
         </div>
       )}
     </div>
   );
+};
+
+   const normalizeProductImages = (product: any) => {
+  let images: string[] = [];
+
+  if (Array.isArray(product.image_urls)) {
+    images = product.image_urls;
+  } else if (Array.isArray(product.images)) {
+    images = product.images;
+  } else if (typeof product.image_url === 'string') {
+    images = [product.image_url];
+  } else if (typeof product.imageUrl === 'string') {
+    images = [product.imageUrl];
+  } else if (typeof product.image === 'string') {
+    images = [product.image];
+  }
+
+  // Filtrar imágenes inválidas
+  images = images.filter((url) => typeof url === 'string' && url.trim() !== '');
+
+  return {
+    images,
+    mainImage: images.length > 0 
+      ? images[0] 
+      : 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen'
+  };
 };
 
 export default function SimpleCatalog() {
@@ -422,6 +406,7 @@ export default function SimpleCatalog() {
   // Estados para header compacto
   const [isScrolled, setIsScrolled] = useState(false);
   const [storeId, setStoreId] = useState<number | null>(null);
+  const [showWebOrderModal, setShowWebOrderModal] = useState(false);
 
   // ✅ HOOK DE CONVERSIÓN DE MONEDA
   const { convertProduct, formatCurrency, ratesLoading, getRateInfo } = useCurrencyConversion(storeId);
@@ -471,6 +456,19 @@ export default function SimpleCatalog() {
     staleTime: 5 * 60 * 1000,
   });
 
+
+
+
+  const handleWebOrderCompleted = () => {
+  setCart([]);
+  setShowCart(false);
+  toast({
+    title: "¡Pedido enviado!",
+    description: "Tu pedido web ha sido procesado exitosamente.",
+    variant: "default",
+  });
+};
+
   // ✅ CARGAR carrito desde localStorage
   useEffect(() => {
     if (storeId) {
@@ -506,27 +504,58 @@ export default function SimpleCatalog() {
     return matchesSearch && matchesCategory;
   });
 
+const getProductImages = (product: any): string[] => {
+  if (product.image_urls && Array.isArray(product.image_urls)) {
+    return product.image_urls.filter(url => url && url.trim() !== '');
+  }
+  if (product.images && Array.isArray(product.images)) {
+    return product.images.filter(url => url && url.trim() !== '');
+  }
+  if (product.image && typeof product.image === 'string') {
+    return [product.image];
+  }
+  return [];
+};
+
+// 2. Función para obtener la primera imagen
+const getProductImage = (product: any): string => {
+  const images = getProductImages(product);
+  if (images.length > 0) {
+    return images[0];
+  }
+  return 'https://via.placeholder.com/150x150/e5e7eb/9ca3af?text=Sin+Imagen';
+};
+  
   // ✅ GESTIÓN DEL CARRITO (PRECIOS YA CONVERTIDOS A DOP)
-  const addToCart = (product: any) => {
-    // Asegurar que el producto esté convertido a DOP
-    const convertedProduct = convertProduct(product);
-    
-    setCart(currentCart => {
-      const existingItem = currentCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return currentCart.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...currentCart, { 
-        ...convertedProduct,
-        quantity: 1,
-        cartPrice: convertedProduct.convertedPrice // Precio para el carrito en DOP
-      }];
-    });
+const addToCart = (product: any) => {
+  const convertedProduct = convertProduct(product);
+  
+  // Preservar imagen explícitamente
+  const getProductImage = (product: any): string => {
+    if (product.image_url) return product.image_url;
+    if (product.images && product.images.length > 0) return product.images[0];
+    if (product.imageUrl) return product.imageUrl;
+    return 'https://via.placeholder.com/150x150/e5e7eb/9ca3af?text=Sin+Imagen';
   };
+  const { images, mainImage } = normalizeProductImages(product);
+ setCart(currentCart => {
+  const existingItem = currentCart.find(item => item.id === product.id);
+  if (existingItem) {
+    return currentCart.map(item =>
+      item.id === product.id
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    );
+  }
+  return [...currentCart, { 
+    ...convertedProduct,
+    quantity: 1,
+    cartPrice: convertedProduct.convertedPrice,
+    imageUrl: mainImage,
+    images,
+  }];
+});
+};
 
   const removeFromCart = (productId: number) => {
     setCart(currentCart => {
@@ -740,11 +769,20 @@ ${orderItems}
 
       {/* Modal de detalle del producto */}
      <ProductDetailModal
-  product={selectedProduct}
-  isOpen={showProductDetail}
-  onClose={closeProductDetail}
-  onAddToCart={addToCart}
-  storeId={storeId}
+      product={selectedProduct}
+      isOpen={showProductDetail}
+      onClose={closeProductDetail}
+      onAddToCart={addToCart}
+      storeId={storeId}
+/>
+
+<WebOrderModal
+  isOpen={showWebOrderModal}
+  onClose={() => setShowWebOrderModal(false)}
+  cart={cart}
+  cartTotal={getCartTotal()}
+  storeInfo={storeInfo}
+  onOrderSubmitted={handleWebOrderCompleted}
 />
 
       {/* Botón flotante del carrito */}
@@ -764,116 +802,116 @@ ${orderItems}
       )}
 
       {/* Carrito (sidebar) */}
-      {showCart && (
-        <div className="fixed inset-0 bg-black/50 z-40">
-          <div className="fixed right-0 top-0 h-full w-80 bg-white shadow-xl p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold">Carrito de Compras</h2>
-                <div className="flex items-center gap-1 text-sm text-blue-600 mt-1">
-                  <DollarSign className="w-3 h-3" />
-                  <span>Precios en DOP</span>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => setShowCart(false)}
-                className="p-2"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            {cart.length === 0 ? (
-              <div className="text-center py-8">
-                <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Tu carrito está vacío</p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Los precios se muestran en Pesos Dominicanos
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4 mb-6">
-                  {cart.map((item) => {
-                    const itemPrice = item.cartPrice || item.convertedPrice || parseFloat(item.price);
-                    return (
-                      <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden">
-                          <ProductImage product={item} onClick={() => {}} />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm">{item.name}</h4>
-                          <div className="space-y-1">
-                            <p className="text-emerald-600 font-bold">
-                              {formatCurrency(itemPrice, 'DOP')}
-                            </p>
-                            {/* {item.conversionApplied && (
-                              <p className="text-xs text-gray-500">
-                                Original: {item.originalFormattedPrice}
-                              </p>
-                            )} */}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-8 h-8 p-0"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="font-medium min-w-[1.5rem] text-center">{item.quantity}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addToCart(item)}
-                            className="w-8 h-8 p-0"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <div className="border-t pt-4">
-                  <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-lg font-bold">Total:</span>
-                      <span className="text-xl font-bold text-emerald-600">
-                        {formatCurrency(getCartTotal(), 'DOP')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-600 flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      Precio final en Pesos Dominicanos (DOP)
+{showCart && (
+  <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center sm:justify-center">
+    <div className="bg-white w-full sm:max-w-md sm:rounded-t-lg rounded-t-lg max-h-[80vh] flex flex-col">
+      {/* Header del carrito */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <ShoppingCart className="w-5 h-5" />
+          Carrito ({getCartItemsCount()})
+        </h3>
+        <button
+          onClick={() => setShowCart(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Items del carrito */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {cart.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            Tu carrito está vacío
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cart.map((item) => {
+              // Obtener imagen del item con fallbacks
+              const itemImage = normalizeProductImages(item).mainImage;
+
+              return (
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <img
+                    src={itemImage}
+                    alt={item.name}
+                    className="w-12 h-12 object-cover rounded flex-shrink-0"
+                    onError={(e) => {
+                      console.log('Error cargando imagen del carrito:', itemImage);
+                      e.currentTarget.src = 'data:image/jpeg;base64,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';
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                    <p className="text-gray-600 text-sm">
+                      ${formatCurrency(item.cartPrice || item.convertedPrice || parseFloat(item.price), 'DOP')}
                     </p>
                   </div>
-                  
-                  <Button 
-                    onClick={makeOrder}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white mb-3"
-                  >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Hacer Pedido por WhatsApp
-                  </Button>
-                  
-                  <Button
-                    onClick={() => setCart([])}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Limpiar Carrito
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300"
+                    >
+                      −
+                    </button>
+                    <span className="w-8 text-center text-sm font-medium">
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => addToCart(item)}
+                      className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
+              );
+            })}
           </div>
+        )}
+      </div>
+
+      {/* Botones del carrito */}
+      {cart.length > 0 && (
+        <div className="border-t p-4 space-y-3">
+          <div className="flex items-center justify-between text-lg font-bold">
+            <span>Total:</span>
+            <span>${formatCurrency(getCartTotal(), 'DOP')}</span>
+          </div>
+          
+          {/* Botón WhatsApp existente */}
+          <Button
+            onClick={makeOrder}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            size="lg"
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Enviar por WhatsApp
+          </Button>
+          
+          {/* Nuevo botón para pedido web */}
+          <Button
+            onClick={() => setShowWebOrderModal(true)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            Realizar Pedido Web
+          </Button>
+          
+          <Button
+            onClick={() => setCart([])}
+            variant="outline"
+            className="w-full"
+          >
+            Limpiar carrito
+          </Button>
         </div>
       )}
+    </div>
+  </div>
+)}
 
       {/* Grid de productos */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
@@ -975,6 +1013,8 @@ ${orderItems}
           </>
         )}
       </div>
-    </div>
+        </div>
+
+        
   );
 }

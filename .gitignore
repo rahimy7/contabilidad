@@ -4,3 +4,37 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Yarn cache (Plug'n'Play)
+.yarn/cache/
+.yarn/install-state.gz
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/sdks/
+.yarn/versions/
+
+# Lockfile de npm si usas Yarn
+package-lock.json
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Salida de compilaciones
+dist/
+build/
+out/
+.next/
+.eslintcache
+
+# Logs
+logs/
+*.log
+
+# TypeScript
+*.tsbuildinfo

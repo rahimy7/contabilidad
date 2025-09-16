@@ -27,6 +27,8 @@ import fs from 'fs';
 import { SupabaseStorageManager } from './supabase-storage.js';
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { ExchangeRateService } from './services/exchange-rate.service.ts';
+import { createWebOrder } from './routes/create-web-order.ts';
+
 
 
 // ================================
@@ -67,6 +69,8 @@ app.get('/api/health', (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
+
+app.post('/api/orders/create-web-order', createWebOrder);
 
 // ================================
 // CONFIGURACIÓN MULTER
