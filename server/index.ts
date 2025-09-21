@@ -37,14 +37,12 @@ import { createWebOrder } from './routes/create-web-order.ts';
 const storageFactory = StorageFactory.getInstance();
 const masterStorage = storageFactory.getMasterStorage();
 
-
-
-
 // ================================
 // CONFIGURACIÓN EXPRESS Y SERVER
 // ================================
 const app = express();
 const server = createServer(app);
+
 
 // Get the __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -70,7 +68,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.post('/api/orders/create-web-order', createWebOrder);
+
 
 // ================================
 // CONFIGURACIÓN MULTER
@@ -142,6 +140,8 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.post('/api/orders/create-web-order', createWebOrder);
 
 // ================================
 // API ROUTER SETUP

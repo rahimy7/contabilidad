@@ -21,8 +21,38 @@ const webOrderSchema = z.object({
 
 export async function createWebOrder(req: Request, res: Response) {
   try {
-    // Validar datos de entrada
+    // 🔍 DEBUGGING - Ver qué está llegando exactamente
+    console.log('🔍 DEBUG create-web-order:');
+    console.log('📦 Raw Body:', JSON.stringify(req.body, null, 2));
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📏 Body type:', typeof req.body);
+    console.log('📊 Body keys:', Object.keys(req.body || {}));
+    
+    // Verificar si req.body existe y no está vacío
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.log('❌ Body está vacío o undefined');
+      return res.status(400).json({
+        success: false,
+        message: 'Cuerpo de petición vacío o inválido',
+        received: req.body,
+        contentType: req.headers['content-type']
+      });
+    }
+
+    // Verificar tipos de datos específicos antes de validar
+    console.log('🔍 Verificando tipos:');
+    console.log('- storeId:', req.body.storeId, 'type:', typeof req.body.storeId);
+    console.log('- totalAmount:', req.body.totalAmount, 'type:', typeof req.body.totalAmount);
+    console.log('- items length:', req.body.items?.length);
+    
+    if (req.body.items && req.body.items.length > 0) {
+      console.log('- first item productId:', req.body.items[0].productId, 'type:', typeof req.body.items[0].productId);
+    }
+
+    // Intentar validar con Zod
+    console.log('🔄 Iniciando validación con Zod...');
     const validatedData = webOrderSchema.parse(req.body);
+    console.log('✅ Validación exitosa:', validatedData);
     
     // Importar storage functions
     const { getMasterStorage, getTenantStorage } = await import('../storage/index.js');
@@ -97,19 +127,22 @@ export async function createWebOrder(req: Request, res: Response) {
     });
     
   } catch (error) {
-    console.error('Error creando orden web:', error);
+    console.error('💥 Error creando orden web:', error);
     
     if (error instanceof z.ZodError) {
+      console.log('❌ Error de validación Zod:', JSON.stringify(error.errors, null, 2));
       return res.status(400).json({
         success: false,
         message: 'Datos inválidos',
-        errors: error.errors
+        errors: error.errors,
+        receivedData: req.body // Incluir datos recibidos para debug
       });
     }
     
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: 'Error interno del servidor',
+      error: error.message
     });
   }
 }
@@ -158,43 +191,38 @@ ${orderData.customerAddress}
 
 Tu pedido está siendo procesado. En unos momentos te estaremos informando sobre el estado del mismo.
 
-¡Gracias por tu preferencia! 🙏`;
+¡Gracias por tu preferencia!`;
 
-    // Enviar mensaje via WhatsApp usando función disponible
-    try {
-      // Intentar con sendWhatsAppMessageDirect de whatsapp-simple.ts
-      const { sendWhatsAppMessageDirect } = await import('../whatsapp-simple.js');
-      
-      await sendWhatsAppMessageDirect(
-        customer.phone,
-        confirmationMessage,
-        orderData.storeId
-      );
-      
-      console.log(`✅ Notificación enviada al cliente ${customer.phone}`);
-      
-    } catch (importError) {
-      console.log('Warning: Could not import sendWhatsAppMessageDirect, trying alternative...');
-      
-      // Fallback: crear log de WhatsApp manual si no se puede enviar
-      try {
-        if (tenantStorage.addWhatsAppLog) {
-          await tenantStorage.addWhatsAppLog({
-            phoneNumber: customer.phone,
-            messageContent: confirmationMessage,
-            direction: 'outbound',
-            status: 'pending',
-            storeId: orderData.storeId,
-            type: 'order_confirmation'
-          });
-        }
-      } catch (logError) {
-        console.warn('Could not create WhatsApp log:', logError);
+    // Enviar mensaje de WhatsApp
+    const whatsappApiUrl = `https://graph.facebook.com/v17.0/${whatsappConfig.phoneNumberId}/messages`;
+    
+    const messagePayload = {
+      messaging_product: "whatsapp",
+      to: customer.phone,
+      type: "text",
+      text: {
+        body: confirmationMessage
       }
+    };
+
+    const response = await fetch(whatsappApiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappConfig.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(messagePayload)
+    });
+
+    if (response.ok) {
+      console.log('✅ Notificación WhatsApp enviada exitosamente');
+    } else {
+      const errorData = await response.text();
+      console.error('❌ Error enviando WhatsApp:', response.status, errorData);
     }
     
   } catch (error) {
-    console.error('Error enviando notificación WhatsApp:', error);
-    // No throw error para no fallar la creación de orden
+    console.error('Error en sendOrderNotificationToCustomer:', error);
+    throw error;
   }
 }

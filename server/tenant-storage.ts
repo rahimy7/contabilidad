@@ -291,29 +291,58 @@ async getActiveCategories() {
       }
     },
 
-    async createOrder(orderData: any, items: any[] = []) {
-      try {
-        const [order] = await tenantDb.insert(schema.orders)
-          .values({
-            ...orderData,
-            createdAt: new Date()
-          })
-          .returning();
+async createOrder(orderData: any, items: any[] = []) {
+  try {
+    // 🔥 GENERAR NÚMERO DE ORDEN ÚNICO
+    const orderNumber = await this.generateOrderNumber();
+    
+    const [order] = await tenantDb.insert(schema.orders)
+      .values({
+        ...orderData,
+        orderNumber, // ✅ Agregar el número de orden generado
+        createdAt: new Date()
+      })
+      .returning();
 
-        if (items && items.length > 0) {
-          const itemsWithOrderId = items.map(item => ({
-            ...item,
-            orderId: order.id
-          }));
-          await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
-        }
+    if (items && items.length > 0) {
+      const itemsWithOrderId = items.map(item => ({
+        ...item,
+        orderId: order.id
+      }));
+      await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
+    }
 
-        return order;
-      } catch (error) {
-        console.error('Error creating order:', error);
-        throw error;
-      }
-    },
+    return order;
+  } catch (error) {
+    console.error('Error creating order:', error);
+    throw error;
+  }
+},
+
+// 🔥 NUEVO MÉTODO: Generar número de orden único
+async generateOrderNumber(): Promise<string> {
+  try {
+    // Opción 1: Formato simple con timestamp
+    const timestamp = Date.now().toString().slice(-8); // Últimos 8 dígitos
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    return `ORD-${timestamp}-${random}`;
+    
+    // Opción 2: Formato con año y secuencial (descomentar si prefieres)
+    /*
+    const year = new Date().getFullYear();
+    const count = await tenantDb.select({ count: sql`count(*)` })
+      .from(schema.orders)
+      .where(sql`extract(year from created_at) = ${year}`);
+    
+    const nextNumber = (count[0]?.count || 0) + 1;
+    return `${year}-${nextNumber.toString().padStart(4, '0')}`;
+    */
+  } catch (error) {
+    console.error('Error generating order number:', error);
+    // Fallback en caso de error
+    return `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  }
+},
 
     async updateOrder(id: number, orderData: any) {
       try {
