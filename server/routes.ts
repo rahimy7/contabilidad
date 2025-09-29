@@ -3341,26 +3341,26 @@ router.patch('/users/:userId/status', authenticateToken, async (req: any, res: a
           role: assignedUser.role
         } : null,
         items: items.map((item: any) => ({
-          id: item.id,
-          orderId: item.orderId,
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          installationCost: item.installationCost || '0.00',
-          partsCost: item.partsCost || '0.00',
-          laborHours: item.laborHours || '0',
-          laborRate: item.laborRate || '0.00',
-          deliveryCost: item.deliveryCost || '0.00',
-          deliveryDistance: item.deliveryDistance || '0',
-          notes: item.notes,
-          product: item.product || {
-            id: item.productId,
-            name: 'Producto',
-            description: '',
-            category: '',
-            price: item.unitPrice
-          }
+  id: item.id,
+  orderId: item.orderId,
+  productId: item.productId,
+  quantity: item.quantity,
+  unitPrice: item.unitPrice,
+  totalPrice: item.totalPrice,
+  installationCost: item.installationCost || '0.00',
+  partsCost: item.partsCost || '0.00',
+  laborHours: item.laborHours || '0',
+  laborRate: item.laborRate || '0.00',
+  deliveryCost: item.deliveryCost || '0.00',
+  deliveryDistance: item.deliveryDistance || '0',
+  notes: item.notes,
+  product: {
+    id: item.productId,
+    name: item.productName || 'Producto sin nombre',  // ✅ USA productName del JOIN
+    description: item.productDescription || '',
+    category: item.productCategory || 'product',
+    price: item.productPrice || item.unitPrice
+  }
         })),
         totalItems: items.length,
         priority: order.priority || 'normal'
