@@ -2369,18 +2369,40 @@ async markConversationMessagesAsRead(conversationId: number) {
 // CONVERSATIONS
 
 
-    async getConversationById(id: number) {
-      try {
-        const [conversation] = await tenantDb.select()
-          .from(schema.conversations)
-          .where(eq(schema.conversations.id, id))
-          .limit(1);
-        return conversation || null;
-      } catch (error) {
-        console.error('Error getting conversation by ID:', error);
-        return null;
-      }
-    },
+  async getConversationById(id: number) {
+  try {
+    const [result] = await tenantDb
+      .select({
+        // Campos de conversation
+        id: schema.conversations.id,
+        customerId: schema.conversations.customerId,
+        orderId: schema.conversations.orderId,
+        conversationType: schema.conversations.conversationType,
+        status: schema.conversations.status,
+        lastMessageAt: schema.conversations.lastMessageAt,
+        storeId: schema.conversations.storeId,
+        createdAt: schema.conversations.createdAt,
+        updatedAt: schema.conversations.updatedAt,
+        
+        // ✅ Campos del customer incluidos directamente
+        customerName: schema.customers.name,
+        customerPhone: schema.customers.phone,
+        customerEmail: schema.customers.email,
+      })
+      .from(schema.conversations)
+      .leftJoin(
+        schema.customers,
+        eq(schema.conversations.customerId, schema.customers.id)
+      )
+      .where(eq(schema.conversations.id, id))
+      .limit(1);
+    
+    return result || null;
+  } catch (error) {
+    console.error('Error getting conversation by ID:', error);
+    return null;
+  }
+},
 
   async getConversationByCustomerPhone(phone: string) {
   try {
