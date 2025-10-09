@@ -357,15 +357,35 @@ async generateOrderNumber(): Promise<string> {
       }
     },
 
-    async deleteOrder(id: number) {
-      try {
-        await tenantDb.delete(schema.orders)
-          .where(eq(schema.orders.id, id));
-      } catch (error) {
-        console.error('Error deleting order:', error);
-        throw error;
+async deleteOrder(id: number) {
+  try {
+    console.log(`🗑️ Deleting order ${id}...`);
+    
+    // 1️⃣ PRIMERO: Eliminar customer_registration_flows relacionados
+    try {
+      const deletedFlows = await tenantDb
+        .delete(schema.customerRegistrationFlows)
+        .where(eq(schema.customerRegistrationFlows.orderId, id))
+        .returning();
+      
+      if (deletedFlows.length > 0) {
+        console.log(`✅ Deleted ${deletedFlows.length} registration flow(s) for order ${id}`);
       }
-    },
+    } catch (flowError) {
+      console.warn('⚠️ Error deleting registration flows (continuing):', flowError);
+      // Continuar con la eliminación de la orden
+    }
+    
+    // 2️⃣ LUEGO: Eliminar la orden
+    await tenantDb.delete(schema.orders)
+      .where(eq(schema.orders.id, id));
+    
+    console.log(`✅ Order ${id} deleted successfully`);
+  } catch (error) {
+    console.error('❌ Error deleting order:', error);
+    throw error;
+  }
+},
  async getOrderItemsByOrderId(orderId: number) {
   try {
     console.log(`🔍 GETTING ORDER ITEMS WITH PRODUCT NAMES - Order ID: ${orderId}`);
@@ -2743,42 +2763,114 @@ async verifyConversationHealth(): Promise<{
   }
 },
 
-// 🧹 FUNCIÓN DE LIMPIEZA
 async cleanupOrphanData(): Promise<{
   conversationsFixed: number;
   messagesFixed: number;
 }> {
   try {
-    console.log('🧹 CLEANING UP ORPHAN DATA...');
+    console.log(`🧹 CLEANING UP ORPHAN DATA for store ${storeId}...`);
     
     let conversationsFixed = 0;
     let messagesFixed = 0;
     
-    // Eliminar conversaciones sin cliente válido
-    const deletedConversations = await tenantDb.delete(schema.conversations)
-      .where(
-        sql`customer_id NOT IN (SELECT id FROM ${schema.customers})`
-      )
-      .returning();
+    // 1️⃣ Eliminar conversaciones sin cliente válido
+    try {
+      const deletedConversations = await tenantDb.delete(schema.conversations)
+        .where(
+          sql`${schema.conversations.customerId} NOT IN (SELECT id FROM ${schema.customers})`
+        )
+        .returning();
+      
+      conversationsFixed = deletedConversations.length;
+      if (conversationsFixed > 0) {
+        console.log(`✅ Deleted ${conversationsFixed} orphan conversations`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not clean orphan conversations for store ${storeId}:`, error.message);
+    }
     
-    conversationsFixed = deletedConversations.length;
+    // 2️⃣ Eliminar mensajes sin conversación válida
+    try {
+      const deletedMessages = await tenantDb.delete(schema.messages)
+        .where(
+          sql`${schema.messages.conversationId} NOT IN (SELECT id FROM ${schema.conversations})`
+        )
+        .returning();
+      
+      messagesFixed = deletedMessages.length;
+      if (messagesFixed > 0) {
+        console.log(`✅ Deleted ${messagesFixed} orphan messages`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not clean orphan messages for store ${storeId}:`, error.message);
+    }
     
-    // Eliminar mensajes sin conversación válida  
-    const deletedMessages = await tenantDb.delete(schema.messages)
-      .where(
-        sql`conversation_id NOT IN (SELECT id FROM ${schema.conversations})`
-      )
-      .returning();
-    
-    messagesFixed = deletedMessages.length;
-    
-    console.log(`✅ CLEANUP COMPLETED: ${conversationsFixed} conversations, ${messagesFixed} messages`);
+    if (conversationsFixed > 0 || messagesFixed > 0) {
+      console.log(`✅ CLEANUP COMPLETED: ${conversationsFixed} conversations, ${messagesFixed} messages`);
+    }
     
     return { conversationsFixed, messagesFixed };
     
   } catch (error) {
-    console.error('❌ Error cleaning up orphan data:', error);
+    console.error(`❌ Error cleaning up orphan data for store ${storeId}:`, error.message);
     return { conversationsFixed: 0, messagesFixed: 0 };
+  }
+},
+
+/**
+ * 🧹 Limpiar conversaciones antiguas (más de X días)
+ */
+async cleanupOldConversations(daysOld: number = 7) {
+  try {
+    console.log(`🧹 Cleaning up conversations older than ${daysOld} days...`);
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    
+    console.log(`📅 Cutoff date: ${cutoffDate.toISOString()}`);
+    
+    // 1️⃣ Obtener conversaciones antiguas a eliminar
+    const oldConversations = await tenantDb
+      .select({ id: schema.conversations.id })
+      .from(schema.conversations)
+      .where(lt(schema.conversations.lastMessageAt, cutoffDate));
+    
+    if (oldConversations.length === 0) {
+      console.log('✅ No old conversations to clean up');
+      return { conversationsDeleted: 0, messagesDeleted: 0 };
+    }
+    
+    const conversationIds = oldConversations.map(c => c.id);
+    console.log(`📋 Found ${conversationIds.length} conversations to delete`);
+    
+    // 2️⃣ Primero eliminar todos los mensajes de esas conversaciones
+    const deletedMessages = await tenantDb
+      .delete(schema.messages)
+      .where(
+        sql`${schema.messages.conversationId} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`
+      )
+      .returning();
+    
+    console.log(`✅ Deleted ${deletedMessages.length} messages`);
+    
+    // 3️⃣ Luego eliminar las conversaciones
+    const deletedConversations = await tenantDb
+      .delete(schema.conversations)
+      .where(
+        sql`${schema.conversations.id} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`
+      )
+      .returning();
+    
+    console.log(`✅ Deleted ${deletedConversations.length} conversations`);
+    
+    return {
+      conversationsDeleted: deletedConversations.length,
+      messagesDeleted: deletedMessages.length
+    };
+    
+  } catch (error) {
+    console.error('❌ Error cleaning up old conversations:', error);
+    return { conversationsDeleted: 0, messagesDeleted: 0 };
   }
 },
 
@@ -3134,9 +3226,21 @@ async createOrUpdateRegistrationFlow(flowData: any): Promise<any> {
   }
 },
 
-
 async cleanupExpiredRegistrationFlows() {
   try {
+    // Verificar si la tabla existe primero
+    const tableExists = await tenantDb.execute(sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'customer_registration_flows'
+      )
+    `);
+    
+    if (!tableExists.rows[0]?.exists) {
+      console.log(`⚠️ Table customer_registration_flows does not exist for store ${storeId}, skipping...`);
+      return 0;
+    }
+    
     const expiredFlows = await tenantDb.delete(schema.customerRegistrationFlows)
       .where(
         and(
@@ -3147,12 +3251,17 @@ async cleanupExpiredRegistrationFlows() {
       .returning();
     
     if (expiredFlows.length > 0) {
-      console.log(`🧹 CLEANED UP ${expiredFlows.length} expired registration flows`);
+      console.log(`🧹 CLEANED UP ${expiredFlows.length} expired registration flows for store ${storeId}`);
     }
     
     return expiredFlows.length;
   } catch (error) {
-    console.error('Error cleaning up expired registration flows:', error);
+    if (error.code === '42P01') {
+      // Tabla no existe
+      console.log(`⚠️ Table customer_registration_flows does not exist for store ${storeId}, skipping...`);
+      return 0;
+    }
+    console.error(`Error cleaning up expired registration flows for store ${storeId}:`, error.message);
     return 0;
   }
 },

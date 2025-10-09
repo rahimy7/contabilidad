@@ -28,6 +28,7 @@ import { SupabaseStorageManager } from './supabase-storage.js';
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { ExchangeRateService } from './services/exchange-rate.service.ts';
 import { createWebOrder } from './routes/create-web-order.ts';
+import { startScheduledTasks } from './scheduled-tasks.ts';
 
 
 
@@ -1086,6 +1087,10 @@ console.log('✅ API Router mounted successfully');
 
     const PORT = parseInt(process.env.PORT || '5000', 10);
     const HOST = '0.0.0.0';
+
+    if (process.env.NODE_ENV !== 'test') {
+  startScheduledTasks();
+}
 
     server.listen(PORT, HOST, () => {
       log(`🚀 Server running on ${HOST}:${PORT}`);

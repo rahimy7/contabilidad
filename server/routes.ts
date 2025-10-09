@@ -1550,6 +1550,31 @@ router.put('/super-admin/users/:id', authenticateToken, requireSuperAdmin, async
   }
 });
 
+
+// Endpoint para limpieza manual (solo super admin)
+router.post('/cleanup/conversations', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Super admin access required' });
+    }
+    
+    const { daysOld = 7 } = req.body;
+    
+    const { runManualCleanup } = await import('./scheduled-tasks.js');
+    const result = await runManualCleanup(parseInt(daysOld));
+    
+    res.json({
+      success: true,
+      message: 'Cleanup completed successfully',
+      result
+    });
+  } catch (error) {
+    console.error('Error in manual cleanup:', error);
+    res.status(500).json({ error: 'Failed to run cleanup' });
+  }
+});
 // POST - Reset password
 // POST - Reset password
 router.post('/super-admin/users/:id/reset-password', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {

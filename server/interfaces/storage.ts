@@ -350,6 +350,18 @@ getActiveBrands(): Promise<ProductBrand[]>;
   }): Promise<Customer>;
   getVipCustomers(): Promise<Customer[]>;
 
+   // ========================================
+  // CLEANUP & MAINTENANCE
+  // ========================================
+  cleanupExpiredRegistrationFlows(): Promise<number>;
+  cleanupOldConversations(daysOld: number): Promise<{ conversationsDeleted: number; messagesDeleted: number }>;
+  cleanupOrphanData(): Promise<{ conversationsFixed: number; messagesFixed: number }>;
+  verifyConversationHealth(): Promise<{
+    isHealthy: boolean;
+    issues: string[];
+    stats: any;
+  }>;
+
   // ========================================
   // ORDERS
   // ========================================
