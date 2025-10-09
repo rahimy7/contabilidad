@@ -1,336 +1,387 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Phone, MoreVertical, Search, ArrowLeft, Check, CheckCheck, User } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiGet, apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Send, MessageCircle, Phone, User, Check, CheckCheck } from "lucide-react";
+import { ConversationWithDetails, Message } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data para demostración
-const mockConversations = [
-  {
-    id: 1,
-    customerName: "Juan Pérez",
-    customerPhone: "+1 809-555-0101",
-    lastMessage: "Gracias por tu ayuda",
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 5),
-    unreadCount: 0,
-    status: "active"
-  },
-  {
-    id: 2,
-    customerName: "María González",
-    customerPhone: "+1 809-555-0102",
-    lastMessage: "¿Cuándo llega mi pedido?",
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 30),
-    unreadCount: 2,
-    status: "active"
-  },
-  {
-    id: 3,
-    customerName: "Carlos Rodríguez",
-    customerPhone: "+1 809-555-0103",
-    lastMessage: "Perfecto, muchas gracias",
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    unreadCount: 0,
-    status: "active"
-  },
-  {
-    id: 4,
-    customerName: "Ana Martínez",
-    customerPhone: "+1 809-555-0104",
-    lastMessage: "Me interesa el producto",
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
-    unreadCount: 1,
-    status: "active"
-  }
-];
+interface ChatWindowProps {
+  conversation: ConversationWithDetails | null;
+}
 
-const mockMessages = {
-  1: [
-    {
-      id: 1,
-      content: "Hola, necesito ayuda con mi pedido",
-      senderType: "customer",
-      sentAt: new Date(Date.now() - 1000 * 60 * 15),
-      status: "read"
-    },
-    {
-      id: 2,
-      content: "¡Hola! Claro, con gusto te ayudo. ¿Cuál es tu número de pedido?",
-      senderType: "agent",
-      sentAt: new Date(Date.now() - 1000 * 60 * 12),
-      status: "read"
-    },
-    {
-      id: 3,
-      content: "Es el #12345",
-      senderType: "customer",
-      sentAt: new Date(Date.now() - 1000 * 60 * 10),
-      status: "read"
-    },
-    {
-      id: 4,
-      content: "Perfecto, ya veo tu pedido. Está en camino y debería llegar mañana entre 2-5 PM",
-      senderType: "agent",
-      sentAt: new Date(Date.now() - 1000 * 60 * 8),
-      status: "read"
-    },
-    {
-      id: 5,
-      content: "Gracias por tu ayuda",
-      senderType: "customer",
-      sentAt: new Date(Date.now() - 1000 * 60 * 5),
-      status: "read"
-    }
-  ],
-  2: [
-    {
-      id: 6,
-      content: "¿Cuándo llega mi pedido?",
-      senderType: "customer",
-      sentAt: new Date(Date.now() - 1000 * 60 * 30),
-      status: "delivered"
-    }
-  ]
-};
+interface CustomerDetails {
+  isVip: boolean;
+  totalOrders: number;
+  totalSpent: string;
+}
 
-function WhatsAppConversations() {
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+export default function ChatWindow({ conversation }: ChatWindowProps) {
   const [newMessage, setNewMessage] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const messagesEndRef = useRef(null);
+  const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeight = useRef<number>(0);
+  const { toast } = useToast();
 
+  const INITIAL_MESSAGE_COUNT = 3;
+  const MESSAGES_PER_LOAD = 10;
+
+  // Fetch all messages
+  const { data: allMessages = [], isLoading } = useQuery<Message[]>({
+    queryKey: ["/api/conversations", conversation?.id, "messages"],
+    queryFn: () =>
+      conversation?.id
+        ? apiGet<Message[]>(`/api/conversations/${conversation.id}/messages`)
+        : Promise.resolve([]),
+    enabled: !!conversation?.id,
+    refetchInterval: 5000,
+  });
+
+  // Fetch customer details
+  const { data: customerDetails } = useQuery<CustomerDetails | null>({
+    queryKey: ["/api/customers", conversation?.customer.id, "details"],
+    queryFn: () =>
+      conversation?.customer.id
+        ? apiGet<CustomerDetails>(`/api/customers/${conversation.customer.id}/details`)
+        : Promise.resolve(null),
+    enabled: !!conversation?.customer.id,
+  });
+
+  // Initialize with last 3 messages
   useEffect(() => {
-    if (selectedConversation) {
-      setMessages(mockMessages[selectedConversation.id] || []);
+    if (allMessages.length > 0) {
+      const sortedMessages = [...allMessages].sort(
+        (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+      );
+      const lastMessages = sortedMessages.slice(-INITIAL_MESSAGE_COUNT);
+      setDisplayedMessages(lastMessages);
+      setHasMoreMessages(sortedMessages.length > INITIAL_MESSAGE_COUNT);
+      
+      // Scroll to bottom on initial load
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
     }
-  }, [selectedConversation]);
+  }, [allMessages.length, conversation?.id]);
 
- 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Load more messages when scrolling up
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container || isLoadingMore || !hasMoreMessages) return;
 
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    
-    if (hours < 24) {
-      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    } else if (hours < 48) {
-      return 'Ayer';
-    } else {
-      return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-    }
-  };
+    // Check if scrolled to top (with 50px threshold)
+    if (container.scrollTop < 50) {
+      setIsLoadingMore(true);
+      previousScrollHeight.current = container.scrollHeight;
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-
-    const newMsg = {
-      id: Date.now(),
-      content: newMessage,
-      senderType: "agent",
-      sentAt: new Date(),
-      status: "sent"
-    };
-
-    setMessages([...messages, newMsg]);
-    setNewMessage("");
-  };
-
-  const filteredConversations = mockConversations.filter(conv =>
-    conv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.customerPhone.includes(searchTerm)
-  );
-
-  const MessageStatus = ({ status }) => {
-    if (status === 'read') {
-      return <CheckCheck className="w-4 h-4 text-blue-400" />;
-    } else if (status === 'delivered') {
-      return <CheckCheck className="w-4 h-4 text-gray-400" />;
-    } else {
-      return <Check className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Panel de conversaciones */}
-      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 bg-white border-r border-gray-200`}>
-        {/* Header de conversaciones */}
-        <div className="flex-shrink-0 bg-emerald-600 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-white text-xl font-semibold">Conversaciones</h1>
-            <button className="text-white hover:bg-emerald-700 p-2 rounded-full transition-colors">
-              <MoreVertical className="w-5 h-5" />
-            </button>
-          </div>
+      setTimeout(() => {
+        const sortedMessages = [...allMessages].sort(
+          (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
+        
+        const currentOldestIndex = sortedMessages.findIndex(
+          msg => msg.id === displayedMessages[0]?.id
+        );
+        
+        if (currentOldestIndex > 0) {
+          const startIndex = Math.max(0, currentOldestIndex - MESSAGES_PER_LOAD);
+          const newMessages = sortedMessages.slice(startIndex, currentOldestIndex);
           
-          {/* Buscador */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar conversación..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-white border-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        </div>
+          setDisplayedMessages(prev => [...newMessages, ...prev]);
+          setHasMoreMessages(startIndex > 0);
+          
+          // Maintain scroll position
+          setTimeout(() => {
+            if (container) {
+              const newScrollHeight = container.scrollHeight;
+              container.scrollTop = newScrollHeight - previousScrollHeight.current;
+            }
+          }, 0);
+        } else {
+          setHasMoreMessages(false);
+        }
+        
+        setIsLoadingMore(false);
+      }, 500);
+    }
+  }, [allMessages, displayedMessages, isLoadingMore, hasMoreMessages]);
 
-        {/* Lista de conversaciones con scroll */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((conversation) => (
-            <div
-              key={conversation.id}
-              onClick={() => setSelectedConversation(conversation)}
-              className={`flex items-center p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                selectedConversation?.id === conversation.id ? 'bg-emerald-50' : ''
-              }`}
-            >
-              {/* Avatar */}
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white font-semibold mr-3">
-                <User className="w-6 h-6" />
-              </div>
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!conversation) throw new Error("No conversation selected");
+      return apiRequest("POST", `/api/conversations/${conversation.id}/messages`, {
+        content,
+        messageType: "text",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", conversation?.id, "messages"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      setNewMessage("");
+      
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    },
+    onError: (error) => {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo enviar el mensaje",
+        variant: "destructive",
+      });
+    },
+  });
 
-              {/* Información de la conversación */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-gray-900 truncate">
-                    {conversation.customerName}
-                  </h3>
-                  <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                    {formatTime(conversation.lastMessageAt)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate">
-                    {conversation.lastMessage}
-                  </p>
-                  {conversation.unreadCount > 0 && (
-                    <span className="ml-2 flex-shrink-0 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {conversation.unreadCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+  // Mark as read
+  useEffect(() => {
+    if (conversation?.id) {
+      apiRequest("POST", `/api/conversations/${conversation.id}/mark-read`, {})
+        .catch(console.error);
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+    }
+  }, [conversation?.id]);
 
-      {/* Panel de chat */}
-      {selectedConversation ? (
-        <div className="flex flex-col flex-1 bg-gray-50">
-          {/* Header del chat - FIJO */}
-          <div className="flex-shrink-0 bg-emerald-600 px-4 py-3 flex items-center justify-between shadow-md">
-            <div className="flex items-center flex-1">
-              <button
-                onClick={() => setSelectedConversation(null)}
-                className="md:hidden mr-3 text-white hover:bg-emerald-700 p-2 rounded-full transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white mr-3">
-                <User className="w-5 h-5" />
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <h2 className="text-white font-semibold truncate">
-                  {selectedConversation.customerName}
-                </h2>
-                <p className="text-emerald-100 text-sm truncate">
-                  {selectedConversation.customerPhone}
-                </p>
-              </div>
-            </div>
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newMessage.trim() && !sendMessageMutation.isPending) {
+      sendMessageMutation.mutate(newMessage.trim());
+    }
+  };
 
-            <div className="flex items-center space-x-2">
-              <button className="text-white hover:bg-emerald-700 p-2 rounded-full transition-colors">
-                <Phone className="w-5 h-5" />
-              </button>
-              <button className="text-white hover:bg-emerald-700 p-2 rounded-full transition-colors">
-                <MoreVertical className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+  // Format date for separators (WhatsApp style)
+  const formatDateSeparator = (date: string | Date) => {
+    const messageDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-          {/* Área de mensajes con scroll */}
-          <div 
-            className="flex-1 overflow-y-auto p-4 space-y-3"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              backgroundColor: '#efeae2'
-            }}
-          >
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.senderType === 'agent' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[70%] px-4 py-2 rounded-lg shadow-sm ${
-                    message.senderType === 'agent'
-                      ? 'bg-emerald-500 text-white rounded-br-none'
-                      : 'bg-white text-gray-900 rounded-bl-none'
-                  }`}
-                >
-                  <p className="text-sm break-words">{message.content}</p>
-                  <div className={`flex items-center justify-end space-x-1 mt-1 ${
-                    message.senderType === 'agent' ? 'text-emerald-100' : 'text-gray-500'
-                  }`}>
-                    <span className="text-xs">
-                      {formatTime(message.sentAt)}
-                    </span>
-                    {message.senderType === 'agent' && (
-                      <MessageStatus status={message.status} />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+    if (messageDate.toDateString() === today.toDateString()) {
+      return "Hoy";
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      return "Ayer";
+    } else {
+      return messageDate.toLocaleDateString("es-MX", {
+        day: "numeric",
+        month: "long",
+        year: messageDate.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+      });
+    }
+  };
 
-          {/* Input de mensaje - FIJO */}
-          <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Escribe un mensaje..."
-                className="flex-1 px-4 py-3 rounded-full bg-gray-100 border-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
-                className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white p-3 rounded-full transition-colors shadow-lg"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50">
+  const formatMessageTime = (date: string | Date) => {
+    return new Date(date).toLocaleTimeString("es-MX", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = (messages: Message[]) => {
+    const groups: { [key: string]: Message[] } = {};
+    
+    messages.forEach(message => {
+      const dateKey = new Date(message.sentAt).toDateString();
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(message);
+    });
+    
+    return groups;
+  };
+
+  if (!conversation) {
+    return (
+      <Card className="h-full">
+        <CardContent className="h-[500px] flex items-center justify-center">
           <div className="text-center">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="w-10 h-10 text-emerald-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
               Selecciona una conversación
             </h3>
             <p className="text-gray-500">
-              Elige un chat de la lista para comenzar a conversar
+              Elige una conversación de la lista para comenzar a chatear
             </p>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const messageGroups = groupMessagesByDate(displayedMessages);
+
+  return (
+    <Card className="h-full flex flex-col">
+      {/* Header */}
+      <CardHeader className="bg-green-50 border-b border-green-100 pb-4 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <User className="text-white h-6 w-6" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-1">
+                <CardTitle className="text-lg font-semibold text-gray-900">
+                  {conversation.customer.name}
+                </CardTitle>
+                {customerDetails?.isVip && (
+                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                    ⭐ VIP
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <Phone className="h-3 w-3" />
+                <span className="font-medium">{conversation.customer.phone}</span>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-    </div>
+      </CardHeader>
+
+      {/* Messages */}
+      <CardContent 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-scroll scroll-smooth"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundColor: '#efeae2',
+          maxHeight: '500px',
+          minHeight: '300px'
+        }}
+      >
+        {/* Contenedor interno con padding y min-height para forzar scroll */}
+        <div className="min-h-full flex flex-col justify-end p-4 space-y-2">
+        {/* Loading indicator at top */}
+        {isLoadingMore && (
+          <div className="flex justify-center py-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+          </div>
+        )}
+
+        {/* "Load more" indicator */}
+        {!isLoadingMore && hasMoreMessages && displayedMessages.length > 0 && (
+          <div className="flex justify-center py-2">
+            <div className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+              ↑ Desliza hacia arriba para cargar más mensajes
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+          </div>
+        ) : displayedMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <MessageCircle className="h-16 w-16 text-gray-300 mb-4" />
+            <p className="text-gray-500 text-center">
+              No hay mensajes aún<br />
+              <span className="text-sm">Envía el primer mensaje para iniciar la conversación</span>
+            </p>
+          </div>
+        ) : (
+          <>
+            {Object.keys(messageGroups).map((dateKey) => (
+              <div key={dateKey}>
+                {/* Date separator - WhatsApp style */}
+                <div className="flex justify-center my-4">
+                  <div className="bg-white/90 text-gray-600 text-xs px-3 py-1 rounded-lg shadow-sm">
+                    {formatDateSeparator(messageGroups[dateKey][0].sentAt)}
+                  </div>
+                </div>
+
+                {/* Messages for this date */}
+                {messageGroups[dateKey].map((message, index) => {
+                  const isAgent = message.senderType === "agent";
+                  const prevMessage = index > 0 ? messageGroups[dateKey][index - 1] : null;
+                  const isFirstInGroup = !prevMessage || prevMessage.senderType !== message.senderType;
+
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isAgent ? "justify-end" : "justify-start"} ${
+                        isFirstInGroup ? "mt-3" : "mt-1"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
+                          isAgent
+                            ? "bg-green-500 text-white rounded-br-none"
+                            : "bg-white text-gray-900 rounded-bl-none"
+                        }`}
+                      >
+                        <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
+                        <div
+                          className={`flex items-center justify-end space-x-1 mt-1 ${
+                            isAgent ? "text-green-100" : "text-gray-500"
+                          }`}
+                        >
+                          <span className="text-xs">{formatMessageTime(message.sentAt)}</span>
+                          {isAgent && (
+                            <span className="text-xs">
+                              {message.deliveryStatus === "delivered" ? (
+                                <CheckCheck className="h-3 w-3" />
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </>
+        )}
+        <div ref={messagesEndRef} />
+        </div>
+      </CardContent>
+
+      {/* Input */}
+      <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
+        <form onSubmit={handleSendMessage} className="flex space-x-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Escribe un mensaje..."
+            className="flex-1"
+            disabled={sendMessageMutation.isPending}
+          />
+          <Button
+            type="submit"
+            disabled={!newMessage.trim() || sendMessageMutation.isPending}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {sendMessageMutation.isPending ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </Button>
+        </form>
+      </div>
+    </Card>
   );
 }
-
-export default WhatsAppConversations;

@@ -41,33 +41,30 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   }, []);
 
   const isSuperAdmin = user?.role === 'super_admin';
-const isStoreUser = user && !isSuperAdmin;
+  const isStoreUser = user && !isSuperAdmin;
 
-const { data: orders = [] } = useQuery({
-  queryKey: ["/api/orders"],
-  enabled: isStoreUser && hasPermission(user.role, 'view_orders'), // Solo para usuarios de tienda
-});
+  const { data: orders = [] } = useQuery({
+    queryKey: ["/api/orders"],
+    enabled: isStoreUser && hasPermission(user.role, 'view_orders'),
+  });
 
-const { data: conversations = [] } = useQuery({
-  queryKey: ["/api/conversations"],
-  enabled: isStoreUser && hasPermission(user.role, 'view_conversations'),
-});
+  const { data: conversations = [] } = useQuery({
+    queryKey: ["/api/conversations"],
+    enabled: isStoreUser && hasPermission(user.role, 'view_conversations'),
+  });
 
-// Solo obtener notificaciones para usuarios de tienda
-const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
-  queryKey: ["/api/notifications/count", { userId: user?.id }],
-  queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
-  refetchInterval: 30000,
-  enabled: isStoreUser && hasPermission(user.role, 'view_notifications'),
-});
+  const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
+    queryKey: ["/api/notifications/count", { userId: user?.id }],
+    queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
+    refetchInterval: 30000,
+    enabled: isStoreUser && hasPermission(user.role, 'view_notifications'),
+  });
 
-
-// Para super admin, obtener métricas globales si las necesita en el sidebar
-const { data: superAdminMetrics } = useQuery({
-  queryKey: ["/api/super-admin/metrics"],
-  enabled: isSuperAdmin,
-  refetchInterval: 60000, // Refetch every minute for super admin metrics
-});
+  const { data: superAdminMetrics } = useQuery({
+    queryKey: ["/api/super-admin/metrics"],
+    enabled: isSuperAdmin,
+    refetchInterval: 60000,
+  });
 
   const pendingOrders = Array.isArray(orders) ? orders.filter((order: any) => order.status === "pending").length : 0;
   const activeConversations = Array.isArray(conversations) ? conversations.filter((conv: any) => conv.unreadCount > 0).length : 0;
@@ -80,8 +77,6 @@ const { data: superAdminMetrics } = useQuery({
     return 0;
   })();
 
-
-  // Configurar elementos del menú basado en el rol del usuario
   const allNavItems: NavItem[] = [
     // === MENU PARA TIENDAS (admin, manager, technician) ===
     {
@@ -90,7 +85,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Dashboard Principal",
       badge: null,
       permission: "view_dashboard",
-      excludeRoles: ["super_admin"], // Solo para tiendas, NO super admin
+      excludeRoles: ["super_admin"],
     },
     {
       href: "/conversations",
@@ -98,7 +93,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Conversaciones",
       badge: activeConversations > 0 ? activeConversations : null,
       permission: "view_conversations",
-      excludeRoles: ["super_admin"], // Solo para tiendas
+      excludeRoles: ["super_admin"],
     },
     {
       href: "/notifications",
@@ -106,7 +101,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Notificaciones",
       badge: unreadNotifications > 0 ? unreadNotifications : null,
       permission: "view_notifications",
-      excludeRoles: ["super_admin"], // Solo para tiendas
+      excludeRoles: ["super_admin"],
     },
     {
       href: "/team",
@@ -114,7 +109,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Equipo",
       badge: null,
       permission: "manage_users",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/customers",
@@ -122,7 +117,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Clientes",
       badge: null,
       permission: "manage_customers",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/orders",
@@ -130,7 +125,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Gestión de Órdenes",
       badge: pendingOrders > 0 ? pendingOrders : null,
       permission: "manage_orders",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/employees",
@@ -138,7 +133,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Empleados",
       badge: null,
       permission: "manage_users",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/product-management",
@@ -146,23 +141,22 @@ const { data: superAdminMetrics } = useQuery({
       label: "Gestión de Productos",
       badge: null,
       permission: "manage_products",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
-  href: "/exchange-rates",
-  icon: DollarSign,
-  label: "Tasas de Cambio",
-  badge: null,
-  permission: "manage_settings", // o "admin" según tu sistema
-  //excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
-},
+      href: "/exchange-rates",
+      icon: DollarSign,
+      label: "Tasas de Cambio",
+      badge: null,
+      permission: "manage_settings",
+    },
     {
       href: "/reports",
       icon: BarChart3,
       label: "Reportes",
       badge: null,
       permission: "view_reports",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/billing",
@@ -170,7 +164,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Facturación",
       badge: null,
       permission: "view_reports",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/settings",
@@ -178,7 +172,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Configuración",
       badge: null,
       permission: "manage_settings",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/auto-responses",
@@ -186,7 +180,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Respuestas Automáticas",
       badge: null,
       permission: "manage_settings",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/assignment-rules",
@@ -194,9 +188,8 @@ const { data: superAdminMetrics } = useQuery({
       label: "Asignación Automática",
       badge: null,
       permission: "manage_assignments",
-      excludeRoles: ["super_admin", "technician"], // Solo para admin/manager de tiendas
+      excludeRoles: ["super_admin", "technician"],
     },
-
     // === MENU ESPECÍFICO PARA TÉCNICOS ===
     {
       href: "/technician-dashboard",
@@ -204,9 +197,8 @@ const { data: superAdminMetrics } = useQuery({
       label: "Mi Trabajo",
       badge: null,
       permission: "technician_work",
-      roles: ["technician"], // Solo técnicos
+      roles: ["technician"],
     },
-
     // === MENU PARA SUPER ADMIN ===
     {
       href: "/",
@@ -214,7 +206,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Panel de Control General",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/stores",
@@ -222,7 +214,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Tiendas Registradas",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/subscriptions",
@@ -230,7 +222,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Suscripciones",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/subscription-plans",
@@ -238,7 +230,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Planes de Suscripción",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/global-orders",
@@ -246,7 +238,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Pedidos Globales",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/users",
@@ -254,7 +246,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Usuarios/Propietarios",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/reports",
@@ -262,7 +254,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Reportes/Estadísticas",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/support",
@@ -270,16 +262,15 @@ const { data: superAdminMetrics } = useQuery({
       label: "Soporte/Tickets",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
-
     {
       href: "/super-admin/store-settings",
       icon: Database,
       label: "Configuración de Tiendas",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/store-products",
@@ -287,7 +278,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Productos de Tiendas",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/store-themes",
@@ -295,7 +286,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Temas y Personalización",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/whatsapp-management",
@@ -303,7 +294,7 @@ const { data: superAdminMetrics } = useQuery({
       label: "Gestión de WhatsApp",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
     {
       href: "/super-admin/settings",
@@ -311,25 +302,21 @@ const { data: superAdminMetrics } = useQuery({
       label: "Configuración Global",
       badge: null,
       permission: "super_admin",
-      roles: ["super_admin"], // Solo super admin
+      roles: ["super_admin"],
     },
   ];
 
-  // Filtrar elementos del menú según permisos del usuario
   const navItems = allNavItems.filter(item => {
     if (!user) return false;
     
-    // Si el item tiene roles específicos, verificar si el usuario tiene ese rol
     if (item.roles && !item.roles.includes(user.role)) {
       return false;
     }
     
-    // Si el item tiene roles excluidos, verificar que el usuario NO tenga ese rol
     if (item.excludeRoles && item.excludeRoles.includes(user.role)) {
       return false;
     }
     
-    // Verificar permisos
     return hasPermission(user.role, item.permission);
   });
 
@@ -345,13 +332,14 @@ const { data: superAdminMetrics } = useQuery({
         />
       )}
       
-      <aside className={`w-72 bg-gradient-to-b from-emerald-500 to-teal-600 shadow-xl border-r border-emerald-400 flex flex-col ${
+      <aside className={`w-72 bg-gradient-to-b from-emerald-500 to-teal-600 shadow-xl border-r border-emerald-400 flex flex-col h-full ${
         isMobile 
-          ? 'fixed left-0 top-0 h-full z-50 transform transition-transform duration-300' 
+          ? 'fixed left-0 top-0 z-50 transform transition-transform duration-300' 
           : 'relative'
       } ${
         isMobile && !isOpen ? '-translate-x-full' : 'translate-x-0'
       } md:w-72 md:relative md:transform-none`}>
+        
         {/* Mobile close button */}
         {isMobile && (
           <div className="flex justify-end p-4 md:hidden">
@@ -367,7 +355,7 @@ const { data: superAdminMetrics } = useQuery({
         )}
 
         {/* Logo Header */}
-        <div className="p-4 md:p-6 border-b border-white/20">
+        <div className="p-4 md:p-6 border-b border-white/20 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 md:w-10 h-8 md:h-10 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
               <MessageCircle className="text-white h-5 md:h-6 w-5 md:w-6" />
@@ -379,63 +367,63 @@ const { data: superAdminMetrics } = useQuery({
           </div>
         </div>
 
-      {/* User Profile */}
-      <div className="p-4 border-b border-white/20">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-            <span className="text-white text-sm font-medium">👤</span>
+        {/* User Profile */}
+        <div className="p-4 border-b border-white/20 flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+              <span className="text-white text-sm font-medium">👤</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-white text-sm">Administrador</p>
+              <p className="text-xs text-emerald-100">Sistema</p>
+            </div>
+            <button className="text-emerald-100 hover:text-white">
+              <ChartLine className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex-1">
-            <p className="font-medium text-white text-sm">Administrador</p>
-            <p className="text-xs text-emerald-100">Sistema</p>
+        </div>
+
+        {/* Navigation Menu - CON SCROLL */}
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+          {navItems.map((item) => {
+            const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+            const Icon = item.icon;
+            
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+                  isActive
+                    ? "bg-white/25 backdrop-blur text-white shadow-lg"
+                    : "text-emerald-100 hover:bg-white/15 hover:text-white"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{item.label}</span>
+                {item.badge && (
+                  <Badge 
+                    variant={item.href === "/conversations" ? "default" : "destructive"}
+                    className={`ml-auto text-xs px-2 py-1 ${
+                      item.href === "/conversations" ? "whatsapp-bg text-white" : ""
+                    }`}
+                  >
+                    {item.badge}
+                  </Badge>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/20 flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-sm text-emerald-100">✅ WhatsApp API Conectado</span>
           </div>
-          <button className="text-emerald-100 hover:text-white">
-            <ChartLine className="h-4 w-4" />
-          </button>
         </div>
-      </div>
-
-      {/* Navigation Menu */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-        {navItems.map((item) => {
-          const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-          const Icon = item.icon;
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                isActive
-                  ? "bg-white/25 backdrop-blur text-white shadow-lg"
-                  : "text-emerald-100 hover:bg-white/15 hover:text-white"
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-              {item.badge && (
-                <Badge 
-                  variant={item.href === "/conversations" ? "default" : "destructive"}
-                  className={`ml-auto text-xs px-2 py-1 ${
-                    item.href === "/conversations" ? "whatsapp-bg text-white" : ""
-                  }`}
-                >
-                  {item.badge}
-                </Badge>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-white/20">
-        <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-sm text-emerald-100">✅ WhatsApp API Conectado</span>
-        </div>
-      </div>
-    </aside>
+      </aside>
     </div>
   );
 }
