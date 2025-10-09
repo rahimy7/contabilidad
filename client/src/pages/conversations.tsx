@@ -102,13 +102,7 @@ export default function ConversationsPage() {
     },
   });
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -163,7 +157,7 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-gray-100 overflow-hidden rounded-lg shadow-lg">
+    <div className="flex h-full bg-gray-100 overflow-hidden rounded-lg shadow-lg">
       {/* Panel de conversaciones */}
       <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 bg-white border-r border-gray-200`}>
         {/* Header de conversaciones - FIJO */}
