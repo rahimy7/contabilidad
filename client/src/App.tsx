@@ -1,7 +1,9 @@
+// App.tsx
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 
-import ConversationsTest from './components/ConversationsTest';import { QueryClientProvider } from "@tanstack/react-query";
+import ConversationsTest from './components/ConversationsTest';
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -58,10 +60,11 @@ import AddProduct from "@/pages/add-product";
 import ExchangeRateManagement from '@/pages/exchange-rates';
 import CategoriesBrandsManagement from './pages/categories-brands-management';
 import TechnicianConversations from "./pages/technician-conversations";
-import BrandsManagement from "./pages/brands"
+import BrandsManagement from "./pages/brands";
 
-
-
+// ✅ NUEVO: Importar componente de compartir producto y HelmetProvider
+import ShareProduct from '@/pages/share-product';
+import { HelmetProvider } from 'react-helmet-async';
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -183,7 +186,7 @@ function Router() {
       <Route path="/" component={RoleDashboard} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} permission="view_dashboard" />} />
       <Route path="/technician-dashboard" component={() => <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />} />
-     <Route path="/conversations" component={ConversationsWrapper} />
+      <Route path="/conversations" component={ConversationsWrapper} />
       <Route path="/orders" component={() => <ProtectedRoute component={Orders} permission="manage_orders" />} />
       <Route path="/order-management" component={() => <ProtectedRoute component={OrderManagement} permission="manage_orders" />} />
       <Route path="/conversations" component={() => <ProtectedRoute component={Conversations} permission="view_conversations" />} />
@@ -205,31 +208,32 @@ function Router() {
       <Route path="/global-users-management" component={() => <ProtectedRoute component={GlobalUsersManagement} permission="super_admin" />} />
       <Route path="/super-admin/dashboard" component={() => <ProtectedRoute component={GlobalDashboard} permission="super_admin" />} />
       <Route path="/admin/categories-brands" component={() => <ProtectedRoute component={CategoriesBrandsManagement} permission="manage_products" />} />
-         <Route path="/admin/brands" component={() => <ProtectedRoute component={BrandsManagement} permission="manage_products" />} />
-<Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
+      <Route path="/admin/brands" component={() => <ProtectedRoute component={BrandsManagement} permission="manage_products" />} />
+      <Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
       <Route path="/super-admin/subscriptions" component={() => <ProtectedRoute component={Subscriptions} permission="super_admin" />} />
       <Route path="/super-admin/global-orders" component={() => <ProtectedRoute component={GlobalOrders} permission="super_admin" />} />
       <Route path="/super-admin/users" component={() => <ProtectedRoute component={SuperAdminUsers} permission="super_admin" />} />
       <Route path="/super-admin/reports" component={() => <ProtectedRoute component={SuperAdminReports} permission="super_admin" />} />
       <Route path="/super-admin/support" component={() => <ProtectedRoute component={Support} permission="super_admin" />} />
       <Route path="/super-admin/stores" component={() => <ProtectedRoute component={StoresPage} permission="super_admin" />} />
-       <Route        path="/super-admin/stores/:storeId/whatsapp"
-       component={() => (
-         <ProtectedRoute
-           component={WhatsAppSettingsWrapper}
-           permission="super_admin"
-         />
+      <Route 
+        path="/super-admin/stores/:storeId/whatsapp"
+        component={() => (
+          <ProtectedRoute
+            component={WhatsAppSettingsWrapper}
+            permission="super_admin"
+          />
         )}
       />
       <Route 
-  path="/super-admin/whatsapp-settings"
-  component={() => (
-    <ProtectedRoute
-      component={WhatsAppSettingsWrapper}
-      permission="super_admin"
-    />
-  )}
-/>
+        path="/super-admin/whatsapp-settings"
+        component={() => (
+          <ProtectedRoute
+            component={WhatsAppSettingsWrapper}
+            permission="super_admin"
+          />
+        )}
+      />
       <Route path="/super-admin/store-settings" component={() => <ProtectedRoute component={StoreSettings} permission="super_admin" />} />
       <Route path="/super-admin/store-products" component={() => <ProtectedRoute component={StoreProducts} permission="super_admin" />} />
       <Route path="/super-admin/store-themes" component={() => <ProtectedRoute component={StoreThemes} permission="super_admin" />} />
@@ -266,6 +270,9 @@ function AppWithAuth() {
       <Route path="/login" component={MultiTenantLogin} />
       <Route path="/multi-tenant-login" component={MultiTenantLogin} />
       
+      {/* ✅ NUEVA RUTA: Página de compartir producto (pública, sin layout) */}
+      <Route path="/share-product" component={ShareProduct} />
+      
       {/* Rutas que requieren autenticación con layout */}
       <Route>
         {!user ? (
@@ -287,20 +294,22 @@ export function ReactDebugComponent() {
 
 function App() {
   return (
-    <ToastProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <ErrorBoundary>
-            <Toaster />
-            <AppWithAuth />
-          </ErrorBoundary>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-    </ToastProvider>
+    // ✅ NUEVO: Envolver con HelmetProvider para meta tags de Open Graph
+    <HelmetProvider>
+      <ToastProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <AuthProvider>
+              <ErrorBoundary>
+                <Toaster />
+                <AppWithAuth />
+              </ErrorBoundary>
+            </AuthProvider>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ToastProvider>
+    </HelmetProvider>
   );
 }
-
 
 export default App;

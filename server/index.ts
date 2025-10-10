@@ -1441,6 +1441,77 @@ app.get('/api/public/stores/:storeId/products', async (req, res) => {
   }
 });
 
+app.get('/api/public/stores/:storeId/products/:productId', async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const productId = parseInt(req.params.productId);
+    
+    console.log(`📦 [PUBLIC] Getting product ${productId} from store ${storeId}`);
+    
+    if (!storeId || isNaN(storeId) || !productId || isNaN(productId)) {
+      return res.status(400).json({ error: 'Valid store ID and product ID required' });
+    }
+
+    // ✅ VERIFICAR TIENDA (igual que el endpoint existente)
+    const store = await masterStorage.getVirtualStore(storeId);
+    
+    if (!store || !store.isActive) {
+      console.log('❌ [PUBLIC] Store not found or inactive:', storeId);
+      return res.status(404).json({ error: 'Store not found or inactive' });
+    }
+
+    console.log(`✅ [PUBLIC] Store found: ${store.name}`);
+
+    // ✅ OBTENER PRODUCTO (igual que el endpoint existente)
+    const tenantStorage = await storageFactory.getTenantStorage(storeId);
+    const product = await tenantStorage.getProductById(productId);
+    
+    if (!product) {
+      console.log('❌ [PUBLIC] Product not found:', productId);
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    console.log(`🔍 [PUBLIC] Product found: ${product.name}`);
+    console.log(`🔍 [PUBLIC] Product isActive:`, product.isActive);
+    console.log(`🔍 [PUBLIC] Product is_active:`, product.is_active);
+
+    // ✅ FILTRO IGUAL AL ENDPOINT EXISTENTE: isActive !== false
+    // Esto permite productos con isActive = true o isActive = undefined/null
+    if (product.isActive === false || product.is_active === false) {
+      console.log('❌ [PUBLIC] Product not active:', productId);
+      return res.status(404).json({ error: 'Product not available' });
+    }
+
+    console.log(`✅ [PUBLIC] Returning product:`, product.name);
+    
+    // Devolver producto con mapeo de campos
+    res.json({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      baseCurrency: product.baseCurrency || product.base_currency,
+      currency: product.baseCurrency || product.base_currency || 'DOP',
+      category: product.category,
+      brand: product.brand,
+      model: product.model,
+      sku: product.sku,
+      images: product.images || [],
+      imageUrl: product.imageUrl || product.image_url,
+      stockQuantity: product.stockQuantity || product.stock_quantity || product.stock || 0,
+      availability: product.availability || 'in_stock',
+      isActive: product.isActive !== undefined ? product.isActive : product.is_active
+    });
+    
+  } catch (error) {
+    console.error('❌ [PUBLIC] Error getting product:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch product',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 app.get('/api/public/stores/:storeId/categories', async (req, res) => {
   try {
     const storeId = parseInt(req.params.storeId);

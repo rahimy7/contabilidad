@@ -4881,7 +4881,51 @@ router.get('/tenant-users/assignable', authenticateToken, async (req: any, res: 
     });
   }
 });
+// ===================================================
+// AGREGAR ESTOS ENDPOINTS EN server/routes.ts
+// En la sección de PUBLIC ROUTES (sin autenticación)
+// ===================================================
 
+
+// ✅ ENDPOINT PÚBLICO: Obtener información de la tienda (para branding en página compartida)
+router.get('/public/stores/:storeId/info', async (req: any, res: any) => {
+  try {
+    const { storeId } = req.params;
+    
+    console.log(`🏪 [PUBLIC] Getting store info for ${storeId}`);
+    
+    const storeIdInt = parseInt(storeId);
+    
+    if (isNaN(storeIdInt)) {
+      return res.status(400).json({ error: 'Invalid store ID' });
+    }
+
+    const store = await masterStorage.getVirtualStore(storeIdInt);
+    
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    console.log(`✅ [PUBLIC] Store found:`, store.name);
+    
+    res.json({
+      id: store.id,
+      name: store.name,
+      description: store.description,
+      phone: store.whatsappNumber || null, // ✅ Usar whatsappNumber en lugar de phone
+      whatsappNumber: store.whatsappNumber,
+      address: store.address,
+      logo: store.logo
+    });
+    
+  } catch (error) {
+    console.error('❌ [PUBLIC] Error getting store info:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 // Historial de notificaciones
 router.get('/notification-history', authenticateToken, async (req: any, res: any) => {
