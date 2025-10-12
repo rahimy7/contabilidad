@@ -433,7 +433,7 @@ async function processConfiguredAutoResponse(messageText: string, from: string, 
 async function handleRegistrationFlow(
   customer: any,
   messageText: string,
-  messageData: any,
+  messageData: any, // ⬅️ Este parámetro es crucial para ubicaciones
   registrationFlow: any,
   storeId: number,
   tenantStorage: any
@@ -443,6 +443,7 @@ async function handleRegistrationFlow(
     
     console.log(`🔄 HANDLING REGISTRATION STEP: ${currentStep}`);
     console.log(`📋 Message received: "${messageText}"`);
+    console.log(`📱 Message type: ${messageData?.type || 'text'}`);
     console.log(`👤 Customer: ${customer.id} - ${customer.name}`);
 
     // Manejo seguro de collectedData
@@ -464,10 +465,8 @@ async function handleRegistrationFlow(
       case 'collect_name':
         console.log(`📝 PROCESSING NAME COLLECTION`);
         
-        // ✅ VALIDACIÓN MEJORADA DE NOMBRE
         const cleanName = messageText.trim();
         
-        // Verificar longitud mínima
         if (cleanName.length < 2) {
           await sendWhatsAppMessageDirect(
             customer.phone,
@@ -477,166 +476,68 @@ async function handleRegistrationFlow(
           return;
         }
 
-        // Verificar longitud máxima
         if (cleanName.length > 50) {
           await sendWhatsAppMessageDirect(
             customer.phone,
-            "❌ El nombre es muy largo. Por favor ingresa un nombre más corto:",
+            "❌ El nombre es muy largo. Por favor usa un nombre de máximo 50 caracteres:",
             storeId
           );
           return;
         }
 
-        // Verificar que contenga solo letras, espacios y caracteres especiales del español
-        const namePattern = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s'-]+$/;
-        if (!namePattern.test(cleanName)) {
-          await sendWhatsAppMessageDirect(
-            customer.phone,
-            "❌ Por favor ingresa un nombre válido (solo letras y espacios):",
-            storeId
-          );
-          return;
-        }
-
-        console.log(`✅ NAME VALIDATION PASSED: "${cleanName}"`);
-
-        // ✅ ACTUALIZAR DATOS DEL CLIENTE
-        try {
-          await tenantStorage.updateCustomer(customer.id, { 
-            name: cleanName 
-          });
-          console.log(`✅ CUSTOMER NAME UPDATED: ${customer.id} -> "${cleanName}"`);
-        } catch (updateError) {
-          console.error(`❌ ERROR UPDATING CUSTOMER NAME:`, updateError);
-        }
-
-        // ✅ ACTUALIZAR DATOS RECOPILADOS
         collectedData.customerName = cleanName;
 
-        // ✅ ACTUALIZAR FLUJO AL SIGUIENTE PASO
+        try {
+          await tenantStorage.updateCustomer(customer.id, {
+            name: cleanName
+          });
+          console.log(`✅ Customer name updated in database: ${cleanName}`);
+        } catch (updateError) {
+          console.log(`⚠️ Could not update customer name:`, updateError);
+        }
+
         await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-          currentStep: 'collect_contact',
+          currentStep: 'collect_address',
           collectedData: JSON.stringify(collectedData),
           updatedAt: new Date()
         });
 
-        console.log(`✅ FLOW UPDATED TO NEXT STEP: collect_contact`);
-
-        // ✅ ENVIAR SIGUIENTE MENSAJE (COLLECT_CONTACT)
-        await sendAutoResponseMessage(customer.phone, 'collect_contact', storeId, tenantStorage);
-        
-        console.log(`✅ NAME COLLECTION COMPLETED SUCCESSFULLY`);
+        console.log(`✅ FLOW UPDATED TO NEXT STEP: collect_address`);
+        await sendAutoResponseMessage(customer.phone, 'collect_address', storeId, tenantStorage);
         break;
 
-  case 'collect_contact':
-  // Procesar número de contacto
-  console.log(`📞 PROCESSING CONTACT COLLECTION`);
-  
-  // Verificar si quiere usar el mismo número o proporcionar otro
-  const contactLower = messageText.toLowerCase().trim();
-  
-  if (contactLower.includes('mismo') || 
-      contactLower.includes('este') || 
-      contactLower.includes('sí') ||
-      contactLower.includes('si') ||
-      contactLower.includes('yes') ||
-      contactLower.includes('ok') ||
-      contactLower === 'si' ||
-      contactLower === 'sí') {
-    
-    collectedData.contactNumber = customer.phone;
-    collectedData.useWhatsAppNumber = true;
-    
-    console.log(`✅ USING WHATSAPP NUMBER: ${customer.phone}`);
-    
-  } else {
-    // ✅ VALIDACIÓN UNIVERSAL DE NÚMERO DE TELÉFONO
-    console.log(`🔍 VALIDATING PROVIDED PHONE: "${messageText}"`);
-    
-    // Limpiar el número (quitar espacios, guiones, paréntesis, puntos)
-    const cleanPhone = messageText.replace(/[\s\-\(\)\+\.]/g, '');
-    
-    console.log(`📱 Cleaned phone: "${cleanPhone}"`);
-    
-    // ✅ VALIDACIONES UNIVERSALES (NO LIMITADAS A PAÍS)
-    let isValid = false;
-    let formattedPhone = '';
-    
-    // Validación 1: Números de 7-15 dígitos (estándar internacional)
-    if (/^[1-9][0-9]{6,14}$/.test(cleanPhone)) {
-      isValid = true;
-      formattedPhone = `+${cleanPhone}`;
-      console.log(`✅ Valid international number: ${formattedPhone}`);
-    }
-    
-    // Validación 2: Números que ya tienen + en el mensaje original
-    else if (messageText.includes('+')) {
-      const cleanWithPlus = messageText.replace(/[\s\-\(\)\.]/g, '');
-      if (/^\+[1-9][0-9]{6,14}$/.test(cleanWithPlus)) {
-        isValid = true;
-        formattedPhone = cleanWithPlus;
-        console.log(`✅ Valid number with + prefix: ${formattedPhone}`);
-      }
-    }
-    
-    // Validación 3: Casos especiales - números que empiecen con 0 (algunos países europeos)
-    else if (/^0[1-9][0-9]{6,13}$/.test(cleanPhone)) {
-      isValid = true;
-      formattedPhone = `+${cleanPhone}`;
-      console.log(`✅ Valid number starting with 0: ${formattedPhone}`);
-    }
-    
-    if (isValid) {
-      collectedData.contactNumber = formattedPhone;
-      collectedData.useWhatsAppNumber = false;
-      console.log(`✅ CONTACT NUMBER ACCEPTED: ${formattedPhone}`);
-      
-    } else {
-      console.log(`❌ INVALID PHONE FORMAT: "${messageText}" (cleaned: "${cleanPhone}")`);
-      
-      await sendWhatsAppMessageDirect(
-        customer.phone,
-        `❌ Número de teléfono inválido: "${messageText}"\n\n` +
-        `Por favor ingresa un número válido:\n` +
-        `📱 Ejemplos:\n` +
-        `• Con código de país: +1 809 123 4567\n` +
-        `• Solo números: 8091234567\n` +
-        `• Con guiones: 1-809-123-4567\n` +
-        `• Internacional: +34 612 345 678\n\n` +
-        `O responde "mismo" para usar este número`,
-        storeId
-      );
-      return;
-    }
-  }
-
-  console.log(`📞 CONTACT COLLECTION COMPLETED - Number: ${collectedData.contactNumber}`);
-
-  // Continuar al siguiente paso
-  await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-    currentStep: 'collect_address',
-    collectedData: JSON.stringify(collectedData),
-    updatedAt: new Date()
-  });
-
-  console.log(`✅ FLOW UPDATED TO NEXT STEP: collect_address`);
-  await sendAutoResponseMessage(customer.phone, 'collect_address', storeId, tenantStorage);
-  break;
-
       case 'collect_address':
-        // Procesar dirección
-        console.log(`📍 PROCESSING ADDRESS COLLECTION`);
+        // ✅ FIX: LLAMAR A LA FUNCIÓN QUE MANEJA UBICACIONES
+        console.log(`📍 PROCESSING ADDRESS COLLECTION (text or location)`);
+        await handleCollectAddressStep(
+          customer,
+          messageData,
+          messageText,
+          registrationFlow,
+          collectedData,
+          storeId,
+          tenantStorage
+        );
+        break;
+
+      case 'collect_contact':
+      case 'collect_contact_number':
+        console.log(`📞 PROCESSING CONTACT NUMBER COLLECTION`);
         
-        if (messageText.trim().length < 10) {
+        const contactNumber = messageText.trim();
+        
+        // Validación básica de número de teléfono
+        const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+        if (!phoneRegex.test(contactNumber) || contactNumber.length < 10) {
           await sendWhatsAppMessageDirect(
             customer.phone,
-            "❌ Por favor proporciona una dirección más detallada (incluye calle, número, sector):",
+            "❌ Por favor proporciona un número de teléfono válido (mínimo 10 dígitos):",
             storeId
           );
           return;
         }
 
-        collectedData.address = messageText.trim();
+        collectedData.contactNumber = contactNumber;
 
         await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
           currentStep: 'collect_payment',
@@ -648,7 +549,6 @@ async function handleRegistrationFlow(
         break;
 
       case 'collect_payment':
-        // Procesar método de pago
         console.log(`💳 PROCESSING PAYMENT METHOD COLLECTION`);
         
         const paymentLower = messageText.toLowerCase();
@@ -659,7 +559,9 @@ async function handleRegistrationFlow(
         } else if (paymentLower.includes('transferencia') || paymentLower.includes('transfer')) {
           paymentMethod = 'Transferencia Bancaria';
         } else if (paymentLower.includes('efectivo') || paymentLower.includes('cash')) {
-          paymentMethod = 'Efectivo (Contra Entrega)';
+          paymentMethod = 'Efectivo';
+        } else if (paymentLower.includes('paypal')) {
+          paymentMethod = 'PayPal';
         } else {
           paymentMethod = messageText.trim();
         }
@@ -676,168 +578,54 @@ async function handleRegistrationFlow(
         break;
 
       case 'collect_notes':
-        // Procesar notas adicionales
         console.log(`📝 PROCESSING NOTES COLLECTION`);
         
-        const notesLower = messageText.toLowerCase();
-        
-        if (notesLower.includes('continuar') || 
-            notesLower.includes('no_notes') ||
-            notesLower.includes('sin notas') ||
-            notesLower.includes('ninguna')) {
-          collectedData.notes = 'Sin notas adicionales';
-        } else {
-          collectedData.notes = messageText.trim();
-        }
+        collectedData.notes = messageText.trim() || 'Sin notas adicionales';
 
+        // ✅ COMPLETAR ORDEN DIRECTAMENTE (sin paso de confirmación extra)
+        console.log(`🎉 ALL DATA COLLECTED - Completing order registration...`);
+        
         await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-          currentStep: 'confirm_order',
+          currentStep: 'completed',
           collectedData: JSON.stringify(collectedData),
           updatedAt: new Date()
         });
 
-        // Generar y enviar confirmación
-        await generateAndSendOrderConfirmation(customer, registrationFlow, collectedData, storeId, tenantStorage);
+        try {
+          await completeOrderRegistration(customer, registrationFlow, collectedData, storeId, tenantStorage);
+          console.log(`✅ ORDER COMPLETION SUCCESSFUL`);
+          
+        } catch (error) {
+          console.error(`❌ ERROR COMPLETING ORDER:`, error);
+          
+          // Fallback: marcar como completado y notificar
+          await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
+            isCompleted: true,
+            completedAt: new Date()
+          });
+          
+          await sendWhatsAppMessageDirect(
+            customer.phone,
+            "✅ Tu pedido ha sido recibido. Un agente te contactará pronto para confirmar los detalles.",
+            storeId
+          );
+        }
         break;
 
-      case 'confirm_order':
-  console.log(`✅ PROCESSING ORDER CONFIRMATION`);
-  
-  const confirmLower = messageText.toLowerCase().trim();
-  
-  if (confirmLower.includes('confirmar') || 
-      confirmLower.includes('sí') ||
-      confirmLower.includes('si') ||
-      confirmLower.includes('confirm') ||
-      confirmLower.includes('yes') ||
-      confirmLower.includes('proceder')) {
-    
-    console.log(`🎉 USER CONFIRMED ORDER - Processing completion...`);
-    
-    try {
-      // ✅ COMPLETAR ORDEN Y FLUJO
-      await completeOrderRegistration(customer, registrationFlow, collectedData, storeId, tenantStorage);
-      
-      console.log(`✅ ORDER COMPLETION SUCCESSFUL - Flow should be marked as completed`);
-      
-      // ✅ VERIFICAR QUE EL FLUJO SE ACTUALIZÓ
-      const updatedFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(customer.phone);
-      console.log(`🔍 VERIFICATION - Flow after completion:`, {
-        id: updatedFlow?.id,
-        currentStep: updatedFlow?.currentStep,
-        isCompleted: updatedFlow?.isCompleted,
-        completedAt: updatedFlow?.completedAt
-      });
-      
-      // ✅ SALIR DEL CASE SIN PROCESAR MÁS
-      return; // ⚠️ IMPORTANTE: Salir aquí para evitar loops
-      
-    } catch (error) {
-      console.error(`❌ ERROR COMPLETING ORDER:`, error);
-      
-      // ✅ FALLBACK: Marcar como completado manualmente
-      await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-        currentStep: 'completed',
-        isCompleted: true,
-        completedAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      await sendWhatsAppMessageDirect(
-        customer.phone,
-        "✅ Tu pedido ha sido confirmado. Un agente te contactará pronto con los detalles de entrega.",
-        storeId
-      );
-      
-      return; // ⚠️ IMPORTANTE: Salir aquí también
-    }
-    
-  } else if (confirmLower.includes('modificar') || 
-             confirmLower.includes('cambiar') ||
-             confirmLower.includes('editar')) {
-    
-    console.log(`✏️ USER WANTS TO MODIFY ORDER`);
-    
-    // ✅ ACTUALIZAR PASO A MODIFICACIÓN
-    await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-      currentStep: 'modify_data',
-      updatedAt: new Date()
-    });
-    
-    await sendWhatsAppMessageDirect(
-      customer.phone,
-      "✏️ ¿Qué deseas modificar?\n\n1️⃣ Nombre\n2️⃣ Dirección\n3️⃣ Contacto\n4️⃣ Método de pago\n5️⃣ Notas\n\nEscribe el número de la opción:",
-      storeId
-    );
-    
-    return; // ⚠️ IMPORTANTE: Salir sin continuar
-    
-  } else if (confirmLower.includes('cancelar') || 
-             confirmLower.includes('cancel')) {
-    
-    console.log(`❌ USER WANTS TO CANCEL ORDER`);
-    
-    // ✅ CANCELAR ORDEN Y FLUJO
-    if (registrationFlow.orderId) {
-      await tenantStorage.updateOrder(registrationFlow.orderId, {
-        status: 'cancelled',
-        updatedAt: new Date()
-      });
-    }
-    
-    await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-      currentStep: 'cancelled',
-      isCompleted: true,
-      completedAt: new Date(),
-      updatedAt: new Date()
-    });
-    
-    await sendWhatsAppMessageDirect(
-      customer.phone,
-      "❌ Pedido cancelado. Si cambias de opinión, puedes hacer un nuevo pedido cuando gustes.",
-      storeId
-    );
-    
-    return; // ⚠️ IMPORTANTE: Salir sin continuar
-    
-  } else {
-    console.log(`❓ UNCLEAR RESPONSE - Re-sending confirmation`);
-    
-    // ✅ RESPUESTA NO CLARA - Volver a enviar confirmación CON INSTRUCCIONES CLARAS
-    const clarificationMessage = `❓ No entendí tu respuesta. 
-
-Para confirmar tu pedido, responde exactamente:
-• *"Confirmar"* ✅
-• *"Modificar"* ✏️  
-• *"Cancelar"* ❌
-
-¿Qué deseas hacer con tu pedido?`;
-
-    await sendWhatsAppMessageDirect(customer.phone, clarificationMessage, storeId);
-    
-    // ✅ NO CAMBIAR EL PASO - Mantener en confirm_order
-    return; // ⚠️ IMPORTANTE: Salir sin continuar
-  }
-  
-  break;
       default:
         console.log(`⚠️ UNKNOWN REGISTRATION STEP: ${currentStep}`);
-        // Reiniciar flujo
-        await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-          currentStep: 'collect_name',
-          collectedData: JSON.stringify({}),
-          updatedAt: new Date()
-        });
-        await sendAutoResponseMessage(customer.phone, 'collect_name', storeId, tenantStorage);
-        break;
+        await sendWhatsAppMessageDirect(
+          customer.phone,
+          "❌ Hubo un error en el proceso. Por favor contacta con soporte.",
+          storeId
+        );
     }
     
   } catch (error) {
-    console.error('❌ ERROR IN handleRegistrationFlow:', error);
-    
+    console.error('❌ Error handling registration flow:', error);
     await sendWhatsAppMessageDirect(
       customer.phone,
-      "❌ Ocurrió un error procesando tu información. Un agente te contactará pronto para completar tu pedido.",
+      "❌ Error procesando tu solicitud. Por favor intenta nuevamente.",
       storeId
     );
   }
@@ -3826,22 +3614,29 @@ export async function findStoreByPhoneNumberSafe(phoneNumberId: string): Promise
   }
 }
 
-// Función para procesar mensajes de ubicación de WhatsApp
+// ✅ FUNCIÓN: processLocationMessage (ya existe, pero asegurémonos que esté correcta)
 async function processLocationMessage(messageData: any): Promise<LocationData | null> {
   try {
+    console.log(`🔍 PROCESSING LOCATION MESSAGE...`);
+    console.log(`📱 Message data type: ${messageData?.type}`);
+    
     // Verificar si el mensaje contiene ubicación
-    if (messageData.location) {
+    if (messageData?.location) {
       const location = messageData.location;
+      console.log(`✅ Location found: lat=${location.latitude}, lon=${location.longitude}`);
+      
+      const formattedAddress = await formatLocationAddress(location.latitude, location.longitude);
       
       return {
         type: 'coordinates',
         latitude: location.latitude,
         longitude: location.longitude,
-        address: location.address || null,
-        formatted_address: await formatLocationAddress(location.latitude, location.longitude)
+        address: location.address || location.name || null,
+        formatted_address: formattedAddress
       };
     }
     
+    console.log(`❌ No location data found in message`);
     return null;
   } catch (error) {
     console.error('❌ Error processing location message:', error);
@@ -3849,20 +3644,30 @@ async function processLocationMessage(messageData: any): Promise<LocationData | 
   }
 }
 
-// Función para formatear dirección desde coordenadas (usando geocoding reverso)
+
+// ✅ FUNCIÓN: formatLocationAddress
 async function formatLocationAddress(latitude: number, longitude: number): Promise<string> {
   try {
-    // Aquí puedes usar un servicio como Google Maps API o OpenStreetMap
-    // Ejemplo con OpenStreetMap (gratuito)
+    console.log(`🌍 Formatting address for coordinates: ${latitude}, ${longitude}`);
+    
+    // Usar OpenStreetMap (gratuito) para geocoding reverso
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'WhatsAppOrderManager/1.0'
+        }
+      }
     );
     
     if (response.ok) {
       const data = await response.json();
-      return data.display_name || `${latitude}, ${longitude}`;
+      const displayName = data.display_name || `${latitude}, ${longitude}`;
+      console.log(`✅ Address formatted: ${displayName}`);
+      return displayName;
     }
     
+    console.log(`⚠️ Could not format address, using coordinates`);
     return `${latitude}, ${longitude}`;
   } catch (error) {
     console.error('❌ Error formatting location address:', error);
@@ -3870,9 +3675,9 @@ async function formatLocationAddress(latitude: number, longitude: number): Promi
   }
 }
 
-// Función mejorada para el manejo del paso collect_address
+// ✅ FUNCIÓN MEJORADA: handleCollectAddressStep
 async function handleCollectAddressStep(
- customer: any,
+  customer: any,
   messageData: any,
   messageText: string,
   registrationFlow: any,
@@ -3881,19 +3686,23 @@ async function handleCollectAddressStep(
   tenantStorage: any
 ): Promise<void> {
   try {
-    // 1. Verificar si es una ubicación de WhatsApp
+    // 1️⃣ Verificar si es una ubicación de WhatsApp (GPS)
+    console.log(`🔍 Checking if message contains location...`);
+    console.log(`📍 messageData.type: ${messageData?.type}`);
+    console.log(`📍 messageData.location: ${JSON.stringify(messageData?.location)}`);
+    
     const locationData = await processLocationMessage(messageData);
     
     if (locationData && locationData.type === 'coordinates') {
-      // Es una ubicación con coordenadas
+      // ✅ Es una ubicación con coordenadas GPS
       console.log(`📍 LOCATION RECEIVED: ${locationData.latitude}, ${locationData.longitude}`);
       
-      collectedData.address = locationData.formatted_address || locationData.address;
+      collectedData.address = locationData.formatted_address || locationData.address || `${locationData.latitude}, ${locationData.longitude}`;
       collectedData.latitude = locationData.latitude;
       collectedData.longitude = locationData.longitude;
       collectedData.location_type = 'coordinates';
       
-      // ✅ NUEVO: Actualizar datos del cliente inmediatamente
+      // Actualizar datos del cliente inmediatamente
       try {
         await tenantStorage.updateCustomer(customer.id, {
           address: collectedData.address,
@@ -3903,17 +3712,16 @@ async function handleCollectAddressStep(
         console.log(`✅ Customer location updated in database`);
       } catch (updateError) {
         console.log(`⚠️ Could not update customer location:`, updateError);
-        // Continuar sin fallar
       }
       
       await sendWhatsAppMessageDirect(
         customer.phone,
-        `✅ ¡Ubicación recibida!\n📍 ${collectedData.address}\n\nContinuemos...`,
+        `✅ ¡Ubicación recibida!\n📍 ${collectedData.address}\n\nContinuemos con tu información de contacto...`,
         storeId
       );
       
     } else if (messageText && messageText.trim().length >= 10) {
-      // Es texto de dirección
+      // ✅ Es texto de dirección
       console.log(`📝 TEXT ADDRESS RECEIVED: ${messageText.trim()}`);
       
       collectedData.address = messageText.trim();
@@ -3925,7 +3733,6 @@ async function handleCollectAddressStep(
         collectedData.latitude = geocoded.latitude;
         collectedData.longitude = geocoded.longitude;
         
-        // ✅ NUEVO: Actualizar cliente con coordenadas geocodificadas
         try {
           await tenantStorage.updateCustomer(customer.id, {
             address: collectedData.address,
@@ -3938,56 +3745,80 @@ async function handleCollectAddressStep(
         }
       }
       
+      await sendWhatsAppMessageDirect(
+        customer.phone,
+        `✅ Dirección recibida:\n📍 ${collectedData.address}\n\nContinuemos con tu información de contacto...`,
+        storeId
+      );
+      
     } else {
-      // Dirección inválida - usar sendLocationRequest
-      await sendLocationRequest(customer.phone, storeId, tenantStorage);
-      return;
+      // ❌ Dirección inválida - solicitar de nuevo
+      console.log(`❌ INVALID ADDRESS - Too short or empty`);
+      await sendWhatsAppMessageDirect(
+        customer.phone,
+        "❌ Por favor proporciona una dirección más detallada (incluye calle, número, sector) o envía tu ubicación GPS:",
+        storeId
+      );
+      return; // ⬅️ IMPORTANTE: No avanzar al siguiente paso
     }
     
-    // Continuar al siguiente paso
+    // ✅ Continuar al siguiente paso (collect_contact)
     await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
       currentStep: 'collect_contact',
       collectedData: JSON.stringify(collectedData),
       updatedAt: new Date()
     });
     
+    console.log(`✅ FLOW UPDATED TO NEXT STEP: collect_contact`);
     await sendAutoResponseMessage(customer.phone, 'collect_contact', storeId, tenantStorage);
     
   } catch (error) {
     console.error('❌ Error handling address collection:', error);
     await sendWhatsAppMessageDirect(
       customer.phone,
-      "❌ Error procesando la ubicación. Por favor intenta nuevamente.",
+      "❌ Error procesando la ubicación. Por favor intenta nuevamente enviando tu dirección como texto o tu ubicación GPS.",
       storeId
     );
   }
 }
 
+
+
+
 // Función para geocodificar direcciones de texto (opcional)
-async function geocodeAddress(address: string): Promise<{latitude: number, longitude: number} | null> {
+
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    // Usando OpenStreetMap Nominatim (gratuito)
+    console.log(`🌍 Geocoding address: ${address}`);
+    
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+      {
+        headers: {
+          'User-Agent': 'WhatsAppOrderManager/1.0'
+        }
+      }
     );
     
     if (response.ok) {
       const data = await response.json();
       if (data && data.length > 0) {
-        return {
+        const result = {
           latitude: parseFloat(data[0].lat),
           longitude: parseFloat(data[0].lon)
         };
+        console.log(`✅ Address geocoded: ${result.latitude}, ${result.longitude}`);
+        return result;
       }
     }
     
+    console.log(`⚠️ Could not geocode address`);
     return null;
   } catch (error) {
     console.error('❌ Error geocoding address:', error);
     return null;
   }
 }
-
 // Función para calcular distancia entre dos puntos (útil para costos de envío)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Radio de la Tierra en kilómetros

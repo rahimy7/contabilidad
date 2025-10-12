@@ -26,6 +26,12 @@ interface StoreInfo {
   whatsappNumber?: string;
 }
 
+// ✅ TASAS DE CAMBIO (mismas que SimpleCatalog)
+const EXCHANGE_RATES = {
+  'USD_TO_DOP': 58.5,
+  'DOP_TO_USD': 0.017
+};
+
 export default function ShareProduct() {
   const [, setLocation] = useLocation();
   const [productId, setProductId] = useState<number | null>(null);
@@ -82,14 +88,126 @@ export default function ShareProduct() {
     }).format(numPrice);
   };
 
+  // ✅ FUNCIÓN DE CONVERSIÓN DE MONEDA (igual que SimpleCatalog)
+  const convertToTargetCurrency = (price: number, fromCurrency: string, targetCurrency: string = 'DOP') => {
+    if (fromCurrency === targetCurrency) return price;
+    
+    if (fromCurrency === 'USD' && targetCurrency === 'DOP') {
+      return price * EXCHANGE_RATES.USD_TO_DOP;
+    }
+    if (fromCurrency === 'DOP' && targetCurrency === 'USD') {
+      return price * EXCHANGE_RATES.DOP_TO_USD;
+    }
+    
+    return price;
+  };
+
+  const formatCurrency = (amount: number, currency: string = 'DOP') => {
+    if (currency === 'USD') {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(amount);
+    } else {
+      return new Intl.NumberFormat('es-DO', {
+        style: 'currency',
+        currency: 'DOP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+  };
+
+  // ✅ NUEVO FORMATO DE MENSAJE WHATSAPP (igual que SimpleCatalog)
   const handleWhatsAppOrder = () => {
     if (!product || !storeInfo) return;
     
-    const phone = storeInfo.whatsappNumber || storeInfo.phone || '';
-    const message = `¡Hola! Me interesa el producto:\n\n*${product.name}*\n${formatPrice(product.price, product.baseCurrency)}\n\n¿Está disponible?`;
+    const originalPrice = parseFloat(product.price || '0');
+    const baseCurrency = product.baseCurrency || product.currency || 'DOP';
+    const convertedPrice = convertToTargetCurrency(originalPrice, baseCurrency, 'DOP');
     
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const storeName = storeInfo.name || 'TIENDA';
+    const orderMessage = `🛍️ *NUEVO PEDIDO - ${storeName.toUpperCase()}*
+
+1. *${product.name}*[ID:${product.id}]
+   Cantidad: 1
+   Precio unitario: ${formatCurrency(convertedPrice, 'DOP')}
+   Subtotal: ${formatCurrency(convertedPrice, 'DOP')}
+
+💰 *TOTAL: ${formatCurrency(convertedPrice, 'DOP')}*
+
+📋 Por favor confirma la disponibilidad y tiempo de entrega.
+💲 Todos los precios están en Pesos Dominicanos (DOP).
+¡Gracias por tu preferencia! 🙏`;
+    
+    const phone = storeInfo.whatsappNumber || storeInfo.phone || '';
+    const cleanPhoneNumber = phone.replace(/[^\d]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhoneNumber}?text=${encodeURIComponent(orderMessage)}`;
+    
     window.open(whatsappUrl, '_blank');
+  };
+
+  // ✅ NUEVA FUNCIÓN: Agregar al carrito y redirigir
+  const handleAddToCartAndContinue = () => {
+    if (!product || !storeId) return;
+    
+    // Convertir producto a DOP
+    const originalPrice = parseFloat(product.price || '0');
+    const baseCurrency = product.baseCurrency || product.currency || 'DOP';
+    const convertedPrice = convertToTargetCurrency(originalPrice, baseCurrency, 'DOP');
+    
+    // Preparar producto para el carrito
+    const cartProduct = {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      originalPrice,
+      originalCurrency: baseCurrency,
+      convertedPrice,
+      displayCurrency: 'DOP',
+      conversionApplied: baseCurrency !== 'DOP',
+      formattedPrice: formatCurrency(convertedPrice, 'DOP'),
+      originalFormattedPrice: formatCurrency(originalPrice, baseCurrency),
+      cartPrice: convertedPrice,
+      quantity: 1,
+      imageUrl: getProductImage(),
+      images: product.images || [getProductImage()],
+      category: product.category,
+      brand: product.brand,
+    };
+
+    // Obtener carrito actual del localStorage
+    const cartKey = `cart_store_${storeId}`;
+    let currentCart = [];
+    
+    try {
+      const savedCart = localStorage.getItem(cartKey);
+      if (savedCart) {
+        currentCart = JSON.parse(savedCart);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
+    }
+
+    // Verificar si el producto ya está en el carrito
+    const existingItemIndex = currentCart.findIndex((item: any) => item.id === product.id);
+    
+    if (existingItemIndex >= 0) {
+      // Incrementar cantidad
+      currentCart[existingItemIndex].quantity += 1;
+    } else {
+      // Agregar nuevo producto
+      currentCart.push(cartProduct);
+    }
+
+    // Guardar carrito actualizado
+    localStorage.setItem(cartKey, JSON.stringify(currentCart));
+
+    // Redirigir a SimpleCatalog
+    setLocation(`/simple-catalog?store=${storeId}`);
   };
 
   const handleGoToCatalog = () => {
@@ -233,7 +351,7 @@ export default function ShareProduct() {
                 </div>
               )}
 
-              {/* Botones de acción */}
+              {/* Botones de acción - ACTUALIZADOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <Button 
                   onClick={handleWhatsAppOrder}
@@ -244,11 +362,11 @@ export default function ShareProduct() {
                 </Button>
                 
                 <Button 
-                  onClick={handleGoToCatalog}
+                  onClick={handleAddToCartAndContinue}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold rounded-xl shadow-lg flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  Ver Catálogo Web
+                  Agregar al Carrito
                 </Button>
               </div>
 
@@ -260,7 +378,7 @@ export default function ShareProduct() {
                     <div>
                       <h4 className="font-semibold text-green-900 mb-1">¿Necesitas ayuda?</h4>
                       <p className="text-sm text-green-700">
-                        Contacta con nosotros por WhatsApp para más información sobre este producto o realiza tu pedido directamente en nuestro catálogo web.
+                        Contacta con nosotros por WhatsApp para más información sobre este producto o agrégalo al carrito para seguir comprando en nuestro catálogo web.
                       </p>
                     </div>
                   </div>
