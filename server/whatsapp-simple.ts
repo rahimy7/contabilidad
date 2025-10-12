@@ -623,13 +623,15 @@ async function handleRegistrationFlow(
   await sendAutoResponseMessage(customer.phone, 'collect_address', storeId, tenantStorage);
   break;
 
-     case 'collect_address':
+ case 'collect_address':
   console.log(`📍 PROCESSING ADDRESS COLLECTION (text or GPS location)`);
   console.log(`📱 Message type: ${messageData?.type}`);
+  console.log(`📝 Message text: "${messageText}"`);
   
+  // ✅ Usar handleCollectAddressStep que maneja tanto GPS como texto
   await handleCollectAddressStep(
     customer,
-    messageData,  // ⬅️ Detecta ubicación GPS
+    messageData,  // ⬅️ Contiene message.location si es GPS
     messageText,
     registrationFlow,
     collectedData,
@@ -1749,28 +1751,35 @@ export async function processIncomingUserMessage(webhookData: any, storeMapping:
     }
 
     const message = value.messages[0];
-    const customerPhone = message.from;
-    const messageId = message.id;
-    const messageType = message.type || 'text';
-    let messageText = '';
+const customerPhone = message.from;
+const messageId = message.id;
+const messageType = message.type || 'text';
+let messageText = '';
 
-    // Extraer texto o acción según el tipo de mensaje
-    if (messageType === 'text') {
-      messageText = message.text?.body || '';
-    } else if (messageType === 'interactive' && message.interactive?.button_reply) {
-      // Procesar botón presionado
-      const buttonId = message.interactive.button_reply.id;
-      const buttonTitle = message.interactive.button_reply.title;
-      
-      console.log(`🔘 BUTTON PRESSED: ${buttonId} (${buttonTitle})`);
-      
-      // Usar el ID del botón como texto del mensaje
-      messageText = buttonId;
-    } else {
-      console.log(`ℹ️ SKIPPING UNSUPPORTED MESSAGE - Type: ${messageType}, From: ${customerPhone}`);
-      return;
-    }
-
+// Extraer texto o acción según el tipo de mensaje
+if (messageType === 'text') {
+  messageText = message.text?.body || '';
+} else if (messageType === 'interactive' && message.interactive?.button_reply) {
+  // Procesar botón presionado
+  const buttonId = message.interactive.button_reply.id;
+  const buttonTitle = message.interactive.button_reply.title;
+  
+  console.log(`🔘 BUTTON PRESSED: ${buttonId} (${buttonTitle})`);
+  
+  // Usar el ID del botón como texto del mensaje
+  messageText = buttonId;
+} else if (messageType === 'location') {
+  // ✅ NUEVO: Permitir mensajes de ubicación
+  console.log(`📍 LOCATION MESSAGE RECEIVED - From: ${customerPhone}`);
+  console.log(`📍 Location data:`, JSON.stringify(message.location));
+  
+  // No extraer texto, pero permitir que continúe el procesamiento
+  // El mensaje completo (con location) se pasará a handleRegistrationFlow
+  messageText = '[LOCATION]'; // Marcador para identificar que es ubicación
+} else {
+  console.log(`ℹ️ SKIPPING UNSUPPORTED MESSAGE - Type: ${messageType}, From: ${customerPhone}`);
+  return;
+}
     // Validar que tenemos contenido para procesar
     if (!messageText || messageText.trim() === '') {
       console.log(`ℹ️ SKIPPING EMPTY MESSAGE - From: ${customerPhone}`);
