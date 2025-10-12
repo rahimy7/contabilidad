@@ -3946,12 +3946,12 @@ async function handleCollectAddressStep(
     
     // Continuar al siguiente paso
     await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-      currentStep: 'collect_contact',
+      currentStep: 'collect_address',
       collectedData: JSON.stringify(collectedData),
       updatedAt: new Date()
     });
     
-    await sendAutoResponseMessage(customer.phone, 'collect_contact', storeId, tenantStorage);
+    await sendAutoResponseMessage(customer.phone, 'collect_address', storeId, tenantStorage);
     
   } catch (error) {
     console.error('❌ Error handling address collection:', error);
