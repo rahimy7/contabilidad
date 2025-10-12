@@ -765,35 +765,29 @@ async function handleRegistrationFlow(
     
     return; // ⚠️ IMPORTANTE: Salir sin continuar
     
-  } else if (confirmLower.includes('cancelar') || 
-             confirmLower.includes('cancel')) {
-    
-    console.log(`❌ USER WANTS TO CANCEL ORDER`);
-    
-    // ✅ CANCELAR ORDEN Y FLUJO
-    if (registrationFlow.orderId) {
-      await tenantStorage.updateOrder(registrationFlow.orderId, {
-        status: 'cancelled',
-        updatedAt: new Date()
-      });
-    }
-    
-    await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
-      currentStep: 'cancelled',
-      isCompleted: true,
-      completedAt: new Date(),
+  } else if (confirmLower.includes('cancelar') || confirmLower.includes('cancel')) {
+  console.log(`❌ USER WANTS TO CANCEL ORDER`);
+
+  if (registrationFlow.orderId) {
+    await tenantStorage.updateOrder(registrationFlow.orderId, {
+      status: 'cancelled',
       updatedAt: new Date()
     });
+  }
+
+  // Eliminar flujo de registro completamente
+  await tenantStorage.deleteRegistrationFlowByPhone(customer.phone);
+
+  await sendWhatsAppMessageDirect(
+    customer.phone,
+    "❌ Pedido cancelado. Si cambias de opinión, puedes hacer un nuevo pedido cuando gustes.",
+    storeId
+  );
+
+  return;
+}
     
-    await sendWhatsAppMessageDirect(
-      customer.phone,
-      "❌ Pedido cancelado. Si cambias de opinión, puedes hacer un nuevo pedido cuando gustes.",
-      storeId
-    );
-    
-    return; // ⚠️ IMPORTANTE: Salir sin continuar
-    
-  } else {
+   else {
     console.log(`❓ UNCLEAR RESPONSE - Re-sending confirmation`);
     
     // ✅ RESPUESTA NO CLARA - Volver a enviar confirmación CON INSTRUCCIONES CLARAS
