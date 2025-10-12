@@ -1037,10 +1037,21 @@ app.get('/share-product', async (req, res) => {
 
     const formatPrice = (price: string | number, currency: string = 'DOP') => {
       const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+      
+      // ✅ Siempre convertir a DOP para preview de WhatsApp
+      let priceInDOP = numPrice;
+      
+      // Si el producto está en USD, convertir a DOP
+      if (currency === 'USD') {
+        // Tasa de cambio: 1 USD = ~60 DOP (ajustar según tu tasa actual)
+        const exchangeRate = 60; // TODO: Obtener de la base de datos o API
+        priceInDOP = numPrice * exchangeRate;
+      }
+      
       return new Intl.NumberFormat('es-DO', {
         style: 'currency',
-        currency: currency === 'USD' ? 'USD' : 'DOP',
-      }).format(numPrice);
+        currency: 'DOP',
+      }).format(priceInDOP);
     };
 
     const productPrice = formatPrice(product.price, product.baseCurrency || product.base_currency || 'DOP');
