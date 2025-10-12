@@ -985,6 +985,158 @@ console.log('✅ API Router mounted successfully');
       console.error('Express error handler:', err);
     });
 
+// ===================================================
+// VERSIÓN PARA PRODUCCIÓN
+// Reemplazar la versión de desarrollo si NODE_ENV === 'production'
+// ===================================================
+
+// ✅ MIDDLEWARE PARA SSR DE SHARE-PRODUCT (PRODUCCIÓN)
+app.get('/share-product', async (req, res) => {
+  try {
+    const productId = req.query.productId as string;
+    const storeId = req.query.store as string;
+    
+    console.log('🔍 Share-product SSR request:', { productId, storeId });
+
+    if (!productId || !storeId) {
+      return res.redirect('/');
+    }
+
+    const productIdInt = parseInt(productId);
+    const storeIdInt = parseInt(storeId);
+
+    let product: any = null;
+    let store: any = null;
+
+    try {
+      const tenantStorage = await storageFactory.getTenantStorage(storeIdInt);
+      product = await tenantStorage.getProductById(productIdInt);
+      store = await masterStorage.getVirtualStore(storeIdInt);
+    } catch (error) {
+      console.error('Error fetching product for SSR:', error);
+      return res.redirect('/');
+    }
+
+    if (!product || !store) {
+      return res.redirect('/');
+    }
+
+    let productImage = 'https://via.placeholder.com/1200x630/25D366/FFFFFF?text=Producto';
+    if (product.images && product.images.length > 0) {
+      productImage = product.images[0];
+    } else if (product.imageUrl) {
+      productImage = product.imageUrl;
+    }
+
+    if (!productImage.startsWith('http')) {
+      const baseUrl = process.env.RAILWAY_STATIC_URL || 
+                     `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` ||
+                     req.protocol + '://' + req.get('host');
+      productImage = `${baseUrl}${productImage}`;
+    }
+
+    const formatPrice = (price: string | number, currency: string = 'DOP') => {
+      const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+      return new Intl.NumberFormat('es-DO', {
+        style: 'currency',
+        currency: currency === 'USD' ? 'USD' : 'DOP',
+      }).format(numPrice);
+    };
+
+    const productPrice = formatPrice(product.price, product.baseCurrency || product.base_currency || 'DOP');
+    const productUrl = `${req.protocol}://${req.get('host')}/share-product?productId=${productId}&store=${storeId}`;
+    
+    // Escapar caracteres HTML
+    const escapeHtml = (text: string) => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const safeProductName = escapeHtml(product.name);
+    const safeProductDesc = escapeHtml(product.description || `${product.name} - ${productPrice}`);
+    const safeStoreName = escapeHtml(store.name);
+
+    // En producción, leer el index.html compilado
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // Leer el index.html del build
+      const fs = await import('fs');
+      const path = await import('path');
+      const indexPath = path.join(process.cwd(), 'dist', 'public', 'index.html');
+      
+      let html = fs.readFileSync(indexPath, 'utf-8');
+      
+      // Inyectar meta tags en el <head>
+      const metaTags = `
+  <title>${safeProductName} - Comprar Ahora</title>
+  <meta name="description" content="${safeProductDesc}">
+  <meta property="og:type" content="product">
+  <meta property="og:url" content="${productUrl}">
+  <meta property="og:title" content="${safeProductName}">
+  <meta property="og:description" content="${safeProductName} - ${productPrice}">
+  <meta property="og:image" content="${productImage}">
+  <meta property="og:image:secure_url" content="${productImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${safeProductName}">
+  <meta property="og:site_name" content="${safeStoreName}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${productUrl}">
+  <meta name="twitter:title" content="${safeProductName}">
+  <meta name="twitter:description" content="${safeProductName} - ${productPrice}">
+  <meta name="twitter:image" content="${productImage}">
+      `;
+      
+      html = html.replace('</head>', `${metaTags}</head>`);
+      
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(html);
+    }
+
+    // Desarrollo: HTML simple que carga Vite
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeProductName} - Comprar Ahora</title>
+  <meta name="description" content="${safeProductDesc}">
+  <meta property="og:type" content="product">
+  <meta property="og:url" content="${productUrl}">
+  <meta property="og:title" content="${safeProductName}">
+  <meta property="og:description" content="${safeProductName} - ${productPrice}">
+  <meta property="og:image" content="${productImage}">
+  <meta property="og:image:secure_url" content="${productImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${safeProductName}">
+  <meta property="og:site_name" content="${safeStoreName}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${safeProductName}">
+  <meta name="twitter:image" content="${productImage}">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
+    `.trim();
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+
+  } catch (error) {
+    console.error('Error in share-product SSR:', error);
+    res.redirect('/');
+  }
+});
+
     // Setup Vite or serve static files
     if (process.env.NODE_ENV === 'development') {
       await setupVite(app, server);
