@@ -33,6 +33,7 @@ import { getTenantDb } from "./multi-tenant-db.js";
 import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
 import superAdminRoutes from './routes/super-admin-routes';
+import { executeAutoAssignment } from "./services/auto-assignment-service.js";
 
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
@@ -2784,9 +2785,168 @@ items: items.map((item: any) => ({
     }
   });
 
+router.post('/orders', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const orderData = req.body;
+    
+    console.log('📝 [CREATE ORDER] Creating new order with data:', orderData);
 
+    // Generar número de orden único
+    const orderNumber = await tenantStorage.generateOrderNumber();
+    
+    // Preparar datos de la orden
+    const newOrderData = {
+      ...orderData,
+      orderNumber,
+      // Asegurar que los campos de sector estén incluidos
+      customerProvince: orderData.customerProvince || null,
+      customerMunicipality: orderData.customerMunicipality || null,
+      customerSector: orderData.customerSector || null,
+      status: 'pending', // Estado inicial
+      autoAssigned: false,
+      assignmentAttempts: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-  router.post('/orders', authenticateToken, async (req: any, res: any) => {
+    // Crear la orden
+    const order = await tenantStorage.createOrder(newOrderData);
+    
+    console.log('✅ [CREATE ORDER] Order created:', order.id);
+
+    // ✅ EJECUTAR ASIGNACIÓN AUTOMÁTICA si hay reglas activas
+    try {
+      const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
+      
+      if (assignmentResult.success) {
+        console.log(`🎯 [AUTO-ASSIGN] ${assignmentResult.message}`);
+        
+        // Recargar la orden con la asignación
+        const updatedOrder = await tenantStorage.getOrder(order.id);
+        
+        return res.status(201).json({
+          ...updatedOrder,
+          autoAssignmentMessage: assignmentResult.message
+        });
+      } else {
+        console.log(`⚠️ [AUTO-ASSIGN] ${assignmentResult.message}`);
+        // Si no se pudo asignar automáticamente, devolver la orden sin asignar
+        return res.status(201).json({
+          ...order,
+          autoAssignmentMessage: assignmentResult.message
+        });
+      }
+    } catch (autoAssignError) {
+      console.error('❌ [AUTO-ASSIGN] Error during auto-assignment:', autoAssignError);
+      // Si hay error en auto-asignación, aún devolver la orden creada
+      return res.status(201).json({
+        ...order,
+        autoAssignmentMessage: 'Error en asignación automática, orden creada sin asignar'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [CREATE ORDER] Error creating order:', error);
+    res.status(500).json({ 
+      error: 'Failed to create order',
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint para probar asignación automática manualmente (usar en testing)
+router.post('/orders/:orderId/auto-assign', authenticateToken, async (req: any, res: any) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log(`🧪 [TEST AUTO-ASSIGN] Testing auto-assignment for order: ${orderId}`);
+    
+    const result = await executeAutoAssignment(orderId, tenantStorage);
+    
+    if (result.success) {
+      const updatedOrder = await tenantStorage.getOrder(orderId);
+      res.json({
+        success: true,
+        message: result.message,
+        order: updatedOrder
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ [TEST AUTO-ASSIGN] Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to test auto-assignment',
+      details: error.message 
+    });
+  }
+});
+
+// ✅ NUEVO: Endpoint para obtener estadísticas de disponibilidad del equipo
+router.get('/team/availability-stats', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const { schema, tenantDb } = tenantStorage;
+    
+    // Obtener todos los técnicos con sus estadísticas
+    const technicians = await tenantDb
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        status: schema.users.status,
+        currentOrders: schema.employeeProfiles.currentOrders,
+        maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
+        province: schema.employeeProfiles.province,
+        municipality: schema.employeeProfiles.municipality,
+        sector: schema.employeeProfiles.sector,
+        specializations: schema.employeeProfiles.specializations,
+        skillLevel: schema.employeeProfiles.skillLevel,
+      })
+      .from(schema.users)
+      .innerJoin(schema.employeeProfiles, eq(schema.employeeProfiles.userId, schema.users.id))
+      .where(eq(schema.users.role, 'technical'));
+    
+    // Calcular estadísticas
+    const stats = {
+      total: technicians.length,
+      available: technicians.filter(t => t.status === 'active' && t.currentOrders < t.maxDailyOrders).length,
+      busy: technicians.filter(t => t.status === 'busy' || t.currentOrders >= t.maxDailyOrders).length,
+      offline: technicians.filter(t => t.status === 'offline').length,
+      byProvince: technicians.reduce((acc, t) => {
+        const province = t.province || 'Sin asignar';
+        if (!acc[province]) acc[province] = 0;
+        acc[province]++;
+        return acc;
+      }, {} as Record<string, number>),
+      averageLoad: technicians.length > 0 
+        ? (technicians.reduce((sum, t) => sum + (t.currentOrders / t.maxDailyOrders), 0) / technicians.length * 100).toFixed(1)
+        : 0,
+      technicians: technicians.map(t => ({
+        ...t,
+        availabilityPercentage: ((1 - (t.currentOrders / t.maxDailyOrders)) * 100).toFixed(0),
+        isAvailable: t.status === 'active' && t.currentOrders < t.maxDailyOrders
+      }))
+    };
+    
+    res.json(stats);
+    
+  } catch (error) {
+    console.error('Error fetching team availability:', error);
+    res.status(500).json({ error: 'Failed to fetch team availability' });
+  }
+});
+
+ /*  router.post('/orders', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
       const orderData = { ...req.body, storeId: user.storeId };
@@ -2825,7 +2985,7 @@ items: items.map((item: any) => ({
       console.error('❌ Error creating order:', error);
       res.status(500).json({ error: "Failed to create order" });
     }
-  });
+  }); */
 
 /*   router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
     try {

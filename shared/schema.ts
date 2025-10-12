@@ -270,45 +270,34 @@ export const products = pgTable("products", {
 // Incluye campo específico para número de contacto de entrega
 
 export const orders = pgTable("orders", {
-  // Campos básicos
   id: serial("id").primaryKey(),
   orderNumber: text("order_number").notNull().unique(),
-  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  customerId: integer("customer_id").references(() => customers.id),
+  
+  // Información de ubicación del cliente
+  customerProvince: text("customer_province"),
+  customerMunicipality: text("customer_municipality"),
+  customerSector: text("customer_sector"),
+  customerAddress: text("customer_address"),
+  customerLatitude: decimal("customer_latitude", { precision: 10, scale: 8 }),
+  customerLongitude: decimal("customer_longitude", { precision: 11, scale: 8 }),
+  
+  // ... resto de campos existentes
   assignedUserId: integer("assigned_user_id").references(() => users.id),
+  assignedRuleId: integer("assigned_rule_id").references(() => assignmentRules.id),
+  autoAssigned: boolean("auto_assigned").default(false),
+  assignmentAttempts: integer("assignment_attempts").default(0),
   
-  // Estado y prioridad
-  status: text("status").notNull().default("pending"), // 'pending', 'assigned', 'in_progress', 'completed', 'cancelled'
-  priority: text("priority").notNull().default("normal"), // 'low', 'normal', 'high', 'urgent'
-  
-  // Información financiera
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  deliveryCost: decimal("delivery_cost", { precision: 10, scale: 2 }).default("0"),
-  
-  // ✅ INFORMACIÓN DE ENTREGA
-  deliveryAddress: text("delivery_address"),
-  contactNumber: text("contact_number"), // ✅ CAMPO ESPECÍFICO PARA CONTACTO DE ENTREGA
-  estimatedDelivery: timestamp("estimated_delivery"),
-  estimatedDeliveryTime: text("estimated_delivery_time"), // VARCHAR field
-  
-  // ✅ INFORMACIÓN DE PAGO  
-  paymentMethod: text("payment_method"),
-  paymentStatus: text("payment_status").default("pending"),
-  
-  // Información adicional
+  status: text("status").notNull().default("pending"),
+  priority: text("priority").default("normal"),
+  serviceType: text("service_type"),
   description: text("description"),
-  notes: text("notes"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
   
-  // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  lastStatusUpdate: timestamp("last_status_update").defaultNow(),
-  customerLastInteraction: timestamp("customer_last_interaction"),
-  
-  // Información de modificaciones
-  modificationCount: integer("modification_count").default(0),
-  
-  // Información de la tienda
-  storeId: integer("store_id").notNull(),
+  scheduledDate: timestamp("scheduled_date"),
+  completedDate: timestamp("completed_date"),
 });
 
 export const orderItems = pgTable("order_items", {
@@ -445,27 +434,37 @@ export const customerRegistrationFlows = pgTable("customer_registration_flows", 
 export const employeeProfiles = pgTable("employee_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull().unique(),
-  employeeId: text("employee_id").notNull().unique(), // Format: EMP-001, TECH-001, DEL-001, etc.
-  department: text("department").notNull(), // 'technical', 'sales', 'delivery', 'support', 'admin'
-  position: text("position").notNull(), // 'Senior Technician', 'Delivery Driver', etc.
-  specializations: text("specializations").array(), // e.g., ['air_conditioning', 'electrical', 'plumbing']
-  workSchedule: text("work_schedule"), // JSON string with schedule
+  employeeId: text("employee_id").notNull().unique(),
+  department: text("department").notNull(),
+  position: text("position").notNull(),
+  specializations: text("specializations").array(),
+  workSchedule: text("work_schedule"),
   emergencyContact: text("emergency_contact"),
   emergencyPhone: text("emergency_phone"),
-  vehicleInfo: text("vehicle_info"), // JSON for delivery personnel
-  certifications: text("certifications").array(), // Professional certifications
+  vehicleInfo: text("vehicle_info"),
+  certifications: text("certifications").array(),
   salary: decimal("salary", { precision: 10, scale: 2 }),
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }), // For sales roles
-  territory: text("territory"), // Geographic assignment for delivery/sales
-  // Location fields for automatic assignment
-  baseLatitude: decimal("base_latitude", { precision: 10, scale: 8 }), // Employee's base location
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }),
+  
+  // ✅ NUEVOS CAMPOS DE SECTORES - Reemplazan territory
+  province: text("province"), // Provincia (ej: "Santo Domingo")
+  municipality: text("municipality"), // Municipio (ej: "Santo Domingo Este")
+  sector: text("sector"), // Sector específico (ej: "Los Prados")
+  coverageProvinces: text("coverage_provinces").array(), // Provincias que cubre
+  coverageMunicipalities: text("coverage_municipalities").array(), // Municipios que cubre
+  coverageSectors: text("coverage_sectors").array(), // Sectores específicos que cubre
+  
+  // Mantener campos de ubicación base para referencia
+  baseLatitude: decimal("base_latitude", { precision: 10, scale: 8 }),
   baseLongitude: decimal("base_longitude", { precision: 11, scale: 8 }),
-  baseAddress: text("base_address"), // Readable address of base location
-  serviceRadius: decimal("service_radius", { precision: 5, scale: 2 }).default("10.0"), // Service radius in km
-  maxDailyOrders: integer("max_daily_orders").default(5), // Maximum orders per day
-  currentOrders: integer("current_orders").default(0), // Current active orders
-  availabilityHours: text("availability_hours"), // JSON: {"monday": "08:00-18:00", ...}
-  skillLevel: integer("skill_level").default(1), // 1-5 skill rating
+  baseAddress: text("base_address"),
+  
+  // Configuración de trabajo
+  serviceRadius: decimal("service_radius", { precision: 5, scale: 2 }).default("10.0"),
+  maxDailyOrders: integer("max_daily_orders").default(5),
+  currentOrders: integer("current_orders").default(0),
+  availabilityHours: text("availability_hours"), // JSON: {"monday": "08:00-18:00"}
+  skillLevel: integer("skill_level").default(1), // 1-5
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -495,27 +494,38 @@ export const assignmentRules = pgTable("assignment_rules", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   isActive: boolean("is_active").default(true),
-  priority: integer("priority").default(1), // Higher number = higher priority
-  // Location criteria
-  useLocationBased: boolean("use_location_based").default(true),
-  maxDistanceKm: decimal("max_distance_km", { precision: 5, scale: 2 }).default("15.0"),
-  // Specialization criteria
+  priority: integer("priority").default(1), // Mayor número = mayor prioridad
+  
+  // ✅ CRITERIOS DE UBICACIÓN BASADOS EN SECTORES
+  useSectorBased: boolean("use_sector_based").default(true),
+  requiredProvince: text("required_province"), // Provincia requerida
+  requiredMunicipality: text("required_municipality"), // Municipio requerido
+  requiredSectors: text("required_sectors").array(), // Sectores específicos
+  allowAdjacentMunicipalities: boolean("allow_adjacent_municipalities").default(true),
+  
+  // Criterios de especialización
   useSpecializationBased: boolean("use_specialization_based").default(true),
-  requiredSpecializations: text("required_specializations").array(), // Required specializations for this rule
-  // Workload criteria
+  requiredSpecializations: text("required_specializations").array(),
+  
+  // Criterios de carga de trabajo
   useWorkloadBased: boolean("use_workload_based").default(true),
   maxOrdersPerTechnician: integer("max_orders_per_technician").default(5),
-  // Time criteria
+  
+  // Criterios de tiempo
   useTimeBased: boolean("use_time_based").default(true),
   availabilityRequired: boolean("availability_required").default(true),
-  // Product/Service criteria
-  applicableProducts: text("applicable_products").array(), // Product IDs this rule applies to
-  applicableServices: text("applicable_services").array(), // Service categories
-  // Assignment behavior
-  assignmentMethod: text("assignment_method").default("closest_available"), // closest_available, least_busy, highest_skill, round_robin
-  autoAssign: boolean("auto_assign").default(true), // Automatically assign or just suggest
+  
+  // Aplicabilidad
+  applicableProducts: text("applicable_products").array(),
+  applicableServices: text("applicable_services").array(),
+  
+  // Comportamiento de asignación
+  assignmentMethod: text("assignment_method").default("closest_available"),
+  // Opciones: closest_available, least_busy, highest_skill, round_robin
+  autoAssign: boolean("auto_assign").default(true), // ✅ Ejecutar automáticamente
   notifyCustomer: boolean("notify_customer").default(true),
-  estimatedResponseTime: integer("estimated_response_time").default(60), // minutes
+  estimatedResponseTime: integer("estimated_response_time").default(60),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
