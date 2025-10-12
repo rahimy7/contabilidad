@@ -4401,13 +4401,13 @@ async function sendPendingOrdersWelcomeMessage(
     
     // ✅ AQUÍ ESTÁ EL CAMBIO PRINCIPAL: BOTONES CON LABELS DESCRIPTIVOS
     const buttons = [
-      {
+     /*  {
         type: 'reply',
         reply: {
           id: 'track_orders',           // ✅ ID específico que tu detectOrderActionMessage ya reconoce
           title: '📦 Ver mis órdenes'   // ✅ CAMBIO: Label descriptivo en lugar de "Opción 1"
         }
-      },
+      }, */
       {
         type: 'reply',
         reply: {
@@ -5635,9 +5635,9 @@ async function sendDefaultCatalogMessage(phoneNumber: string, storeId: number): 
 async function handleSupportRequest(customer: any, pendingOrders: any[], storeId: number): Promise<void> {
   try {
     let message = `💬 *Soporte al Cliente*\n\n`;
-    message += `¡Estamos aquí para ayudarte!\n\n`;
+    message += `¡Estamos aquí para ayudarte en unos momentos uno de nuestros agentes se comunicara con usted!\n\n`;
     
-    if (pendingOrders.length > 0) {
+   /*  if (pendingOrders.length > 0) {
       message += `📦 Tienes ${pendingOrders.length} orden(es) pendiente(s)\n\n`;
     }
     
@@ -5667,17 +5667,17 @@ async function handleSupportRequest(customer: any, pendingOrders: any[], storeId
       }
     ];
     
-    await sendWhatsAppMessageWithButtonsAlternative(customer.phone, message, buttons, storeId);
+    await sendWhatsAppMessageWithButtonsAlternative(customer.phone, message, buttons, storeId); */
     
   } catch (error) {
     console.error('❌ Error handling support request with buttons:', error);
-    
+   /*  
     let fallbackMessage = `💬 Soporte:\n\n`;
     fallbackMessage += `📦 "*orden*" para ayuda con pedidos\n`;
     fallbackMessage += `❓ "*consulta*" para información general\n`;
     fallbackMessage += `🚨 "*urgente*" para casos críticos`;
     
-    await sendWhatsAppMessageDirect(customer.phone, fallbackMessage, storeId);
+    await sendWhatsAppMessageDirect(customer.phone, fallbackMessage, storeId); */
   }
 }
 
