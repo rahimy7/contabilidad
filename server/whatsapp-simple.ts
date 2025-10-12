@@ -2639,7 +2639,7 @@ async function processWebCatalogOrderSimple(
       customerId: customer.id,
       totalAmount: total.toString(),
       status: 'pending',
-      notes: `Pedido generado automáticamente desde catálogo web.\nTotal: $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+      notes: `Pedido generado automáticamente desde catálogo web.\nTotal: ${total.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}`,
       storeId: storeId,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -2662,7 +2662,9 @@ async function processWebCatalogOrderSimple(
         
         // Preparar datos para reemplazar en el mensaje
         const orderItemsText = orderItems.map(item => 
-          `• ${item.name} x${item.quantity} - $${(item.price * item.quantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+          `• ${item.name} x${item.quantity} - ${(item.price * item.quantity).toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
+`
+          
         ).join('\n');
         
         const subtotal = total;
@@ -2674,9 +2676,10 @@ async function processWebCatalogOrderSimple(
         finalMessage = finalMessage
           .replace('{customerName}', customer.name || 'Cliente')
           .replace('{orderItems}', orderItemsText)
-          .replace('{subtotal}', subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 }))
-          .replace('{deliveryCost}', deliveryCost.toLocaleString('es-MX', { minimumFractionDigits: 2 }))
-          .replace('{totalAmount}', totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 }));
+          .replace('{subtotal}', subtotal.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
+          .replace('{deliveryCost}', deliveryCost.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
+          .replace('{totalAmount}', totalAmount.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }));
+
         
         console.log(`📤 SENDING order_received MESSAGE...`);
         
@@ -2705,7 +2708,9 @@ async function processWebCatalogOrderSimple(
 ${orderItems.map(item => 
           `• ${item.name} (Cantidad: ${item.quantity})`
         ).join('\n')}
-💰 Total: $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+💰 Total: ${total.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
+
+
 
 🎯 Tu pedido ha sido registrado exitosamente.
 📝 Para procesar tu pedido necesitamos algunos datos. ¿Comenzamos?`;
@@ -5637,14 +5642,14 @@ async function handleSupportRequest(customer: any, pendingOrders: any[], storeId
     let message = `💬 *Soporte al Cliente*\n\n`;
     message += `¡Estamos aquí para ayudarte en unos momentos uno de nuestros agentes se comunicara con usted!\n\n`;
     
-   /*  if (pendingOrders.length > 0) {
+    if (pendingOrders.length > 0) {
       message += `📦 Tienes ${pendingOrders.length} orden(es) pendiente(s)\n\n`;
     }
     
-    message += `¿Con qué necesitas ayuda?`;
+    // message += `¿Con qué necesitas ayuda?`;
     
     const buttons = [
-      {
+      /* {
         type: 'reply',
         reply: {
           id: 'order_help',
@@ -5664,10 +5669,10 @@ async function handleSupportRequest(customer: any, pendingOrders: any[], storeId
           id: 'urgent_help',
           title: '🚨 Urgente'
         }
-      }
+      } */
     ];
     
-    await sendWhatsAppMessageWithButtonsAlternative(customer.phone, message, buttons, storeId); */
+    await sendWhatsAppMessageWithButtonsAlternative(customer.phone, message, buttons, storeId); 
     
   } catch (error) {
     console.error('❌ Error handling support request with buttons:', error);

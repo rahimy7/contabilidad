@@ -534,7 +534,7 @@ export default function AutoResponsesPage() {
                         <Edit className="h-3 w-3 mr-1" />
                         Editar
                       </Button>
-                      <Button
+                      {/* <Button
                         variant="outline"
                         size="sm"
                         onClick={() => deleteResponseMutation.mutate(response.id)}
@@ -543,7 +543,7 @@ export default function AutoResponsesPage() {
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
                         Eliminar
-                      </Button>
+                      </Button> */}
                     </div>
                   </CardContent>
                 </Card>
