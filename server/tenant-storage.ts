@@ -1432,10 +1432,6 @@ async getEmployeesWithProfiles() {
         role: schema.users.role,
         status: schema.users.status,
         employeeProfileId: schema.users.employeeProfileId,
-        emergencyContact: schema.users.emergencyContact,
-        emergencyPhone: schema.users.emergencyPhone,
-        vehicleInfo: schema.users.vehicleInfo,
-        currentOrders: schema.users.currentOrders,
         address: schema.users.address,
         createdAt: schema.users.createdAt,
         updatedAt: schema.users.updatedAt,
@@ -1447,13 +1443,7 @@ async getEmployeesWithProfiles() {
         schema.employeeProfiles, 
         eq(schema.users.employeeProfileId, schema.employeeProfiles.id)
       )
-      .where(or(
-        eq(schema.users.role, 'technician'),
-        eq(schema.users.role, 'technical'),
-        eq(schema.users.role, 'seller'),
-        eq(schema.users.role, 'delivery'),
-        eq(schema.users.role, 'support')
-      ))
+      // ❌ QUITAR FILTRO .where()
       .orderBy(desc(schema.users.createdAt));
     
     console.log(`✅ Retrieved ${employees.length} employees with profiles`);
