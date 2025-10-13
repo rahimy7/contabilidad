@@ -2890,49 +2890,64 @@ router.post('/orders/:orderId/auto-assign', authenticateToken, async (req: any, 
   }
 });
 
-// ✅ NUEVO: Endpoint para obtener estadísticas de disponibilidad del equipo
 router.get('/team/availability-stats', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // CORREGIR: Acceder correctamente a schema y tenantDb
-    const { employeeProfiles, users } = schema;
+    // Get all users and filter technicians
+    const allUsers = await tenantStorage.getAllUsers();
+    const technicians = allUsers.filter((u: any) => 
+      u.role === 'technical' || u.role === 'technician'
+    );
     
-    // Obtener todos los técnicos con sus estadísticas
-    const technicians = await tenantStorage.tenantDb // USAR tenantStorage.tenantDb
-      .select({
-        id: users.id,
-        name: users.name,
-        status: users.status,
-        currentOrders: employeeProfiles.currentOrders,
-        maxDailyOrders: employeeProfiles.maxDailyOrders,
-        province: employeeProfiles.province,
-        municipality: employeeProfiles.municipality,
-        sector: employeeProfiles.sector,
-        specializations: employeeProfiles.specializations,
-        skillLevel: employeeProfiles.skillLevel,
+    // Get employee profiles for each technician
+    const techStats = await Promise.all(
+      technicians.map(async (tech: any) => {
+        try {
+          const profile = await tenantStorage.getEmployeeProfile(tech.id);
+          return {
+            id: tech.id,
+            name: tech.name,
+            status: tech.status || 'offline',
+            currentOrders: profile?.currentOrders || 0,
+            maxDailyOrders: profile?.maxDailyOrders || 5,
+            province: profile?.province,
+            municipality: profile?.municipality,
+            sector: profile?.sector,
+            specializations: profile?.specializations || [],
+            skillLevel: profile?.skillLevel || 3,
+          };
+        } catch (err) {
+          console.warn(`Could not get profile for tech ${tech.id}:`, err);
+          return {
+            id: tech.id,
+            name: tech.name,
+            status: tech.status || 'offline',
+            currentOrders: 0,
+            maxDailyOrders: 5,
+            specializations: [],
+            skillLevel: 3,
+          };
+        }
       })
-      .from(users)
-      .innerJoin(employeeProfiles, eq(employeeProfiles.userId, users.id))
-      .where(eq(users.role, 'technical'));
+    );
     
-    // Calcular estadísticas
+    // Calculate stats
     const stats = {
-      total: technicians.length,
-      available: technicians.filter(t => t.status === 'active' && t.currentOrders < t.maxDailyOrders).length,
-      busy: technicians.filter(t => t.status === 'busy' || t.currentOrders >= t.maxDailyOrders).length,
-      offline: technicians.filter(t => t.status === 'offline').length,
-      byProvince: technicians.reduce((acc, t) => {
+      total: techStats.length,
+      available: techStats.filter(t => t.status === 'active' && t.currentOrders < t.maxDailyOrders).length,
+      busy: techStats.filter(t => t.status === 'busy' || t.currentOrders >= t.maxDailyOrders).length,
+      offline: techStats.filter(t => t.status === 'offline').length,
+      byProvince: techStats.reduce((acc: any, t) => {
         const province = t.province || 'Sin asignar';
-        if (!acc[province]) acc[province] = 0;
-        acc[province]++;
+        acc[province] = (acc[province] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>),
-      averageLoad: technicians.length > 0 
-        ? (technicians.reduce((sum, t) => sum + (t.currentOrders / t.maxDailyOrders), 0) / technicians.length * 100).toFixed(1)
-        : 0,
-      technicians: technicians.map(t => ({
+      }, {}),
+      averageLoad: techStats.length > 0 
+        ? (techStats.reduce((sum, t) => sum + (t.currentOrders / t.maxDailyOrders), 0) / techStats.length * 100).toFixed(1)
+        : "0",
+      technicians: techStats.map(t => ({
         ...t,
         availabilityPercentage: ((1 - (t.currentOrders / t.maxDailyOrders)) * 100).toFixed(0),
         isAvailable: t.status === 'active' && t.currentOrders < t.maxDailyOrders
@@ -2940,10 +2955,12 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
     };
     
     res.json(stats);
-    
   } catch (error) {
     console.error('Error fetching team availability:', error);
-    res.status(500).json({ error: 'Failed to fetch team availability' });
+    res.status(500).json({ 
+      error: 'Failed to fetch team availability',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

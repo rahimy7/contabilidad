@@ -166,25 +166,22 @@ export const storeSettings = pgTable("store_settings", {
 // ESQUEMAS PARA BASES DE DATOS POR TIENDA
 // ================================
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  lastLogin: timestamp("last_login"),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  role: text("role").notNull(), // 'admin', 'technician', 'seller', 'delivery', 'support', 'customer_service'
-  status: text("status").notNull().default("active"),
-   phone: text("phone"),
-  email: text("email"),
-  address: text("address"),
-  avatar: text("avatar"),
-  hireDate: timestamp("hire_date").defaultNow(),
-  isActive: boolean("is_active").notNull().default(true),
-  department: text("department"), // 'technical', 'sales', 'delivery', 'support', 'admin'
-  permissions: text("permissions").array(), // Array of specific permissions
-  storeId: integer("store_id"),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  password: text('password').notNull(),
+  name: text('name').notNull(),
+  email: text('email'),
+  phone: text('phone'),
+  role: text('role').notNull(),
+  status: text('status').default('active'),
+  employeeProfileId: integer('employee_profile_id').references(() => employeeProfiles.id), // Nueva columna
+  emergencyContact: text('emergency_contact'),
+  emergencyPhone: text('emergency_phone'),
+  vehicleInfo: text('vehicle_info'),
+  currentOrders: integer('current_orders').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 export const customers = pgTable("customers", {
@@ -273,6 +270,7 @@ export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   orderNumber: text("order_number").notNull().unique(),
   customerId: integer("customer_id").references(() => customers.id),
+  storeId: integer('store_id').notNull(),
   
   // Información de ubicación del cliente
   customerProvince: text("customer_province"),
@@ -431,43 +429,23 @@ export const customerRegistrationFlows = pgTable("customer_registration_flows", 
 
 
 // Employee management for different roles
-export const employeeProfiles = pgTable("employee_profiles", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull().unique(),
-  employeeId: text("employee_id").notNull().unique(),
-  department: text("department").notNull(),
-  position: text("position").notNull(),
-  specializations: text("specializations").array(),
-  workSchedule: text("work_schedule"),
-  emergencyContact: text("emergency_contact"),
-  emergencyPhone: text("emergency_phone"),
-  vehicleInfo: text("vehicle_info"),
-  certifications: text("certifications").array(),
-  salary: decimal("salary", { precision: 10, scale: 2 }),
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }),
-  
-  // ✅ NUEVOS CAMPOS DE SECTORES - Reemplazan territory
-  province: text("province"), // Provincia (ej: "Santo Domingo")
-  municipality: text("municipality"), // Municipio (ej: "Santo Domingo Este")
-  sector: text("sector"), // Sector específico (ej: "Los Prados")
-  coverageProvinces: text("coverage_provinces").array(), // Provincias que cubre
-  coverageMunicipalities: text("coverage_municipalities").array(), // Municipios que cubre
-  coverageSectors: text("coverage_sectors").array(), // Sectores específicos que cubre
-  
-  // Mantener campos de ubicación base para referencia
-  baseLatitude: decimal("base_latitude", { precision: 10, scale: 8 }),
-  baseLongitude: decimal("base_longitude", { precision: 11, scale: 8 }),
-  baseAddress: text("base_address"),
-  
-  // Configuración de trabajo
-  serviceRadius: decimal("service_radius", { precision: 5, scale: 2 }).default("10.0"),
-  maxDailyOrders: integer("max_daily_orders").default(5),
-  currentOrders: integer("current_orders").default(0),
-  availabilityHours: text("availability_hours"), // JSON: {"monday": "08:00-18:00"}
-  skillLevel: integer("skill_level").default(1), // 1-5
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+export const employeeProfiles = pgTable('employee_profiles', {
+  id: serial('id').primaryKey(),
+  employeeId: text('employee_id').unique(),
+  department: text('department').notNull(),
+  position: text('position').notNull(),
+  specializations: text('specializations').array(),
+  maxDailyOrders: integer('max_daily_orders').default(5),
+  skillLevel: integer('skill_level').default(3),
+  province: text('province'),
+  municipality: text('municipality'),
+  sector: text('sector'),
+  coverageProvinces: text('coverage_provinces').array(),
+  coverageMunicipalities: text('coverage_municipalities').array(),
+  coverageSectors: text('coverage_sectors').array(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 // Schema de validación para productos
@@ -492,6 +470,7 @@ export const ProductSchema = z.object({
 // Automatic assignment rules
 export const assignmentRules = pgTable("assignment_rules", {
   id: serial("id").primaryKey(),
+  storeId: integer('store_id').notNull(),
   name: text("name").notNull(),
   isActive: boolean("is_active").default(true),
   priority: integer("priority").default(1), // Mayor número = mayor prioridad

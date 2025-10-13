@@ -1281,94 +1281,85 @@ async createUser(userData: any) {
 // EMPLOYEE PROFILES
 // ================================
 
+// EMPLOYEE PROFILES (Plantillas de puestos)
 async getAllEmployeeProfiles() {
   try {
-    console.log('🔍 Getting all employee profiles for store:', storeId);
+    const profiles = await tenantDb
+      .select()
+      .from(schema.employeeProfiles)
+      .orderBy(desc(schema.employeeProfiles.createdAt));
     
-    const employees = await tenantDb.select({
-      // Campos de employee_profiles
-      id: schema.employeeProfiles.id,
-      userId: schema.employeeProfiles.userId,
-      employeeId: schema.employeeProfiles.employeeId,
-      department: schema.employeeProfiles.department,
-      position: schema.employeeProfiles.position,
-      specializations: schema.employeeProfiles.specializations,
-      workSchedule: schema.employeeProfiles.workSchedule,
-      emergencyContact: schema.employeeProfiles.emergencyContact,
-      emergencyPhone: schema.employeeProfiles.emergencyPhone,
-      vehicleInfo: schema.employeeProfiles.vehicleInfo,
-      certifications: schema.employeeProfiles.certifications,
-      salary: schema.employeeProfiles.salary,
-      commissionRate: schema.employeeProfiles.commissionRate,
-      territory: schema.employeeProfiles.territory,
-      baseLatitude: schema.employeeProfiles.baseLatitude,
-      baseLongitude: schema.employeeProfiles.baseLongitude,
-      baseAddress: schema.employeeProfiles.baseAddress,
-      serviceRadius: schema.employeeProfiles.serviceRadius,
-      maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
-      currentOrders: schema.employeeProfiles.currentOrders,
-      availabilityHours: schema.employeeProfiles.availabilityHours,
-      skillLevel: schema.employeeProfiles.skillLevel,
-      notes: schema.employeeProfiles.notes,
-      createdAt: schema.employeeProfiles.createdAt,
-      updatedAt: schema.employeeProfiles.updatedAt,
-      
-      // Campos del usuario relacionado
-      user: {
-        id: schema.users.id,
-        username: schema.users.username,
-        name: schema.users.name,
-        email: schema.users.email,
-        role: schema.users.role,
-        status: schema.users.status,
-        phone: schema.users.phone
-      }
-    })
-    .from(schema.employeeProfiles)
-    .leftJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-    .orderBy(desc(schema.employeeProfiles.createdAt));
-
-    console.log(`✅ Retrieved ${employees.length} employee profiles`);
-    return employees;
+    console.log(`✅ Retrieved ${profiles.length} employee profiles`);
+    return profiles;
   } catch (error) {
-    console.error('Error getting all employee profiles:', error);
+    console.error('Error getting employee profiles:', error);
     return [];
   }
 },
 
-async getEmployeeProfile(userId: number) {
+async getEmployeeProfileById(id: number) {
   try {
-    const [employee] = await tenantDb.select()
+    const [profile] = await tenantDb
+      .select()
       .from(schema.employeeProfiles)
-      .leftJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-      .where(eq(schema.employeeProfiles.userId, userId))
+      .where(eq(schema.employeeProfiles.id, id))
       .limit(1);
-    return employee || null;
+    
+    return profile || null;
   } catch (error) {
     console.error('Error getting employee profile:', error);
     return null;
   }
 },
 
+async getEmployeeProfile(userId: number) {
+  try {
+    const [user] = await tenantDb
+      .select({
+        user: schema.users,
+        profile: schema.employeeProfiles
+      })
+      .from(schema.users)
+      .leftJoin(schema.employeeProfiles, eq(schema.users.employeeProfileId, schema.employeeProfiles.id))
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    
+    return user || null;
+  } catch (error) {
+    console.error('Error getting employee profile:', error);
+    return null;
+  }
+},
+
+
 async getEmployeeProfileByEmployeeId(employeeId: string) {
   try {
-    const [employee] = await tenantDb.select()
+    const [profile] = await tenantDb
+      .select()
       .from(schema.employeeProfiles)
-      .leftJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
       .where(eq(schema.employeeProfiles.employeeId, employeeId))
       .limit(1);
-    return employee || null;
+    
+    return profile || null;
   } catch (error) {
-    console.error('Error getting employee profile by employee ID:', error);
+    console.error('Error getting employee profile:', error);
     return null;
   }
 },
 
 async createEmployeeProfile(profileData: any) {
   try {
-    console.log('🔄 Creating employee profile:', profileData);
+    console.log('🔄 Creating employee profile template:', profileData);
     
-    const [employee] = await tenantDb.insert(schema.employeeProfiles)
+    // Generar employee_id si no viene
+    if (!profileData.employeeId) {
+      const dept = profileData.department || 'GEN';
+      const timestamp = Date.now().toString().slice(-6);
+      profileData.employeeId = `${dept.substring(0, 3).toUpperCase()}-${timestamp}`;
+    }
+    
+    const [profile] = await tenantDb
+      .insert(schema.employeeProfiles)
       .values({
         ...profileData,
         createdAt: new Date(),
@@ -1376,8 +1367,8 @@ async createEmployeeProfile(profileData: any) {
       })
       .returning();
     
-    console.log('✅ Employee profile created:', employee.id);
-    return employee;
+    console.log('✅ Employee profile created:', profile.id);
+    return profile;
   } catch (error) {
     console.error('Error creating employee profile:', error);
     throw error;
@@ -1386,11 +1377,14 @@ async createEmployeeProfile(profileData: any) {
 
 async updateEmployeeProfile(id: number, updates: any) {
   try {
-    const [employee] = await tenantDb.update(schema.employeeProfiles)
+    const [profile] = await tenantDb
+      .update(schema.employeeProfiles)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.employeeProfiles.id, id))
       .returning();
-    return employee;
+    
+    console.log('✅ Employee profile updated:', id);
+    return profile;
   } catch (error) {
     console.error('Error updating employee profile:', error);
     throw error;
@@ -1399,25 +1393,99 @@ async updateEmployeeProfile(id: number, updates: any) {
 
 async deleteEmployeeProfile(id: number) {
   try {
-    await tenantDb.delete(schema.employeeProfiles)
+    // Verificar que no haya usuarios usando este perfil
+    const usersWithProfile = await tenantDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.employeeProfileId, id));
+    
+    if (usersWithProfile.length > 0) {
+      throw new Error(`Cannot delete profile: ${usersWithProfile.length} users are using it`);
+    }
+    
+    await tenantDb
+      .delete(schema.employeeProfiles)
       .where(eq(schema.employeeProfiles.id, id));
-    return true;
+    
+    console.log('✅ Employee profile deleted:', id);
   } catch (error) {
     console.error('Error deleting employee profile:', error);
-    return false;
+    throw error;
   }
 },
 
+// Asignar perfil a usuario
+async assignProfileToUser(userId: number, profileId: number) {
+  try {
+    const [user] = await tenantDb
+      .update(schema.users)
+      .set({ 
+        employeeProfileId: profileId,
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.users.id, userId))
+      .returning();
+    
+    console.log(`✅ Profile ${profileId} assigned to user ${userId}`);
+    return user;
+  } catch (error) {
+    console.error('Error assigning profile to user:', error);
+    throw error;
+  }
+},
 async getEmployeesByDepartment(department: string) {
   try {
-    const employees = await tenantDb.select()
-      .from(schema.employeeProfiles)
-      .leftJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
+    const employees = await tenantDb
+      .select({
+        user: schema.users,
+        profile: schema.employeeProfiles
+      })
+      .from(schema.users)
+      .leftJoin(schema.employeeProfiles, eq(schema.users.employeeProfileId, schema.employeeProfiles.id))
       .where(eq(schema.employeeProfiles.department, department))
-      .orderBy(desc(schema.employeeProfiles.createdAt));
+      .orderBy(desc(schema.users.createdAt));
+    
     return employees;
   } catch (error) {
     console.error('Error getting employees by department:', error);
+    return [];
+  }
+},
+
+// Obtener empleados con sus perfiles
+async getEmployeesWithProfiles() {
+  try {
+    const employees = await tenantDb
+      .select({
+        id: schema.users.id,
+        username: schema.users.username,
+        name: schema.users.name,
+        email: schema.users.email,
+        phone: schema.users.phone,
+        role: schema.users.role,
+        status: schema.users.status,
+        emergencyContact: schema.users.emergencyContact,
+        emergencyPhone: schema.users.emergencyPhone,
+        vehicleInfo: schema.users.vehicleInfo,
+        currentOrders: schema.users.currentOrders,
+        createdAt: schema.users.createdAt,
+        profile: schema.employeeProfiles
+      })
+      .from(schema.users)
+      .leftJoin(
+        schema.employeeProfiles, 
+        eq(schema.users.employeeProfileId, schema.employeeProfiles.id)
+      )
+      .where(or(
+        eq(schema.users.role, 'technical'),
+        eq(schema.users.role, 'technician')
+      ))
+      .orderBy(desc(schema.users.createdAt));
+    
+    console.log(`✅ Retrieved ${employees.length} employees with profiles`);
+    return employees;
+  } catch (error) {
+    console.error('Error getting employees with profiles:', error);
     return [];
   }
 },
@@ -1450,12 +1518,30 @@ async generateEmployeeId(department: string) {
 
 async getAvailableTechnicians(specializations?: string[], maxDistance?: number, customerLocation?: { latitude: string; longitude: string }) {
   try {
-    // Por ahora, retornar todos los técnicos. La lógica de distancia se puede implementar después.
-    const technicians = await tenantDb.select()
-      .from(schema.employeeProfiles)
-      .leftJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-      .where(eq(schema.employeeProfiles.department, 'technical'))
+    const technicians = await tenantDb
+      .select({
+        user: schema.users,
+        profile: schema.employeeProfiles
+      })
+      .from(schema.users)
+      .leftJoin(schema.employeeProfiles, eq(schema.users.employeeProfileId, schema.employeeProfiles.id))
+      .where(
+        and(
+          or(
+            eq(schema.users.role, 'technical'),
+            eq(schema.users.role, 'technician')
+          ),
+          eq(schema.users.status, 'active')
+        )
+      )
       .orderBy(desc(schema.employeeProfiles.skillLevel));
+    
+    // Filtrar por especializaciones si se especifican
+    if (specializations && specializations.length > 0) {
+      return technicians.filter(t => 
+        t.profile?.specializations?.some(s => specializations.includes(s))
+      );
+    }
     
     return technicians;
   } catch (error) {
@@ -3593,22 +3679,19 @@ async getStoreEmployeesAndAdmins() {
   try {
     console.log(`📋 Getting assignable users for store ${storeId}`);
     
-    // ✅ CORRECCIÓN: Usar tenantDb en lugar de this.db
     const users = await tenantDb
       .select()
       .from(schema.users)
       .where(
         and(
-          eq(schema.users.storeId, storeId),
-          // Filtrar solo roles asignables
+          // Sin storeId - ya estamos en el tenant schema
           or(
             eq(schema.users.role, 'technician'),
             eq(schema.users.role, 'specialist'),
             eq(schema.users.role, 'field_worker'),
             eq(schema.users.role, 'admin')
           ),
-          eq(schema.users.status, 'active'), // Solo usuarios activos
-          eq(schema.users.isActive, true)
+          eq(schema.users.status, 'active') // Sin isActive
         )
       );
     

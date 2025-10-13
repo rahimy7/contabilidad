@@ -1772,10 +1772,10 @@ apiRouter.get('/employees', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
     const tenantStorage = await getTenantStorageWithSchema(user);
-    const employees = await tenantStorage.getAllEmployeeProfiles();
+    const employees = await tenantStorage.getEmployeesWithProfiles();
     res.json(employees);
   } catch (error) {
-    console.error('Error fetching tenant employees:', error);
+    console.error('Error fetching employees:', error);
     res.status(500).json({ error: 'Failed to fetch employees' });
   }
 });
@@ -1791,6 +1791,8 @@ apiRouter.post('/employees', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to create employee profile' });
   }
 });
+
+
 
 apiRouter.put('/employees/:id', authenticateToken, async (req, res) => {
   try {
@@ -1852,6 +1854,75 @@ apiRouter.post('/employees/generate-id', authenticateToken, async (req, res) => 
   }
 });
 
+// CRUD para employee_profiles (plantillas)
+apiRouter.get('/employee-profiles', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const profiles = await tenantStorage.getAllEmployeeProfiles();
+    res.json(profiles);
+  } catch (error) {
+    console.error('Error fetching profiles:', error);
+    res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
+});
+
+apiRouter.post('/employee-profiles', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const profile = await tenantStorage.createEmployeeProfile(req.body);
+    res.status(201).json(profile);
+  } catch (error) {
+    console.error('Error creating profile:', error);
+    res.status(500).json({ error: 'Failed to create profile' });
+  }
+});
+
+// Modificar endpoint de employees para incluir perfil
+apiRouter.get('/employees', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const allUsers = await tenantStorage.getAllUsers();
+    const technicians = allUsers.filter((u: any) => 
+      u.role === 'technical' || u.role === 'technician'
+    );
+    
+    // Enriquecer con datos del perfil
+    const employees = await Promise.all(
+      technicians.map(async (tech: any) => {
+        if (tech.employeeProfileId) {
+          const profile = await tenantStorage.getEmployeeProfileById(tech.employeeProfileId);
+          return { ...tech, profile };
+        }
+        return tech;
+      })
+    );
+    
+    res.json(employees);
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    res.status(500).json({ error: 'Failed to fetch employees' });
+  }
+});
+
+// Asignar perfil a usuario
+apiRouter.post('/users/:id/assign-profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { employeeProfileId } = req.body;
+    const user = (req as any).user;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const updated = await tenantStorage.assignProfileToUser(userId, employeeProfileId);
+    res.json(updated);
+  } catch (error) {
+    console.error('Error assigning profile:', error);
+    res.status(500).json({ error: 'Failed to assign profile' });
+  }
+});
 // ================================
 // AUTO RESPONSES ENDPOINTS (MASTER STORAGE)
 // ================================
