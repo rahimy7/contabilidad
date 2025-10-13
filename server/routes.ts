@@ -1664,67 +1664,7 @@ router.get('/super-admin/user-metrics', authenticateToken, requireSuperAdmin, as
   }
 });
 
-  // ================================
-  // EMPLOYEE ROUTES
-  // ================================
 
-  router.get('/employees', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const employees = await tenantStorage.getAllEmployeeProfiles();
-      res.json(employees);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      res.status(500).json({ error: "Failed to fetch employees" });
-    }
-  });
-
-  router.post('/employees', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const employeeData = { ...req.body, storeId: user.storeId };
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const employee = await tenantStorage.createEmployeeProfile(employeeData);
-      res.status(201).json(employee);
-    } catch (error) {
-      console.error('Error creating employee:', error);
-      res.status(500).json({ error: "Failed to create employee" });
-    }
-  });
-
-  router.put('/employees/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const employee = await tenantStorage.updateEmployeeProfile(id, req.body);
-      if (!employee) {
-        return res.status(404).json({ error: 'Employee not found' });
-      }
-      
-      res.json(employee);
-    } catch (error) {
-      console.error('Error updating employee:', error);
-      res.status(500).json({ error: 'Failed to update employee' });
-    }
-  });
-
-  router.delete('/employees/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      await tenantStorage.deleteEmployeeProfile(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      res.status(500).json({ error: 'Failed to delete employee' });
-    }
-  });
 
   // ================================
     // ================================
