@@ -150,7 +150,8 @@ export async function rollbackSectorFields() {
 }
 
 // Ejecutar migración si se llama directamente
-if (require.main === module) {
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
   migrateSectorFields()
     .then(() => {
       console.log('Migration script finished');

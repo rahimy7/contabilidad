@@ -1143,39 +1143,33 @@ export class MasterStorageService {
   // ========================================
 
   async getDashboardMetrics(storeId?: number): Promise<any> {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Get today's orders count
-      let ordersQuery = this.db
-        .select({ count: count() })
-        .from(schema.orders)
-        .where(gte(schema.orders.createdAt, today));
-      
-      if (storeId) {
-        ordersQuery = ordersQuery.where(and(
-          gte(schema.orders.createdAt, today),
-          eq(schema.orders.storeId, storeId)
-        ));
-      }
-      
-      const [ordersResult] = await ordersQuery;
-      
-      // Get active conversations count
-      let conversationsQuery = this.db
-        .select({ count: count() })
-        .from(schema.conversations)
-        .where(eq(schema.conversations.status, 'active'));
-      
-      if (storeId) {
-        conversationsQuery = conversationsQuery.where(and(
-          eq(schema.conversations.status, 'active'),
-          eq(schema.conversations.storeId, storeId)
-        ));
-      }
-      
-      const [conversationsResult] = await conversationsQuery;
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get today's orders count - CORREGIDO
+    const ordersQuery = this.db
+      .select({ count: count() })
+      .from(schema.orders)
+      .where(
+        storeId 
+          ? and(gte(schema.orders.createdAt, today), eq(schema.orders.storeId, storeId))
+          : gte(schema.orders.createdAt, today)
+      );
+    
+    const [ordersResult] = await ordersQuery;
+    
+    // Get active conversations count - CORREGIDO
+    const conversationsQuery = this.db
+      .select({ count: count() })
+      .from(schema.conversations)
+      .where(
+        storeId 
+          ? and(eq(schema.conversations.status, 'active'), eq(schema.conversations.storeId, storeId))
+          : eq(schema.conversations.status, 'active')
+      );
+    
+    const [conversationsResult] = await conversationsQuery;
       
       const metrics = {
         ordersToday: ordersResult.count || 0,

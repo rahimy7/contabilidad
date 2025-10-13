@@ -446,3 +446,5 @@ export function AssignmentRuleFormSectors() {
     </form>
   );
 }
+
+export default AssignmentRuleFormSectors;

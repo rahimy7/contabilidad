@@ -15,6 +15,13 @@
       "when": 1753221562309,
       "tag": "0001_yielding_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760301678419,
+      "tag": "0002_big_sinister_six",
+      "breakpoints": true
     }
   ]
 }

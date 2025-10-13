@@ -2896,25 +2896,26 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
     const user = req.user as AuthUser;
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    const { schema, tenantDb } = tenantStorage;
+    // CORREGIR: Acceder correctamente a schema y tenantDb
+    const { employeeProfiles, users } = schema;
     
     // Obtener todos los técnicos con sus estadísticas
-    const technicians = await tenantDb
+    const technicians = await tenantStorage.tenantDb // USAR tenantStorage.tenantDb
       .select({
-        id: schema.users.id,
-        name: schema.users.name,
-        status: schema.users.status,
-        currentOrders: schema.employeeProfiles.currentOrders,
-        maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
-        province: schema.employeeProfiles.province,
-        municipality: schema.employeeProfiles.municipality,
-        sector: schema.employeeProfiles.sector,
-        specializations: schema.employeeProfiles.specializations,
-        skillLevel: schema.employeeProfiles.skillLevel,
+        id: users.id,
+        name: users.name,
+        status: users.status,
+        currentOrders: employeeProfiles.currentOrders,
+        maxDailyOrders: employeeProfiles.maxDailyOrders,
+        province: employeeProfiles.province,
+        municipality: employeeProfiles.municipality,
+        sector: employeeProfiles.sector,
+        specializations: employeeProfiles.specializations,
+        skillLevel: employeeProfiles.skillLevel,
       })
-      .from(schema.users)
-      .innerJoin(schema.employeeProfiles, eq(schema.employeeProfiles.userId, schema.users.id))
-      .where(eq(schema.users.role, 'technical'));
+      .from(users)
+      .innerJoin(employeeProfiles, eq(employeeProfiles.userId, users.id))
+      .where(eq(users.role, 'technical'));
     
     // Calcular estadísticas
     const stats = {
