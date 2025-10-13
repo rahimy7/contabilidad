@@ -39,13 +39,8 @@ export function getUserAccessLevel(user: any): 'global' | 'store' | 'tenant' {
   return 'tenant';
 }
 
-/**
- * 🔥 FUNCIÓN CORREGIDA: Autenticación para usuarios globales (super admin, etc.)
- * AHORA BUSCA EN LA TABLA CORRECTA: schema.users
- */
 export async function authenticateGlobalUser(username: string, password: string): Promise<AuthUser | null> {
   try {
-    // ✅ CORREGIDO: Buscar super admins en tabla `users` con columnas específicas
     const [user] = await masterDb
       .select({
         id: schema.users.id,
@@ -53,8 +48,7 @@ export async function authenticateGlobalUser(username: string, password: string)
         password: schema.users.password,
         name: schema.users.name,
         role: schema.users.role,
-        status: schema.users.status,
-        isActive: schema.users.isActive
+        status: schema.users.status  // ✅ Solo columnas que existen
       })
       .from(schema.users)
       .where(eq(schema.users.username, username))
@@ -71,9 +65,9 @@ export async function authenticateGlobalUser(username: string, password: string)
       return null;
     }
 
-    // Verificar que el usuario está activo
-    if (!user.isActive) {
-      console.log(`Super admin '${username}' is not active`);
+    // ✅ Verificar que el usuario está activo usando 'status' en lugar de 'isActive'
+    if (user.status !== 'active') {
+      console.log(`Super admin '${username}' is not active (status: ${user.status})`);
       return null;
     }
 

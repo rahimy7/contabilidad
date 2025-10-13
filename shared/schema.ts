@@ -177,9 +177,7 @@ export const users = pgTable('users', {
   address: text('address'),
   status: text('status').default('active'),
   employeeProfileId: integer('employee_profile_id').references(() => employeeProfiles.id), // Nueva columna
-  emergencyContact: text('emergency_contact'),
-  emergencyPhone: text('emergency_phone'),
-  vehicleInfo: text('vehicle_info'),
+  lastLogin: timestamp('last_login'),
   currentOrders: integer('current_orders').default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
