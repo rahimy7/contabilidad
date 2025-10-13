@@ -8,6 +8,7 @@ import fs from "fs";
 import { sql, eq, count, and, isNull, or, max, desc, asc } from "drizzle-orm";
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
+import employeeRouter from './routes/employee-routes.js';
 
 
 // Schema and Types
@@ -1051,7 +1052,6 @@ export function setupUserManagementRoutes(app: any) {
         password: hashedPassword,
         role,
         status: 'active',
-        isActive: true
       });
 
       res.status(201).json({
@@ -1185,7 +1185,7 @@ async function processWhatsAppMessage(value: any) {
 
 export async function registerRoutes(app: express.Application) {
   const router = express.Router();
-
+app.use('/api', employeeRouter);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================

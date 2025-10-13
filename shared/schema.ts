@@ -174,6 +174,7 @@ export const users = pgTable('users', {
   email: text('email'),
   phone: text('phone'),
   role: text('role').notNull(),
+  address: text('address'),
   status: text('status').default('active'),
   employeeProfileId: integer('employee_profile_id').references(() => employeeProfiles.id), // Nueva columna
   emergencyContact: text('emergency_contact'),
