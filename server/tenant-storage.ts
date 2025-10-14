@@ -3942,6 +3942,146 @@ async getProductsByBrand(brandId: number) {
   }
 },
 
+// server/tenant-storage.ts
+// ✅ AGREGAR ESTOS MÉTODOS al objeto que se retorna en createTenantStorage
+
+// ================================
+// ASSIGNMENT RULES METHODS
+// ================================
+
+/**
+ * Obtener todas las reglas de asignación de la tienda
+ */
+async getAllAssignmentRules() {
+  try {
+    const rules = await tenantDb
+      .select()
+      .from(schema.assignmentRules)
+      .where(eq(schema.assignmentRules.storeId, storeId))
+      .orderBy(desc(schema.assignmentRules.priority));
+    
+    return rules;
+  } catch (error) {
+    console.error('Error getting assignment rules:', error);
+    return [];
+  }
+},
+
+async createAssignmentRule(ruleData: any) {
+  try {
+    // ✅ Remover storeId si viene en ruleData
+    const cleanData = { ...ruleData };
+    delete cleanData.storeId;
+    
+    const [newRule] = await tenantDb
+      .insert(schema.assignmentRules)
+      .values({
+        ...cleanData,
+        storeId: storeId, // ✅ Usar el storeId del tenant (ya es number)
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    
+    return newRule;
+  } catch (error) {
+    console.error('Error creating assignment rule:', error);
+    throw error;
+  }
+},
+
+/**
+ * Actualizar regla de asignación
+ */
+async updateAssignmentRule(ruleId: number, ruleData: any) {
+  try {
+    const [updatedRule] = await tenantDb
+      .update(schema.assignmentRules)
+      .set({
+        ...ruleData,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.assignmentRules.id, ruleId),
+          eq(schema.assignmentRules.storeId, storeId)
+        )
+      )
+      .returning();
+    
+    return updatedRule;
+  } catch (error) {
+    console.error('Error updating assignment rule:', error);
+    throw error;
+  }
+},
+
+/**
+ * Eliminar regla de asignación
+ */
+async deleteAssignmentRule(ruleId: number) {
+  try {
+    await tenantDb
+      .delete(schema.assignmentRules)
+      .where(
+        and(
+          eq(schema.assignmentRules.id, ruleId),
+          eq(schema.assignmentRules.storeId, storeId)
+        )
+      );
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting assignment rule:', error);
+    throw error;
+  }
+},
+
+/**
+ * Obtener regla por ID
+ */
+async getAssignmentRuleById(ruleId: number) {
+  try {
+    const [rule] = await tenantDb
+      .select()
+      .from(schema.assignmentRules)
+      .where(
+        and(
+          eq(schema.assignmentRules.id, ruleId),
+          eq(schema.assignmentRules.storeId, storeId)
+        )
+      )
+      .limit(1);
+    
+    return rule || null;
+  } catch (error) {
+    console.error('Error getting assignment rule:', error);
+    return null;
+  }
+},
+
+/**
+ * Obtener usuarios por rol
+ */
+async getUsersByRole(role: string) {
+  try {
+    const users = await tenantDb
+      .select()
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.role, role),
+          
+        )
+      );
+    
+    return users;
+  } catch (error) {
+    console.error('Error getting users by role:', error);
+    return [];
+  }
+},
+
 
     };
 

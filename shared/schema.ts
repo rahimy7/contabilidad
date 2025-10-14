@@ -466,19 +466,21 @@ export const ProductSchema = z.object({
 });
 
 
-// Automatic assignment rules
+// shared/schema.ts - Actualización de assignmentRules
+
+// ✅ AGREGAR ESTE CAMPO AL ESQUEMA EXISTENTE
 export const assignmentRules = pgTable("assignment_rules", {
   id: serial("id").primaryKey(),
   storeId: integer('store_id').notNull(),
   name: text("name").notNull(),
   isActive: boolean("is_active").default(true),
-  priority: integer("priority").default(1), // Mayor número = mayor prioridad
+  priority: integer("priority").default(1),
   
-  // ✅ CRITERIOS DE UBICACIÓN BASADOS EN SECTORES
+  // Criterios de ubicación
   useSectorBased: boolean("use_sector_based").default(true),
-  requiredProvince: text("required_province"), // Provincia requerida
-  requiredMunicipality: text("required_municipality"), // Municipio requerido
-  requiredSectors: text("required_sectors").array(), // Sectores específicos
+  requiredProvince: text("required_province"),
+  requiredMunicipality: text("required_municipality"),
+  requiredSectors: text("required_sectors").array(),
   allowAdjacentMunicipalities: boolean("allow_adjacent_municipalities").default(true),
   
   // Criterios de especialización
@@ -497,10 +499,12 @@ export const assignmentRules = pgTable("assignment_rules", {
   applicableProducts: text("applicable_products").array(),
   applicableServices: text("applicable_services").array(),
   
+  // ✅ NUEVO: Usuarios específicos para asignación
+  assignedUserIds: integer("assigned_user_ids").array(), // Array de user IDs específicos
+  
   // Comportamiento de asignación
   assignmentMethod: text("assignment_method").default("closest_available"),
-  // Opciones: closest_available, least_busy, highest_skill, round_robin
-  autoAssign: boolean("auto_assign").default(true), // ✅ Ejecutar automáticamente
+  autoAssign: boolean("auto_assign").default(true),
   notifyCustomer: boolean("notify_customer").default(true),
   estimatedResponseTime: integer("estimated_response_time").default(60),
   

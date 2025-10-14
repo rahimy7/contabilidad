@@ -31,6 +31,7 @@ interface AssignmentRule {
   applicableServices?: string[];
   assignmentMethod: string;
   autoAssign: boolean;
+  assignedUserIds?: number[];
 }
 
 interface AvailableTechnician {
@@ -157,14 +158,14 @@ export class AutoAssignmentService {
     return true;
   }
 
-  /**
-   * Obtiene técnicos elegibles según la orden y regla
-   */
-  private async getEligibleTechnicians(order: Order, rule: AssignmentRule): Promise<AvailableTechnician[]> {
-    const { schema, tenantDb } = this.tenantStorage;
+private async getEligibleTechnicians(order: Order, rule: AssignmentRule): Promise<AvailableTechnician[]> {
+  const { schema, tenantDb } = this.tenantStorage;
+  
+  // ✅ SI LA REGLA TIENE USUARIOS ESPECÍFICOS, SOLO OBTENER ESOS
+  if (rule.assignedUserIds && rule.assignedUserIds.length > 0) {
+    console.log(`👥 [AUTO-ASSIGN] Regla tiene usuarios específicos: ${rule.assignedUserIds.join(', ')}`);
     
-    // Consulta base: técnicos con perfiles de empleado
-    let query = tenantDb
+    const specificTechnicians = await tenantDb
       .select({
         id: schema.employeeProfiles.id,
         userId: schema.users.id,
@@ -183,76 +184,98 @@ export class AutoAssignmentService {
       })
       .from(schema.employeeProfiles)
       .innerJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-      .where(eq(schema.users.role, 'technical'));
-
-    let allTechnicians = await query;
-
-    // Filtrar por disponibilidad (status activo)
+      .where(inArray(schema.users.id, rule.assignedUserIds));
+    
+    // Aplicar solo filtros básicos de disponibilidad
+    let filteredTechs = specificTechnicians;
+    
     if (rule.availabilityRequired) {
-      allTechnicians = allTechnicians.filter(t => t.status === 'active');
+      filteredTechs = filteredTechs.filter(t => t.status === 'active');
     }
-
-    // Filtrar por carga de trabajo
+    
     if (rule.useWorkloadBased) {
-      allTechnicians = allTechnicians.filter(
+      filteredTechs = filteredTechs.filter(
         t => t.currentOrders < (rule.maxOrdersPerTechnician || t.maxDailyOrders)
       );
     }
+    
+    console.log(`📊 [AUTO-ASSIGN] ${filteredTechs.length} usuarios específicos disponibles`);
+    return filteredTechs;
+  }
+  
+  // ✅ FLUJO NORMAL: Consulta base de todos los técnicos
+  let query = tenantDb
+    .select({
+      id: schema.employeeProfiles.id,
+      userId: schema.users.id,
+      name: schema.users.name,
+      status: schema.users.status,
+      province: schema.employeeProfiles.province,
+      municipality: schema.employeeProfiles.municipality,
+      sector: schema.employeeProfiles.sector,
+      coverageProvinces: schema.employeeProfiles.coverageProvinces,
+      coverageMunicipalities: schema.employeeProfiles.coverageMunicipalities,
+      coverageSectors: schema.employeeProfiles.coverageSectors,
+      specializations: schema.employeeProfiles.specializations,
+      currentOrders: schema.employeeProfiles.currentOrders,
+      maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
+      skillLevel: schema.employeeProfiles.skillLevel,
+    })
+    .from(schema.employeeProfiles)
+    .innerJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
+    .where(eq(schema.users.role, 'technical'));
 
-    // ✅ Filtrar por sector/ubicación
-    if (rule.useSectorBased && order.customerProvince) {
-      allTechnicians = allTechnicians.filter(technician => {
-        // Verificar si cubre la provincia
-        const coversProvince = 
-          technician.province === order.customerProvince ||
-          technician.coverageProvinces?.includes(order.customerProvince);
+  let allTechnicians = await query;
 
-        if (!coversProvince) return false;
+  // Aplicar filtros normales...
+  if (rule.availabilityRequired) {
+    allTechnicians = allTechnicians.filter(t => t.status === 'active');
+  }
 
-        // Si se especifica municipio, verificar cobertura
-        if (order.customerMunicipality) {
-          const coversMunicipality = 
-            technician.municipality === order.customerMunicipality ||
-            technician.coverageMunicipalities?.includes(order.customerMunicipality);
+  if (rule.useWorkloadBased) {
+    allTechnicians = allTechnicians.filter(
+      t => t.currentOrders < (rule.maxOrdersPerTechnician || t.maxDailyOrders)
+    );
+  }
 
-          if (!coversMunicipality && !rule.allowAdjacentMunicipalities) {
-            return false;
-          }
-        }
+  // Filtros de ubicación y especialización...
+  if (rule.useSectorBased && order.customerProvince) {
+    allTechnicians = allTechnicians.filter(technician => {
+      const coversProvince = 
+        technician.province === order.customerProvince ||
+        technician.coverageProvinces?.includes(order.customerProvince);
 
-        // Si se especifica sector, verificar cobertura
-        if (order.customerSector) {
-          const coversSector = 
-            technician.sector === order.customerSector ||
-            technician.coverageSectors?.includes(order.customerSector);
+      if (!coversProvince) return false;
 
-          // Si no cubre el sector específico pero cubre el municipio, aún es válido
-          if (!coversSector && !technician.municipality && !technician.coverageMunicipalities?.includes(order.customerMunicipality || '')) {
-            return false;
-          }
-        }
+      if (order.customerMunicipality) {
+        const coversMunicipality = 
+          technician.municipality === order.customerMunicipality ||
+          technician.coverageMunicipalities?.includes(order.customerMunicipality);
 
-        return true;
-      });
-    }
-
-    // Filtrar por especialización
-    if (rule.useSpecializationBased && rule.requiredSpecializations && rule.requiredSpecializations.length > 0) {
-      allTechnicians = allTechnicians.filter(technician => {
-        if (!technician.specializations || technician.specializations.length === 0) {
+        if (!coversMunicipality && !rule.allowAdjacentMunicipalities) {
           return false;
         }
-        
-        // Verificar si tiene al menos una de las especializaciones requeridas
-        return rule.requiredSpecializations!.some(reqSpec => 
-          technician.specializations!.includes(reqSpec)
-        );
-      });
-    }
+      }
 
-    console.log(`📊 [AUTO-ASSIGN] ${allTechnicians.length} técnicos elegibles después de filtros`);
-    return allTechnicians;
+      return true;
+    });
   }
+
+  if (rule.useSpecializationBased && rule.requiredSpecializations && rule.requiredSpecializations.length > 0) {
+    allTechnicians = allTechnicians.filter(technician => {
+      if (!technician.specializations || technician.specializations.length === 0) {
+        return false;
+      }
+      
+      return rule.requiredSpecializations!.some(reqSpec => 
+        technician.specializations!.includes(reqSpec)
+      );
+    });
+  }
+
+  console.log(`📊 [AUTO-ASSIGN] ${allTechnicians.length} técnicos elegibles después de filtros`);
+  return allTechnicians;
+}
 
   /**
    * Selecciona el mejor técnico según el método de asignación

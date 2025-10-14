@@ -41,6 +41,31 @@ function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
   return user.role === 'super_admin' ? 'public' : 'tenant';
 }
 
+// ✅ Schema de validación para reglas de asignación
+const assignmentRuleSchema = z.object({
+  name: z.string().min(3, "Nombre requerido"),
+  priority: z.number().min(1).max(10),
+  isActive: z.boolean().default(true),
+  useSectorBased: z.boolean().default(true),
+  requiredProvince: z.string().optional(),
+  requiredMunicipality: z.string().optional(),
+  requiredSectors: z.array(z.string()).optional(),
+  allowAdjacentMunicipalities: z.boolean().default(true),
+  useSpecializationBased: z.boolean().default(false),
+  requiredSpecializations: z.array(z.string()).optional(),
+  useWorkloadBased: z.boolean().default(true),
+  maxOrdersPerTechnician: z.number().min(1).max(20),
+  useTimeBased: z.boolean().default(true),
+  availabilityRequired: z.boolean().default(true),
+  applicableProducts: z.array(z.string()).optional(),
+  applicableServices: z.array(z.string()).optional(),
+  assignmentMethod: z.enum(['closest_available', 'least_busy', 'highest_skill', 'round_robin', 'specific_users']),
+  assignedUserIds: z.array(z.number()).optional(), // ✅ NUEVO
+  autoAssign: z.boolean().default(true),
+  notifyCustomer: z.boolean().default(true),
+  estimatedResponseTime: z.number().default(60),
+});
+
 export async function getTenantStorageWithSchema(user: any) {
   // ✅ Super admins no usan tenant storage
   if (user.role === 'super_admin') {
@@ -5060,6 +5085,264 @@ router.get('/notification-history', authenticateToken, async (req: any, res: any
     res.status(500).json({ error: 'Failed to fetch notification history' });
   }
 });
+// server/routes.ts - Agregar estos endpoints
+
+
+
+// ✅ Schema de validación para reglas de asignación
+const assignmentRuleSchema = z.object({
+  name: z.string().min(3, "Nombre requerido"),
+  priority: z.number().min(1).max(10),
+  isActive: z.boolean().default(true),
+  useSectorBased: z.boolean().default(true),
+  requiredProvince: z.string().optional(),
+  requiredMunicipality: z.string().optional(),
+  requiredSectors: z.array(z.string()).optional(),
+  allowAdjacentMunicipalities: z.boolean().default(true),
+  useSpecializationBased: z.boolean().default(false),
+  requiredSpecializations: z.array(z.string()).optional(),
+  useWorkloadBased: z.boolean().default(true),
+  maxOrdersPerTechnician: z.number().min(1).max(20),
+  useTimeBased: z.boolean().default(true),
+  availabilityRequired: z.boolean().default(true),
+  applicableProducts: z.array(z.string()).optional(),
+  applicableServices: z.array(z.string()).optional(),
+  assignmentMethod: z.enum(['closest_available', 'least_busy', 'highest_skill', 'round_robin', 'specific_users']),
+  assignedUserIds: z.array(z.number()).optional(), // ✅ NUEVO
+  autoAssign: z.boolean().default(true),
+  notifyCustomer: z.boolean().default(true),
+  estimatedResponseTime: z.number().default(60),
+});
+
+// ================================
+// ASSIGNMENT RULES CRUD
+// ================================
+
+// ✅ NUEVO: Obtener usuarios técnicos de la tienda para el selector
+router.get('/assignment-rules/available-users', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Obtener usuarios técnicos y admins activos
+    const users = await tenantStorage.getUsersByRole('technical');
+    const admins = await tenantStorage.getUsersByRole('admin');
+    
+    // Combinar y filtrar solo activos
+    const allUsers = [...users, ...admins].filter(u => u.status === 'active');
+    
+    // Devolver solo info necesaria
+    const simplifiedUsers = allUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      status: u.status
+    }));
+    
+    res.json(simplifiedUsers);
+  } catch (error) {
+    console.error('Error fetching available users:', error);
+    res.status(500).json({ error: 'Failed to fetch available users' });
+  }
+});
+
+// GET - Obtener todas las reglas de la tienda
+router.get('/assignment-rules', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // ✅ Usar el método correcto del tenantStorage
+    const rules = await tenantStorage.getAllAssignmentRules();
+    
+    res.json(rules);
+  } catch (error) {
+    console.error('Error fetching assignment rules:', error);
+    res.status(500).json({ error: 'Failed to fetch assignment rules' });
+  }
+});
+
+// GET - Obtener una regla específica
+router.get('/assignment-rules/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const rule = await tenantStorage.getAssignmentRuleById(id);
+    
+    if (!rule) {
+      return res.status(404).json({ error: 'Rule not found' });
+    }
+    
+    res.json(rule);
+  } catch (error) {
+    console.error('Error fetching assignment rule:', error);
+    res.status(500).json({ error: 'Failed to fetch assignment rule' });
+  }
+});
+
+// POST - Crear nueva regla
+router.get('/assignment-rules', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // ✅ Usar el método correcto del tenantStorage
+    const rules = await tenantStorage.getAllAssignmentRules();
+    
+    res.json(rules);
+  } catch (error) {
+    console.error('Error fetching assignment rules:', error);
+    res.status(500).json({ error: 'Failed to fetch assignment rules' });
+  }
+});
+
+// PUT - Actualizar regla existente
+router.put('/assignment-rules/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    // Validar datos
+    const validatedData = assignmentRuleSchema.parse(req.body);
+    
+    // ✅ Validar usuarios específicos
+    if (validatedData.assignmentMethod === 'specific_users') {
+      if (!validatedData.assignedUserIds || validatedData.assignedUserIds.length === 0) {
+        return res.status(400).json({ 
+          error: 'Debes seleccionar al menos un usuario cuando el método es "Usuarios Específicos"' 
+        });
+      }
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la regla existe
+    const existingRule = await tenantStorage.getAssignmentRuleById(id);
+    
+    if (!existingRule) {
+      return res.status(404).json({ error: 'Rule not found' });
+    }
+    
+    // Actualizar la regla
+    const updatedRule = await tenantStorage.updateAssignmentRule(id, validatedData);
+    
+    console.log(`✅ Assignment rule updated: "${updatedRule.name}"`);
+    
+    res.json(updatedRule);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      });
+    }
+    
+    console.error('Error updating assignment rule:', error);
+    res.status(500).json({ error: 'Failed to update assignment rule' });
+  }
+});
+
+// DELETE - Eliminar regla
+router.delete('/assignment-rules/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la regla existe
+    const existingRule = await tenantStorage.getAssignmentRuleById(id);
+    
+    if (!existingRule) {
+      return res.status(404).json({ error: 'Rule not found' });
+    }
+    
+    // Verificar si hay órdenes usando esta regla
+    const orders = await tenantStorage.getAllOrders();
+    const ordersUsingRule = orders.filter((o: any) => o.assignedRuleId === id);
+    
+    if (ordersUsingRule.length > 0) {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar la regla porque hay órdenes asignadas con ella',
+        suggestion: 'Desactiva la regla en lugar de eliminarla'
+      });
+    }
+    
+    // Eliminar la regla
+    await tenantStorage.deleteAssignmentRule(id);
+    
+    console.log(`✅ Assignment rule deleted: ID ${id}`);
+    
+    res.json({ success: true, message: 'Rule deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting assignment rule:', error);
+    res.status(500).json({ error: 'Failed to delete assignment rule' });
+  }
+});
+
+// PATCH - Activar/Desactivar regla rápidamente
+router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Obtener estado actual
+    const rule = await tenantStorage.getAssignmentRuleById(id);
+    
+    if (!rule) {
+      return res.status(404).json({ error: 'Rule not found' });
+    }
+    
+    // Cambiar estado
+    const updatedRule = await tenantStorage.updateAssignmentRule(id, {
+      isActive: !rule.isActive,
+    });
+    
+    res.json(updatedRule);
+  } catch (error) {
+    console.error('Error toggling assignment rule:', error);
+    res.status(500).json({ error: 'Failed to toggle assignment rule' });
+  }
+});
+
+
+
+
 
   // ================================
   // MOUNT ROUTER ON APP

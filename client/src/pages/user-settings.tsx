@@ -52,12 +52,13 @@ export default function UserSettings() {
 
   // Mutation for changing password
   const changePasswordMutation = useMutation({
-    mutationFn: async (data: typeof passwordData) => {
-      return await apiRequest("PUT", `/api/users/${user?.id}/password`, {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword
-      });
-    },
+  mutationFn: async (data: typeof passwordData) => {
+    return await apiRequest("POST", `/api/user-management/users/${user?.id}/change-password`, {
+      currentPassword: data.currentPassword,
+      newPassword: data.newPassword,
+      confirmPassword: data.confirmPassword 
+    });
+  },
     onSuccess: () => {
       toast({
         title: "Contraseña actualizada",
