@@ -1,41 +1,21 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
-import { Plus, User, Search, Edit2, Trash2, Briefcase, Users, Award, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useMemo } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Pencil, Trash2, Plus, Users, Briefcase, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
-const roleLabels = {
-  admin: "Administrador",
-  store_admin: "Admin Tienda",
-  technician: "Técnico",
-  seller: "Vendedor",
-  delivery: "Delivery",
-  support: "Soporte",
-  customer_service: "Atención al Cliente"
-};
-
-const roleColors = {
-  admin: "bg-red-100 text-red-800",
-  store_admin: "bg-orange-100 text-orange-800",
-  technician: "bg-blue-100 text-blue-800",
-  seller: "bg-green-100 text-green-800",
-  delivery: "bg-yellow-100 text-yellow-800",
-  support: "bg-purple-100 text-purple-800",
-  customer_service: "bg-pink-100 text-pink-800"
-};
-
+// Schemas
 const createEmployeeSchema = z.object({
   username: z.string().min(3, "Mínimo 3 caracteres"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
@@ -51,18 +31,31 @@ const editEmployeeSchema = createEmployeeSchema.extend({
   password: z.string().min(6, "Mínimo 6 caracteres").optional().or(z.literal(""))
 });
 
-const createProfileSchema = z.object({
+const profileSchema = z.object({
   department: z.string().min(2, "Departamento requerido"),
   position: z.string().min(2, "Posición requerida"),
   specializations: z.string().optional(),
   maxDailyOrders: z.string().optional(),
   skillLevel: z.string().optional(),
   notes: z.string().optional(),
+  province: z.string().optional(),
+  municipality: z.string().optional(),
+  sector: z.string().optional(),
 });
 
 type CreateEmployeeForm = z.infer<typeof createEmployeeSchema>;
 type EditEmployeeForm = z.infer<typeof editEmployeeSchema>;
-type CreateProfileForm = z.infer<typeof createProfileSchema>;
+type ProfileForm = z.infer<typeof profileSchema>;
+
+const roleLabels: Record<string, string> = {
+  admin: "Administrador",
+  technician: "Técnico",
+  seller: "Vendedor",
+  delivery: "Repartidor",
+  support: "Soporte",
+  customer_service: "Atención al Cliente",
+  store_admin: "Administrador de Tienda"
+};
 
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem("auth_token");
@@ -91,21 +84,22 @@ export default function EmployeesManagement() {
   const [isCreateEmployeeOpen, setIsCreateEmployeeOpen] = useState(false);
   const [isEditEmployeeOpen, setIsEditEmployeeOpen] = useState(false);
   const [isCreateProfileOpen, setIsCreateProfileOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<any>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("employees");
 
-  const { data: employees = [], isLoading: loadingEmployees, refetch: refetchEmployees } = useQuery({
+  const { data: employees = [], refetch: refetchEmployees } = useQuery({
     queryKey: ["/api/employees"],
     queryFn: () => apiCall("/api/employees")
   });
 
-  const { data: profiles = [], isLoading: loadingProfiles, refetch: refetchProfiles } = useQuery({
+  const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ["/api/employee-profiles"],
     queryFn: () => apiCall("/api/employee-profiles")
   });
 
-  // Departamentos dinámicos desde perfiles
   const departmentLabels = useMemo(() => {
     const depts: Record<string, string> = {};
     profiles.forEach((p: any) => {
@@ -116,15 +110,34 @@ export default function EmployeesManagement() {
     return depts;
   }, [profiles]);
 
+  // Forms
+  const employeeForm = useForm<CreateEmployeeForm>({
+    resolver: zodResolver(createEmployeeSchema),
+    defaultValues: { role: "technician", employeeProfileId: null }
+  });
+
+  const editEmployeeForm = useForm<EditEmployeeForm>({
+    resolver: zodResolver(editEmployeeSchema),
+    defaultValues: { role: "technician", employeeProfileId: null }
+  });
+
+  const profileForm = useForm<ProfileForm>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { maxDailyOrders: "5", skillLevel: "3" }
+  });
+
+  const editProfileForm = useForm<ProfileForm>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { maxDailyOrders: "5", skillLevel: "3" }
+  });
+
+  // Mutations
   const createEmployeeMutation = useMutation({
     mutationFn: async (data: CreateEmployeeForm) => {
       return apiCall("/api/employees", {
         method: "POST",
         body: JSON.stringify({
-          username: data.username,
-          password: data.password,
-          name: data.name,
-          role: data.role,
+          ...data,
           email: data.email || null,
           phone: data.phone || null,
           address: data.address || null,
@@ -189,7 +202,7 @@ export default function EmployeesManagement() {
   });
 
   const createProfileMutation = useMutation({
-    mutationFn: async (data: CreateProfileForm) => {
+    mutationFn: async (data: ProfileForm) => {
       return apiCall("/api/employee-profiles", {
         method: "POST",
         body: JSON.stringify({
@@ -213,6 +226,31 @@ export default function EmployeesManagement() {
     }
   });
 
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ProfileForm }) => {
+      return apiCall(`/api/employee-profiles/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...data,
+          specializations: data.specializations 
+            ? data.specializations.split(',').map(s => s.trim()) 
+            : [],
+          maxDailyOrders: data.maxDailyOrders ? parseInt(data.maxDailyOrders) : 5,
+          skillLevel: data.skillLevel ? parseInt(data.skillLevel) : 3,
+        })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Perfil actualizado exitosamente" });
+      setIsEditProfileOpen(false);
+      setSelectedProfile(null);
+      refetchProfiles();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const deleteProfileMutation = useMutation({
     mutationFn: async (id: number) => {
       return apiCall(`/api/employee-profiles/${id}`, { method: "DELETE" });
@@ -224,21 +262,6 @@ export default function EmployeesManagement() {
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
-  });
-
-  const employeeForm = useForm<CreateEmployeeForm>({
-    resolver: zodResolver(createEmployeeSchema),
-    defaultValues: { role: "technician", employeeProfileId: null }
-  });
-
-  const editEmployeeForm = useForm<EditEmployeeForm>({
-    resolver: zodResolver(editEmployeeSchema),
-    defaultValues: { role: "technician", employeeProfileId: null }
-  });
-
-  const profileForm = useForm<CreateProfileForm>({
-    resolver: zodResolver(createProfileSchema),
-    defaultValues: { maxDailyOrders: "5", skillLevel: "3" }
   });
 
   const handleEditEmployee = (emp: any) => {
@@ -256,52 +279,71 @@ export default function EmployeesManagement() {
     setIsEditEmployeeOpen(true);
   };
 
+  const handleEditProfile = (profile: any) => {
+    setSelectedProfile(profile);
+    editProfileForm.reset({
+      department: profile.department || "",
+      position: profile.position || "",
+      specializations: Array.isArray(profile.specializations) 
+        ? profile.specializations.join(', ') 
+        : "",
+      maxDailyOrders: profile.maxDailyOrders?.toString() || "5",
+      skillLevel: profile.skillLevel?.toString() || "3",
+      notes: profile.notes || "",
+      province: profile.province || "",
+      municipality: profile.municipality || "",
+      sector: profile.sector || "",
+    });
+    setIsEditProfileOpen(true);
+  };
+
   const filteredEmployees = employees.filter((emp: any) => {
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         emp.username?.toLowerCase().includes(searchTerm.toLowerCase());
+                          emp.username?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === "all" || emp.role === filterRole;
     const matchesDept = filterDepartment === "all" || emp.profile?.department === filterDepartment;
     return matchesSearch && matchesRole && matchesDept;
   });
 
-  if (loadingEmployees || loadingProfiles) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const filteredProfiles = profiles.filter((profile: any) => {
+    const matchesSearch = profile.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          profile.department?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDept = filterDepartment === "all" || profile.department === filterDepartment;
+    return matchesSearch && matchesDept;
+  });
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Gestión de Empleados</h1>
-          <p className="text-muted-foreground">Administra usuarios y perfiles</p>
-        </div>
+        <h1 className="text-3xl font-bold">Gestión de Personal</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="employees">
             <Users className="w-4 h-4 mr-2" />
-            Empleados ({employees.length})
+            Empleados
           </TabsTrigger>
           <TabsTrigger value="profiles">
             <Briefcase className="w-4 h-4 mr-2" />
-            Perfiles ({profiles.length})
+            Perfiles
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="employees" className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              <Input
+                placeholder="Buscar empleado..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
             </div>
             <Select value={filterRole} onValueChange={setFilterRole}>
               <SelectTrigger className="w-48">
-                <SelectValue />
+                <SelectValue placeholder="Filtrar por rol" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los roles</SelectItem>
@@ -310,246 +352,200 @@ export default function EmployeesManagement() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los departamentos</SelectItem>
-                {Object.entries(departmentLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Dialog open={isCreateEmployeeOpen} onOpenChange={setIsCreateEmployeeOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuevo</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Crear Empleado</DialogTitle>
-                </DialogHeader>
-                <Form {...employeeForm}>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={employeeForm.control} name="name" render={({ field }) => (
-                        <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={employeeForm.control} name="username" render={({ field }) => (
-                        <FormItem><FormLabel>Usuario</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                    </div>
-                    <FormField control={employeeForm.control} name="password" render={({ field }) => (
-                      <FormItem><FormLabel>Contraseña</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={employeeForm.control} name="role" render={({ field }) => (
-                        <FormItem><FormLabel>Rol</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {Object.entries(roleLabels).map(([value, label]) => (
-                                <SelectItem key={value} value={value}>{label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={employeeForm.control} name="employeeProfileId" render={({ field }) => (
-                        <FormItem><FormLabel>Perfil</FormLabel>
-                          <Select onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val))} value={field.value?.toString() || "none"}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">Sin perfil</SelectItem>
-                              {profiles.map((p: any) => (
-                                <SelectItem key={p.id} value={p.id.toString()}>{p.position} - {p.department}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={employeeForm.control} name="phone" render={({ field }) => (
-                        <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={employeeForm.control} name="email" render={({ field }) => (
-                        <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                    </div>
-                    <FormField control={employeeForm.control} name="address" render={({ field }) => (
-                      <FormItem><FormLabel>Dirección</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setIsCreateEmployeeOpen(false)}>Cancelar</Button>
-                      <Button type="button" disabled={createEmployeeMutation.isPending} onClick={() => employeeForm.handleSubmit((data) => createEmployeeMutation.mutate(data))()}>
-                        {createEmployeeMutation.isPending ? "Creando..." : "Crear"}
-                      </Button>
-                    </div>
-                  </div>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setIsCreateEmployeeOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo Empleado
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEmployees.map((emp: any) => (
               <Card key={emp.id}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{emp.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">@{emp.username}</p>
-                      </div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{emp.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground">@{emp.username}</p>
                     </div>
+                    <Badge variant="outline">{roleLabels[emp.role]}</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <Badge className={roleColors[emp.role as keyof typeof roleColors]}>
-                      {roleLabels[emp.role as keyof typeof roleLabels]}
-                    </Badge>
-                    {emp.profile && (
-                      <Badge variant="outline">{emp.profile.department}</Badge>
-                    )}
-                  </div>
+                <CardContent className="space-y-2">
                   {emp.profile && (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Briefcase className="w-4 h-4" />
-                        <span>{emp.profile.position}</span>
-                      </div>
+                    <div className="p-2 bg-muted rounded-md text-sm">
+                      <p className="font-medium">{emp.profile.position}</p>
+                      <p className="text-muted-foreground">{emp.profile.department}</p>
                     </div>
                   )}
-                  {emp.phone && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      <span>{emp.phone}</span>
-                    </div>
-                  )}
+                  {emp.email && <p className="text-sm">📧 {emp.email}</p>}
+                  {emp.phone && <p className="text-sm">📱 {emp.phone}</p>}
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEditEmployee(emp)}>
-                      <Edit2 className="w-3 h-3 mr-1" />Editar
+                    <Button size="sm" variant="outline" onClick={() => handleEditEmployee(emp)}>
+                      <Pencil className="w-3 h-3 mr-1" />
+                      Editar
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => setEmployeeToDelete(emp)}>
-                      <Trash2 className="w-3 h-3" />
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      onClick={() => setEmployeeToDelete(emp)}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Eliminar
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          {filteredEmployees.length === 0 && (
-            <div className="text-center py-12">
-              <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No se encontraron empleados</p>
-            </div>
-          )}
         </TabsContent>
 
         <TabsContent value="profiles" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">Plantillas reutilizables</p>
-            <Dialog open={isCreateProfileOpen} onOpenChange={setIsCreateProfileOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="w-4 h-4 mr-2" />Nuevo Perfil</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Crear Perfil</DialogTitle></DialogHeader>
-                <Form {...profileForm}>
-                  <div className="space-y-4">
-                    <FormField control={profileForm.control} name="position" render={({ field }) => (
-                      <FormItem><FormLabel>Posición</FormLabel><FormControl><Input placeholder="Técnico Senior" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={profileForm.control} name="department" render={({ field }) => (
-                      <FormItem><FormLabel>Departamento</FormLabel><FormControl><Input placeholder="technical, sales, etc." {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={profileForm.control} name="specializations" render={({ field }) => (
-                      <FormItem><FormLabel>Especializaciones</FormLabel><FormControl><Input placeholder="HVAC, Refrigeración" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField control={profileForm.control} name="maxDailyOrders" render={({ field }) => (
-                        <FormItem><FormLabel>Órdenes/día</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={profileForm.control} name="skillLevel" render={({ field }) => (
-                        <FormItem><FormLabel>Nivel (1-5)</FormLabel><FormControl><Input type="number" min="1" max="5" {...field} /></FormControl><FormMessage /></FormItem>
-                      )} />
-                    </div>
-                    <FormField control={profileForm.control} name="notes" render={({ field }) => (
-                      <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setIsCreateProfileOpen(false)}>Cancelar</Button>
-                      <Button type="button" disabled={createProfileMutation.isPending} onClick={() => profileForm.handleSubmit((data) => createProfileMutation.mutate(data))()}>
-                        {createProfileMutation.isPending ? "Creando..." : "Crear"}
-                      </Button>
-                    </div>
-                  </div>
-                </Form>
-              </DialogContent>
-            </Dialog>
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar perfil..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filtrar por departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {Object.entries(departmentLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setIsCreateProfileOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo Perfil
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {profiles.map((profile: any) => (
+            {filteredProfiles.map((profile: any) => (
               <Card key={profile.id}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{profile.position}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{profile.employeeId || `ID: ${profile.id}`}</p>
-                    </div>
-                    <Badge variant="outline">{profile.department}</Badge>
-                  </div>
+                  <CardTitle className="text-lg">{profile.position}</CardTitle>
+                  <Badge variant="secondary">{profile.department}</Badge>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {profile.specializations?.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Especializaciones:</p>
-                      <div className="flex flex-wrap gap-1">
+                <CardContent className="space-y-2">
+                  {profile.specializations && profile.specializations.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium">Especializaciones:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
                         {profile.specializations.map((spec: string, idx: number) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">{spec}</Badge>
+                          <Badge key={idx} variant="outline" className="text-xs">{spec}</Badge>
                         ))}
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-4 text-sm">
-                    <div><p className="text-muted-foreground">Órdenes/día</p><p className="font-medium">{profile.maxDailyOrders || 5}</p></div>
-                    <div><p className="text-muted-foreground">Nivel</p><p className="font-medium">{profile.skillLevel || 3}/5</p></div>
-                  </div>
-                  {profile.notes && <p className="text-xs text-muted-foreground italic">{profile.notes}</p>}
+                  <p className="text-sm">Max órdenes: {profile.maxDailyOrders || 5}</p>
+                  <p className="text-sm">Nivel: {profile.skillLevel || 3}/5</p>
+                  {profile.province && (
+                    <p className="text-sm">📍 {profile.province}</p>
+                  )}
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1"><Edit2 className="w-3 h-3 mr-1" />Editar</Button>
-                    <Button size="sm" variant="destructive" onClick={() => {
-                      if (window.confirm("¿Eliminar perfil?")) deleteProfileMutation.mutate(profile.id);
-                    }}>
-                      <Trash2 className="w-3 h-3" />
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleEditProfile(profile)}
+                    >
+                      <Pencil className="w-3 h-3 mr-1" />
+                      Editar
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      onClick={() => deleteProfileMutation.mutate(profile.id)}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Eliminar
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          {profiles.length === 0 && (
-            <div className="text-center py-12">
-              <Briefcase className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No hay perfiles</p>
-            </div>
-          )}
         </TabsContent>
       </Tabs>
 
+      {/* Create Employee Dialog */}
+      <Dialog open={isCreateEmployeeOpen} onOpenChange={setIsCreateEmployeeOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Crear Empleado</DialogTitle></DialogHeader>
+          <Form {...employeeForm}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={employeeForm.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={employeeForm.control} name="username" render={({ field }) => (
+                  <FormItem><FormLabel>Usuario</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={employeeForm.control} name="password" render={({ field }) => (
+                <FormItem><FormLabel>Contraseña</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={employeeForm.control} name="role" render={({ field }) => (
+                  <FormItem><FormLabel>Rol</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {Object.entries(roleLabels).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={employeeForm.control} name="employeeProfileId" render={({ field }) => (
+                  <FormItem><FormLabel>Perfil</FormLabel>
+                    <Select onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val))} value={field.value?.toString() || "none"}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Sin perfil" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Sin perfil</SelectItem>
+                        {profiles.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            {p.position} - {p.department}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={employeeForm.control} name="email" render={({ field }) => (
+                  <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={employeeForm.control} name="phone" render={({ field }) => (
+                  <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={employeeForm.control} name="address" render={({ field }) => (
+                <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsCreateEmployeeOpen(false)}>Cancelar</Button>
+                <Button onClick={employeeForm.handleSubmit((data) => createEmployeeMutation.mutate(data))}>Crear Empleado</Button>
+              </div>
+            </div>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Employee Dialog */}
       <Dialog open={isEditEmployeeOpen} onOpenChange={setIsEditEmployeeOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar Empleado</DialogTitle></DialogHeader>
           <Form {...editEmployeeForm}>
             <div className="space-y-4">
@@ -581,11 +577,13 @@ export default function EmployeesManagement() {
                 <FormField control={editEmployeeForm.control} name="employeeProfileId" render={({ field }) => (
                   <FormItem><FormLabel>Perfil</FormLabel>
                     <Select onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val))} value={field.value?.toString() || "none"}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Sin perfil" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="none">Sin perfil</SelectItem>
                         {profiles.map((p: any) => (
-                          <SelectItem key={p.id} value={p.id.toString()}>{p.position} - {p.department}</SelectItem>
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            {p.position} - {p.department}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -594,42 +592,134 @@ export default function EmployeesManagement() {
                 )} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <FormField control={editEmployeeForm.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
                 <FormField control={editEmployeeForm.control} name="email" render={({ field }) => (
                   <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
+                <FormField control={editEmployeeForm.control} name="phone" render={({ field }) => (
+                  <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
               </div>
               <FormField control={editEmployeeForm.control} name="address" render={({ field }) => (
-                <FormItem><FormLabel>Dirección</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <div className="flex justify-end gap-2">
+              <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setIsEditEmployeeOpen(false)}>Cancelar</Button>
-                <Button type="button" disabled={updateEmployeeMutation.isPending} onClick={() => editEmployeeForm.handleSubmit((data) => updateEmployeeMutation.mutate({ id: selectedEmployee.id, data }))()}>
-                  {updateEmployeeMutation.isPending ? "Actualizando..." : "Actualizar"}
-                </Button>
+                <Button onClick={editEmployeeForm.handleSubmit((data) => updateEmployeeMutation.mutate({ id: selectedEmployee?.id, data }))}>Actualizar</Button>
               </div>
             </div>
           </Form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
-      <AlertDialog open={!!employeeToDelete} onOpenChange={() => setEmployeeToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar empleado?</AlertDialogTitle>
-            <AlertDialogDescription>Se eliminará <strong>{employeeToDelete?.name}</strong>. El perfil no se eliminará.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => employeeToDelete && deleteEmployeeMutation.mutate(employeeToDelete.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Create Profile Dialog */}
+      <Dialog open={isCreateProfileOpen} onOpenChange={setIsCreateProfileOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Crear Perfil</DialogTitle></DialogHeader>
+          <Form {...profileForm}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={profileForm.control} name="department" render={({ field }) => (
+                  <FormItem><FormLabel>Departamento</FormLabel><FormControl><Input {...field} placeholder="ej: Technical" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={profileForm.control} name="position" render={({ field }) => (
+                  <FormItem><FormLabel>Posición</FormLabel><FormControl><Input {...field} placeholder="ej: Técnico Senior" /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={profileForm.control} name="specializations" render={({ field }) => (
+                <FormItem><FormLabel>Especializaciones (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Instalación, Reparación, Mantenimiento" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="grid grid-cols-3 gap-4">
+                <FormField control={profileForm.control} name="maxDailyOrders" render={({ field }) => (
+                  <FormItem><FormLabel>Max Órdenes/Día</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={profileForm.control} name="skillLevel" render={({ field }) => (
+                  <FormItem><FormLabel>Nivel (1-5)</FormLabel><FormControl><Input type="number" min="1" max="5" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField control={profileForm.control} name="province" render={({ field }) => (
+                  <FormItem><FormLabel>Provincia</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={profileForm.control} name="municipality" render={({ field }) => (
+                  <FormItem><FormLabel>Municipio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={profileForm.control} name="sector" render={({ field }) => (
+                  <FormItem><FormLabel>Sector</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={profileForm.control} name="notes" render={({ field }) => (
+                <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsCreateProfileOpen(false)}>Cancelar</Button>
+                <Button onClick={profileForm.handleSubmit((data) => createProfileMutation.mutate(data))}>Crear Perfil</Button>
+              </div>
+            </div>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog - NUEVO */}
+      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar Perfil</DialogTitle></DialogHeader>
+          <Form {...editProfileForm}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={editProfileForm.control} name="department" render={({ field }) => (
+                  <FormItem><FormLabel>Departamento</FormLabel><FormControl><Input {...field} placeholder="ej: Technical" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editProfileForm.control} name="position" render={({ field }) => (
+                  <FormItem><FormLabel>Posición</FormLabel><FormControl><Input {...field} placeholder="ej: Técnico Senior" /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={editProfileForm.control} name="specializations" render={({ field }) => (
+                <FormItem><FormLabel>Especializaciones (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Instalación, Reparación, Mantenimiento" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="grid grid-cols-3 gap-4">
+                <FormField control={editProfileForm.control} name="maxDailyOrders" render={({ field }) => (
+                  <FormItem><FormLabel>Max Órdenes/Día</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editProfileForm.control} name="skillLevel" render={({ field }) => (
+                  <FormItem><FormLabel>Nivel (1-5)</FormLabel><FormControl><Input type="number" min="1" max="5" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField control={editProfileForm.control} name="province" render={({ field }) => (
+                  <FormItem><FormLabel>Provincia</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editProfileForm.control} name="municipality" render={({ field }) => (
+                  <FormItem><FormLabel>Municipio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editProfileForm.control} name="sector" render={({ field }) => (
+                  <FormItem><FormLabel>Sector</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={editProfileForm.control} name="notes" render={({ field }) => (
+                <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsEditProfileOpen(false)}>Cancelar</Button>
+                <Button onClick={editProfileForm.handleSubmit((data) => updateProfileMutation.mutate({ id: selectedProfile?.id, data }))}>Actualizar Perfil</Button>
+              </div>
+            </div>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!employeeToDelete} onOpenChange={() => setEmployeeToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Eliminación</DialogTitle>
+          </DialogHeader>
+          <p>¿Estás seguro de que deseas eliminar a {employeeToDelete?.name}?</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setEmployeeToDelete(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteEmployeeMutation.mutate(employeeToDelete.id)}>Eliminar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
