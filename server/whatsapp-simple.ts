@@ -2648,6 +2648,19 @@ async function processWebCatalogOrderSimple(
     console.log(`🏗️ CREATING ORDER:`, orderData);
     const order = await tenantStorage.createOrder(orderData, processedItems);
     console.log(`✅ ORDER CREATED SUCCESSFULLY - ID: ${order.id}, Number: ${orderNumber}`);
+console.log('🎯 [AUTO-ASSIGN] Iniciando asignación para orden desde WhatsApp');
+const { executeAutoAssignment } = await import('./services/auto-assignment-service.js');
+try {
+  const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
+  
+  if (assignmentResult.success) {
+    console.log(`✅ [AUTO-ASSIGN WhatsApp] ${assignmentResult.message}`);
+  } else {
+    console.log(`⚠️ [AUTO-ASSIGN WhatsApp] ${assignmentResult.message}`);
+  }
+} catch (autoAssignError) {
+  console.error('❌ [AUTO-ASSIGN WhatsApp] Error:', autoAssignError);
+}
 
     // ✅ USAR LA AUTO-RESPUESTA order_received EN LUGAR DE MENSAJE MANUAL
     console.log(`🎯 TRIGGERING order_received AUTO-RESPONSE...`);
