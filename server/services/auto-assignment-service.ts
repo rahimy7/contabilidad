@@ -62,7 +62,8 @@ export class AutoAssignmentService {
       console.log('🤖 [AUTO-ASSIGN] Iniciando asignación automática para orden:', orderId);
       
       // Obtener la orden
-      const order = await this.tenantStorage.getOrder(orderId);
+      const order = await this.tenantStorage.getOrderById(orderId);
+
       if (!order) {
         return { success: false, message: 'Orden no encontrada' };
       }
