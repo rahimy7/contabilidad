@@ -11,18 +11,11 @@ const router = Router();
 // ================================
 
 const EmployeeProfileSchema = z.object({
-  employeeId: z.string().optional(),
-  department: z.enum(['technical', 'sales', 'delivery', 'support', 'admin']),
-  position: z.string().min(2, "Posición requerida"),
+  department: z.string().min(1),
+  position: z.string().min(2),
   specializations: z.array(z.string()).optional(),
-  maxDailyOrders: z.number().min(1).max(50).default(5),
-  skillLevel: z.number().min(1).max(5).default(3),
-  province: z.string().optional(),
-  municipality: z.string().optional(),
-  sector: z.string().optional(),
-  coverageProvinces: z.array(z.string()).optional(),
-  coverageMunicipalities: z.array(z.string()).optional(),
-  coverageSectors: z.array(z.string()).optional(),
+  maxDailyOrders: z.number().positive().optional(),
+  skillLevel: z.number().min(1).max(5).optional(),
   notes: z.string().optional(),
 });
 
@@ -33,7 +26,7 @@ const CreateUserWithProfileSchema = z.object({
   name: z.string().min(2),
   email: z.string().email().optional(),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'technician', 'seller', 'delivery', 'support', 'customer_service']),
+  role: z.enum(['admin', 'technician', 'seller', 'delivery']),
   
   // ID del perfil a asignar
   employeeProfileId: z.number().int().positive(),
@@ -90,11 +83,7 @@ router.post('/employee-profiles', authenticateToken, requireAdmin, async (req: a
     
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // Generar employeeId si no viene
-    if (!profileData.employeeId) {
-      profileData.employeeId = await tenantStorage.generateEmployeeId(profileData.department);
-    }
-    
+     
     const profile = await tenantStorage.createEmployeeProfile(profileData);
     res.status(201).json(profile);
   } catch (error) {

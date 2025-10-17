@@ -34,15 +34,7 @@ const profileSchema = z.object({
   department: z.string().min(2, "Departamento requerido"),
   position: z.string().min(2, "Posición requerida"),
   specializations: z.string().optional(),
-  maxDailyOrders: z.string().optional(),
-  skillLevel: z.string().optional(),
   notes: z.string().optional(),
-  province: z.string().optional(),
-  municipality: z.string().optional(),
-  sector: z.string().optional(),
-  coverageProvinces: z.string().optional(),
-  coverageMunicipalities: z.string().optional(),
-  coverageSectors: z.string().optional(),
 });
 
 type CreateEmployeeForm = z.infer<typeof createEmployeeSchema>;
@@ -86,18 +78,26 @@ export default function EmployeesManagement() {
     queryFn: () => apiCall("/api/employee-profiles")
   });
 
-  const { data: roles = [] } = useQuery({
-    queryKey: ["/api/roles"],
-    queryFn: () => apiCall("/api/roles")
-  });
+ const roles = [
+  { id: 'admin', name: 'admin', displayName: 'Administrador' },
+  { id: 'technician', name: 'technician', displayName: 'Técnico' },
+  { id: 'seller', name: 'seller', displayName: 'Vendedor' },
+  { id: 'delivery', name: 'delivery', displayName: 'Repartidor' },
+  { id: 'support', name: 'support', displayName: 'Soporte' },
+  { id: 'customer_service', name: 'customer_service', displayName: 'Atención al Cliente' },
+  { id: 'store_admin', name: 'store_admin', displayName: 'Administrador de Tienda' },
+];
 
-  const roleLabels = useMemo(() => {
-    const labels: Record<string, string> = {};
-    roles.forEach((role: any) => {
-      labels[role.name] = role.displayName || role.name;
-    });
-    return labels;
-  }, [roles]);
+
+  const roleLabels: Record<string, string> = {
+  admin: "Administrador",
+  technician: "Técnico",
+  seller: "Vendedor",
+  delivery: "Repartidor",
+  support: "Soporte",
+  customer_service: "Atención al Cliente",
+  store_admin: "Administrador de Tienda"
+};
 
   const departmentLabels = useMemo(() => {
     const depts: Record<string, string> = {};
@@ -119,12 +119,12 @@ export default function EmployeesManagement() {
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { maxDailyOrders: "5", skillLevel: "3" }
+    defaultValues: {  }
   });
 
   const editProfileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { maxDailyOrders: "5", skillLevel: "3" }
+    defaultValues: {  }
   });
 
   const createEmployeeMutation = useMutation({
@@ -183,17 +183,11 @@ export default function EmployeesManagement() {
     mutationFn: async (data: ProfileForm) => {
       return apiCall("/api/employee-profiles", {
         method: "POST",
-        body: JSON.stringify({
-          department: data.department, position: data.position,
-          specializations: data.specializations ? data.specializations.split(',').map(s => s.trim()) : [],
-          maxDailyOrders: data.maxDailyOrders ? parseInt(data.maxDailyOrders) : 5,
-          skillLevel: data.skillLevel ? parseInt(data.skillLevel) : 3,
-          province: data.province || null, municipality: data.municipality || null, sector: data.sector || null,
-          coverageProvinces: data.coverageProvinces ? data.coverageProvinces.split(',').map(s => s.trim()) : [],
-          coverageMunicipalities: data.coverageMunicipalities ? data.coverageMunicipalities.split(',').map(s => s.trim()) : [],
-          coverageSectors: data.coverageSectors ? data.coverageSectors.split(',').map(s => s.trim()) : [],
-          notes: data.notes || null,
-        })
+       body: JSON.stringify({
+        department: data.department,
+        position: data.position,
+        notes: data.notes || null,
+      })
       });
     },
     onSuccess: () => {
@@ -212,12 +206,7 @@ export default function EmployeesManagement() {
         body: JSON.stringify({
           department: data.department, position: data.position,
           specializations: data.specializations ? data.specializations.split(',').map(s => s.trim()) : [],
-          maxDailyOrders: data.maxDailyOrders ? parseInt(data.maxDailyOrders) : 5,
-          skillLevel: data.skillLevel ? parseInt(data.skillLevel) : 3,
-          province: data.province || null, municipality: data.municipality || null, sector: data.sector || null,
-          coverageProvinces: data.coverageProvinces ? data.coverageProvinces.split(',').map(s => s.trim()) : [],
-          coverageMunicipalities: data.coverageMunicipalities ? data.coverageMunicipalities.split(',').map(s => s.trim()) : [],
-          coverageSectors: data.coverageSectors ? data.coverageSectors.split(',').map(s => s.trim()) : [],
+     
           notes: data.notes || null,
         })
       });
@@ -250,20 +239,16 @@ export default function EmployeesManagement() {
     setIsEditEmployeeOpen(true);
   };
 
-  const handleEditProfile = (profile: any) => {
-    setSelectedProfile(profile);
-    editProfileForm.reset({
-      department: profile.department || "", position: profile.position || "",
-      specializations: Array.isArray(profile.specializations) ? profile.specializations.join(', ') : "",
-      maxDailyOrders: profile.maxDailyOrders?.toString() || "5",
-      skillLevel: profile.skillLevel?.toString() || "3", notes: profile.notes || "",
-      province: profile.province || "", municipality: profile.municipality || "", sector: profile.sector || "",
-      coverageProvinces: Array.isArray(profile.coverageProvinces) ? profile.coverageProvinces.join(', ') : "",
-      coverageMunicipalities: Array.isArray(profile.coverageMunicipalities) ? profile.coverageMunicipalities.join(', ') : "",
-      coverageSectors: Array.isArray(profile.coverageSectors) ? profile.coverageSectors.join(', ') : "",
-    });
-    setIsEditProfileOpen(true);
-  };
+const handleEditProfile = (profile: any) => {
+  setSelectedProfile(profile);
+  editProfileForm.reset({
+    department: profile.department || "",
+    position: profile.position || "",
+    specializations: Array.isArray(profile.specializations) ? profile.specializations.join(', ') : "",
+    notes: profile.notes || "",
+  });
+  setIsEditProfileOpen(true);
+};
 
   const filteredEmployees = employees.filter((emp: any) => {
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) || emp.username?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -296,9 +281,11 @@ export default function EmployeesManagement() {
               <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por rol" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los roles</SelectItem>
-                {roles.map((role: any) => (
-                  <SelectItem key={role.id} value={role.name}>{role.displayName || role.name}</SelectItem>
-                ))}
+{roles.map((role) => (
+  <SelectItem key={role.id} value={role.name}>
+    {role.displayName}
+  </SelectItem>
+))}
               </SelectContent>
             </Select>
             <Button onClick={() => setIsCreateEmployeeOpen(true)}><Plus className="w-4 h-4 mr-2" />Nuevo Empleado</Button>
@@ -528,34 +515,9 @@ export default function EmployeesManagement() {
               <FormField control={profileForm.control} name="specializations" render={({ field }) => (
                 <FormItem><FormLabel>Especializaciones (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Instalación, Reparación, Mantenimiento" /></FormControl><FormMessage /></FormItem>
               )} />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={profileForm.control} name="maxDailyOrders" render={({ field }) => (
-                  <FormItem><FormLabel>Max Órdenes/Día</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={profileForm.control} name="skillLevel" render={({ field }) => (
-                  <FormItem><FormLabel>Nivel (1-5)</FormLabel><FormControl><Input type="number" min="1" max="5" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
+             
               <div className="grid grid-cols-3 gap-4">
-                <FormField control={profileForm.control} name="province" render={({ field }) => (
-                  <FormItem><FormLabel>Provincia Base</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={profileForm.control} name="municipality" render={({ field }) => (
-                  <FormItem><FormLabel>Municipio Base</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={profileForm.control} name="sector" render={({ field }) => (
-                  <FormItem><FormLabel>Sector Base</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <FormField control={profileForm.control} name="coverageProvinces" render={({ field }) => (
-                <FormItem><FormLabel>Provincias de Cobertura (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo, Santiago, La Vega" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={profileForm.control} name="coverageMunicipalities" render={({ field }) => (
-                <FormItem><FormLabel>Municipios de Cobertura (separados por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo Este, Santiago" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={profileForm.control} name="coverageSectors" render={({ field }) => (
-                <FormItem><FormLabel>Sectores de Cobertura (separados por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Los Mina, Bella Vista, Naco" /></FormControl><FormMessage /></FormItem>
-              )} />
+               
               <FormField control={profileForm.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -563,6 +525,7 @@ export default function EmployeesManagement() {
                 <Button type="button" variant="outline" onClick={() => setIsCreateProfileOpen(false)}>Cancelar</Button>
                 <Button onClick={profileForm.handleSubmit((data) => createProfileMutation.mutate(data))}>Crear Perfil</Button>
               </div>
+            </div>
             </div>
           </Form>
         </DialogContent>
@@ -584,34 +547,9 @@ export default function EmployeesManagement() {
               <FormField control={editProfileForm.control} name="specializations" render={({ field }) => (
                 <FormItem><FormLabel>Especializaciones (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Instalación, Reparación, Mantenimiento" /></FormControl><FormMessage /></FormItem>
               )} />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={editProfileForm.control} name="maxDailyOrders" render={({ field }) => (
-                  <FormItem><FormLabel>Max Órdenes/Día</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={editProfileForm.control} name="skillLevel" render={({ field }) => (
-                  <FormItem><FormLabel>Nivel (1-5)</FormLabel><FormControl><Input type="number" min="1" max="5" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
+          
               <div className="grid grid-cols-3 gap-4">
-                <FormField control={editProfileForm.control} name="province" render={({ field }) => (
-                  <FormItem><FormLabel>Provincia Base</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={editProfileForm.control} name="municipality" render={({ field }) => (
-                  <FormItem><FormLabel>Municipio Base</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={editProfileForm.control} name="sector" render={({ field }) => (
-                  <FormItem><FormLabel>Sector Base</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <FormField control={editProfileForm.control} name="coverageProvinces" render={({ field }) => (
-                <FormItem><FormLabel>Provincias de Cobertura (separadas por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo, Santiago, La Vega" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editProfileForm.control} name="coverageMunicipalities" render={({ field }) => (
-                <FormItem><FormLabel>Municipios de Cobertura (separados por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Santo Domingo Este, Santiago" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editProfileForm.control} name="coverageSectors" render={({ field }) => (
-                <FormItem><FormLabel>Sectores de Cobertura (separados por coma)</FormLabel><FormControl><Input {...field} placeholder="ej: Los Mina, Bella Vista, Naco" /></FormControl><FormMessage /></FormItem>
-              )} />
+                
               <FormField control={editProfileForm.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -619,6 +557,7 @@ export default function EmployeesManagement() {
                 <Button type="button" variant="outline" onClick={() => setIsEditProfileOpen(false)}>Cancelar</Button>
                 <Button onClick={editProfileForm.handleSubmit((data) => updateProfileMutation.mutate({ id: selectedProfile?.id, data }))}>Actualizar Perfil</Button>
               </div>
+            </div>
             </div>
           </Form>
         </DialogContent>

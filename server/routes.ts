@@ -2781,9 +2781,18 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
     
     console.log('✅ [CREATE ORDER] Order created:', order.id);
 
+    console.log('🎯 [DEBUG] Order created, calling auto-assignment...');
+console.log('🎯 [DEBUG] Order data:', {
+  id: order.id,
+  customerId: order.customerId,
+  province: order.customerProvince
+});
+
+
     // ✅ EJECUTAR ASIGNACIÓN AUTOMÁTICA si hay reglas activas
     try {
       const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
+      console.log('🎯 [DEBUG] Assignment result:', assignmentResult);
       
       if (assignmentResult.success) {
         console.log(`🎯 [AUTO-ASSIGN] ${assignmentResult.message}`);
@@ -5119,38 +5128,27 @@ const assignmentRuleSchema = z.object({
 // ================================
 
 // ✅ NUEVO: Obtener usuarios técnicos de la tienda para el selector
+
 router.get('/assignment-rules/available-users', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
-    
-    if (!user.storeId) {
-      return res.status(400).json({ error: 'Store ID is required' });
-    }
-    
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // Obtener usuarios técnicos y admins activos
-    const users = await tenantStorage.getUsersByRole('technical');
-    const admins = await tenantStorage.getUsersByRole('admin');
+    // Obtener TODOS los usuarios activos
+    const allUsers = await tenantStorage.getAllUsers();
+    const activeUsers = allUsers.filter(u => u.status === 'active');
     
-    // Combinar y filtrar solo activos
-    const allUsers = [...users, ...admins].filter(u => u.status === 'active');
-    
-    // Devolver solo info necesaria
-    const simplifiedUsers = allUsers.map(u => ({
+    res.json(activeUsers.map(u => ({
       id: u.id,
       name: u.name,
       role: u.role,
       status: u.status
-    }));
-    
-    res.json(simplifiedUsers);
+    })));
   } catch (error) {
     console.error('Error fetching available users:', error);
     res.status(500).json({ error: 'Failed to fetch available users' });
   }
 });
-
 // GET - Obtener todas las reglas de la tienda
 router.get('/assignment-rules', authenticateToken, async (req: any, res: any) => {
   try {
@@ -5214,6 +5212,54 @@ router.get('/assignment-rules', authenticateToken, async (req: any, res: any) =>
   } catch (error) {
     console.error('Error fetching assignment rules:', error);
     res.status(500).json({ error: 'Failed to fetch assignment rules' });
+  }
+});
+
+// POST - Crear nueva regla
+router.post('/assignment-rules', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    
+    if (!user.storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+    
+    // Validar datos
+    const validatedData = assignmentRuleSchema.parse(req.body);
+    
+    // Validar usuarios específicos si aplica
+    if (validatedData.assignmentMethod === 'specific_users') {
+      if (!validatedData.assignedUserIds || validatedData.assignedUserIds.length === 0) {
+        return res.status(400).json({ 
+          error: 'Debes seleccionar al menos un usuario cuando el método es "Usuarios Específicos"' 
+        });
+      }
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Agregar storeId a los datos
+    const ruleData = {
+      ...validatedData,
+      storeId: user.storeId
+    };
+    
+    // Crear la regla
+    const newRule = await tenantStorage.createAssignmentRule(ruleData);
+    
+    console.log(`✅ Assignment rule created: "${newRule.name}"`);
+    
+    res.status(201).json(newRule);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      });
+    }
+    
+    console.error('Error creating assignment rule:', error);
+    res.status(500).json({ error: 'Failed to create assignment rule' });
   }
 });
 

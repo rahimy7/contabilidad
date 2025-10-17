@@ -1107,18 +1107,29 @@ async createOrUpdateCustomer(customerData: any) {
       }
     },
 
-    async updateUser(id: number, userData: any) {
-      try {
-        const [user] = await tenantDb.update(schema.users)
-          .set({ ...userData, updatedAt: new Date() })
-          .where(eq(schema.users.id, id))
-          .returning();
-        return user;
-      } catch (error) {
-        console.error('Error updating user:', error);
-        throw error;
-      }
-    },
+   async deleteUser(userId: number) {
+  try {
+    // Verificar que el usuario existe
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // No permitir eliminar super admin
+    if (user.role === 'super_admin') {
+      throw new Error('Cannot delete super admin user');
+    }
+    
+    await tenantDb
+      .delete(schema.users)
+      .where(eq(schema.users.id, userId));
+    
+    console.log('✅ User deleted:', userId);
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+},
 
     // NOTIFICATIONS
 
@@ -1349,13 +1360,7 @@ async createEmployeeProfile(profileData: any) {
   try {
     console.log('🔄 Creating employee profile template:', profileData);
     
-    // Generar employee_id si no viene
-    if (!profileData.employeeId) {
-      const dept = profileData.department || 'GEN';
-      const timestamp = Date.now().toString().slice(-6);
-      profileData.employeeId = `${dept.substring(0, 3).toUpperCase()}-${timestamp}`;
-    }
-    
+   
     const [profile] = await tenantDb
       .insert(schema.employeeProfiles)
       .values({
