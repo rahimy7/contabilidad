@@ -48,7 +48,7 @@ interface User {
   status: string;
 }
 
-export default function AssignmentRulesPage() {
+export  function AssignmentRulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -569,3 +569,5 @@ export default function AssignmentRulesPage() {
     </div>
   );
 }
+
+export default AssignmentRulesPage;
