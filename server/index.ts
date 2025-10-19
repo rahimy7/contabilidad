@@ -29,6 +29,7 @@ import { exchangeRateRoutes } from './exchange-rate.routes';
 import { ExchangeRateService } from './services/exchange-rate.service.ts';
 import { createWebOrder } from './routes/create-web-order.ts';
 import { startScheduledTasks } from './scheduled-tasks.ts';
+import { getTenantStorage } from './storage/index.js';
 
 
 
@@ -2731,9 +2732,24 @@ apiRouter.get('/messages', authenticateToken, async (req, res) => {
 apiRouter.post('/messages', authenticateToken, async (req, res) => {
   try {
     const user = (req as any).user;
-    const messageData = { ...req.body, storeId: user.storeId };
+    const { conversationId, content } = req.body;
     
-    const message = await masterStorage.createMessage(messageData);
+    const tenantStorage = await getTenantStorage(user.storeId);
+    
+    // ✅ ACTIVAR MODO WEBAPP (30 minutos por defecto)
+    if (conversationId) {
+      await tenantStorage.switchToWebAppMode(conversationId, 30);
+    
+    }
+    
+    const message = await tenantStorage.createMessage({
+      conversationId,
+      content,
+      senderType: 'user',
+      senderId: user.id,
+      isFromCustomer: false
+    });
+    
     res.status(201).json(message);
   } catch (error) {
     console.error('Error creating message:', error);

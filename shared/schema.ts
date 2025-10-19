@@ -353,6 +353,8 @@ export const conversations = pgTable("conversations", {
   customerId: integer("customer_id").references(() => customers.id).notNull(),
   orderId: integer("order_id").references(() => orders.id),
   conversationType: text("conversation_type").notNull().default("initial"), // 'initial', 'tracking', 'support'
+  channelType: text("channel_type").notNull().default("whatsapp"), // ← NUEVO
+  webAppEnabledUntil: timestamp("webapp_enabled_until"), // ← NUEVO
   status: text("status").notNull().default("active"), // 'active', 'closed'
   lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
   storeId: integer("store_id").notNull(),

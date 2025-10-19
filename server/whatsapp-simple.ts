@@ -1479,234 +1479,6 @@ async function processAutoResponseResilient(
   }
 }
 
-/* export async function processIncomingUserMessage(webhookData: any, storeMapping: any): Promise<void> {
-  try {
-    console.log('📱 Processing incoming user message - FIXED VERSION');
-    
-    const entry = webhookData.entry?.[0];
-    if (!entry) {
-      throw new Error('NO ENTRY FOUND in webhook data');
-    }
-
-    const changes = entry.changes?.[0];
-    if (!changes || changes.field !== 'messages') {
-      throw new Error('NO MESSAGE CHANGES FOUND or field is not "messages"');
-    }
-
-    const value = changes.value;
-    if (!value.metadata) {
-      throw new Error('NO METADATA FOUND');
-    }
-
-    const phoneNumberId = value.metadata.phone_number_id;
-    
-    // 🔍 USAR FUNCIÓN SEGURA PARA ENCONTRAR STORE
-    let safeStoreMapping = storeMapping;
-    if (!safeStoreMapping) {
-      safeStoreMapping = await findStoreByPhoneNumberSafe(phoneNumberId);
-      if (!safeStoreMapping) {
-        console.error(`❌ No store found for phoneNumberId: ${phoneNumberId}`);
-        return;
-      }
-    }
-
-    // 2️⃣ PROCESAR MENSAJES DE USUARIOS
-    if (!value.messages || !Array.isArray(value.messages) || value.messages.length === 0) {
-      console.log('ℹ️ NO USER MESSAGES FOUND - This was likely a status-only webhook');
-      return;
-    }
-
-    const message = value.messages[0];
-    const customerPhone = message.from;
-    const messageId = message.id;
-    const messageType = message.type || 'text';
-    let messageText = '';
-
-    // Extraer texto o acción según el tipo de mensaje
-    if (messageType === 'text') {
-      messageText = message.text?.body || '';
-    } else if (messageType === 'interactive' && message.interactive?.button_reply) {
-      // Procesar botón presionado
-      const buttonId = message.interactive.button_reply.id;
-      const buttonTitle = message.interactive.button_reply.title;
-      
-      console.log(`🔘 BUTTON PRESSED: ${buttonId} (${buttonTitle})`);
-      
-      // Usar el ID del botón como texto del mensaje
-      messageText = buttonId;
-    } else {
-      console.log(`ℹ️ SKIPPING UNSUPPORTED MESSAGE - Type: ${messageType}, From: ${customerPhone}`);
-      return;
-    }
-
-    // Validar que tenemos contenido para procesar
-    if (!messageText || messageText.trim() === '') {
-      console.log(`ℹ️ SKIPPING EMPTY MESSAGE - From: ${customerPhone}`);
-      return;
-    }
-
-    console.log(`📱 USER MESSAGE RECEIVED - From: ${customerPhone}, Text: "${messageText}"`);
-    console.log(`✅ PROCESSING USER MESSAGE - Store: ${safeStoreMapping.storeName} (ID: ${safeStoreMapping.storeId})`);
-
-    // 🏪 OBTENER TENANT STORAGE CON MANEJO DE ERRORES
-    const { createTenantStorageForStore } = await import('./tenant-storage.js');
-    const tenantStorage = await createTenantStorageForStore(safeStoreMapping.storeId);
-
-    // 👤 PROCESAR CLIENTE CON RETRY
-    let customer = await resilientDb.executeWithRetry(
-      async (client) => {
-        return await tenantStorage.getCustomerByPhone(customerPhone);
-      },
-      `get customer ${customerPhone}`
-    );
-    
-    if (!customer) {
-      console.log(`👤 CREATING NEW CUSTOMER - Phone: ${customerPhone}`);
-      
-      customer = await resilientDb.executeWithRetry(
-        async (client) => {
-          return await tenantStorage.createCustomer({
-            phone: customerPhone,
-            name: customerPhone, // Usar teléfono como nombre temporal
-            storeId: safeStoreMapping.storeId,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-        },
-        `create customer ${customerPhone}`
-      );
-    }
-
-    console.log(`👤 CUSTOMER FOUND/CREATED - ID: ${customer.id}, Name: ${customer.name}`);
-
- 
-
-    // 🔄 VERIFICAR REGISTRATION FLOW
-    const registrationFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(customerPhone);
-    
-    console.log(`🔄 REGISTRATION FLOW STATUS:`, {
-      exists: !!registrationFlow,
-      isCompleted: registrationFlow?.isCompleted,
-      currentStep: registrationFlow?.currentStep,
-      isExpired: registrationFlow?.expiresAt ? new Date() > registrationFlow.expiresAt : false
-    });
-
-    // ✅ SI HAY FLUJO ACTIVO, PROCESARLO PRIMERO
-    if (registrationFlow && !registrationFlow.isCompleted && 
-        (!registrationFlow.expiresAt || new Date() <= registrationFlow.expiresAt)) {
-      
-      console.log(`🔄 CONTINUING REGISTRATION FLOW - Step: ${registrationFlow.currentStep}`);
-      
-      await resilientDb.executeWithRetry(
-        async (client) => {
-          await handleRegistrationFlow(
-            customer, 
-            messageText, 
-            message, 
-            registrationFlow, 
-            safeStoreMapping.storeId, 
-            tenantStorage
-          );
-        },
-        `handle registration flow ${customerPhone}`
-      );
-      
-      return;
-    }
-
-    // ✅ ===== NUEVA VERIFICACIÓN: DETECTAR SI ES UN PEDIDO ANTES DE AUTO-RESPUESTAS =====
-    console.log(`🔍 CHECKING IF MESSAGE IS AN ORDER...`);
-    
-    const isOrder = await isOrderMessage(messageText);
-    console.log(`🛍️ IS ORDER MESSAGE: ${isOrder}`);
-    
-    if (isOrder) {
-      console.log(`🛍️ ORDER DETECTED - Processing catalog order`);
-      console.log(`📋 CALLING processWebCatalogOrderSimple...`);
-      
-      try {
-        await resilientDb.executeWithRetry(
-          async (client) => {
-            await processWebCatalogOrderSimple(
-              customer, 
-              customerPhone, 
-              messageText, 
-              safeStoreMapping.storeId, 
-              safeStoreMapping.phoneNumberId, 
-              tenantStorage
-            );
-          },
-          `process web catalog order ${customerPhone}`
-        );
-        
-        console.log(`✅ processWebCatalogOrderSimple COMPLETED`);
-        return; // ✅ IMPORTANTE: Salir aquí para no procesar auto-respuestas
-        
-      } catch (orderError) {
-        console.error(`❌ ERROR IN processWebCatalogOrderSimple:`, orderError);
-        
-        // Enviar mensaje de error al cliente
-        await sendWhatsAppMessageDirect(
-          customerPhone,
-          "Hubo un problema procesando tu pedido. Un agente te contactará pronto para asistirte.",
-          safeStoreMapping.storeId
-        );
-        return;
-      }
-    } else {
-      console.log(`❌ NOT AN ORDER - Processing as regular message`);
-    }
-
-
-       // ✅ ===== VALIDACIÓN DE ÓRDENES PENDIENTES TEMPRANA =====
-console.log(`🔍 CHECKING FOR PENDING ORDERS FIRST...`);
-
-const orderValidationResult = await validateCustomerOrdersEarly(
-  customer, 
-  messageText, 
-  safeStoreMapping.storeId, 
-  tenantStorage
-);
-
-if (orderValidationResult.handled) {
-  console.log(`✅ MESSAGE HANDLED BY ORDER VALIDATION - Exiting`);
-  return; // ⚠️ IMPORTANTE: Salir aquí para no procesar auto-respuestas
-}
-
-console.log(`❌ NOT HANDLED BY ORDER VALIDATION - Continuing with normal flow`);
-// ===== FIN DE VALIDACIÓN TEMPRANA =====
-
-    // ✅ PROCESAR AUTO-RESPUESTAS (Solo si NO es un pedido)
-    console.log(`🤖 PROCESSING AUTO-RESPONSES`);
-    
-    await resilientDb.executeWithRetry(
-      async (client) => {
-        await processAutoResponse(
-          messageText, 
-          customerPhone, 
-          safeStoreMapping.storeId, 
-          tenantStorage
-        );
-      },
-      `process auto-response ${customerPhone}`
-    );
-
-  } catch (error: any) {
-    console.error('❌ ERROR in processIncomingUserMessage:', error);
-    
-    // 📝 LOG SEGURO DEL ERROR
-    await safeWhatsAppLog({
-      type: 'error',
-      phoneNumber: 'PROCESSING_ERROR',
-      messageContent: `Error processing message: ${error.message}`,
-      errorMessage: error.message,
-      rawData: JSON.stringify({ error: error.message, webhookData }),
-      storeId: 0 // Se manejará con fallback en safeWhatsAppLog
-    });
-    
-    throw error;
-  }
-} */
 
 export async function processIncomingUserMessage(webhookData: any, storeMapping: any): Promise<void> {
   try {
@@ -1921,6 +1693,29 @@ if (messageType === 'text') {
     } else {
       console.log(`❌ NOT AN ORDER - Processing as regular message`);
     }
+
+// ✅ VALIDACION DE MODO WHATSAPP / AUTO-RESPUESTAS (NUEVO BLOQUE)
+let conversation = await tenantStorage.getConversationByCustomerPhone(customerPhone);
+if (conversation) {
+  conversation = await tenantStorage.checkAndRestoreWhatsAppMode(conversation.id);
+  
+  const useAutoResponses = await tenantStorage.shouldUseAutoResponses(conversation.id);
+  
+  if (!useAutoResponses) {
+    console.log(`🚫 Auto-responses disabled (WebApp mode) - Only saving message`);
+    
+    await tenantStorage.createMessage({
+      conversationId: conversation.id,
+      content: messageText,
+      senderType: 'customer',
+      isFromCustomer: true,
+      whatsappMessageId: message.id
+    });
+    
+    return; // ⚠️ SALIR sin procesar auto-respuestas
+  }
+}
+
 
     // ✅ VALIDACIÓN DE ÓRDENES PENDIENTES TEMPRANA (TU FLUJO ORIGINAL)
     console.log(`🔍 CHECKING FOR PENDING ORDERS FIRST...`);

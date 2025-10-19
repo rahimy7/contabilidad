@@ -2415,9 +2415,77 @@ async getAllConversationsFallback() {
   }
 },
 
-// Agregar este método en server/tenant-storage.ts junto con getTechnicianOrders
+// ✅ Activar modo WebApp (desactiva auto-respuestas temporalmente)
+async switchToWebAppMode(conversationId: number, durationMinutes: number = 30) {
+  try {
+    const enabledUntil = new Date();
+    enabledUntil.setMinutes(enabledUntil.getMinutes() + durationMinutes);
+    
+    const [conversation] = await tenantDb.update(schema.conversations)
+      .set({ 
+        channelType: 'webapp',
+        webAppEnabledUntil: enabledUntil,
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.conversations.id, conversationId))
+      .returning();
+      
+    console.log(`✅ WebApp mode enabled for conversation ${conversationId} until ${enabledUntil}`);
+    return conversation;
+  } catch (error) {
+    console.error('❌ Error switching to webapp mode:', error);
+    throw error;
+  }
+},
 
-// Reemplazar el método getTechnicianConversations en server/tenant-storage.ts
+// ✅ Verificar y restaurar modo WhatsApp si expiró el tiempo
+async checkAndRestoreWhatsAppMode(conversationId: number) {
+  try {
+    const [conversation] = await tenantDb.select()
+      .from(schema.conversations)
+      .where(eq(schema.conversations.id, conversationId))
+      .limit(1);
+    
+    if (!conversation) return null;
+    
+    // Si está en modo webapp y el tiempo expiró
+    if (conversation.channelType === 'webapp' && 
+        conversation.webAppEnabledUntil && 
+        new Date() > new Date(conversation.webAppEnabledUntil)) {
+      
+      const [updated] = await tenantDb.update(schema.conversations)
+        .set({ 
+          channelType: 'whatsapp',
+          webAppEnabledUntil: null,
+          updatedAt: new Date() 
+        })
+        .where(eq(schema.conversations.id, conversationId))
+        .returning();
+        
+      console.log(`✅ WhatsApp mode restored for conversation ${conversationId}`);
+      return updated;
+    }
+    
+    return conversation;
+  } catch (error) {
+    console.error('❌ Error checking webapp mode:', error);
+    return null;
+  }
+},
+
+// ✅ Verificar si debe usar auto-respuestas
+async shouldUseAutoResponses(conversationId: number): Promise<boolean> {
+  try {
+    const conversation = await this.checkAndRestoreWhatsAppMode(conversationId);
+    
+    if (!conversation) return true; // Por defecto usar auto-respuestas
+    
+    return conversation.channelType === 'whatsapp';
+  } catch (error) {
+    console.error('❌ Error checking auto-responses:', error);
+    return true; // Por defecto usar auto-respuestas en caso de error
+  }
+},
 
 async getTechnicianConversations(userId: number) {
   try {
