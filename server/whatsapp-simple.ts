@@ -6,6 +6,7 @@ import { IntelligentWelcomeService, OrderTrackingService } from './order-trackin
 
 import { resilientDb } from './db'; // Tu nuevo db con ResilientDatabase
 import { ImprovedWebhookHandler } from '../webhook/improved-handler';
+import { eq } from 'drizzle-orm';
 
 
 const webhookHandler = new ImprovedWebhookHandler(resilientDb);
@@ -2648,18 +2649,107 @@ async function processWebCatalogOrderSimple(
     console.log(`🏗️ CREATING ORDER:`, orderData);
     const order = await tenantStorage.createOrder(orderData, processedItems);
     console.log(`✅ ORDER CREATED SUCCESSFULLY - ID: ${order.id}, Number: ${orderNumber}`);
-console.log('🎯 [AUTO-ASSIGN] Iniciando asignación para orden desde WhatsApp');
-const { executeAutoAssignment } = await import('./services/auto-assignment-service.js');
+console.log('🎯 [AUTO-ASSIGN] Iniciando asignación automática para orden desde WhatsApp');
+console.log(`📦 [AUTO-ASSIGN] Order ID: ${order.id}, Store ID: ${storeId}`);
+
 try {
+  // ✅ Importar el servicio de asignación automática
+  const { executeAutoAssignment } = await import('./services/auto-assignment-service.js');
+  
+  console.log('✅ [AUTO-ASSIGN] Módulo de asignación importado correctamente');
+  
+  // ✅ IMPORTANTE: Usar el tenantStorage EXISTENTE que ya tiene todos los métodos
+  // NO crear un objeto nuevo, usar el que ya viene en la función
+  console.log(`🚀 [AUTO-ASSIGN] Ejecutando asignación automática para orden ${order.id}...`);
+  
   const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
   
+  console.log('📊 [AUTO-ASSIGN] Resultado recibido:', assignmentResult);
+  
   if (assignmentResult.success) {
-    console.log(`✅ [AUTO-ASSIGN WhatsApp] ${assignmentResult.message}`);
+    console.log(`✅ [AUTO-ASSIGN WhatsApp] ¡Orden asignada exitosamente!`);
+    console.log(`👤 [AUTO-ASSIGN WhatsApp] Usuario asignado ID: ${assignmentResult.assignedUserId}`);
+    console.log(`📝 [AUTO-ASSIGN WhatsApp] Mensaje: ${assignmentResult.message}`);
+    
+    // Opcional: Obtener datos del técnico y enviar notificación por WhatsApp
+    try {
+      const { schema, tenantDb } = tenantStorage;
+      const assignedUser = await tenantDb
+        .select({
+          id: schema.users.id,
+          name: schema.users.name,
+          phoneNumber: schema.users.phoneNumber
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, assignmentResult.assignedUserId))
+        .limit(1);
+      
+      if (assignedUser[0]) {
+        console.log(`📱 [AUTO-ASSIGN] Técnico asignado: ${assignedUser[0].name}`);
+        
+        // Descomentar si quieres enviar WhatsApp al técnico:
+        /*
+        if (assignedUser[0].phoneNumber) {
+          const orderItemsText = orderItems.map(item => 
+            `• ${item.name} x${item.quantity}`
+          ).join('\n');
+          
+          await sendWhatsAppMessageDirect(
+            assignedUser[0].phoneNumber,
+            `🔔 *Nueva Orden Asignada*\n\n` +
+            `📋 Orden: ${orderNumber}\n` +
+            `👤 Cliente: ${customer.name}\n` +
+            `📞 Teléfono: ${phoneNumber}\n\n` +
+            `📦 *Productos:*\n${orderItemsText}\n\n` +
+            `💰 Total: ${total.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}\n\n` +
+            `Por favor revisa los detalles en el sistema.`,
+            storeId
+          );
+          console.log(`✅ [AUTO-ASSIGN] Notificación WhatsApp enviada al técnico`);
+        }
+        */
+      }
+    } catch (notifyError) {
+      console.error('⚠️ [AUTO-ASSIGN] Error obteniendo datos del técnico:', notifyError);
+      // No detener el flujo por error en notificación
+    }
+    
   } else {
-    console.log(`⚠️ [AUTO-ASSIGN WhatsApp] ${assignmentResult.message}`);
+    console.log(`⚠️ [AUTO-ASSIGN WhatsApp] No se pudo asignar automáticamente`);
+    console.log(`📝 [AUTO-ASSIGN WhatsApp] Razón: ${assignmentResult.message}`);
+    console.log(`ℹ️ [AUTO-ASSIGN WhatsApp] La orden quedó sin asignar y puede asignarse manualmente`);
   }
-} catch (autoAssignError) {
-  console.error('❌ [AUTO-ASSIGN WhatsApp] Error:', autoAssignError);
+  
+} catch (autoAssignError: any) {
+  console.error('❌ [AUTO-ASSIGN WhatsApp] Error crítico en asignación automática:');
+  console.error('❌ [AUTO-ASSIGN] Error:', autoAssignError.message);
+  console.error('❌ [AUTO-ASSIGN] Stack:', autoAssignError.stack);
+  
+  console.log('⚠️ [AUTO-ASSIGN WhatsApp] La orden fue creada correctamente');
+  console.log('⚠️ [AUTO-ASSIGN WhatsApp] Pero no se pudo asignar automáticamente');
+  console.log('ℹ️ [AUTO-ASSIGN WhatsApp] Puede asignarse manualmente desde el panel');
+  
+  // Registrar error en logs para revisión
+  try {
+    const storageFactory = await import('./storage/storage-factory.js');
+    const masterStorage = storageFactory.StorageFactory.getInstance().getMasterStorage();
+    
+    await masterStorage.addWhatsAppLog({
+      type: 'auto_assign_error',
+      phoneNumber: phoneNumber,
+      messageContent: `Error en auto-asignación para orden ${order.id}: ${autoAssignError.message}`,
+      status: 'error',
+      errorMessage: autoAssignError.message || 'Error desconocido',
+      storeId: storeId,
+      rawData: JSON.stringify({ 
+        orderId: order.id,
+        orderNumber: orderNumber,
+        errorStack: autoAssignError.stack
+      })
+    });
+  } catch (logError) {
+    console.error('❌ [AUTO-ASSIGN] Error registrando en logs:', logError);
+  }
 }
 
     // ✅ USAR LA AUTO-RESPUESTA order_received EN LUGAR DE MENSAJE MANUAL
@@ -3342,7 +3432,7 @@ async function sendAutoResponse(autoResponse: any, phoneNumber: string, storeId:
   }
 }
 
-// ✅ REEMPLAZAR ESTA FUNCIÓN COMPLETA:
+
 async function sendAutoResponseMessage(phoneNumber: string, trigger: string, storeId: number, tenantStorage: any) {
   try {
     console.log(`📤 SENDING AUTO-RESPONSE (CORRECTED) - Trigger: ${trigger}, Phone: ${phoneNumber}`);

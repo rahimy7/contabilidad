@@ -181,6 +181,26 @@ export const users = pgTable('users', {
   currentOrders: integer('current_orders').default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+
+   // ✅ NUEVOS CAMPOS - Ubicación del técnico
+  province: text('province'),
+  municipality: text('municipality'),
+  sector: text('sector'),
+  
+  // ✅ NUEVOS CAMPOS - Cobertura geográfica (arrays)
+  coverageProvinces: text('coverage_provinces').array(),
+  coverageMunicipalities: text('coverage_municipalities').array(),
+  coverageSectors: text('coverage_sectors').array(),
+  
+  // ✅ NUEVOS CAMPOS - Especializaciones (array)
+  specializations: text('specializations').array(),
+  
+  // ✅ NUEVOS CAMPOS - Carga de trabajo
+
+  maxDailyOrders: integer('max_daily_orders').default(10),
+  
+  // ✅ NUEVOS CAMPOS - Nivel de habilidad
+  skillLevel: integer('skill_level').default(1),
 });
 
 export const customers = pgTable("customers", {

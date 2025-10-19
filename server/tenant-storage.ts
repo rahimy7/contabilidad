@@ -27,6 +27,8 @@ export function createTenantStorage(tenantDb: any, storeId: number, schemaType?:
   // ✅ RETORNAR OBJETO CON MÉTODOS QUE TIENEN ACCESO AL tenantDb EN SU CLOSURE
   return {
     storeId: storeId,
+     schema: schema,
+  tenantDb: tenantDb,
 
 async getAllProducts() {
   try {
@@ -1590,6 +1592,46 @@ async getAvailableTechnicians(specializations?: string[], maxDistance?: number, 
     return technicians;
   } catch (error) {
     console.error('Error getting available technicians:', error);
+    return [];
+  }
+},
+
+async getAllTechnicians() {
+  try {
+    console.log(`👥 Getting all technicians for store ${storeId}`);
+    
+    // Query simple sin especificar campos (funciona con schema actual)
+    const result = await tenantDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.role, 'technical'));
+    
+    // Mapear a formato esperado (maneja campos que pueden no existir)
+    const technicians = result.map((user: any) => ({
+      id: user.id,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+      province: user.province || null,
+      municipality: user.municipality || null,
+      sector: user.sector || null,
+      coverageProvinces: user.coverage_provinces || user.coverageProvinces || [],
+      coverageMunicipalities: user.coverage_municipalities || user.coverageMunicipalities || [],
+      coverageSectors: user.coverage_sectors || user.coverageSectors || [],
+      specializations: user.specializations || [],
+      currentOrders: user.current_orders || user.currentOrders || 0,
+      maxDailyOrders: user.max_daily_orders || user.maxDailyOrders || 10,
+      skillLevel: user.skill_level || user.skillLevel || 1,
+    }));
+    
+    console.log(`✅ Found ${technicians.length} technicians`);
+    return technicians;
+    
+  } catch (error) {
+    console.error(`❌ Error getting technicians for store ${storeId}:`, error);
     return [];
   }
 },
@@ -4070,19 +4112,38 @@ async getAssignmentRuleById(ruleId: number) {
  */
 async getUsersByRole(role: string) {
   try {
-    const users = await tenantDb
+    console.log(`👥 Getting users with role: ${role}`);
+    
+    const result = await tenantDb
       .select()
       .from(schema.users)
-      .where(
-        and(
-          eq(schema.users.role, role),
-          
-        )
-      );
+      .where(eq(schema.users.role, role));
     
+    const users = result.map((user: any) => ({
+      id: user.id,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+      province: user.province || null,
+      municipality: user.municipality || null,
+      sector: user.sector || null,
+      coverageProvinces: user.coverage_provinces || user.coverageProvinces || [],
+      coverageMunicipalities: user.coverage_municipalities || user.coverageMunicipalities || [],
+      coverageSectors: user.coverage_sectors || user.coverageSectors || [],
+      specializations: user.specializations || [],
+      currentOrders: user.current_orders || user.currentOrders || 0,
+      maxDailyOrders: user.max_daily_orders || user.maxDailyOrders || 10,
+      skillLevel: user.skill_level || user.skillLevel || 1,
+    }));
+    
+    console.log(`✅ Found ${users.length} users with role ${role}`);
     return users;
+    
   } catch (error) {
-    console.error('Error getting users by role:', error);
+    console.error(`❌ Error getting users by role:`, error);
     return [];
   }
 },
