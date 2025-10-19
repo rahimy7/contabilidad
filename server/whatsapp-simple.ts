@@ -2678,7 +2678,7 @@ try {
         .select({
           id: schema.users.id,
           name: schema.users.name,
-          phoneNumber: schema.users.phoneNumber
+          phoneNumber: schema.users.phone
         })
         .from(schema.users)
         .where(eq(schema.users.id, assignmentResult.assignedUserId))

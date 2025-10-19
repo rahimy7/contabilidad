@@ -162,119 +162,65 @@ export class AutoAssignmentService {
 private async getEligibleTechnicians(order: Order, rule: AssignmentRule): Promise<AvailableTechnician[]> {
   const { schema, tenantDb } = this.tenantStorage;
   
-  // ✅ SI LA REGLA TIENE USUARIOS ESPECÍFICOS, SOLO OBTENER ESOS
+  // SI LA REGLA TIENE USUARIOS ESPECÍFICOS
   if (rule.assignedUserIds && rule.assignedUserIds.length > 0) {
-    console.log(`👥 [AUTO-ASSIGN] Regla tiene usuarios específicos: ${rule.assignedUserIds.join(', ')}`);
-    
     const specificTechnicians = await tenantDb
       .select({
-        id: schema.employeeProfiles.id,
+        id: schema.users.id,
         userId: schema.users.id,
         name: schema.users.name,
         status: schema.users.status,
-        province: schema.employeeProfiles.province,
-        municipality: schema.employeeProfiles.municipality,
-        sector: schema.employeeProfiles.sector,
-        coverageProvinces: schema.employeeProfiles.coverageProvinces,
-        coverageMunicipalities: schema.employeeProfiles.coverageMunicipalities,
-        coverageSectors: schema.employeeProfiles.coverageSectors,
-        specializations: schema.employeeProfiles.specializations,
-        currentOrders: schema.employeeProfiles.currentOrders,
-        maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
-        skillLevel: schema.employeeProfiles.skillLevel,
+        // ✅ CAMPOS DE USERS (donde están los datos de ubicación)
+        province: schema.users.province,
+        municipality: schema.users.municipality,
+        sector: schema.users.sector,
+        coverageProvinces: schema.users.coverageProvinces,
+        coverageMunicipalities: schema.users.coverageMunicipalities,
+        coverageSectors: schema.users.coverageSectors,
+        specializations: schema.users.specializations,
+        currentOrders: schema.users.currentOrders,
+        maxDailyOrders: schema.users.maxDailyOrders,
+        skillLevel: schema.users.skillLevel,
       })
-      .from(schema.employeeProfiles)
-      .innerJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-      .where(inArray(schema.users.id, rule.assignedUserIds));
-    
-    // Aplicar solo filtros básicos de disponibilidad
-    let filteredTechs = specificTechnicians;
-    
-    if (rule.availabilityRequired) {
-      filteredTechs = filteredTechs.filter(t => t.status === 'active');
-    }
-    
-    if (rule.useWorkloadBased) {
-      filteredTechs = filteredTechs.filter(
-        t => t.currentOrders < (rule.maxOrdersPerTechnician || t.maxDailyOrders)
+      .from(schema.users)
+      .where(
+        and(
+          inArray(schema.users.id, rule.assignedUserIds),
+          eq(schema.users.status, 'active')
+        )
       );
-    }
     
-    console.log(`📊 [AUTO-ASSIGN] ${filteredTechs.length} usuarios específicos disponibles`);
-    return filteredTechs;
+    console.log(`📊 [AUTO-ASSIGN] ${specificTechnicians.length} usuarios específicos encontrados`);
+    return specificTechnicians;
   }
   
-  // ✅ FLUJO NORMAL: Consulta base de todos los técnicos
-  let query = tenantDb
+  // FLUJO NORMAL: Todos los técnicos
+  const allTechnicians = await tenantDb
     .select({
-      id: schema.employeeProfiles.id,
+      id: schema.users.id,
       userId: schema.users.id,
       name: schema.users.name,
       status: schema.users.status,
-      province: schema.employeeProfiles.province,
-      municipality: schema.employeeProfiles.municipality,
-      sector: schema.employeeProfiles.sector,
-      coverageProvinces: schema.employeeProfiles.coverageProvinces,
-      coverageMunicipalities: schema.employeeProfiles.coverageMunicipalities,
-      coverageSectors: schema.employeeProfiles.coverageSectors,
-      specializations: schema.employeeProfiles.specializations,
-      currentOrders: schema.employeeProfiles.currentOrders,
-      maxDailyOrders: schema.employeeProfiles.maxDailyOrders,
-      skillLevel: schema.employeeProfiles.skillLevel,
+      province: schema.users.province,
+      municipality: schema.users.municipality,
+      sector: schema.users.sector,
+      coverageProvinces: schema.users.coverageProvinces,
+      coverageMunicipalities: schema.users.coverageMunicipalities,
+      coverageSectors: schema.users.coverageSectors,
+      specializations: schema.users.specializations,
+      currentOrders: schema.users.currentOrders,
+      maxDailyOrders: schema.users.maxDailyOrders,
+      skillLevel: schema.users.skillLevel,
     })
-    .from(schema.employeeProfiles)
-    .innerJoin(schema.users, eq(schema.employeeProfiles.userId, schema.users.id))
-    .where(eq(schema.users.role, 'technical'));
-
-  let allTechnicians = await query;
-
-  // Aplicar filtros normales...
-  if (rule.availabilityRequired) {
-    allTechnicians = allTechnicians.filter(t => t.status === 'active');
-  }
-
-  if (rule.useWorkloadBased) {
-    allTechnicians = allTechnicians.filter(
-      t => t.currentOrders < (rule.maxOrdersPerTechnician || t.maxDailyOrders)
+    .from(schema.users)
+    .where(
+      and(
+        eq(schema.users.role, 'technical'),
+        eq(schema.users.status, 'active')
+      )
     );
-  }
-
-  // Filtros de ubicación y especialización...
-  if (rule.useSectorBased && order.customerProvince) {
-    allTechnicians = allTechnicians.filter(technician => {
-      const coversProvince = 
-        technician.province === order.customerProvince ||
-        technician.coverageProvinces?.includes(order.customerProvince);
-
-      if (!coversProvince) return false;
-
-      if (order.customerMunicipality) {
-        const coversMunicipality = 
-          technician.municipality === order.customerMunicipality ||
-          technician.coverageMunicipalities?.includes(order.customerMunicipality);
-
-        if (!coversMunicipality && !rule.allowAdjacentMunicipalities) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }
-
-  if (rule.useSpecializationBased && rule.requiredSpecializations && rule.requiredSpecializations.length > 0) {
-    allTechnicians = allTechnicians.filter(technician => {
-      if (!technician.specializations || technician.specializations.length === 0) {
-        return false;
-      }
-      
-      return rule.requiredSpecializations!.some(reqSpec => 
-        technician.specializations!.includes(reqSpec)
-      );
-    });
-  }
-
-  console.log(`📊 [AUTO-ASSIGN] ${allTechnicians.length} técnicos elegibles después de filtros`);
+  
+  console.log(`📊 [AUTO-ASSIGN] ${allTechnicians.length} técnicos encontrados en total`);
   return allTechnicians;
 }
 
@@ -312,42 +258,42 @@ private async getEligibleTechnicians(order: Order, rule: AssignmentRule): Promis
   /**
    * Asigna la orden al técnico seleccionado
    */
-  private async assignOrderToTechnician(orderId: number, userId: number, ruleId: number): Promise<void> {
-    const { schema, tenantDb } = this.tenantStorage;
-    
-    // Actualizar la orden
-    await tenantDb
-      .update(schema.orders)
-      .set({
-        assignedUserId: userId,
-        assignedRuleId: ruleId,
-        autoAssigned: true,
-        status: 'confirmed',
-        updatedAt: new Date()
-      })
-      .where(eq(schema.orders.id, orderId));
+private async assignOrderToTechnician(orderId: number, userId: number, ruleId: number): Promise<void> {
+  const { schema, tenantDb } = this.tenantStorage;
+  
+  // 1. Actualizar la orden
+  await tenantDb
+    .update(schema.orders)
+    .set({
+      assignedUserId: userId,
+      assignedRuleId: ruleId,
+      autoAssigned: true,
+      status: 'confirmed',
+      updatedAt: new Date()
+    })
+    .where(eq(schema.orders.id, orderId));
 
-    // Incrementar contador de órdenes del técnico
-    await tenantDb
-      .update(schema.employeeProfiles)
-      .set({
-        currentOrders: sql`${schema.employeeProfiles.currentOrders} + 1`,
-        updatedAt: new Date()
-      })
-      .where(eq(schema.employeeProfiles.userId, userId));
+  // 2. Incrementar contador en USERS (no en employeeProfiles)
+  await tenantDb
+    .update(schema.users)
+    .set({
+      currentOrders: sql`${schema.users.currentOrders} + 1`,
+      updatedAt: new Date()
+    })
+    .where(eq(schema.users.id, userId));
 
-    // Crear notificación para el técnico
-    await tenantDb.insert(schema.notifications).values({
-      userId: userId,
-      title: 'Nueva orden asignada',
-      message: `Se te ha asignado automáticamente la orden #${orderId}`,
-      type: 'order_assigned',
-      relatedId: orderId,
-      relatedType: 'order',
-      isRead: false,
-      createdAt: new Date()
-    });
-  }
+  // 3. Crear notificación
+  await tenantDb.insert(schema.notifications).values({
+    userId: userId,
+    title: 'Nueva orden asignada',
+    message: `Se te ha asignado automáticamente la orden #${orderId}`,
+    type: 'order_assigned',
+    relatedId: orderId,
+    relatedType: 'order',
+    isRead: false,
+    createdAt: new Date()
+  });
+}
 }
 
 // Función helper para usar en routes

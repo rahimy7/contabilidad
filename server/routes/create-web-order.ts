@@ -1,4 +1,5 @@
 // server/routes/create-web-order.ts
+import { eq } from 'drizzle-orm';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -108,6 +109,68 @@ export async function createWebOrder(req: Request, res: Response) {
       }
     } catch (logError) {
       console.warn('Warning: Could not create order log:', logError);
+    }
+
+    // Crear asignacion automática (si aplica)
+    console.log('🎯 [AUTO-ASSIGN] Iniciando asignación automática para orden desde WhatsApp');
+    
+    
+    try {
+      // ✅ Importar el servicio de asignación automática
+      const { executeAutoAssignment } = await import('../services/auto-assignment-service.js');
+      
+      console.log('✅ [AUTO-ASSIGN] Módulo de asignación importado correctamente');
+      
+      // ✅ IMPORTANTE: Usar el tenantStorage EXISTENTE que ya tiene todos los métodos
+      // NO crear un objeto nuevo, usar el que ya viene en la función
+      console.log(`🚀 [AUTO-ASSIGN] Ejecutando asignación automática para orden ${order.id}...`);
+      
+      const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
+      
+      console.log('📊 [AUTO-ASSIGN] Resultado recibido:', assignmentResult);
+      
+      if (assignmentResult.success) {
+        console.log(`✅ [AUTO-ASSIGN WhatsApp] ¡Orden asignada exitosamente!`);
+        console.log(`👤 [AUTO-ASSIGN WhatsApp] Usuario asignado ID: ${assignmentResult.assignedUserId}`);
+        console.log(`📝 [AUTO-ASSIGN WhatsApp] Mensaje: ${assignmentResult.message}`);
+      
+        
+      } else {
+        console.log(`⚠️ [AUTO-ASSIGN WhatsApp] No se pudo asignar automáticamente`);
+        console.log(`📝 [AUTO-ASSIGN WhatsApp] Razón: ${assignmentResult.message}`);
+        console.log(`ℹ️ [AUTO-ASSIGN WhatsApp] La orden quedó sin asignar y puede asignarse manualmente`);
+      }
+      
+    } catch (autoAssignError: any) {
+      console.error('❌ [AUTO-ASSIGN WhatsApp] Error crítico en asignación automática:');
+      console.error('❌ [AUTO-ASSIGN] Error:', autoAssignError.message);
+      console.error('❌ [AUTO-ASSIGN] Stack:', autoAssignError.stack);
+      
+      console.log('⚠️ [AUTO-ASSIGN WhatsApp] La orden fue creada correctamente');
+      console.log('⚠️ [AUTO-ASSIGN WhatsApp] Pero no se pudo asignar automáticamente');
+      console.log('ℹ️ [AUTO-ASSIGN WhatsApp] Puede asignarse manualmente desde el panel');
+      
+      // Registrar error en logs para revisión
+      try {
+        const storageFactory = await import('../storage/storage-factory.js');
+        const masterStorage = storageFactory.StorageFactory.getInstance().getMasterStorage();
+        
+        await masterStorage.addWhatsAppLog({
+          type: 'auto_assign_error',
+         
+          messageContent: `Error en auto-asignación para orden ${order.id}: ${autoAssignError.message}`,
+          status: 'error',
+          errorMessage: autoAssignError.message || 'Error desconocido',
+        
+          rawData: JSON.stringify({ 
+            orderId: order.id,
+           
+            errorStack: autoAssignError.stack
+          })
+        });
+      } catch (logError) {
+        console.error('❌ [AUTO-ASSIGN] Error registrando en logs:', logError);
+      }
     }
     
     // 4. Enviar notificación por WhatsApp (si está configurado)
