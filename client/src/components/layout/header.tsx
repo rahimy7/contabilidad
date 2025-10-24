@@ -61,7 +61,7 @@ export default function Header({
               variant="ghost" 
               size="icon" 
               onClick={onMenuClick}
-              className="md:hidden text-white hover:bg-white/20"
+              className="lg:hidden text-white hover:bg-white/20"
             >
               <Menu className="h-5 w-5" />
             </Button>

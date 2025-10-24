@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon, User, Download, Printer, ShoppingCart } from "lucide-react";
 import AssignmentModal from "@/components/orders/assignment-modal";
+import OrderDetailModal from "@/components/orders/order-detail-modal";
+import EditOrderModal from "@/components/orders/edit-order-modal";
+
 
 type OrderWithDetails = {
   id: number;
@@ -96,20 +99,14 @@ export default function OrdersPage() {
   // Fetch orders
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders"],
+    staleTime: 30_000,
   });
 
   // Fetch users for assignment
-const { data: users = [], isLoading: usersLoading } = useQuery<User[], Error>({
-  queryKey: ["/api/employees/users"],
-  queryFn: async () => {
-    const employees = await apiRequest<any[]>("GET", "/api/employees");
-    return employees
-      .filter(emp => emp.user && emp.user.status === 'active')
-      .filter(emp => ['technician', 'specialist', 'field_worker', 'admin', 'store_admin'].includes(emp.user.role))
-      .map(emp => emp.user);
-  },
+const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number, name: string, role: string, status: string}>>({
+  queryKey: ["/api/assignment-rules/available-users"],
+  queryFn: () => apiRequest("GET", "/api/assignment-rules/available-users"),
   staleTime: 30_000,
-  initialData: [],
 });
 
   // Effect to handle URL parameters from dashboard
@@ -595,11 +592,7 @@ const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
     generateOrderPrint(order);
   };
 
-  // Función para abrir modal de productos
-  const handleViewProducts = (order: OrderWithDetails) => {
-    setSelectedOrder(order);
-    setIsProductsModalOpen(true);
-  };
+
 
 const assignedUser = (order: OrderWithDetails) => {
   if (!order.assignedUserId) return "Sin asignar";
@@ -831,18 +824,7 @@ const assignedUser = (order: OrderWithDetails) => {
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewProducts(order);
-                        }}
-                        className="text-orange-600 hover:text-orange-700"
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                      </Button>
-                      <Button
+                                           <Button
                         variant="outline"
                         size="sm"
                         onClick={(e) => {
@@ -905,527 +887,23 @@ const assignedUser = (order: OrderWithDetails) => {
         )}
       </div>
 
-      {/* Edit Order Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <form key={selectedOrder?.id} onSubmit={handleUpdateOrder}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5" />
-                Editar Orden #{selectedOrder?.orderNumber}
-              </DialogTitle>
-              <DialogDescription>
-                Modifica los detalles de la orden. Los campos marcados con * son obligatorios.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid gap-6 py-6">
-              {/* Información básica */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="status">Estado *</Label>
-                  <Select name="status" defaultValue={selectedOrder?.status || "pending"}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="confirmed">Confirmado</SelectItem>
-                      <SelectItem value="assigned">Asignado</SelectItem>
-                      <SelectItem value="preparing">Preparando</SelectItem>
-                      <SelectItem value="ready">Listo</SelectItem>
-                      <SelectItem value="in_transit">En Tránsito</SelectItem>
-                      <SelectItem value="delivered">Entregado</SelectItem>
-                      <SelectItem value="completed">Completado</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                      <SelectItem value="returned">Devuelto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+   <EditOrderModal 
+  order={selectedOrder}
+  isOpen={isEditDialogOpen}
+  onClose={() => setIsEditDialogOpen(false)}
+  onSubmit={handleUpdateOrder}
+  users={users}
+  isPending={updateOrderMutation.isPending}
+/>
 
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Prioridad *</Label>
-                  <Select name="priority" defaultValue={selectedOrder?.priority || 'normal'}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar prioridad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baja</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+{/* View Order Modal */}
+<OrderDetailModal 
+  order={selectedOrder as any}
+  isOpen={isViewDialogOpen}
+  onClose={() => setIsViewDialogOpen(false)}
+/>
 
-               <div className="space-y-2">
-  <Label htmlFor="assignedUserId">Asignar a</Label>
-  <Select
-    name="assignedUserId"
-    defaultValue={
-      selectedOrder?.assignedUserId !== null && selectedOrder?.assignedUserId !== undefined
-        ? selectedOrder.assignedUserId.toString()
-        : "unassigned"
-    }
-  >
-    <SelectTrigger>
-      <SelectValue placeholder="Seleccionar usuario" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="unassigned">Sin asignar</SelectItem>
-      {users.map((user) => (
-        <SelectItem key={user.id} value={user.id.toString()}>
-          {user.name} ({user.role})
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
-
-              </div>
-
-              {/* ✅ INFORMACIÓN DE ASIGNACIÓN ACTUAL */}
-              {selectedOrder?.assignedUser && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-800 mb-1">
-                    Actualmente asignado a:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-blue-700">
-                      {selectedOrder.assignedUser.name}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedOrder.assignedUser.role}
-                    </Badge>
-                  </div>
-                </div>
-              )}
-
-              {/* ✅ DEBUG INFO (OPCIONAL) */}
-              {process.env.NODE_ENV === 'development' && selectedOrder && (
-                <div className="p-3 bg-gray-50 rounded text-xs text-gray-600">
-                  <strong>Debug:</strong> 
-                  assignedUserId: {selectedOrder.assignedUserId || 'null'} | 
-                  assignedUser: {selectedOrder.assignedUser?.name || 'null'}
-                </div>
-              )}
-
-              {/* Información de contacto y entrega */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactNumber">Número de Contacto</Label>
-                  <Input
-                    name="contactNumber"
-                    type="tel"
-                    placeholder="Ej: +1234567890"
-                    defaultValue={selectedOrder?.contactNumber || selectedOrder?.customer?.phone || ''}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="deliveryAddress">Dirección de Entrega</Label>
-                  <Input
-                    name="deliveryAddress"
-                    placeholder="Dirección completa"
-                    defaultValue={selectedOrder?.deliveryAddress || selectedOrder?.customer?.address || ''}
-                  />
-                </div>
-              </div>
-
-              {/* Información de pago */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod">Método de Pago</Label>
-                  <Select name="paymentMethod" defaultValue={selectedOrder?.paymentMethod || 'none'}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar método" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin especificar</SelectItem>
-                      <SelectItem value="cash">Efectivo</SelectItem>
-                      <SelectItem value="card">Tarjeta de Crédito/Débito</SelectItem>
-                      <SelectItem value="transfer">Transferencia Bancaria</SelectItem>
-                      <SelectItem value="check">Cheque</SelectItem>
-                      <SelectItem value="financing">Financiamiento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="paymentStatus">Estado del Pago</Label>
-                  <Select name="paymentStatus" defaultValue={selectedOrder?.paymentStatus || 'pending'}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado del pago" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="processing">Procesando</SelectItem>
-                      <SelectItem value="completed">Completado</SelectItem>
-                      <SelectItem value="failed">Fallido</SelectItem>
-                      <SelectItem value="refunded">Reembolsado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Descripción y notas */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descripción</Label>
-                  <Textarea
-                    name="description"
-                    placeholder="Descripción general de la orden..."
-                    rows={3}
-                    defaultValue={selectedOrder?.description || ''}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notas Internas</Label>
-                  <Textarea
-                    name="notes"
-                    placeholder="Notas internas para el equipo..."
-                    rows={3}
-                    defaultValue={selectedOrder?.notes || ''}
-                  />
-                </div>
-              </div>
-
-              {/* Información del cliente (solo lectura) */}
-              {selectedOrder?.customer && (
-                <Card className="bg-gray-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Información del Cliente</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <UserIcon className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium">{selectedOrder.customer.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-500" />
-                      <span>{selectedOrder.customer.phone}</span>
-                    </div>
-                    {selectedOrder.customer.address && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{selectedOrder.customer.address}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Información de items (solo lectura) */}
-              {selectedOrder?.items && selectedOrder.items.length > 0 && (
-                <Card className="bg-gray-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Package className="w-4 h-4" />
-                      Items de la Orden ({selectedOrder.items.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {selectedOrder.items.slice(0, 3).map((item, index) => (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                          <div>
-                            <p className="font-medium text-sm">{item.product.name}</p>
-                            <p className="text-xs text-gray-500">
-                              Cantidad: {item.quantity} | Precio: {formatCurrency(item.unitPrice)}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-green-600">
-                              {formatCurrency(item.totalPrice)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                      {selectedOrder.items.length > 3 && (
-                        <p className="text-sm text-gray-500 text-center">
-                          ... y {selectedOrder.items.length - 3} items más
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-            
-            <DialogFooter className="gap-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsEditDialogOpen(false)}
-                disabled={updateOrderMutation.isPending}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={updateOrderMutation.isPending}
-              >
-                {updateOrderMutation.isPending ? "Guardando..." : "Guardar Cambios"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Order Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Detalles de la Orden {selectedOrder?.orderNumber}
-            </DialogTitle>
-            <DialogDescription>
-              Información completa de la orden incluyendo productos, servicios y costos
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedOrder && (
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Cliente</Label>
-                  <p className="text-sm">{selectedOrder.customer?.name || "No especificado"}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Teléfono</Label>
-                  <p className="text-sm">{selectedOrder.customer?.phone || "No disponible"}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Estado</Label>
-                  <div className="mt-1">{getStatusBadge(selectedOrder.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Total</Label>
-                  <p className="text-sm font-bold text-green-600">{formatCurrency(selectedOrder.totalAmount)}</p>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Dirección de Entrega</Label>
-                  {(() => {
-                    const address = selectedOrder.customer?.address || selectedOrder.description || "No especificada";
-                    const latitude = selectedOrder.customer?.latitude;
-                    const longitude = selectedOrder.customer?.longitude;
-                    const mapLink = generateGoogleMapsLink(address, latitude, longitude);
-                    
-                    if (mapLink && address !== "No especificada") {
-                      return (
-                        <div className="flex items-center gap-2">
-                          <a 
-                            href={mapLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                          >
-                            <MapPin className="h-4 w-4" />
-                            {address}
-                          </a>
-                        </div>
-                      );
-                    } else {
-                      return <p className="text-sm">{address}</p>;
-                    }
-                  })()}
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Asignado a</Label>
-                  <p className="text-sm">{assignedUser(selectedOrder)}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Fecha de Creación</Label>
-                  <p className="text-sm">{new Date(selectedOrder.createdAt || '').toLocaleString('es-MX')}</p>
-                </div>
-                {selectedOrder.notes && (
-                  <div className="col-span-2">
-                    <Label className="text-sm font-medium text-muted-foreground">Notas</Label>
-                    <p className="text-sm bg-gray-50 p-3 rounded-md mt-1">{selectedOrder.notes}</p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Products/Services Section */}
-              {selectedOrder.items && selectedOrder.items.length > 0 && (
-                <div className="mt-6">
-                  <Label className="text-sm font-medium text-muted-foreground">Productos/Servicios</Label>
-                  <div className="mt-3 space-y-3">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Package className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium">{item.product.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {item.product.category === 'product' ? 'Producto' : 'Servicio'}
-                            </Badge>
-                          </div>
-                          <div className="text-sm font-medium text-green-600">
-                            {formatCurrency(item.totalPrice)}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                          <div>Cantidad: {item.quantity}</div>
-                          <div>Precio unitario: {formatCurrency(item.unitPrice)}</div>
-                          {item.deliveryCost !== "0.00" && (
-                            <>
-                              <div>Costo de entrega: {formatCurrency(item.deliveryCost || "0")}</div>
-                              <div>Distancia: {item.deliveryDistance} km</div>
-                            </>
-                          )}
-                        </div>
-                        {item.product.description && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {item.product.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <DialogFooter>
-            <div className="flex justify-between w-full">
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => generateOrderPrint(selectedOrder)}
-                  className="text-green-600 hover:text-green-700"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Imprimir
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDownloadOrder(selectedOrder)}
-                  className="text-purple-600 hover:text-purple-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                  Cerrar
-                </Button>
-                <Button onClick={() => {
-                  setIsViewDialogOpen(false);
-                  if (selectedOrder) handleEditOrder(selectedOrder);
-                }}>
-                  Editar
-                </Button>
-              </div>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Products Modal */}
-      <Dialog open={isProductsModalOpen} onOpenChange={setIsProductsModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              Productos/Servicios - Orden {selectedOrder?.orderNumber}
-            </DialogTitle>
-            <DialogDescription>
-              Lista completa de productos y servicios de esta orden
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedOrder && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Total Items:</span>
-                  <span className="ml-2 font-semibold">{selectedOrder.items?.length || 0}</span>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Total Orden:</span>
-                  <span className="ml-2 font-semibold text-green-600">{formatCurrency(selectedOrder.totalAmount)}</span>
-                </div>
-              </div>
-
-              {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {selectedOrder.items.map((item, index) => (
-                    <div key={index} className="border rounded-lg p-4 bg-white">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Package className="w-5 h-5 text-blue-500" />
-                          <div>
-                            <h4 className="font-medium">{item.product?.name || 'Producto sin nombre'}</h4>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {item.product?.category === 'product' ? 'Producto' : 'Servicio'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg text-green-600">
-                            {formatCurrency(item.totalPrice)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mt-3">
-                        <div>
-                          <span className="font-medium">Cantidad:</span>
-                          <span className="ml-1">{item.quantity}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Precio Unitario:</span>
-                          <span className="ml-1">{formatCurrency(item.unitPrice)}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Subtotal:</span>
-                          <span className="ml-1 font-semibold text-green-600">{formatCurrency(item.totalPrice)}</span>
-                        </div>
-                      </div>
-
-                      {item.product?.description && (
-                        <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                          <span className="font-medium text-gray-700">Descripción:</span>
-                          <p className="text-gray-600 mt-1">{item.product.description}</p>
-                        </div>
-                      )}
-
-                      {item.notes && (
-                        <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
-                          <span className="font-medium text-blue-700">Notas:</span>
-                          <p className="text-blue-600 mt-1">{item.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Sin productos
-                  </h3>
-                  <p className="text-gray-600">
-                    Esta orden no tiene productos asociados
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsProductsModalOpen(false)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+     
 
       {/* Assignment Modal */}
       <AssignmentModal 

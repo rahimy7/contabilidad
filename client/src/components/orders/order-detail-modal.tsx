@@ -16,14 +16,11 @@ import {
   Clock, 
   User, 
   Package, 
-  DollarSign, 
-  MapPin, 
   Phone, 
   MessageCircle,
   CheckCircle,
   XCircle,
   Play,
-  Pause
 } from "lucide-react";
 import { OrderWithDetails, OrderHistory } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -69,9 +66,9 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: "bg-red-100 text-red-800",
+      pending: "bg-yellow-100 text-yellow-800",
       assigned: "bg-blue-100 text-blue-800",
-      in_progress: "bg-yellow-100 text-yellow-800",
+      in_progress: "bg-orange-100 text-orange-800",
       completed: "bg-green-100 text-green-800",
       cancelled: "bg-gray-100 text-gray-800",
     };
@@ -125,43 +122,43 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Detalle del Pedido - {order.orderNumber}</span>
+            <span>Pedido - {order.orderNumber}</span>
             <Badge className={getStatusColor(order.status)}>
               {getStatusLabel(order.status)}
             </Badge>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto flex-1 pr-2">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Customer Information */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Información del Cliente
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-base">
+                  <User className="h-4 w-4 mr-2" />
+                  Cliente
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium">{order.customer.name}</p>
-                    <p className="text-sm text-gray-500 flex items-center mt-1">
-                      <Phone className="h-4 w-4 mr-1" />
+                    <p className="font-medium text-sm">{order.customer.name}</p>
+                    <p className="text-xs text-gray-500 flex items-center mt-1">
+                      <Phone className="h-3 w-3 mr-1" />
                       {order.customer.phone}
                     </p>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline">
-                      <MessageCircle className="h-4 w-4 mr-1" />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="h-7 text-xs">
+                      <MessageCircle className="h-3 w-3 mr-1" />
                       WhatsApp
                     </Button>
-                    <Button size="sm" variant="outline">
-                      <Phone className="h-4 w-4 mr-1" />
+                    <Button size="sm" variant="outline" className="h-7 text-xs">
+                      <Phone className="h-3 w-3 mr-1" />
                       Llamar
                     </Button>
                   </div>
@@ -171,14 +168,14 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
 
             {/* Order Items with Service Pricing */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Package className="h-5 w-5 mr-2" />
-                  Servicios y Productos
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-base">
+                  <Package className="h-4 w-4 mr-2" />
+                  Productos y Servicios
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {order.items.map((item, index) => {
                     const basePrice = parseFloat(item.unitPrice) * item.quantity;
                     const installationCost = parseFloat(item.installationCost || "0");
@@ -187,22 +184,22 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
                     const itemTotal = basePrice + installationCost + partsCost + laborCost;
 
                     return (
-                      <div key={index} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={index} className="border rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h4 className="font-medium">{item.product.name}</h4>
-                            <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
+                            <h4 className="font-medium text-sm">{item.product.name}</h4>
+                            <p className="text-xs text-gray-500">Cantidad: {item.quantity}</p>
                             {item.product.category === "service" && (
-                              <Badge variant="secondary" className="mt-1">Servicio</Badge>
+                              <Badge variant="secondary" className="mt-1 text-xs">Servicio</Badge>
                             )}
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-lg">${itemTotal.toLocaleString('es-MX')}</p>
+                            <p className="font-bold text-sm">${itemTotal.toLocaleString('es-MX')}</p>
                           </div>
                         </div>
 
                         {item.product.category === "service" && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-gray-50 p-3 rounded">
+                          <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2 rounded">
                             <div>
                               <p className="text-gray-600">Precio Base</p>
                               <p className="font-medium">${basePrice.toLocaleString('es-MX')}</p>
@@ -216,17 +213,19 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
                               <p className="font-medium">${partsCost.toLocaleString('es-MX')}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Mano de Obra</p>
+                              <p className="text-gray-600">M. de Obra</p>
                               <p className="font-medium">${laborCost.toLocaleString('es-MX')}</p>
-                              <p className="text-xs text-gray-500">
-                                {item.laborHours}h × ${item.laborRate}/h
-                              </p>
+                              {item.laborHours && item.laborRate && (
+                                <p className="text-[10px] text-gray-500">
+                                  {item.laborHours}h × ${item.laborRate}/h
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}
 
                         {item.notes && (
-                          <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                          <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
                             <p className="text-blue-800">{item.notes}</p>
                           </div>
                         )}
@@ -235,10 +234,10 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
                   })}
                 </div>
 
-                <div className="border-t pt-4 mt-4">
+                <div className="border-t pt-3 mt-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium">Total del Pedido</span>
-                    <span className="text-2xl font-bold text-green-600">
+                    <span className="font-medium">Total del Pedido</span>
+                    <span className="text-xl font-bold text-green-600">
                       ${calculateTotalCost().toLocaleString('es-MX')}
                     </span>
                   </div>
@@ -247,22 +246,22 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
             </Card>
 
             {/* Order Description and Notes */}
-            {(order.description || order.notes) && (
+            {(order.description || (order as any).notes) && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Detalles Adicionales</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Detalles Adicionales</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2">
                   {order.description && (
                     <div>
-                      <p className="font-medium text-sm text-gray-600">Descripción</p>
-                      <p className="text-sm">{order.description}</p>
+                      <p className="font-medium text-xs text-gray-600">Descripción</p>
+                      <p className="text-xs">{order.description}</p>
                     </div>
                   )}
-                  {order.notes && (
+                  {(order as any).notes && (
                     <div>
-                      <p className="font-medium text-sm text-gray-600">Notas</p>
-                      <p className="text-sm">{order.notes}</p>
+                      <p className="font-medium text-xs text-gray-600">Notas</p>
+                      <p className="text-xs">{(order as any).notes}</p>
                     </div>
                   )}
                 </CardContent>
@@ -271,17 +270,17 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Status Management */}
             <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Estado</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Gestión de Estado</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium">Cambiar Estado</label>
+                  <label className="text-xs font-medium">Cambiar Estado</label>
                   <Select value={newStatus} onValueChange={setNewStatus}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -295,19 +294,20 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Notas del Cambio</label>
+                  <label className="text-xs font-medium">Notas del Cambio</label>
                   <Textarea 
-                    placeholder="Agregar notas sobre el cambio de estado..."
+                    placeholder="Agregar notas..."
                     value={statusNotes}
                     onChange={(e) => setStatusNotes(e.target.value)}
-                    rows={3}
+                    rows={2}
+                    className="text-xs"
                   />
                 </div>
 
                 <Button 
                   onClick={handleStatusUpdate}
                   disabled={newStatus === order.status || updateStatusMutation.isPending}
-                  className="w-full"
+                  className="w-full h-8 text-xs"
                 >
                   {updateStatusMutation.isPending ? "Actualizando..." : "Actualizar Estado"}
                 </Button>
@@ -317,19 +317,19 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
             {/* Assignment Info */}
             {order.assignedUser && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Técnico Asignado</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Técnico Asignado</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-xs font-medium text-blue-600">
                         {order.assignedUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium">{order.assignedUser.name}</p>
-                      <p className="text-sm text-gray-500 capitalize">{order.assignedUser.role}</p>
+                      <p className="font-medium text-sm">{order.assignedUser.name}</p>
+                      <p className="text-xs text-gray-500 capitalize">{order.assignedUser.role}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -338,32 +338,36 @@ export default function OrderDetailModal({ order, isOpen, onClose }: OrderDetail
 
             {/* Order Timeline */}
             <Card>
-              <CardHeader>
-                <CardTitle>Historial del Pedido</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Historial</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {orderHistory.map((entry) => {
-                    const Icon = getActionIcon(entry.action);
-                    return (
-                      <div key={entry.id} className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                          <Icon className="h-4 w-4 text-gray-600" />
+                  {orderHistory.length === 0 ? (
+                    <p className="text-xs text-gray-500 text-center py-2">Sin historial disponible</p>
+                  ) : (
+                    orderHistory.map((entry) => {
+                      const Icon = getActionIcon(entry.action);
+                      return (
+                        <div key={entry.id} className="flex items-start space-x-2">
+                          <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Icon className="h-3 w-3 text-gray-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium">
+                              {entry.statusTo && `Estado: ${getStatusLabel(entry.statusTo)}`}
+                            </p>
+                            {entry.notes && (
+                              <p className="text-[10px] text-gray-500">{entry.notes}</p>
+                            )}
+                            <p className="text-[10px] text-gray-400">
+                              {new Date(entry.timestamp).toLocaleString('es-MX')}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">
-                            {entry.statusTo && `Estado: ${getStatusLabel(entry.statusTo)}`}
-                          </p>
-                          {entry.notes && (
-                            <p className="text-xs text-gray-500">{entry.notes}</p>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            {new Date(entry.timestamp).toLocaleString('es-MX')}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </CardContent>
             </Card>

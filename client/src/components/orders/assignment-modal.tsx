@@ -54,6 +54,7 @@ interface AssignmentModalProps {
   order: OrderWithDetails | null;
   isOpen: boolean;
   onClose: (assigned?: boolean) => void;
+  
 }
 
 export default function AssignmentModal({ order, isOpen, onClose }: AssignmentModalProps) {
@@ -61,33 +62,21 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   const [selectedUserId, setSelectedUserId] = useState<string>("unassigned");
 
 const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>({
-  queryKey: ['/api/employees/assignable'],
+  queryKey: ['/api/assignment-rules/available-users'],
   enabled: isOpen,
   queryFn: async () => {
-    // Obtener todos los empleados usando el endpoint que funciona
-    const employees = await apiRequest<any[]>("GET", "/api/employees");
-    
-    // Filtrar solo empleados con usuarios válidos y roles asignables
-    const assignableUsers: AssignableUser[] = employees
-      .filter(emp => 
-        emp.user && // Tiene usuario válido
-        emp.user.status === 'active' && // Usuario activo
-        ['technician', 'specialist', 'field_worker', 'admin', 'store_admin', 'delivery'].includes(emp.user.role?.toLowerCase() || '')
-      )
-      .map(emp => ({
-        id: emp.user.id,
-        name: emp.user.name || 'Sin nombre',
-        role: emp.user.role || 'Sin rol',
-        email: emp.user.email || undefined,
-        phone: emp.user.phone || undefined,
-        status: emp.user.status || 'active',
-        employeeId: emp.employeeId || undefined,
-        department: emp.department || undefined,
-        position: emp.position || undefined
-      }));
-    
-    console.log(`✅ Modal: Filtered ${assignableUsers.length} assignable users from ${employees.length} employees`);
-    return assignableUsers;
+    const users = await apiRequest<any[]>("GET", "/api/assignment-rules/available-users");
+    return users.map(user => ({
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      email: undefined,
+      phone: undefined,
+      employeeId: undefined,
+      department: undefined,
+      position: undefined
+    }));
   },
 });
 
@@ -103,7 +92,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+     // queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Orden asignada",
         description: selectedUserId === "unassigned" 
@@ -142,7 +131,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>
   }, [order]);
 
   // Filtrar usuarios que pueden ser asignados (técnicos, admins, etc.)
-const availableUsers = users;
+const availableUsers = users || [];
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: any }> = {

@@ -77,12 +77,18 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     return 0;
   })();
 
+  // Función para manejar el clic en las opciones del menú
+  const handleMenuItemClick = () => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
+
   const allNavItems: NavItem[] = [
-    // === MENU PARA TIENDAS (admin, manager, technician) ===
     {
-      href: "/",
+      href: "/dashboard",
       icon: ChartLine,
-      label: "Dashboard Principal",
+      label: "Dashboard",
       badge: null,
       permission: "view_dashboard",
       excludeRoles: ["super_admin"],
@@ -90,7 +96,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     {
       href: "/conversations",
       icon: MessageCircle,
-      label: "Conversaciones",
+      label: "Conversaciones WhatsApp",
       badge: activeConversations > 0 ? activeConversations : null,
       permission: "view_conversations",
       excludeRoles: ["super_admin"],
@@ -101,28 +107,12 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       label: "Notificaciones",
       badge: unreadNotifications > 0 ? unreadNotifications : null,
       permission: "view_notifications",
-      excludeRoles: ["super_admin"],
-    },
-    {
-      href: "/team",
-      icon: Users,
-      label: "Equipo",
-      badge: null,
-      permission: "manage_users",
-      excludeRoles: ["super_admin", "technician"],
-    },
-    {
-      href: "/customers",
-      icon: UserPlus,
-      label: "Clientes",
-      badge: null,
-      permission: "manage_customers",
       excludeRoles: ["super_admin", "technician"],
     },
     {
       href: "/orders",
-      icon: ShoppingBag,
-      label: "Gestión de Órdenes",
+      icon: ShoppingCart,
+      label: "Pedidos",
       badge: pendingOrders > 0 ? pendingOrders : null,
       permission: "manage_orders",
       excludeRoles: ["super_admin", "technician"],
@@ -194,16 +184,32 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     {
       href: "/technician-dashboard",
       icon: Wrench,
-      label: "Mi Trabajo",
+      label: "Panel Técnico",
       badge: null,
-      permission: "technician_work",
+      permission: "view_technician",
       roles: ["technician"],
     },
-    // === MENU PARA SUPER ADMIN ===
     {
-      href: "/",
+      href: "/installation-requests",
+      icon: ClipboardList,
+      label: "Solicitudes de Instalación",
+      badge: null,
+      permission: "manage_installations",
+      roles: ["technician"],
+    },
+    {
+      href: "/my-installations",
+      icon: ShoppingBag,
+      label: "Mis Instalaciones",
+      badge: null,
+      permission: "view_installations",
+      roles: ["technician"],
+    },
+    // === MENU DE SUPER ADMIN ===
+    {
+      href: "/super-admin/dashboard",
       icon: Shield,
-      label: "Panel de Control General",
+      label: "Panel Super Admin",
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
@@ -211,55 +217,15 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     {
       href: "/super-admin/stores",
       icon: Store,
-      label: "Tiendas Registradas",
+      label: "Gestión de Tiendas",
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
     },
     {
-      href: "/super-admin/subscriptions",
-      icon: CreditCard,
-      label: "Suscripciones",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-    },
-    {
-      href: "/super-admin/subscription-plans",
-      icon: Package,
-      label: "Planes de Suscripción",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-    },
-    {
-      href: "/super-admin/global-orders",
-      icon: ShoppingCart,
-      label: "Pedidos Globales",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-    },
-    {
-      href: "/super-admin/users",
+      href: "/super-admin/global-users",
       icon: Users,
-      label: "Usuarios/Propietarios",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-    },
-    {
-      href: "/super-admin/reports",
-      icon: BarChart3,
-      label: "Reportes/Estadísticas",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-    },
-    {
-      href: "/super-admin/support",
-      icon: MessageSquare,
-      label: "Soporte/Tickets",
+      label: "Usuarios Globales",
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
@@ -393,6 +359,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={handleMenuItemClick}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
                   isActive
                     ? "bg-white/25 backdrop-blur text-white shadow-lg"
