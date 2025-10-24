@@ -1,3 +1,4 @@
+// client/src/pages/orders.tsx
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
@@ -6,16 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, User as UserIcon, User, Download, Printer, ShoppingCart } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, Download, Printer, ShoppingCart } from "lucide-react";
 import AssignmentModal from "@/components/orders/assignment-modal";
 import OrderDetailModal from "@/components/orders/order-detail-modal";
 import EditOrderModal from "@/components/orders/edit-order-modal";
-
+import { useDebouncedOrderUpdate } from "@/hooks/use-debounced-order-update";
 
 type OrderWithDetails = {
   id: number;
@@ -94,7 +92,9 @@ export default function OrdersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [isProductsModalOpen, setIsProductsModalOpen] = useState(false);
+
+  // ✅ Usar hook con debounce
+  const { debouncedUpdate, immediateUpdate, isPending } = useDebouncedOrderUpdate();
 
   // Fetch orders
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
@@ -103,13 +103,13 @@ export default function OrdersPage() {
   });
 
   // Fetch users for assignment
-const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number, name: string, role: string, status: string}>>({
-  queryKey: ["/api/assignment-rules/available-users"],
-  queryFn: () => apiRequest("GET", "/api/assignment-rules/available-users"),
-  staleTime: 30_000,
-});
+  const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number, name: string, role: string, status: string}>>({
+    queryKey: ["/api/assignment-rules/available-users"],
+    queryFn: () => apiRequest("GET", "/api/assignment-rules/available-users"),
+    staleTime: 30_000,
+  });
 
-  // Effect to handle URL parameters from dashboard
+  // Effect to handle URL parameters
   useEffect(() => {
     const params = new URLSearchParams(search);
     const viewId = params.get('view');
@@ -125,14 +125,13 @@ const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number
           setLocation('/orders');
         }
       } else if (editId && !usersLoading) {
-  const order = orders.find(o => o.id === parseInt(editId));
-  if (order) {
-    setSelectedOrder(order);
-    setIsEditDialogOpen(true);
-    setLocation('/orders');
-  }
-}
- else if (assignId) {
+        const order = orders.find(o => o.id === parseInt(editId));
+        if (order) {
+          setSelectedOrder(order);
+          setIsEditDialogOpen(true);
+          setLocation('/orders');
+        }
+      } else if (assignId) {
         const order = orders.find(o => o.id === parseInt(assignId));
         if (order) {
           setSelectedOrder(order);
@@ -141,64 +140,16 @@ const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number
         }
       }
     }
-  }, [orders, search, setLocation]);
+  }, [orders, search, setLocation, usersLoading]);
 
-  // Update order mutation
-  const updateOrderMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: number } & Partial<OrderWithDetails>) => {
-      return apiRequest("PUT", `/api/orders/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      setIsEditDialogOpen(false);
-      setSelectedOrder(null);
-      toast({
-        title: "Orden actualizada",
-        description: "Los cambios se han guardado correctamente.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la orden.",
-        variant: "destructive",
-      });
-      console.error("Error updating order:", error);
-    },
-  });
-
-  const assignOrderMutation = useMutation({
-    mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
-      return apiRequest("PUT", `/api/orders/${orderId}`, { 
-        assignedUserId: userId
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      setIsAssignDialogOpen(false);
-      setSelectedOrder(null);
-      toast({
-        title: "Orden asignada",
-        description: "La orden ha sido asignada exitosamente.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "No se pudo asignar la orden.",
-        variant: "destructive",
-      });
-      console.error("Error assigning order:", error);
-    },
-  });
-
-  const handleAssignOrder = (userId: number | null) => {
-    if (selectedOrder) {
-      assignOrderMutation.mutate({ 
-        orderId: selectedOrder.id, 
-        userId 
-      });
-    }
+  // ✅ Handler para actualizar orden con debounce
+  const handleUpdateOrder = (updates: Partial<OrderWithDetails> & { id: number }) => {
+    // Usar debounce para cambios normales
+    debouncedUpdate(updates);
+    
+    // Cerrar modal después de programar la actualización
+    setIsEditDialogOpen(false);
+    setSelectedOrder(null);
   };
 
   const handleCloseAssignModal = (assigned: boolean = false) => {
@@ -232,223 +183,7 @@ const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number
     },
   });
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: any; color: string }> = {
-      pending: { 
-        label: 'Pendiente', 
-        variant: 'default',
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      },
-      confirmed: { 
-        label: 'Confirmado', 
-        variant: 'default',
-        color: 'bg-blue-100 text-blue-800 border-blue-200'
-      },
-      assigned: { 
-        label: 'Asignado', 
-        variant: 'default',
-        color: 'bg-purple-100 text-purple-800 border-purple-200'
-      },
-      preparing: { 
-        label: 'Preparando', 
-        variant: 'default',
-        color: 'bg-orange-100 text-orange-800 border-orange-200'
-      },
-      ready: { 
-        label: 'Listo', 
-        variant: 'default',
-        color: 'bg-indigo-100 text-indigo-800 border-indigo-200'
-      },
-      in_transit: { 
-        label: 'En Tránsito', 
-        variant: 'default',
-        color: 'bg-cyan-100 text-cyan-800 border-cyan-200'
-      },
-      delivered: { 
-        label: 'Entregado', 
-        variant: 'default',
-        color: 'bg-green-100 text-green-800 border-green-200'
-      },
-      completed: { 
-        label: 'Completado', 
-        variant: 'default',
-        color: 'bg-green-100 text-green-800 border-green-200'
-      },
-      cancelled: { 
-        label: 'Cancelado', 
-        variant: 'destructive',
-        color: 'bg-red-100 text-red-800 border-red-200'
-      },
-      returned: { 
-        label: 'Devuelto', 
-        variant: 'secondary',
-        color: 'bg-gray-100 text-gray-800 border-gray-200'
-      }
-    };
-    
-    const config = statusConfig[status] || statusConfig.pending;
-    return (
-      <Badge variant={config.variant} className={config.color}>
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig: Record<string, { label: string; color: string }> = {
-      low: { label: 'Baja', color: 'bg-gray-100 text-gray-600' },
-      normal: { label: 'Normal', color: 'bg-blue-100 text-blue-600' },
-      high: { label: 'Alta', color: 'bg-orange-100 text-orange-600' },
-      urgent: { label: 'Urgente', color: 'bg-red-100 text-red-600' }
-    };
-    
-    const config = priorityConfig[priority] || priorityConfig.normal;
-    return (
-      <Badge variant="outline" className={config.color}>
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer?.phone.includes(searchTerm) ||
-      (order.deliveryAddress && order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const orderStats = {
-    total: orders.length,
-    pending: orders.filter(order => order.status === 'pending').length,
-    confirmed: orders.filter(order => order.status === 'confirmed').length,
-    assigned: orders.filter(order => order.status === 'assigned').length,
-    in_progress: orders.filter(order => order.status === 'in_progress').length,
-    completed: orders.filter(order => order.status === 'completed').length,
-    cancelled: orders.filter(order => order.status === 'cancelled').length,
-    unassigned: orders.filter(order => !order.assignedUserId).length,
-    highPriority: orders.filter(order => ['high', 'urgent'].includes(order.priority)).length,
-    recentOrders: orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
-      const now = new Date();
-      const daysDiff = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
-      return daysDiff <= 1;
-    }).length
-  };
-
-  const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(num)) return '$0.00';
-    return new Intl.NumberFormat('es-MX', { 
-      style: 'currency', 
-      currency: 'MXN' 
-    }).format(num);
-  };
-
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Ahora';
-    if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
-    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
-    
-    return date.toLocaleDateString('es-MX');
-  };
-
-  const getPriorityColor = (priority: string) => {
-    const colors = {
-      low: 'text-gray-500',
-      normal: 'text-blue-500',
-      high: 'text-orange-500',
-      urgent: 'text-red-500'
-    };
-    return colors[priority as keyof typeof colors] || colors.normal;
-  };
-
-  // Function to generate Google Maps link from address or coordinates
-  const generateGoogleMapsLink = (address: string, latitude?: string, longitude?: string): string => {
-    if (latitude && longitude) {
-      const lat = parseFloat(latitude);
-      const lng = parseFloat(longitude);
-      const query = address ? encodeURIComponent(address) : `${lat},${lng}`;
-      return `https://www.google.com/maps/@${lat},${lng},15z?q=${query}`;
-    } else if (address) {
-      return `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
-    }
-    return '';
-  };
-
-  const handleViewOrder = (order: OrderWithDetails) => {
-    setSelectedOrder(order);
-    setIsViewDialogOpen(true);
-  };
-
-const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  if (!selectedOrder) return;
-
-  const formData = new FormData(e.currentTarget);
-
-  const updates: Partial<OrderWithDetails> = {
-    status: formData.get("status") as string,
-    priority: formData.get("priority") as string,
-    notes: formData.get("notes") as string,
-    description: formData.get("description") as string,
-    deliveryAddress: formData.get("deliveryAddress") as string,
-    contactNumber: formData.get("contactNumber") as string,
-    paymentMethod: formData.get("paymentMethod") as string,
-    paymentStatus: formData.get("paymentStatus") as string,
-  };
-
-  // ✅ Lógica sólida para assignedUserId: detectar cambio real
-  const formAssignedUserId = formData.get("assignedUserId") as string;
-
-  let assignedUserId: number | null | undefined = undefined;
-  if (formAssignedUserId === "unassigned") {
-    assignedUserId = null;
-  } else if (formAssignedUserId) {
-    assignedUserId = parseInt(formAssignedUserId);
-  }
-
-  if (
-    (assignedUserId === null && selectedOrder.assignedUserId !== null) ||
-    (assignedUserId !== null && assignedUserId !== selectedOrder.assignedUserId)
-  ) {
-    updates.assignedUserId = assignedUserId;
-  }
-
-  // ✅ Filtrado de campos vacíos o no modificados
-  const filteredUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([_, value]) =>
-      value !== null && value !== "" && value !== "none"
-    )
-  );
-
-  updateOrderMutation.mutate({
-    id: selectedOrder.id,
-    ...filteredUpdates,
-  });
-};
-
-
-
-  const handleEditOrder = (order: OrderWithDetails) => {
-    setSelectedOrder(order);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleQuickAssign = (order: OrderWithDetails) => {
-    setSelectedOrder(order);
-    setIsAssignDialogOpen(true);
-  };
-
+  // Auto-assign mutation
   const autoAssignMutation = useMutation({
     mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
     onSuccess: (data: any) => {
@@ -467,17 +202,72 @@ const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
     },
   });
 
-  const handleAutoAssign = (orderId: number) => {
-    autoAssignMutation.mutate(orderId);
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch = !searchTerm || 
+      order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer?.phone?.includes(searchTerm);
+    
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const orderStats = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    inProgress: orders.filter(o => o.status === 'in_progress').length,
+    completed: orders.filter(o => o.status === 'completed').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
   };
 
-  // Función para generar e imprimir la orden
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; className: string }> = {
+      pending: { label: "Pendiente", className: "bg-yellow-100 text-yellow-800" },
+      confirmed: { label: "Confirmado", className: "bg-blue-100 text-blue-800" },
+      in_progress: { label: "En Progreso", className: "bg-purple-100 text-purple-800" },
+      completed: { label: "Completado", className: "bg-green-100 text-green-800" },
+      cancelled: { label: "Cancelado", className: "bg-red-100 text-red-800" },
+      assigned: { label: "Asignado", className: "bg-indigo-100 text-indigo-800" },
+    };
+
+    const config = statusConfig[status] || { label: status, className: "bg-gray-100 text-gray-800" };
+    return <Badge className={config.className}>{config.label}</Badge>;
+  };
+
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', { 
+      style: 'currency', 
+      currency: 'DOP' 
+    }).format(num);
+  };
+
+  const assignedUser = (order: OrderWithDetails) => {
+    if (!order.assignedUserId) {
+      return "Sin asignar";
+    }
+    return order.assignedUser?.name || `Usuario #${order.assignedUserId}`;
+  };
+
+  const handleViewOrder = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleEditOrder = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleQuickAssign = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setIsAssignDialogOpen(true);
+  };
+
   const generateOrderPrint = (order: OrderWithDetails) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
-    // Debug: verificar que los items existen
-    console.log('Order items for print:', order.items);
 
     const printContent = `
       <!DOCTYPE html>
@@ -485,100 +275,51 @@ const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
       <head>
         <title>Orden ${order.orderNumber}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-          .order-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
-          .section { margin-bottom: 20px; }
-          .section h3 { background: #f5f5f5; padding: 8px; margin: 0 0 10px 0; }
-          .items-table { width: 100%; border-collapse: collapse; }
-          .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          .items-table th { background: #f5f5f5; }
-          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; }
-          .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-          .status-pending { background: #fff3cd; color: #856404; }
-          .status-confirmed { background: #d1ecf1; color: #0c5460; }
-          .status-completed { background: #d4edda; color: #155724; }
-          @media print { .no-print { display: none; } }
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #333; }
+          .section { margin: 20px 0; }
+          .label { font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          @media print { button { display: none; } }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>ORDEN DE TRABAJO</h1>
-          <h2>Orden #${order.orderNumber}</h2>
-        </div>
-        
-        <div class="order-info">
-          <div>
-            <strong>Fecha:</strong> ${new Date(order.createdAt).toLocaleDateString('es-MX')}<br>
-            <strong>Estado:</strong> <span class="status status-${order.status}">${order.status}</span><br>
-            <strong>Prioridad:</strong> ${order.priority || 'Normal'}
-          </div>
-          <div>
-            <strong>Total:</strong> ${formatCurrency(order.totalAmount)}<br>
-            <strong>Asignado a:</strong> ${assignedUser(order)}
-          </div>
-        </div>
-
+        <h1>Orden ${order.orderNumber}</h1>
         <div class="section">
-          <h3>INFORMACIÓN DEL CLIENTE</h3>
-          <strong>Nombre:</strong> ${order.customer?.name || 'N/A'}<br>
-          <strong>Teléfono:</strong> ${order.customer?.phone || 'N/A'}<br>
-          <strong>Dirección:</strong> ${order.customer?.address || order.deliveryAddress || 'N/A'}
+          <p><span class="label">Cliente:</span> ${order.customer?.name}</p>
+          <p><span class="label">Teléfono:</span> ${order.customer?.phone}</p>
+          <p><span class="label">Dirección:</span> ${order.customer?.address || 'N/A'}</p>
         </div>
-
         <div class="section">
-          <h3>PRODUCTOS Y SERVICIOS</h3>
-          <table class="items-table">
+          <p><span class="label">Estado:</span> ${order.status}</p>
+          <p><span class="label">Total:</span> ${formatCurrency(order.totalAmount)}</p>
+          <p><span class="label">Técnico:</span> ${assignedUser(order)}</p>
+        </div>
+        <div class="section">
+          <h3>Productos</h3>
+          <table>
             <thead>
               <tr>
-                <th>Producto/Servicio</th>
-                <th>Categoría</th>
+                <th>Producto</th>
                 <th>Cantidad</th>
-                <th>Precio Unitario</th>
+                <th>Precio</th>
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              ${order.items && order.items.length > 0 ? order.items.map(item => `
+              ${order.items?.map(item => `
                 <tr>
-                  <td>${item.product?.name || 'Producto sin nombre'}</td>
-                  <td>${item.product?.category === 'product' ? 'Producto' : 'Servicio'}</td>
-                  <td>${item.quantity || 0}</td>
-                  <td>${formatCurrency(item.unitPrice || '0')}</td>
-                  <td>${formatCurrency(item.totalPrice || '0')}</td>
+                  <td>${item.product?.name || 'Producto'}</td>
+                  <td>${item.quantity}</td>
+                  <td>${formatCurrency(item.unitPrice)}</td>
+                  <td>${formatCurrency(item.totalPrice)}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="5" style="text-align: center;">No hay productos en esta orden</td></tr>'}
+              `).join('') || '<tr><td colspan="4">No hay productos</td></tr>'}
             </tbody>
           </table>
-          <div class="total">TOTAL: ${formatCurrency(order.totalAmount)}</div>
         </div>
-
-        ${order.description ? `
-        <div class="section">
-          <h3>DESCRIPCIÓN</h3>
-          <p>${order.description}</p>
-        </div>
-        ` : ''}
-
-        ${order.notes ? `
-        <div class="section">
-          <h3>NOTAS INTERNAS</h3>
-          <p>${order.notes}</p>
-        </div>
-        ` : ''}
-
-        <div class="section" style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
-          <p>Documento generado el ${new Date().toLocaleString('es-MX')}</p>
-        </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
-          };
-        </script>
+        <button onclick="window.print()">Imprimir</button>
       </body>
       </html>
     `;
@@ -587,58 +328,56 @@ const handleUpdateOrder = (e: React.FormEvent<HTMLFormElement>) => {
     printWindow.document.close();
   };
 
-  // Función para descargar como PDF (usando print to PDF del navegador)
   const handleDownloadOrder = (order: OrderWithDetails) => {
-    generateOrderPrint(order);
+    const orderData = {
+      orderNumber: order.orderNumber,
+      customer: order.customer,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      assignedUser: order.assignedUser,
+      items: order.items,
+      createdAt: order.createdAt,
+    };
+
+    const blob = new Blob([JSON.stringify(orderData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orden-${order.orderNumber}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
-
-
-
-const assignedUser = (order: OrderWithDetails) => {
-  if (!order.assignedUserId) return "Sin asignar";
-  
-  // ✅ Usar la información del usuario que YA viene en la orden
-  if (order.assignedUser && order.assignedUser.name) {
-    return order.assignedUser.name;
-  }
-  
-  // ✅ Fallback: buscar en users[] si no viene en la orden
-  const user = users.find(u => u.id === order.assignedUserId);
-  if (user) {
-    return user.name;
-  }
-  
-  // ✅ Último recurso: mostrar ID en lugar de "no encontrado"
-  console.warn(`⚠️ Usuario ${order.assignedUserId} no encontrado para orden ${order.id}`);
-  return `Usuario ${order.assignedUserId} (no disponible)`;
-};
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Cargando órdenes...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestión de Órdenes</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Órdenes</h1>
           <p className="text-muted-foreground">
-            Administra todas las órdenes y pedidos del sistema
+            Gestiona y monitorea todas las órdenes del sistema
           </p>
         </div>
+        <Button onClick={() => setLocation('/orders/new')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Orden
+        </Button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -667,34 +406,10 @@ const assignedUser = (order: OrderWithDetails) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600">Confirmados</p>
-                <p className="text-2xl font-bold text-purple-800">{orderStats.confirmed}</p>
+                <p className="text-sm font-medium text-purple-600">En Progreso</p>
+                <p className="text-2xl font-bold text-purple-800">{orderStats.inProgress}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-600">Asignados</p>
-                <p className="text-2xl font-bold text-orange-800">{orderStats.assigned}</p>
-              </div>
-              <UserCheck className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-indigo-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-indigo-600">En Progreso</p>
-                <p className="text-2xl font-bold text-indigo-800">{orderStats.in_progress}</p>
-              </div>
-              <Clock className="h-8 w-8 text-indigo-600" />
+              <UserCheck className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -798,7 +513,7 @@ const assignedUser = (order: OrderWithDetails) => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span>👷</span>
-                       <span>{assignedUser(order)}</span>
+                        <span>{assignedUser(order)}</span>
                       </div>
                     </div>
                   </div>
@@ -824,7 +539,7 @@ const assignedUser = (order: OrderWithDetails) => {
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                                           <Button
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={(e) => {
@@ -887,23 +602,25 @@ const assignedUser = (order: OrderWithDetails) => {
         )}
       </div>
 
-   <EditOrderModal 
-  order={selectedOrder}
-  isOpen={isEditDialogOpen}
-  onClose={() => setIsEditDialogOpen(false)}
-  onSubmit={handleUpdateOrder}
-  users={users}
-  isPending={updateOrderMutation.isPending}
-/>
+      {/* Edit Order Modal */}
+      <EditOrderModal 
+        order={selectedOrder}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setSelectedOrder(null);
+        }}
+        onSubmit={handleUpdateOrder}
+        users={users}
+        isPending={isPending}
+      />
 
-{/* View Order Modal */}
-<OrderDetailModal 
-  order={selectedOrder as any}
-  isOpen={isViewDialogOpen}
-  onClose={() => setIsViewDialogOpen(false)}
-/>
-
-     
+      {/* View Order Modal */}
+      <OrderDetailModal 
+        order={selectedOrder as any}
+        isOpen={isViewDialogOpen}
+        onClose={() => setIsViewDialogOpen(false)}
+      />
 
       {/* Assignment Modal */}
       <AssignmentModal 
@@ -911,7 +628,6 @@ const assignedUser = (order: OrderWithDetails) => {
         isOpen={isAssignDialogOpen}
         onClose={handleCloseAssignModal}
       />
-
     </div>
   );
 }

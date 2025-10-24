@@ -1,18 +1,19 @@
+// client/src/components/orders/edit-order-modal.tsx
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, User, Phone, MapPin, Package, User as UserIcon } from "lucide-react";
+import { Edit } from "lucide-react";
 
 interface EditOrderModalProps {
   order: any;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (updates: any) => void;
   users: Array<{ id: number; name: string; role: string }>;
   isPending: boolean;
 }
@@ -28,18 +29,56 @@ export default function EditOrderModal({
   
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('es-MX', { 
+    return new Intl.NumberFormat('es-DO', { 
       style: 'currency', 
-      currency: 'MXN' 
+      currency: 'DOP' 
     }).format(num);
   };
 
   if (!order) return null;
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    const updates: any = {
+      id: order.id,
+      status: formData.get("status") as string,
+      priority: formData.get("priority") as string,
+      notes: formData.get("notes") as string,
+      description: formData.get("description") as string,
+      deliveryAddress: formData.get("deliveryAddress") as string,
+      contactNumber: formData.get("contactNumber") as string,
+      paymentMethod: formData.get("paymentMethod") as string,
+      paymentStatus: formData.get("paymentStatus") as string,
+    };
+
+    // Manejar assignedUserId
+    const formAssignedUserId = formData.get("assignedUserId") as string;
+    if (formAssignedUserId === "unassigned") {
+      updates.assignedUserId = null;
+    } else if (formAssignedUserId) {
+      updates.assignedUserId = parseInt(formAssignedUserId);
+    }
+
+    // Filtrar valores vacíos (pero permitir null para assignedUserId)
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([key, value]) => {
+        if (key === 'id') return true;
+        // Permitir null explícitamente para assignedUserId (desasignar)
+        if (key === 'assignedUserId' && value === null) return true;
+        return value !== null && value !== "" && value !== "none";
+      })
+    );
+
+    // ✅ Llamar al handler que tiene debounce
+    onSubmit(filteredUpdates);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-        <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5" />
@@ -49,253 +88,195 @@ export default function EditOrderModal({
               Modifica los detalles de la orden. Los campos marcados con * son obligatorios.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="overflow-y-auto flex-1 min-h-0 pr-2">
-            <div className="grid gap-4 py-4">
-              {/* Información básica */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="status" className="text-sm">Estado *</Label>
-                  <Select name="status" defaultValue={order.status || "pending"}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="confirmed">Confirmado</SelectItem>
-                      <SelectItem value="assigned">Asignado</SelectItem>
-                      <SelectItem value="preparing">Preparando</SelectItem>
-                      <SelectItem value="ready">Listo</SelectItem>
-                      <SelectItem value="in_transit">En Tránsito</SelectItem>
-                      <SelectItem value="delivered">Entregado</SelectItem>
-                      <SelectItem value="completed">Completado</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                      <SelectItem value="returned">Devuelto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm">Prioridad *</Label>
-                  <Select name="priority" defaultValue={order.priority || 'normal'}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Seleccionar prioridad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baja</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="assignedUserId" className="text-sm">Asignar a</Label>
-                  <Select
-                    name="assignedUserId"
-                    defaultValue={
-                      order.assignedUserId !== null && order.assignedUserId !== undefined
-                        ? order.assignedUserId.toString()
-                        : "unassigned"
-                    }
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Seleccionar usuario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Sin asignar</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.name} ({user.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Asignación actual */}
-              {order.assignedUser && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-xs font-medium text-blue-800 mb-1">
-                    Actualmente asignado a:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <User className="w-3 h-3 text-blue-600" />
-                    <span className="text-xs text-blue-700">
-                      {order.assignedUser.name}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {order.assignedUser.role}
-                    </Badge>
+          <div className="flex-1 overflow-y-auto py-4 space-y-6">
+            {/* Información del Cliente */}
+            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-4 space-y-2">
+                <h3 className="font-semibold text-blue-900 mb-2">Información del Cliente</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="font-medium text-blue-800">Nombre:</span>
+                    <p className="text-blue-700">{order.customer?.name}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-800">Teléfono:</span>
+                    <p className="text-blue-700">{order.customer?.phone}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-medium text-blue-800">Dirección:</span>
+                    <p className="text-blue-700">{order.customer?.address || 'No especificada'}</p>
                   </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {/* Contacto y entrega */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="contactNumber" className="text-sm">Número de Contacto</Label>
-                  <Input
-                    name="contactNumber"
-                    type="tel"
-                    className="h-9"
-                    placeholder="Ej: +1234567890"
-                    defaultValue={order.contactNumber || order.customer?.phone || ''}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="deliveryAddress" className="text-sm">Dirección de Entrega</Label>
-                  <Input
-                    name="deliveryAddress"
-                    className="h-9"
-                    placeholder="Dirección completa"
-                    defaultValue={order.deliveryAddress || order.customer?.address || ''}
-                  />
-                </div>
-              </div>
-
-              {/* Pago */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod" className="text-sm">Método de Pago</Label>
-                  <Select name="paymentMethod" defaultValue={order.paymentMethod || 'none'}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Seleccionar método" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin especificar</SelectItem>
-                      <SelectItem value="cash">Efectivo</SelectItem>
-                      <SelectItem value="card">Tarjeta</SelectItem>
-                      <SelectItem value="transfer">Transferencia</SelectItem>
-                      <SelectItem value="check">Cheque</SelectItem>
-                      <SelectItem value="financing">Financiamiento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="paymentStatus" className="text-sm">Estado del Pago</Label>
-                  <Select name="paymentStatus" defaultValue={order.paymentStatus || 'pending'}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Estado del pago" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendiente</SelectItem>
-                      <SelectItem value="processing">Procesando</SelectItem>
-                      <SelectItem value="completed">Completado</SelectItem>
-                      <SelectItem value="failed">Fallido</SelectItem>
-                      <SelectItem value="refunded">Reembolsado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Descripción y notas */}
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm">Descripción</Label>
-                  <Textarea
-                    name="description"
-                    placeholder="Descripción general..."
-                    rows={2}
-                    className="text-sm"
-                    defaultValue={order.description || ''}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes" className="text-sm">Notas Internas</Label>
-                  <Textarea
-                    name="notes"
-                    placeholder="Notas para el equipo..."
-                    rows={2}
-                    className="text-sm"
-                    defaultValue={order.notes || ''}
-                  />
-                </div>
-              </div>
-
-              {/* Info del cliente */}
-              {order.customer && (
-                <Card className="bg-gray-50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Cliente</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs">
-                      <UserIcon className="w-3 h-3 text-gray-500" />
-                      <span className="font-medium">{order.customer.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <Phone className="w-3 h-3 text-gray-500" />
-                      <span>{order.customer.phone}</span>
-                    </div>
-                    {order.customer.address && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <MapPin className="w-3 h-3 text-gray-500" />
-                        <span>{order.customer.address}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Items */}
-              {order.items && order.items.length > 0 && (
-                <Card className="bg-gray-50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Package className="w-3 h-3" />
-                      Items ({order.items.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {order.items.slice(0, 3).map((item: any) => (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border text-xs">
-                          <div>
-                            <p className="font-medium">{item.product.name}</p>
-                            <p className="text-[10px] text-gray-500">
-                              Cant: {item.quantity} | Precio: {formatCurrency(item.unitPrice)}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-green-600">
-                              {formatCurrency(item.totalPrice)}
-                            </p>
-                          </div>
+            {/* Productos */}
+            {order.items && order.items.length > 0 && (
+              <Card className="border-gray-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold mb-3">Productos en la Orden</h3>
+                  <div className="space-y-2">
+                    {order.items.map((item: any) => (
+                      <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <div>
+                          <p className="font-medium text-sm">{item.product?.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Cantidad: {item.quantity} × {formatCurrency(item.unitPrice)}
+                          </p>
                         </div>
-                      ))}
-                      {order.items.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center">
-                          ... y {order.items.length - 3} items más
-                        </p>
-                      )}
+                        <p className="font-bold text-sm">{formatCurrency(item.totalPrice)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t mt-3 pt-3">
+                    <div className="flex justify-between items-center font-bold">
+                      <span>Total:</span>
+                      <span className="text-lg text-green-600">{formatCurrency(order.totalAmount)}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Campos de edición */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status">Estado *</Label>
+                <Select name="status" defaultValue={order.status}>
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="confirmed">Confirmado</SelectItem>
+                    <SelectItem value="assigned">Asignado</SelectItem>
+                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="completed">Completado</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priority">Prioridad</Label>
+                <Select name="priority" defaultValue={order.priority || "normal"}>
+                  <SelectTrigger id="priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Baja</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="assignedUserId">Técnico Asignado</Label>
+                <Select 
+                  name="assignedUserId" 
+                  defaultValue={order.assignedUserId?.toString() || "unassigned"}
+                >
+                  <SelectTrigger id="assignedUserId">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Sin asignar</SelectItem>
+                    {users.filter(u => u.role === 'technician' || u.role === 'admin').map(user => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="deliveryAddress">Dirección de Entrega</Label>
+                <Input
+                  id="deliveryAddress"
+                  name="deliveryAddress"
+                  defaultValue={order.deliveryAddress || order.customer?.address || ""}
+                  placeholder="Dirección completa..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contactNumber">Teléfono de Contacto</Label>
+                <Input
+                  id="contactNumber"
+                  name="contactNumber"
+                  defaultValue={order.contactNumber || order.customer?.phone || ""}
+                  placeholder="+1 (809) 555-0100"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Método de Pago</Label>
+                <Select name="paymentMethod" defaultValue={order.paymentMethod || "cash"}>
+                  <SelectTrigger id="paymentMethod">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Efectivo</SelectItem>
+                    <SelectItem value="card">Tarjeta</SelectItem>
+                    <SelectItem value="transfer">Transferencia</SelectItem>
+                    <SelectItem value="financing">Financiamiento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentStatus">Estado de Pago</Label>
+                <Select name="paymentStatus" defaultValue={order.paymentStatus || "pending"}>
+                  <SelectTrigger id="paymentStatus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="partial">Parcial</SelectItem>
+                    <SelectItem value="paid">Pagado</SelectItem>
+                    <SelectItem value="refunded">Reembolsado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  defaultValue={order.description || ""}
+                  placeholder="Descripción del servicio o producto..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="notes">Notas Internas</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  defaultValue={order.notes || ""}
+                  placeholder="Notas adicionales sobre la orden..."
+                  rows={2}
+                />
+              </div>
             </div>
           </div>
-          
-          <DialogFooter className="gap-2 border-t pt-4 mt-4">
+
+          <DialogFooter className="border-t pt-4 mt-4">
             <Button 
               type="button" 
               variant="outline" 
               onClick={onClose}
               disabled={isPending}
-              className="h-9"
             >
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isPending}
-              className="h-9"
-            >
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Guardando..." : "Guardar Cambios"}
             </Button>
           </DialogFooter>

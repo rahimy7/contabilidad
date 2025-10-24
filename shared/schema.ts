@@ -315,6 +315,8 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   scheduledDate: timestamp("scheduled_date"),
   completedDate: timestamp("completed_date"),
+  // Agregar campo:
+tripId: integer("trip_id").references(() => trips.id),
 });
 
 export const orderItems = pgTable("order_items", {
@@ -444,6 +446,57 @@ export const customerRegistrationFlows = pgTable("customer_registration_flows", 
   requestedService: text("requested_service"),
   isCompleted: boolean("is_completed").default(false),
   expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const trips = pgTable("trips", {
+  id: serial("id").primaryKey(),
+  tripNumber: text("trip_number").notNull().unique(), // TRIP-001, TRIP-002
+  assignedUserId: integer("assigned_user_id").references(() => users.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  
+  status: text("status").notNull().default("pending"), 
+  // pending: Creado pero no enviado
+  // active: Enviado al delivery
+  // in_progress: Delivery empezó a recoger
+  // completed: Todos los pedidos recogidos
+  // cancelled: Cancelado
+  
+  totalOrders: integer("total_orders").default(0),
+  completedOrders: integer("completed_orders").default(0),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  sentAt: timestamp("sent_at"), // Cuando admin envía el viaje
+  startedAt: timestamp("started_at"), // Cuando delivery empieza
+  completedAt: timestamp("completed_at"), // Cuando se completa
+  
+  // Metadatos
+  notes: text("notes"),
+  estimatedDuration: integer("estimated_duration"), // minutos
+  actualDuration: integer("actual_duration"), // minutos
+});
+
+export const tripOrders = pgTable("trip_orders", {
+  id: serial("id").primaryKey(),
+  tripId: integer("trip_id").references(() => trips.id).notNull(),
+  orderId: integer("order_id").references(() => orders.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  
+  status: text("status").notNull().default("pending"),
+  // pending: No recogido
+  // picked: Recogido/Escaneado
+  // skipped: Saltado (no disponible)
+  
+  pickedAt: timestamp("picked_at"),
+  scannedQR: boolean("scanned_qr").default(false),
+  
+  sequenceNumber: integer("sequence_number"), // Orden de recogida
+  notes: text("notes"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -783,6 +836,14 @@ export type InsertCartItem = z.infer<typeof insertShoppingCartSchema>;
 export type CustomerHistory = typeof customerHistory.$inferSelect;
 export type InsertCustomerHistory = z.infer<typeof insertCustomerHistorySchema>;
 
+export type Trip = typeof trips.$inferSelect;
+export type NewTrip = typeof trips.$inferInsert;
+export type TripOrder = typeof tripOrders.$inferSelect;
+export type NewTripOrder = typeof tripOrders.$inferInsert;
+
+export type TripStatus = 'pending' | 'active' | 'in_progress' | 'completed' | 'cancelled';
+export type TripOrderStatus = 'pending' | 'picked' | 'skipped';
+
 // Extended types for API responses
 export type OrderItemWithProduct = OrderItem & {
   product: Product;
@@ -949,4 +1010,7 @@ export const schema = {
   employeeProfiles,
   assignmentRules,
   shoppingCart,
+  trips,
+  tripOrders,
+  exchangeRates,
 };

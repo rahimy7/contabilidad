@@ -1,28 +1,21 @@
 // client/src/components/orders/assignment-modal.tsx
-
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { User, MapPin, Phone, Package, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import type { User as UserType } from '@shared/schema';
+import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { UserCheck, Zap, User } from "lucide-react";
 
 interface AssignableUser {
   id: number;
   name: string;
   role: string;
-  email?: string;
-  phone?: string;
   status: string;
-  employeeId?: string;
-  department?: string;
-  position?: string;
 }
 
 interface OrderWithDetails {
@@ -54,45 +47,38 @@ interface AssignmentModalProps {
   order: OrderWithDetails | null;
   isOpen: boolean;
   onClose: (assigned?: boolean) => void;
-  
 }
 
 export default function AssignmentModal({ order, isOpen, onClose }: AssignmentModalProps) {
   const { toast } = useToast();
   const [selectedUserId, setSelectedUserId] = useState<string>("unassigned");
+  
+  // ✅ Debounce con useRef para evitar llamadas duplicadas
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>({
-  queryKey: ['/api/assignment-rules/available-users'],
-  enabled: isOpen,
-  queryFn: async () => {
-    const users = await apiRequest<any[]>("GET", "/api/assignment-rules/available-users");
-    return users.map(user => ({
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      status: user.status,
-      email: undefined,
-      phone: undefined,
-      employeeId: undefined,
-      department: undefined,
-      position: undefined
-    }));
-  },
-});
+  const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>({
+    queryKey: ['/api/assignment-rules/available-users'],
+    enabled: isOpen,
+    queryFn: async () => {
+      const users = await apiRequest<any[]>("GET", "/api/assignment-rules/available-users");
+      return users.map(user => ({
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        status: user.status
+      }));
+    },
+  });
 
-
-
-  // Assign order mutation
+  // ✅ Mutación con debounce
   const assignOrderMutation = useMutation({
     mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
       return apiRequest("PUT", `/api/orders/${orderId}`, { 
         assignedUserId: userId,
-        // Si se asigna a alguien y el estado es pending, cambiar a assigned
         ...(userId && order?.status === 'pending' && { status: 'assigned' })
       });
     },
     onSuccess: () => {
-     // queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Orden asignada",
         description: selectedUserId === "unassigned" 
@@ -111,181 +97,195 @@ const { data: users = [], isLoading: usersLoading } = useQuery<AssignableUser[]>
     },
   });
 
+  // ✅ Auto-assign mutation
+  const autoAssignMutation = useMutation({
+    mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Asignación automática exitosa",
+        description: data.message || "La orden ha sido asignada automáticamente.",
+      });
+      onClose(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error en asignación automática",
+        description: error.message || "No se pudo asignar la orden automáticamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // ✅ Handler con debounce
   const handleAssign = () => {
     if (!order) return;
     
-    const userId = selectedUserId === "unassigned" ? null : parseInt(selectedUserId);
-    assignOrderMutation.mutate({ orderId: order.id, userId });
+    // Cancelar timeout previo si existe
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Programar la asignación con debounce de 300ms
+    debounceTimeoutRef.current = setTimeout(() => {
+      const userId = selectedUserId === "unassigned" ? null : parseInt(selectedUserId);
+      assignOrderMutation.mutate({ orderId: order.id, userId });
+    }, 300);
+  };
+
+  const handleAutoAssign = () => {
+    if (!order) return;
+    autoAssignMutation.mutate(order.id);
   };
 
   const handleClose = () => {
+    // Limpiar timeout al cerrar
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
     setSelectedUserId("unassigned");
     onClose(false);
   };
 
-  // Reset selectedUserId when order changes
-  React.useEffect(() => {
+  // Reset cuando cambia la orden
+  useEffect(() => {
     if (order) {
       setSelectedUserId(order.assignedUserId ? order.assignedUserId.toString() : "unassigned");
     }
   }, [order]);
 
-  // Filtrar usuarios que pueden ser asignados (técnicos, admins, etc.)
-const availableUsers = users || [];
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: any }> = {
-      pending: { label: 'Pendiente', variant: 'secondary' },
-      assigned: { label: 'Asignado', variant: 'default' },
-      in_progress: { label: 'En Progreso', variant: 'default' },
-      completed: { label: 'Completado', variant: 'default' },
-      cancelled: { label: 'Cancelado', variant: 'destructive' },
+  // Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-    
-    const config = statusConfig[status] || { label: status, variant: 'secondary' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig: Record<string, { label: string; variant: any }> = {
-      low: { label: 'Baja', variant: 'outline' },
-      normal: { label: 'Normal', variant: 'secondary' },
-      high: { label: 'Alta', variant: 'default' },
-      urgent: { label: 'Urgente', variant: 'destructive' },
-    };
-    
-    const config = priorityConfig[priority] || { label: priority, variant: 'secondary' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
+  }, []);
 
   if (!order) return null;
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', { 
+      style: 'currency', 
+      currency: 'DOP' 
+    }).format(num);
+  };
+
+  const activeUsers = users.filter(u => u.status === 'active' || u.status === 'available');
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+            <UserCheck className="w-5 h-5" />
             Asignar Orden #{order.orderNumber}
           </DialogTitle>
           <DialogDescription>
-            Selecciona un usuario para asignar esta orden o déjalo sin asignar.
+            Selecciona un técnico disponible o utiliza la asignación automática.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Información de la orden */}
-          <Card>
-            <CardContent className="pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Estado:</span>
-                {getStatusBadge(order.status)}
+          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-900">Cliente:</span>
+                <span className="text-sm text-blue-800">{order.customer?.name}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Prioridad:</span>
-                {getPriorityBadge(order.priority)}
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-900">Monto:</span>
+                <span className="text-sm font-bold text-blue-800">{formatCurrency(order.totalAmount)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="font-semibold text-green-600">
-                  ${parseFloat(order.totalAmount || "0").toLocaleString('es-MX')}
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <User className="w-4 h-4 mt-0.5 text-gray-400" />
-                <div className="text-sm">
-                  <p className="font-medium">{order.customer.name}</p>
-                  <div className="flex items-center gap-1 text-gray-500">
-                    <Phone className="w-3 h-3" />
-                    {order.customer.phone}
-                  </div>
-                </div>
-              </div>
-              {(order.deliveryAddress || order.customer.address) && (
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 mt-0.5 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {order.deliveryAddress || order.customer.address}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-600">
-                  Creado: {new Date(order.createdAt).toLocaleDateString('es-MX')}
-                </span>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-900">Estado:</span>
+                <Badge className="bg-blue-200 text-blue-800">{order.status}</Badge>
               </div>
             </CardContent>
           </Card>
 
           {/* Asignación actual */}
           {order.assignedUser && (
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-medium text-blue-800 mb-1">Asignado actualmente a:</p>
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-700">{order.assignedUser.name}</span>
-                <Badge variant="outline" className="text-xs">
-                  {order.assignedUser.role}
-                </Badge>
-              </div>
-            </div>
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-green-900 mb-2">
+                  Actualmente asignado a:
+                </p>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-green-700" />
+                  <span className="text-green-800 font-semibold">
+                    {order.assignedUser.name}
+                  </span>
+                  <Badge className="bg-green-200 text-green-800 text-xs">
+                    {order.assignedUser.role}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Selector de usuario */}
           <div className="space-y-2">
-            <Label htmlFor="user-select">Asignar a usuario</Label>
-            <Select 
-              value={selectedUserId} 
+            <Label htmlFor="assignedUser">Seleccionar Técnico</Label>
+            <Select
+              value={selectedUserId}
               onValueChange={setSelectedUserId}
               disabled={usersLoading || assignOrderMutation.isPending}
             >
-              <SelectTrigger>
-                <SelectValue placeholder={usersLoading ? "Cargando usuarios..." : "Seleccionar usuario"} />
+              <SelectTrigger id="assignedUser">
+                <SelectValue placeholder="Selecciona un técnico..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unassigned">
-                  <div className="flex items-center gap-2">
-                    <span>Sin asignar</span>
-                  </div>
-                </SelectItem>
-                {availableUsers.map((user) => (
+                <SelectItem value="unassigned">Sin asignar</SelectItem>
+                {activeUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id.toString()}>
                     <div className="flex items-center gap-2">
                       <span>{user.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {user.role}
-                      </Badge>
+                      <Badge className="text-xs">{user.role}</Badge>
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {availableUsers.length === 0 && !usersLoading && (
-            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <p className="text-sm text-yellow-800">
-                No hay usuarios disponibles para asignar. Asegúrate de que existan usuarios con roles apropiados (técnico, admin, etc.).
+            {activeUsers.length === 0 && !usersLoading && (
+              <p className="text-sm text-amber-600">
+                ⚠️ No hay técnicos activos disponibles
               </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={handleClose}
-            disabled={assignOrderMutation.isPending}
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAutoAssign}
+            disabled={autoAssignMutation.isPending || assignOrderMutation.isPending}
+            className="w-full sm:w-auto"
           >
-            Cancelar
+            <Zap className="w-4 h-4 mr-2" />
+            {autoAssignMutation.isPending ? "Asignando..." : "Auto-asignar"}
           </Button>
-          <Button 
-            onClick={handleAssign}
-            disabled={assignOrderMutation.isPending || usersLoading}
-          >
-            {assignOrderMutation.isPending ? "Asignando..." : "Asignar"}
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleClose}
+              disabled={assignOrderMutation.isPending || autoAssignMutation.isPending}
+              className="flex-1 sm:flex-none"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAssign}
+              disabled={assignOrderMutation.isPending || autoAssignMutation.isPending}
+              className="flex-1 sm:flex-none"
+            >
+              {assignOrderMutation.isPending ? "Asignando..." : "Asignar"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
