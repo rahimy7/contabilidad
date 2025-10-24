@@ -32,7 +32,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   // Check if mobile view
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1025);
     };
     
     checkMobile();

@@ -12,7 +12,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1025;
       setIsMobile(mobile);
       if (!mobile) {
         setSidebarOpen(true);
