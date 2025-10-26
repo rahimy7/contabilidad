@@ -453,7 +453,7 @@ export const customerRegistrationFlows = pgTable("customer_registration_flows", 
 export const trips = pgTable("trips", {
   id: serial("id").primaryKey(),
   tripNumber: text("trip_number").notNull().unique(), // TRIP-001, TRIP-002
-  assignedUserId: integer("assigned_user_id").references(() => users.id).notNull(),
+  assignedUserId: integer("assigned_user_id").references(() => users.id),
   storeId: integer("store_id").notNull(),
   
   status: text("status").notNull().default("pending"), 

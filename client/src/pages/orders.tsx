@@ -196,10 +196,11 @@ const handleDeleteOrder = (order: OrderWithDetails) => {
 
 // Agregar después de handleDeleteOrder:
 const handleAssignToTrip = (order: OrderWithDetails) => {
-  if (order.status === 'pending') {
+  // ✅ PERMITIR órdenes pending SIN usuario para viajes compartidos
+  if (order.status === 'pending' && order.assignedUserId) {
     toast({
       title: "Advertencia",
-      description: "La orden debe estar confirmada antes de asignarla a un viaje",
+      description: "Las órdenes con usuario asignado deben confirmarse primero",
       variant: "destructive",
     });
     return;
@@ -208,9 +209,17 @@ const handleAssignToTrip = (order: OrderWithDetails) => {
   if (order.tripId) {
     toast({
       title: "Información",
-      description: "Esta orden ya está asignada a un viaje",
+      description: `Esta orden ya está en el viaje ${order.tripNumber || order.tripId}`,
     });
     return;
+  }
+  
+  // Mostrar mensaje apropiado
+  if (order.status === 'pending' && !order.assignedUserId) {
+    toast({
+      title: "Asignando a viaje compartido",
+      description: "La orden se confirmará y agregará al viaje",
+    });
   }
   
   assignToTripMutation.mutate(order.id);
@@ -596,7 +605,7 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
           
           {/* ✅ Todos los botones ya tienen stopPropagation */}
           <div className="flex gap-2">
-          {!order.tripId && order.status !== 'pending' && (
+          {!order.tripId && (order.status !== 'pending' || !order.assignedUserId) && (
   <Button
     variant="outline"
     size="sm"
@@ -606,18 +615,23 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
     }}
     disabled={assignToTripMutation.isPending}
     className="text-green-600 hover:text-green-700"
-    title="Asignar a viaje"
+    title={
+      order.status === 'pending' && !order.assignedUserId
+        ? "Asignar a viaje compartido"
+        : "Asignar a viaje"
+    }
   >
     <Truck className="w-4 h-4" />
   </Button>
 )}
+
 {order.tripId && (
   <Button
     variant="outline"
     size="sm"
     disabled
     className="text-gray-400"
-    title="Ya asignada a viaje"
+    title={`Ya asignada a viaje ${order.tripNumber || order.tripId}`}
   >
     <Truck className="w-4 h-4" />
   </Button>
