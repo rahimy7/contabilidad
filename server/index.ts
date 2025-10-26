@@ -1766,7 +1766,7 @@ app.get('/api/public/stores/:storeId/catalog-config', async (req, res) => {
   }
 });
 
-// routes.ts o similar
+
 app.get('/api/public/orders/:storeId/:orderId', async (req, res) => {
   try {
     const storeId = parseInt(req.params.storeId);

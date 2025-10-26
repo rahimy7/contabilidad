@@ -162,27 +162,32 @@ export default function OrdersPage() {
   };
 
   // Delete order mutation
-  const deleteOrderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/orders/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({
-        title: "Orden eliminada",
-        description: "La orden se ha eliminado correctamente.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la orden.",
-        variant: "destructive",
-      });
-      console.error("Error deleting order:", error);
-    },
-  });
+ const deleteOrderMutation = useMutation({
+  mutationFn: async (id: number) => {
+    return apiRequest("DELETE", `/api/orders/${id}`);
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    toast({
+      title: "Orden eliminada",
+      description: "La orden se ha eliminado correctamente.",
+    });
+  },
+  onError: (error) => {
+    toast({
+      title: "Error",
+      description: "No se pudo eliminar la orden.",
+      variant: "destructive",
+    });
+    console.error("Error deleting order:", error);
+  },
+});
 
+const handleDeleteOrder = (order: OrderWithDetails) => {
+  if (window.confirm(`¿Estás seguro de eliminar la orden ${order.orderNumber}? Esta acción no se puede deshacer.`)) {
+    deleteOrderMutation.mutate(order.id);
+  }
+};
   // Auto-assign mutation
   const autoAssignMutation = useMutation({
     mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
@@ -489,116 +494,122 @@ export default function OrdersPage() {
             </CardContent>
           </Card>
         ) : (
-          filteredOrders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold">{order.orderNumber}</h3>
-                      {getStatusBadge(order.status)}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="w-4 h-4" />
-                        <span>{order.customer?.name || "Cliente no especificado"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>📞</span>
-                        <span>{order.customer?.phone || "Teléfono no disponible"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{order.customer?.address || order.description || "Dirección no especificada"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>👷</span>
-                        <span>{assignedUser(order)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-green-600">
-                        {formatCurrency(order.totalAmount)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(order.createdAt || '').toLocaleDateString('es-MX')}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewOrder(order);
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditOrder(order);
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuickAssign(order);
-                        }}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        <UserCheck className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          generateOrderPrint(order);
-                        }}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownloadOrder(order);
-                        }}
-                        className="text-purple-600 hover:text-purple-700"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteOrderMutation.mutate(order.id);
-                        }}
-                        disabled={deleteOrderMutation.isPending}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+      filteredOrders.map((order) => (
+  <Card 
+    key={order.id} 
+    className="hover:shadow-md transition-shadow cursor-pointer"
+    onClick={() => handleViewOrder(order)} // ← NUEVO: Click abre detalle
+  >
+    <CardContent className="p-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold">{order.orderNumber}</h3>
+            {getStatusBadge(order.status)}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              <span>{order.customer?.name || "Cliente no especificado"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>📞</span>
+              <span>{order.customer?.phone || "Teléfono no disponible"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              <span>{order.customer?.address || order.description || "Dirección no especificada"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>👷</span>
+              <span>{assignedUser(order)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="text-right">
+            <div className="text-lg font-bold text-green-600">
+              {formatCurrency(order.totalAmount)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(order.createdAt || '').toLocaleDateString('es-MX')}
+            </div>
+          </div>
+          
+          {/* ✅ Todos los botones ya tienen stopPropagation */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewOrder(order);
+              }}
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditOrder(order);
+              }}
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuickAssign(order);
+              }}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              <UserCheck className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                generateOrderPrint(order);
+              }}
+              className="text-green-600 hover:text-green-700"
+            >
+              <Printer className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadOrder(order);
+              }}
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteOrder(order); // ← CAMBIO: Usa la nueva función
+              }}
+              disabled={deleteOrderMutation.isPending}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+))
         )}
       </div>
 

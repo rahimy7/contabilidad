@@ -261,6 +261,24 @@ router.get('/trips/:id', authenticateToken, async (req, res) => {
   }
 });
 
+router.post('/trips', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { orderId, assignedUserId } = req.body;
+    
+    // ✅ CAMBIO: Permitir null en assignedUserId
+    const trip = await tenantStorage.createTrip({
+      orderId,
+      assignedUserId: assignedUserId || null, // Permite crear sin usuario
+      status: 'pending',
+      createdAt: new Date()
+    });
+    
+    res.json(trip);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create trip' });
+  }
+});
+
 router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_rep']), async (req, res) => {
   try {
     // ✅ VALIDACIÓN DEL ID

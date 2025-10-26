@@ -259,7 +259,7 @@ function AppWithAuth() {
       <Route path="/simple-catalog" component={SimpleCatalog} />
       <Route path="/login" component={MultiTenantLogin} />
       <Route path="/multi-tenant-login" component={MultiTenantLogin} />
-      <Route path="/orders/public/:id" component={PublicOrder} />
+      <Route path="/orders/public/:storeId/:orderId" component={PublicOrder} />
       
       {/* ✅ NUEVA RUTA: Página de compartir producto (pública, sin layout) */}
       <Route path="/share-product" component={ShareProduct} />

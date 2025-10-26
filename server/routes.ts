@@ -167,7 +167,7 @@ async function getTenantStorageInternal(user: AuthUser) {
  * Valida acceso al tenant storage
  */
 async function validateTenantAccess(storeId: number): Promise<void> {
-  const store = await masterStorage.getVirtualStore(storeId);
+  const store = await (await masterStorage).getVirtualStore(storeId);
   if (!store) {
     throw new Error('Store not found');
   }
@@ -1071,7 +1071,7 @@ export function setupUserManagementRoutes(app: any) {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const newUser = await masterStorage.createGlobalUser({
+      const newUser = await (await masterStorage).createGlobalUser({
         name,
         username,
         email,
@@ -1101,7 +1101,7 @@ export function setupUserManagementRoutes(app: any) {
   // Listar usuarios globales
   app.get('/api/super-admin/global-users', authenticateToken, requireSuperAdmin, async (req: Request, res: Response) => {
     try {
-      const users = await masterStorage.listGlobalUsers();
+      const users = await (await masterStorage).listGlobalUsers();
       res.json(users);
     } catch (error) {
       console.error('Error fetching global users:', error);
@@ -1115,7 +1115,7 @@ export function setupUserManagementRoutes(app: any) {
       const { name, email, role, storeId, username, password } = req.body;
 
       // Validar que la tienda existe
-      const store = await masterStorage.getVirtualStore(storeId);
+      const store = await (await masterStorage).getVirtualStore(storeId);
       if (!store) {
         return res.status(400).json({ error: 'Store not found' });
       }
@@ -1124,7 +1124,7 @@ export function setupUserManagementRoutes(app: any) {
       const tempPassword = password || Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      const newUser = await masterStorage.createStoreUser({
+      const newUser = await (await masterStorage).createStoreUser({
         name,
         username: finalUsername,
         email,
@@ -1158,7 +1158,7 @@ export function setupUserManagementRoutes(app: any) {
   // Estadísticas de usuarios
   app.get('/api/super-admin/user-metrics', authenticateToken, requireSuperAdmin, async (req: Request, res: Response) => {
     try {
-      const stats = await masterStorage.getUserStats();
+      const stats = await (await masterStorage).getUserStats();
       
       res.json({
         totalUsers: stats.globalUsers + stats.storeUsers,
@@ -1225,7 +1225,7 @@ app.use('/api', employeeRouter);
       }
 
       // Usar master storage para autenticación
-      const user = await masterStorage.authenticateUser(username, password, storeId);
+      const user = await (await masterStorage).authenticateUser(username, password, storeId);
       
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -1374,7 +1374,7 @@ router.get('/super-admin/users', authenticateToken, requireSuperAdmin, async (re
     if (storeId) {
       // Usuarios de tienda específica
       const storeIdInt = parseInt(storeId as string);
-      const store = await masterStorage.getVirtualStore(storeIdInt);
+      const store = await (await masterStorage).getVirtualStore(storeIdInt);
       if (!store) {
         return res.status(404).json({ error: 'Store not found' });
       }
@@ -1411,7 +1411,7 @@ router.get('/super-admin/users', authenticateToken, requireSuperAdmin, async (re
     } else {
       // Sin storeId específico
       if (level === 'global') {
-        const globalUsers = await masterStorage.listGlobalUsers();
+        const globalUsers = await (await masterStorage).listGlobalUsers();
         users = globalUsers.map(u => ({
           ...u,
           level: 'global',
@@ -1419,7 +1419,7 @@ router.get('/super-admin/users', authenticateToken, requireSuperAdmin, async (re
         }));
         source = 'global_schema';
       } else if (level === 'store') {
-        const storeUsers = await masterStorage.listStoreUsers();
+        const storeUsers = await (await masterStorage).listStoreUsers();
         users = storeUsers.map(u => ({
           ...u,
           level: 'store',
@@ -1498,7 +1498,7 @@ router.post('/super-admin/users', authenticateToken, requireSuperAdmin, async (r
     let newUser;
 
     if (level === 'global') {
-      newUser = await masterStorage.createGlobalUser(userDataWithPassword);
+      newUser = await (await masterStorage).createGlobalUser(userDataWithPassword);
       newUser.level = 'global';
       newUser.source = 'global_schema';
     } 
@@ -1506,7 +1506,7 @@ router.post('/super-admin/users', authenticateToken, requireSuperAdmin, async (r
       if (!storeId) {
         return res.status(400).json({ error: 'storeId required for store level' });
       }
-      newUser = await masterStorage.createStoreUser({
+      newUser = await (await masterStorage).createStoreUser({
         ...userDataWithPassword,
         storeId: parseInt(storeId)
       });
@@ -1551,10 +1551,10 @@ router.put('/super-admin/users/:id', authenticateToken, requireSuperAdmin, async
     let updatedUser;
 
     if (level === 'global') {
-      updatedUser = await masterStorage.updateGlobalUser(id, updates);
+      updatedUser = await (await masterStorage).updateGlobalUser(id, updates);
     } 
     else if (level === 'store') {
-      updatedUser = await masterStorage.updateStoreUser(id, updates);
+      updatedUser = await (await masterStorage).updateStoreUser(id, updates);
     } 
     else if (level === 'tenant' && storeId) {
       const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
@@ -1615,12 +1615,12 @@ router.post('/super-admin/users/:id/reset-password', authenticateToken, requireS
     let result;
 
     if (level === 'global') {
-      result = await masterStorage.updateGlobalUser(id, { password: hashedPassword });
+      result = await (await masterStorage).updateGlobalUser(id, { password: hashedPassword });
     } 
     else if (level === 'store') {
       // ❌ PROBLEMA: busca en system_users en lugar del schema de la tienda
       if (!storeId) {
-        result = await masterStorage.updateStoreUser(id, { password: hashedPassword });
+        result = await (await masterStorage).updateStoreUser(id, { password: hashedPassword });
       } else {
         // ✅ SOLUCIÓN: buscar en schema de la tienda
         const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
@@ -1656,10 +1656,10 @@ router.delete('/super-admin/users/:id', authenticateToken, requireSuperAdmin, as
     let success = false;
 
     if (level === 'global') {
-      success = await masterStorage.deleteGlobalUser(id);
+      success = await (await masterStorage).deleteGlobalUser(id);
     } 
     else if (level === 'store') {
-      success = await masterStorage.deleteStoreUser(id);
+      success = await (await masterStorage).deleteStoreUser(id);
     } 
     else if (level === 'tenant' && storeId) {
       const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId as string));
@@ -1682,7 +1682,7 @@ router.delete('/super-admin/users/:id', authenticateToken, requireSuperAdmin, as
 // GET - Métricas de usuarios
 router.get('/super-admin/user-metrics', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
-    const stats = await masterStorage.getUserStats();
+    const stats = await (await masterStorage).getUserStats();
     res.json(stats);
   } catch (error) {
     console.error("Error fetching user metrics:", error);
@@ -2016,7 +2016,7 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
     
     // ✅ OBTENER CONFIGURACIÓN DE WHATSAPP
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(user.storeId);
     
     if (!config) {
@@ -2163,7 +2163,7 @@ router.post('/conversations/:id/test-whatsapp', authenticateToken, async (req: a
 
     // ✅ ENVÍO DE PRUEBA DIRECTO
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(user.storeId);
     
     if (!config) {
@@ -3241,6 +3241,46 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
   }
 }); 
 
+// ✅ Actualizar estado de orden
+router.patch('/orders/:id/status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    const { status, notes } = req.body;
+    
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    console.log(`📝 [PATCH /orders/${orderId}/status] Updating to:`, status);
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    const order = await tenantStorage.getOrderById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    const updatedOrder = await tenantStorage.updateOrder(orderId, { 
+      status,
+      updatedAt: new Date()
+    });
+    
+    console.log(`✅ Updated successfully`);
+    res.json(updatedOrder);
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update order status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 // ================================
 // TECHNICIAN SPECIFIC ENDPOINTS
@@ -3596,7 +3636,7 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
       const storeIdInt = parseInt(storeId as string);
       
       // Verificar que la tienda existe
-      const store = await masterStorage.getVirtualStore(storeIdInt);
+      const store = await (await masterStorage).getVirtualStore(storeIdInt);
       if (!store) {
         return res.status(404).json({ error: 'Store not found' });
       }
@@ -3621,7 +3661,7 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
     } 
     // Si se especifica level=global, obtener usuarios globales
     else if (level === 'global') {
-      const globalUsers = await masterStorage.listGlobalUsers();
+      const globalUsers = await (await masterStorage).listGlobalUsers();
       users = globalUsers.map(u => ({
         ...u,
         level: 'global',
@@ -3631,7 +3671,7 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
     }
     // Si se especifica level=store, obtener usuarios de tienda (system_users)
     else if (level === 'store') {
-      const storeUsers = await masterStorage.listStoreUsers();
+      const storeUsers = await (await masterStorage).listStoreUsers();
       users = storeUsers.map(u => ({
         ...u,
         level: 'store',
@@ -3641,7 +3681,7 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
     }
     // Por defecto, obtener usuarios globales (sin storeId especificado)
     else {
-      const globalUsers = await masterStorage.listGlobalUsers();
+      const globalUsers = await (await masterStorage).listGlobalUsers();
       users = globalUsers.map(u => ({
         ...u,
         level: 'global',
@@ -3735,7 +3775,7 @@ router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res
     } 
     else if (level === 'store') {
       // Crear usuario de tienda (system_users)
-      newUser = await masterStorage.createStoreUser({
+      newUser = await (await masterStorage).createStoreUser({
         ...userDataWithPassword,
         storeId: storeId ? parseInt(storeId) : null
       });
@@ -3744,7 +3784,7 @@ router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res
     } 
     else {
       // Crear usuario global (por defecto)
-      newUser = await masterStorage.createGlobalUser(userDataWithPassword);
+      newUser = await (await masterStorage).createGlobalUser(userDataWithPassword);
       newUser.level = 'global';
       newUser.source = 'global_schema';
     }
@@ -3771,7 +3811,7 @@ router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res
 // GET - Obtener stores disponibles para el selector
 router.get('/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
-    const stores = await masterStorage.getAllVirtualStores();
+    const stores = await (await masterStorage).getAllVirtualStores();
     
     const storesWithUserCounts = await Promise.all(
       stores.map(async (store) => {
@@ -3873,10 +3913,10 @@ router.post('/users/:id/reset-password', authenticateToken, requireSuperAdmin, a
 
     // Resetear según contexto
     if (level === 'global') {
-      result = await masterStorage.updateGlobalUser(id, { password: hashedPassword });
+      result = await (await masterStorage).updateGlobalUser(id, { password: hashedPassword });
     } 
     else if (level === 'store') {
-      result = await masterStorage.updateStoreUser(id, { password: hashedPassword });
+      result = await (await masterStorage).updateStoreUser(id, { password: hashedPassword });
     } 
     else if (level === 'tenant' && storeId) {
       const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId));
@@ -3917,10 +3957,10 @@ router.delete('/users/:id', authenticateToken, requireSuperAdmin, async (req: an
 
     // Eliminar según contexto
     if (level === 'global') {
-      success = await masterStorage.deleteGlobalUser(id);
+      success = await (await masterStorage).deleteGlobalUser(id);
     } 
     else if (level === 'store') {
-      success = await masterStorage.deleteStoreUser(id);
+      success = await (await masterStorage).deleteStoreUser(id);
     } 
     else if (level === 'tenant' && storeId) {
       const tenantStorage = await storageFactory.getTenantStorage(parseInt(storeId as string));
@@ -4080,7 +4120,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const user = req.user as AuthUser;
       
       // WhatsApp config se almacena en master storage (configuración global por tienda)
-      const config = await masterStorage.getWhatsAppConfig(user.storeId);
+      const config = await (await masterStorage).getWhatsAppConfig(user.storeId);
       
       res.json(config);
     } catch (error) {
@@ -4095,7 +4135,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const configData = { ...req.body, storeId: user.storeId };
       
       // WhatsApp config se almacena en master storage
-      const config = await masterStorage.updateWhatsAppConfig(user.storeId, configData);
+      const config = await (await masterStorage).updateWhatsAppConfig(user.storeId, configData);
       
       res.json(config);
     } catch (error) {
@@ -4114,7 +4154,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const { phoneNumberId, limit = 50, offset = 0 } = req.query;
       
       // WhatsApp logs en master storage (centralizados)
-      const logs = await masterStorage.getWhatsAppLogs(
+      const logs = await (await masterStorage).getWhatsAppLogs(
         user.storeId,
         phoneNumberId as string,
         parseInt(limit as string),
@@ -4134,7 +4174,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       const logData = { ...req.body, storeId: user.storeId };
       
       // WhatsApp logs en master storage
-      const log = await masterStorage.addWhatsAppLog(logData);
+      const log = await (await masterStorage).addWhatsAppLog(logData);
       res.status(201).json(log);
     } catch (error) {
       console.error("Error creating WhatsApp log:", error);
@@ -4267,7 +4307,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
     try {
       const user = req.user as AuthUser;
       
-      const store = await masterStorage.getVirtualStore(user.storeId);
+      const store = await (await masterStorage).getVirtualStore(user.storeId);
       
       if (!store) {
         return res.status(404).json({ error: 'Store not found' });
@@ -4317,7 +4357,7 @@ router.post('/stores/:storeId/users', authenticateToken, async (req: any, res: a
     }
     
     // Verificar que la tienda existe
-    const store = await masterStorage.getVirtualStore(storeId);
+    const store = await (await masterStorage).getVirtualStore(storeId);
     if (!store) {
       return res.status(404).json({ error: 'Store not found' });
     }
@@ -4341,7 +4381,7 @@ router.post('/stores/:storeId/users', authenticateToken, async (req: any, res: a
     }
     
     // Crear usuario usando master storage
-    const newUser = await masterStorage.createStoreUser(userData);
+    const newUser = await (await masterStorage).createStoreUser(userData);
     
     // Remover contraseña de la respuesta
     const { password, ...safeUser } = newUser;
@@ -4372,7 +4412,7 @@ router.get('/stores/:storeId/users', authenticateToken, async (req: any, res: an
     }
     
     // ✅ USAR EL NOMBRE CORRECTO DE LA FUNCIÓN
-    const users = await masterStorage.getStoreUsersByStoreId(storeId);
+    const users = await (await masterStorage).getStoreUsersByStoreId(storeId);
     
     // Remover contraseñas de la respuesta
     const safeUsers = users.map(user => {
@@ -4444,7 +4484,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
     
-    const success = await masterStorage.deleteStoreUser(userId);
+    const success = await (await masterStorage).deleteStoreUser(userId);
     
     if (!success) {
       return res.status(404).json({ error: 'User not found' });
@@ -4505,7 +4545,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       
       console.log(`🎭 SIMULATING MESSAGE WEBHOOK - Store: ${storeId}, Phone: ${phoneNumber}, Message: "${messageText}"`);
       
-      const whatsappConfig = await masterStorage.getWhatsAppConfig(storeId);
+      const whatsappConfig = await (await masterStorage).getWhatsAppConfig(storeId);
       
       if (!whatsappConfig) {
         return res.json({
@@ -4597,7 +4637,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       const user = req.user as AuthUser;
       
       // Test master storage
-      const masterHealth = await masterStorage.testConnection();
+      const masterHealth = await (await masterStorage).testConnection();
       
       // Test tenant storage if user has storeId
       let tenantHealth = null;
@@ -4634,7 +4674,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
 
   router.get('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
-      const stores = await masterStorage.getAllVirtualStores();
+      const stores = await (await masterStorage).getAllVirtualStores();
       res.json(stores);
     } catch (error) {
       console.error('Error fetching stores:', error);
@@ -4645,7 +4685,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   router.post('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
       const storeData = req.body;
-      const store = await masterStorage.createVirtualStore(storeData);
+      const store = await (await masterStorage).createVirtualStore(storeData);
       res.status(201).json(store);
     } catch (error) {
       console.error('Error creating store:', error);
@@ -4658,7 +4698,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       const id = parseInt(req.params.id);
       const updateData = req.body;
       
-      const store = await masterStorage.updateVirtualStore(id, updateData);
+      const store = await (await masterStorage).updateVirtualStore(id, updateData);
       if (!store) {
         return res.status(404).json({ error: 'Store not found' });
       }
@@ -4674,7 +4714,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     try {
       const id = parseInt(req.params.id);
       
-      await masterStorage.deleteVirtualStore(id);
+      await (await masterStorage).deleteVirtualStore(id);
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting store:', error);
@@ -4998,7 +5038,7 @@ router.get('/public/stores/:storeId/info', async (req: any, res: any) => {
       return res.status(400).json({ error: 'Invalid store ID' });
     }
 
-    const store = await masterStorage.getVirtualStore(storeIdInt);
+    const store = await (await masterStorage).getVirtualStore(storeIdInt);
     
     if (!store) {
       return res.status(404).json({ error: 'Store not found' });
