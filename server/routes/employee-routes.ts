@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticateToken, requireAdmin } from '../authMiddleware';
 import bcrypt from 'bcryptjs';
 import { getTenantStorageWithSchema } from 'server/routes';
+import { Pool } from '@neondatabase/serverless';
 
 const router = Router();
 
@@ -240,47 +241,94 @@ router.post('/employees', authenticateToken, requireAdmin, async (req: any, res:
   }
 });
 
-// PUT - Actualizar empleado (datos personales y perfil asignado)
+
+// PUT - Actualizar empleado (usuario)
 router.put('/employees/:id', authenticateToken, async (req: any, res: any) => {
   try {
-    const id = parseInt(req.params.id);
+    const userId = parseInt(req.params.id);
     const user = req.user;
     const updates = req.body;
     
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // Si viene nuevo perfil, verificar que existe
-    if (updates.employeeProfileId) {
+    // Verificar que existe
+    const existingUser = await tenantStorage.getUserById(userId);
+    if (!existingUser) {
+      return res.status(404).json({ error: "Empleado no encontrado" });
+    }
+    
+    // Si viene nuevo perfil, validar
+    if (updates.employeeProfileId !== undefined && updates.employeeProfileId !== null) {
       const profile = await tenantStorage.getEmployeeProfileById(updates.employeeProfileId);
       if (!profile) {
         return res.status(404).json({ error: "Perfil no encontrado" });
       }
     }
     
-    // Si viene password, hashear
+    // Hash password si viene
     if (updates.password) {
       updates.password = await bcrypt.hash(updates.password, 10);
     }
     
-    const updatedUser = await tenantStorage.updateUser(id, updates);
-    if (!updatedUser) {
-      return res.status(404).json({ error: "Empleado no encontrado" });
+    // ✅ USAR QUERY DIRECTO - bypass del método faltante
+    const pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      max: 1 
+    });
+    
+    try {
+      // Obtener schema
+      const storeResult = await pool.query(
+        'SELECT database_url FROM virtual_stores WHERE id = $1',
+        [user.storeId]
+      );
+      
+      const schemaMatch = storeResult.rows[0]?.database_url?.match(/schema=([^&]+)/);
+      const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+      
+      await pool.query(`SET search_path TO ${schemaName}, public`);
+      
+      // Construir query dinámico
+      const fields = [];
+      const values = [];
+      let counter = 1;
+      
+      Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined) {
+          const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+          fields.push(`${columnName} = $${counter}`);
+          values.push(updates[key]);
+          counter++;
+        }
+      });
+      
+      fields.push('updated_at = NOW()');
+      values.push(userId);
+      
+      const result = await pool.query(`
+        UPDATE users 
+        SET ${fields.join(', ')}
+        WHERE id = $${counter}
+        RETURNING *
+      `, values);
+      
+      await pool.end();
+      
+      const updatedUser = result.rows[0];
+      const { password, ...safeUser } = updatedUser;
+      
+      res.json(safeUser);
+      
+    } catch (error) {
+      await pool.end().catch(() => {});
+      throw error;
     }
     
-    // Obtener perfil actualizado
-    let profile = null;
-    if (updatedUser.employeeProfileId) {
-      profile = await tenantStorage.getEmployeeProfileById(updatedUser.employeeProfileId);
-    }
-    
-    const { password, ...safeUser } = updatedUser;
-    res.json({ ...safeUser, profile });
   } catch (error) {
     console.error('Error updating employee:', error);
     res.status(500).json({ error: "Error al actualizar empleado" });
   }
 });
-
 // PATCH - Cambiar perfil asignado al usuario
 router.patch('/employees/:id/profile', authenticateToken, requireAdmin, async (req: any, res: any) => {
   try {

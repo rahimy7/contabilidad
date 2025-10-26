@@ -150,6 +150,11 @@ function RoleDashboard() {
    // console.log('🔧 RoleDashboard: Enviando a TechnicianDashboard');
     return <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />;
   }
+
+  if (user?.role === 'delivery') {
+   // console.log('🔧 RoleDashboard: Enviando a DeliveryDashboardPage');
+    return <ProtectedRoute component={DeliveryDashboardPage} permission="delivery" />;
+  }
   
   // Super administradores al Panel de Control General
   if (user?.role === 'super_admin') {
@@ -229,7 +234,8 @@ function Router() {
       <Route path="/catalog" component={Catalog} />
       <Route path="/public-catalog" component={PublicCatalogClean} />
       <Route path="/simple-catalog" component={SimpleCatalog} />
-      <Route path="/delivery-dashboard" component={DeliveryDashboardPage} />
+     
+      <Route path="/delivery-dashboard" component={() => <ProtectedRoute component={DeliveryDashboardPage} permission="delivery" />} />
     </Switch>
   );
 }
