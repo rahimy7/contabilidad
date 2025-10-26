@@ -9,6 +9,7 @@ import { sql, eq, count, and, isNull, or, max, desc, asc } from "drizzle-orm";
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 import employeeRouter from './routes/employee-routes.js';
+import tripRoutes from './routes/trip-routes';
 
 
 // Schema and Types
@@ -5461,6 +5462,7 @@ router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any,
   app.use("/api", router);
   app.use('/api/exchange-rates', exchangeRateRoutes);
   app.use('/api/super-admin', superAdminRoutes);
+  app.use('/api', tripRoutes);
   
   console.log("✅ Routes registered successfully with migrated storage");
 }

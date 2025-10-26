@@ -123,7 +123,7 @@ export const rolePermissions = {
     'create_quotes'
   ],
   delivery: [
-    'view_dashboard',
+    'view_dashboard_delivery',
     'view_assigned_orders',
     'view_orders',
     'update_delivery_status',
@@ -132,32 +132,12 @@ export const rolePermissions = {
     'send_messages',
     'view_notifications',
     'update_location'
-  ],
-  support: [
-    'view_dashboard',
-    'view_orders',
-    'view_customers',
-    'view_conversations',
-    'send_messages',
-    'view_notifications',
-    'manage_tickets'
-  ],
-  customer_service: [
-    'view_dashboard',
-    'view_orders',
-    'view_customers',
-    'manage_customers',
-    'add_customers',
-    'view_conversations',
-    'send_messages',
-    'view_notifications',
-    'manage_inquiries'
   ]
 };
 
 export function hasPermission(userRole: string, permission: string): boolean {
   const permissions = rolePermissions[userRole as keyof typeof rolePermissions];
-  console.log(permission, permissions)
+  // console.log(permission, permissions)
   return permissions?.includes(permission) || false;
 }
 

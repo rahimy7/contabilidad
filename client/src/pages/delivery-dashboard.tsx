@@ -26,10 +26,14 @@ export default function DeliveryDashboardPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setActiveTripId(data?.id || null);
+        const parsedId = Number(data?.id);
+        setActiveTripId(Number.isInteger(parsedId) ? parsedId : null);
+      } else {
+        setActiveTripId(null);
       }
     } catch (error) {
       console.error('Error loading active trip:', error);
+      setActiveTripId(null);
     }
   };
 
@@ -55,7 +59,7 @@ export default function DeliveryDashboardPage() {
       />
 
       {/* Modales */}
-      {activeTripId && (
+      {activeTripId !== null && (
         <>
           <QRScanner
             tripId={activeTripId}

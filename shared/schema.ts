@@ -609,7 +609,7 @@ export const productCategories = pgTable("product_categories", {
 // Insert schemas
 export const insertUserSchema = makeInsertSchema(users, {
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["admin", "technician", "seller", "delivery", "support", "customer_service"]),
+  role: z.enum(["admin", "technician", "seller", "delivery", ]),
   status: z.enum(["active", "busy", "break", "offline"]).optional(),
 }, ["id", "createdAt", "updatedAt", "lastLogin"]);
 

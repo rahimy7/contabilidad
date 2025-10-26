@@ -18,8 +18,9 @@ const requireRole = (allowedRoles: string[]) => {
 };
 
 // Helper para obtener la conexión directa de la BD
-async function getDb(storeId: number) {
-  return await getTenantDb(storeId);
+async function getDb(storeId: number | string) {
+  const id = typeof storeId === 'string' ? parseInt(storeId) : storeId;
+  return await getTenantDb(id);
 }
 
 // ==================== TRIPS CRUD ====================
@@ -29,7 +30,7 @@ router.get('/trips', authenticateToken, async (req, res) => {
     const db = await getDb(req.user.storeId);
     const { status, assignedUserId, startDate, endDate } = req.query;
     
-    let filters: any[] = [eq(schema.trips.storeId, req.user.storeId)];
+    let filters: any[] = [eq(schema.trips.storeId, parseInt(req.user.storeId as any))];
     
     if (status) filters.push(eq(schema.trips.status, status as string));
     if (assignedUserId) filters.push(eq(schema.trips.assignedUserId, parseInt(assignedUserId as string)));
@@ -67,7 +68,7 @@ router.get('/trips/:id', authenticateToken, async (req, res) => {
       .from(schema.trips)
       .where(and(
         eq(schema.trips.id, tripId),
-        eq(schema.trips.storeId, req.user.storeId)
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
       ));
     
     if (!trip) {
@@ -131,7 +132,7 @@ router.get('/trips/my-active', authenticateToken, async (req, res) => {
       .from(schema.trips)
       .where(and(
         eq(schema.trips.assignedUserId, req.user.id),
-        eq(schema.trips.storeId, req.user.storeId),
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any)),
         or(
           eq(schema.trips.status, 'active'),
           eq(schema.trips.status, 'in_progress')
@@ -191,7 +192,7 @@ router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_r
       .from(schema.trips)
       .where(and(
         eq(schema.trips.id, tripId),
-        eq(schema.trips.storeId, req.user.storeId)
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
       ));
     
     if (!trip) {
@@ -384,7 +385,7 @@ router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
       .from(schema.trips)
       .where(and(
         eq(schema.trips.id, tripId),
-        eq(schema.trips.storeId, req.user.storeId)
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
       ));
     
     if (!trip) {
@@ -447,7 +448,7 @@ router.get('/trips/stats', authenticateToken, requireRole(['admin', 'sales_rep']
       })
       .from(schema.trips)
       .where(and(
-        eq(schema.trips.storeId, req.user.storeId),
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any)),
         sql`${schema.trips.createdAt} >= ${today}`
       ));
     

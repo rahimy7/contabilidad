@@ -153,7 +153,7 @@ function RoleDashboard() {
 
   if (user?.role === 'delivery') {
    // console.log('🔧 RoleDashboard: Enviando a DeliveryDashboardPage');
-    return <ProtectedRoute component={DeliveryDashboardPage} permission="delivery" />;
+    return <ProtectedRoute component={DeliveryDashboardPage} permission="view_dashboard_delivery" />;
   }
   
   // Super administradores al Panel de Control General
@@ -234,8 +234,8 @@ function Router() {
       <Route path="/catalog" component={Catalog} />
       <Route path="/public-catalog" component={PublicCatalogClean} />
       <Route path="/simple-catalog" component={SimpleCatalog} />
-     
-      <Route path="/delivery-dashboard" component={() => <ProtectedRoute component={DeliveryDashboardPage} permission="delivery" />} />
+     <Route path="/trips" component={TripsPage} />
+      <Route path="/delivery-dashboard" component={() => <ProtectedRoute component={DeliveryDashboardPage} permission="view_dashboard_delivery" />} />
     </Switch>
   );
 }
