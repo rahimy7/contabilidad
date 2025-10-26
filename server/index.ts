@@ -29,7 +29,8 @@ import { exchangeRateRoutes } from './exchange-rate.routes';
 import { ExchangeRateService } from './services/exchange-rate.service.ts';
 import { createWebOrder } from './routes/create-web-order.ts';
 import { startScheduledTasks } from './scheduled-tasks.ts';
-import { getTenantStorage } from './storage/index.js';
+import { getTenantStorage, getTenantStorageBySlug } from './storage/index.js';
+import { getDefaultTenantStorage } from './tenant-storage.ts';
 
 
 
@@ -1765,6 +1766,73 @@ app.get('/api/public/stores/:storeId/catalog-config', async (req, res) => {
   }
 });
 
+// routes.ts o similar
+app.get('/api/public/orders/:storeId/:orderId', async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const orderId = parseInt(req.params.orderId);
+
+    if (isNaN(orderId) || isNaN(storeId)) {
+      return res.status(400).json({ error: 'Invalid store or order ID' });
+    }
+
+    const tenantStorage = await getTenantStorage(storeId);
+    const order = await tenantStorage.getOrderById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Enriquecer con customer y items
+    const customer = order.customerId ? await tenantStorage.getCustomerById(order.customerId) : null;
+    const assignedUser = order.assignedUserId ? await tenantStorage.getUserById(order.assignedUserId).catch(() => null) : null;
+    const items = tenantStorage.getOrderItems
+      ? await tenantStorage.getOrderItemsByOrderId(order.id)
+      : [];
+
+    const enrichedOrder = {
+      ...order,
+     
+      assignedUser: assignedUser
+        ? {
+            id: assignedUser.id,
+            name: assignedUser.name,
+            role: assignedUser.role
+          }
+        : null,
+      items: items.map((item: any) => ({
+        id: item.id,
+        orderId: item.orderId,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        installationCost: item.installationCost || '0.00',
+        partsCost: item.partsCost || '0.00',
+        laborHours: item.laborHours || '0',
+        laborRate: item.laborRate || '0.00',
+        deliveryCost: item.deliveryCost || '0.00',
+        deliveryDistance: item.deliveryDistance || '0',
+        notes: item.notes,
+        product: {
+          id: item.productId,
+          name: item.productName || 'Producto sin nombre',
+          description: item.productDescription || '',
+          category: item.productCategory || 'product',
+          price: item.productPrice || item.unitPrice
+        }
+      })),
+      totalItems: items.length,
+      priority: order.priority || 'normal'
+    };
+
+    res.json(enrichedOrder);
+  } catch (error) {
+    console.error('❌ Error in public order endpoint:', error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
 
 
 // Asignar perfil a usuario
@@ -2734,7 +2802,7 @@ apiRouter.post('/messages', authenticateToken, async (req, res) => {
     const user = (req as any).user;
     const { conversationId, content } = req.body;
     
-    const tenantStorage = await getTenantStorage(user.storeId);
+    const tenantStorage = await getTenantStorageWithSchema(user.storeId);
     
     // ✅ ACTIVAR MODO WEBAPP (30 minutos por defecto)
     if (conversationId) {
@@ -2994,7 +3062,7 @@ apiRouter.get('/test-whatsapp-token/:storeId', async (req, res) => {
     
     // ✅ CORRECTED: Use getMasterStorage from the new architecture
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
     
     if (!config) {
@@ -3060,7 +3128,7 @@ apiRouter.get('/test-whatsapp-token/:storeId', async (req, res) => {
     // Log error if possible
     try {
       const { getMasterStorage } = await import('./storage/index.js');
-      const masterStorage = getMasterStorage();
+      const masterStorage = await getMasterStorage();
       await masterStorage.addWhatsAppLog({
         type: 'error',
         phoneNumber: 'TEST_ERROR',
@@ -3088,7 +3156,7 @@ apiRouter.get('/debug-whatsapp-tokens/:storeId', async (req, res) => {
     const storeId = parseInt(req.params.storeId);
     
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
     
     if (!config) {
@@ -3134,7 +3202,7 @@ apiRouter.post('/debug-send-with-db-token/:storeId', async (req, res) => {
     const { phoneNumber, message } = req.body;
     
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
     
     if (!config) {

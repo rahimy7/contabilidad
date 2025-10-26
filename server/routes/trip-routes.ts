@@ -6,6 +6,7 @@ import { authenticateToken } from '../authMiddleware';
 import { getTenantStorage } from '../storage';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '../../shared/schema';
+import { trips, orders, users, tripOrders } from '../../shared/schema';
 
 
 
@@ -553,39 +554,60 @@ router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
 
 router.delete('/trips/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
-    // ✅ VALIDACIÓN DEL ID
     const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
     
     const [trip] = await db
       .select()
       .from(schema.trips)
-      .where(and(
-        eq(schema.trips.id, tripId),
-        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
-      ));
+      .where(eq(schema.trips.id, tripId));
     
     if (!trip) {
       return res.status(404).json({ error: 'Viaje no encontrado' });
     }
     
+    // No permitir eliminar viajes en progreso
     if (trip.status === 'in_progress') {
       return res.status(400).json({ 
         error: 'No se puede eliminar un viaje en progreso'
       });
     }
     
-    // Eliminar trip_orders primero
+    // 1. Obtener las órdenes del viaje
+    const tripOrdersList = await db
+      .select({ orderId: schema.tripOrders.orderId })
+      .from(schema.tripOrders)
+      .where(eq(schema.tripOrders.tripId, tripId));
+    
+    const orderIds = tripOrdersList.map(to => to.orderId);
+    
+    // 2. Limpiar tripId de las órdenes
+    if (orderIds.length > 0) {
+      for (const orderId of orderIds) {
+        await db
+          .update(schema.orders)
+          .set({ tripId: null })
+          .where(eq(schema.orders.id, orderId));
+      }
+    }
+    
+    // 3. Eliminar trip_orders
     await db
       .delete(schema.tripOrders)
       .where(eq(schema.tripOrders.tripId, tripId));
     
-    // Eliminar trip
+    // 4. Eliminar trip
     await db
       .delete(schema.trips)
       .where(eq(schema.trips.id, tripId));
     
-    res.json({ success: true, message: 'Viaje eliminado correctamente' });
+    console.log(`✅ Viaje ${trip.tripNumber} eliminado (${orderIds.length} órdenes liberadas)`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Viaje eliminado correctamente',
+      ordersReleased: orderIds.length
+    });
   } catch (error) {
     console.error('Error deleting trip:', error);
     if (error.message.includes('inválido')) {
@@ -594,5 +616,220 @@ router.delete('/trips/:id', authenticateToken, requireRole(['admin']), async (re
     res.status(500).json({ error: 'Error al eliminar viaje' });
   }
 });
+
+router.patch(
+  '/trips/:id/reassign',
+  authenticateToken,
+  requireRole(['admin', 'sales']),
+  async (req, res) => {
+    try {
+      const tripId = parseInt(req.params.id);
+      const { newUserId, reason } = req.body;
+
+      // Validación básica
+      if (!newUserId) {
+        return res.status(400).json({ 
+          error: 'newUserId es requerido' 
+        });
+      }
+
+      const storeId = req.user!.storeId;
+      const db = await getTenantDb(storeId);
+
+      // 1. Verificar que el viaje existe
+      const [trip] = await db
+        .select()
+        .from(trips)
+        .where(and(
+          eq(trips.id, tripId),
+          eq(trips.storeId, storeId)
+        ));
+
+      if (!trip) {
+        return res.status(404).json({ 
+          error: 'Viaje no encontrado' 
+        });
+      }
+
+      // 2. Verificar que el nuevo usuario existe y es delivery/technician
+      const [newUser] = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          role: users.role
+        })
+        .from(users)
+        .where(and(
+          eq(users.id, newUserId),
+       
+        ));
+
+      if (!newUser) {
+        return res.status(404).json({ 
+          error: 'Usuario no encontrado' 
+        });
+      }
+
+      if (newUser.role !== 'delivery' && newUser.role !== 'technician') {
+        return res.status(400).json({ 
+          error: 'El usuario debe ser delivery o technician' 
+        });
+      }
+
+      // 3. Verificar que el viaje no esté completado o cancelado
+      if (trip.status === 'completed' || trip.status === 'cancelled') {
+        return res.status(400).json({ 
+          error: `No se puede reasignar un viaje ${trip.status}` 
+        });
+      }
+
+      // 4. Obtener todas las órdenes del viaje
+      const tripOrdersList = await db
+        .select({
+          orderId: tripOrders.orderId
+        })
+        .from(tripOrders)
+        .where(eq(tripOrders.tripId, tripId));
+
+      const orderIds = tripOrdersList.map(to => to.orderId);
+
+      // 5. Iniciar transacción para actualizar todo
+      await db.transaction(async (tx) => {
+        // Actualizar el viaje
+        await tx
+          .update(trips)
+          .set({
+            assignedUserId: newUserId,
+            updatedAt: new Date(),
+            notes: trip.notes 
+              ? `${trip.notes}\n[Reasignado a ${newUser.name}] ${reason || ''}`
+              : `[Reasignado a ${newUser.name}] ${reason || ''}`
+          })
+          .where(eq(trips.id, tripId));
+
+        // Actualizar todas las órdenes relacionadas
+        if (orderIds.length > 0) {
+          for (const orderId of orderIds) {
+            await tx
+              .update(orders)
+              .set({
+                assignedUserId: newUserId,
+                updatedAt: new Date()
+              })
+              .where(eq(orders.id, orderId));
+          }
+        }
+      });
+
+      // 6. Obtener el viaje actualizado con detalles
+      const [updatedTrip] = await db
+        .select({
+          id: trips.id,
+          tripNumber: trips.tripNumber,
+          assignedUserId: trips.assignedUserId,
+          assignedUser: {
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role
+          },
+          status: trips.status,
+          totalOrders: trips.totalOrders,
+          completedOrders: trips.completedOrders,
+          totalAmount: trips.totalAmount,
+          notes: trips.notes,
+          updatedAt: trips.updatedAt
+        })
+        .from(trips)
+        .leftJoin(users, eq(trips.assignedUserId, users.id))
+        .where(eq(trips.id, tripId));
+
+      console.log(`✅ Viaje ${trip.tripNumber} reasignado de usuario ${trip.assignedUserId} a ${newUserId}`);
+      console.log(`   - ${orderIds.length} órdenes actualizadas`);
+
+      res.json({
+        success: true,
+        message: `Viaje reasignado exitosamente a ${newUser.name}`,
+        trip: updatedTrip,
+        reassignment: {
+          previousUserId: trip.assignedUserId,
+          newUserId: newUserId,
+          ordersUpdated: orderIds.length,
+          reason: reason || null
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error reasignando viaje:', error);
+      res.status(500).json({ 
+        error: 'Error al reasignar viaje',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/trips/:id/reassignment-candidates
+ * Obtiene lista de usuarios válidos para reasignar un viaje
+ */
+router.get(
+  '/trips/:id/reassignment-candidates',
+  authenticateToken,
+  requireRole(['admin', 'sales']),
+  async (req, res) => {
+    try {
+      const tripId = parseInt(req.params.id);
+      const storeId = req.user!.storeId;
+      const db = await getTenantDb(storeId);
+
+      // Verificar que el viaje existe
+      const [trip] = await db
+        .select()
+        .from(trips)
+        .where(and(
+          eq(trips.id, tripId),
+          eq(trips.storeId, storeId)
+        ));
+
+      if (!trip) {
+        return res.status(404).json({ 
+          error: 'Viaje no encontrado' 
+        });
+      }
+
+      // Obtener todos los delivery/technician disponibles (excepto el actual)
+      const candidates = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+          phone: users.phone
+        })
+        .from(users)
+        .where(and(
+          eq(users.status, 'active')
+        ));
+
+      // Filtrar solo delivery y technician, excluyendo el actual
+      const validCandidates = candidates.filter(
+        u => (u.role === 'delivery' || u.role === 'technician') 
+          && u.id !== trip.assignedUserId
+      );
+
+      res.json({
+        currentUserId: trip.assignedUserId,
+        candidates: validCandidates
+      });
+
+    } catch (error) {
+      console.error('❌ Error obteniendo candidatos:', error);
+      res.status(500).json({ 
+        error: 'Error al obtener candidatos para reasignación' 
+      });
+    }
+  }
+);
 
 export default router;

@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Package, User, MapPin, Clock, CheckCircle, XCircle, Send } from 'lucide-react';
+import { Package, User, MapPin, Clock, CheckCircle, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+import { OrderWithDetails } from '@shared/schema';
+import OrderDetailModal from '../orders/order-detail-modal';
 
 interface TripDetailProps {
   tripId: number;
@@ -50,6 +53,8 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [orderDetailOpen, setOrderDetailOpen] = useState(false);
+  const [orderDetails, setOrderDetails] = useState<OrderWithDetails | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -67,7 +72,6 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
       });
 
       if (!res.ok) throw new Error('Error al cargar viaje');
-      
       const data = await res.json();
       setTrip(data);
     } catch (error) {
@@ -126,6 +130,27 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
 
     const config = variants[status] || { label: status, variant: 'secondary' };
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const openOrderDetails = async (orderId: number) => {
+    const token = localStorage.getItem('auth_token');
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error('Error al cargar detalle del pedido');
+      const data = await res.json();
+
+      setOrderDetails(data);
+      setOrderDetailOpen(true);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar el detalle del pedido',
+        variant: 'destructive'
+      });
+    }
   };
 
   if (loading) {
@@ -214,7 +239,8 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                 {trip.orders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-start justify-between p-3 border rounded-lg"
+                    className="flex items-start justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                    onClick={() => openOrderDetails(order.orderId)}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -231,7 +257,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                           <Badge variant="outline" className="text-xs">QR</Badge>
                         )}
                       </div>
-                      
+
                       <div className="text-sm text-gray-600 space-y-1">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4" />
@@ -267,7 +293,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
             <Button variant="outline" onClick={onClose}>
               Cerrar
             </Button>
-            
+
             {trip.status === 'pending' && (
               <Button onClick={handleSendTrip} disabled={sending}>
                 <Send className="h-4 w-4 mr-2" />
@@ -277,6 +303,13 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
           </div>
         </div>
       </DialogContent>
+
+      {/* Modal de Detalle de Orden */}
+      <OrderDetailModal
+        order={orderDetails}
+        isOpen={orderDetailOpen}
+        onClose={() => setOrderDetailOpen(false)}
+      />
     </Dialog>
   );
 }

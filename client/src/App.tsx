@@ -67,6 +67,7 @@ import ShareProduct from '@/pages/share-product';
 import { HelmetProvider } from 'react-helmet-async';
 import DeliveryDashboardPage from "./pages/delivery-dashboard";
 import TripsPage from "./pages/trips";
+import PublicOrder from "./pages/public-order";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -258,6 +259,7 @@ function AppWithAuth() {
       <Route path="/simple-catalog" component={SimpleCatalog} />
       <Route path="/login" component={MultiTenantLogin} />
       <Route path="/multi-tenant-login" component={MultiTenantLogin} />
+      <Route path="/orders/public/:id" component={PublicOrder} />
       
       {/* ✅ NUEVA RUTA: Página de compartir producto (pública, sin layout) */}
       <Route path="/share-product" component={ShareProduct} />

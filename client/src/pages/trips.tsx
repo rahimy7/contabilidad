@@ -9,13 +9,18 @@ import { Truck, Package, DollarSign, Clock, Eye, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TripDetail } from '@/components/trips/TripDetail';
 import { TripSummaryModal } from '@/components/trips/TripSummaryModal';
+import { ReassignTripButton } from '@/components/trips/trip-reassign-modal';
+import { DeleteTripButton } from '@/components/trips/delete-trip-button';
 
 interface Trip {
   id: number;
   tripNumber: string;
   assignedUserId: number;
   assignedUser: {
+    id: number;
     name: string;
+    email: string;
+    role: string;
     phone: string;
   };
   status: 'pending' | 'active' | 'in_progress' | 'completed' | 'cancelled';
@@ -276,6 +281,18 @@ export default function TripsPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {/* Botón de reasignación */}
+                        <ReassignTripButton 
+                          trip={trip} 
+                          onSuccess={loadTrips}
+                        />
+                        
+                        {/* Botón de eliminar */}
+                        <DeleteTripButton
+                          trip={trip}
+                          onSuccess={loadTrips}
+                        />
                         
                         {trip.status === 'pending' && (
                           <Button

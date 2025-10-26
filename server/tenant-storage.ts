@@ -5,6 +5,8 @@ import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "dr
 import { getTenantDb } from "./multi-tenant-db.js";
 import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
 import { ProductBrand, InsertProductBrand } from "@shared/types.js";
+import { TenantStorage } from "./interfaces/storage.js";
+import { getTenantStorage } from "./storage/index.js";
 
 export function createTenantStorage(tenantDb: any, storeId: number, schemaType?: 'public' | 'tenant') {
   // ✅ VALIDACIÓN CRÍTICA AL INICIO
@@ -4221,6 +4223,13 @@ async getUsersByRole(role: string) {
 
 
   }
+
+  
+export async function getDefaultTenantStorage(): Promise<TenantStorage> {
+  const publicTenantId = 1;
+  return getTenantStorage(publicTenantId);
+}
+
 
 // En tenant-storage.ts - agregar al final del archivo
 export async function createTenantStorageForStore(storeId: number) {
