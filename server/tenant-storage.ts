@@ -2004,6 +2004,16 @@ async getAutoResponseByTrigger(trigger: string) {
   }
 },
 
+// En tenant-storage.ts
+async getTripById(tripId: number) {
+  const [trip] = await tenantDb
+    .select()
+    .from(schema.trips)
+    .where(eq(schema.trips.id, tripId))
+    .limit(1);
+  return trip;
+},
+
 async createAutoResponse(responseData: any) {
   try {
     const autoResponseToInsert = {

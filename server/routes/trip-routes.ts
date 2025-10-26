@@ -264,18 +264,147 @@ router.get('/trips/:id', authenticateToken, async (req, res) => {
 router.post('/trips', authenticateToken, async (req: any, res: any) => {
   try {
     const { orderId, assignedUserId } = req.body;
+    const db = await getDb(req.user.storeId);
     
-    // ✅ CAMBIO: Permitir null en assignedUserId
-    const trip = await tenantStorage.createTrip({
-      orderId,
-      assignedUserId: assignedUserId || null, // Permite crear sin usuario
-      status: 'pending',
-      createdAt: new Date()
-    });
+    const [trip] = await db
+      .insert(schema.trips)
+      .values({
+        orderId,
+        assignedUserId: assignedUserId || null,
+        status: 'pending',
+        storeId: parseInt(req.user.storeId),
+        createdAt: new Date()
+      })
+      .returning();
     
     res.json(trip);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create trip' });
+  }
+});
+
+// Endpoint para asignar orden a viaje (sin usuario asignado)
+router.post('/trips/assign-order', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { orderId } = req.body;
+    
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId es requerido' });
+    }
+    
+    const db = await getDb(req.user.storeId);
+    const storeId = parseInt(req.user.storeId);
+    
+    // 1. Verificar que la orden existe
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.id, orderId),
+        eq(schema.orders.storeId, storeId)
+      ));
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+    
+    if (order.tripId) {
+      return res.status(400).json({ 
+        error: 'Esta orden ya está asignada a un viaje',
+        tripId: order.tripId 
+      });
+    }
+    
+    if (order.status === 'pending') {
+      return res.status(400).json({ 
+        error: 'La orden debe estar confirmada antes de asignarla a un viaje' 
+      });
+    }
+    
+    // 2. Buscar viaje pendiente sin usuario
+    let [trip] = await db
+      .select()
+      .from(schema.trips)
+      .where(and(
+        eq(schema.trips.storeId, storeId),
+        eq(schema.trips.status, 'pending'),
+        sql`${schema.trips.assignedUserId} IS NULL`
+      ))
+      .orderBy(desc(schema.trips.createdAt))
+      .limit(1);
+    
+    // 3. Si no existe, crear viaje nuevo
+    if (!trip) {
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const [countResult] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(schema.trips)
+        .where(eq(schema.trips.storeId, storeId));
+      
+      const tripNumber = `TRIP-${today}-${String((countResult.count || 0) + 1).padStart(3, '0')}`;
+      
+      [trip] = await db
+        .insert(schema.trips)
+        .values({
+          tripNumber,
+          assignedUserId: null,
+          storeId,
+          status: 'pending',
+          totalOrders: 0,
+          completedOrders: 0,
+          totalAmount: '0',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+    }
+    
+    // 4. Agregar orden al viaje
+    await db
+      .insert(schema.tripOrders)
+      .values({
+        tripId: trip.id,
+        orderId: order.id,
+        storeId,
+        status: 'pending',
+        sequenceNumber: trip.totalOrders + 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    
+    // 5. Actualizar orden: tripId + cambiar estado a 'assigned'
+    await db
+      .update(schema.orders)
+      .set({
+        tripId: trip.id,
+        status: 'assigned',
+        updatedAt: new Date()
+      })
+      .where(eq(schema.orders.id, orderId));
+    
+    // 6. Actualizar contadores
+    await updateTripProgress(db, trip.id);
+    
+    // 7. Obtener viaje actualizado
+    const [updatedTrip] = await db
+      .select()
+      .from(schema.trips)
+      .where(eq(schema.trips.id, trip.id));
+    
+    console.log(`✅ Orden ${order.orderNumber} asignada a viaje ${trip.tripNumber}`);
+    
+    res.json({
+      success: true,
+      message: 'Orden asignada al viaje correctamente',
+      tripId: trip.id,
+      tripNumber: trip.tripNumber,
+      orderStatus: 'assigned',
+      trip: updatedTrip
+    });
+    
+  } catch (error) {
+    console.error('Error asignando orden a viaje:', error);
+    res.status(500).json({ error: 'Error al asignar orden a viaje' });
   }
 });
 

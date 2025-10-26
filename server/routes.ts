@@ -2585,171 +2585,186 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
   // ORDER ROUTES - MEJORADOS
   // ================================
 
-  router.get('/orders', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      //const tenantStorage = await getTenantStorageWithSchema(user);
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      console.log('📦 Fetching orders for store:', user.storeId);
-      
-      // Obtener órdenes básicas
-      const orders = await tenantStorage.getAllOrders();
-      
-      // Enriquecer con información adicional
-      const enrichedOrders = await Promise.all(orders.map(async (order: any) => {
-        try {
-          // Obtener información del cliente
-          let customer = null;
-          if (order.customerId) {
-            customer = await tenantStorage.getCustomerById(order.customerId);
-          }
-          
-          // Obtener información del usuario asignado
-          let assignedUser = null;
-          if (order.assignedUserId) {
-            try {
-              assignedUser = await tenantStorage.getUserById(order.assignedUserId);
-              
-            } catch (err) {
-              console.warn(`⚠️ User ${order.assignedUserId} not found for order ${order.id}`);
-            }
-          }
-           let items = [];
-try {
-  items = await tenantStorage.getOrderItemsByOrderId(order.id);
-} catch (err) {
-  console.log(`ℹ️ No items found for order ${order.id}`);
-}
-const totalItems = items.length;       
-          return {
-            id: order.id,
-            orderNumber: order.orderNumber,
-            customerId: order.customerId,
-            assignedUserId: order.assignedUserId,
-            status: order.status,
-            priority: order.priority || 'normal',
-            totalAmount: order.totalAmount,
-            deliveryCost: order.deliveryCost || '0.00',
-            deliveryAddress: order.deliveryAddress,
-            contactNumber: order.contactNumber,
-            estimatedDelivery: order.estimatedDelivery,
-            estimatedDeliveryTime: order.estimatedDeliveryTime,
-            paymentMethod: order.paymentMethod,
-            paymentStatus: order.paymentStatus,
-            description: order.description,
-            notes: order.notes,
-            createdAt: order.createdAt,
-            updatedAt: order.updatedAt,
-            lastStatusUpdate: order.lastStatusUpdate,
-            customerLastInteraction: order.customerLastInteraction,
-            modificationCount: order.modificationCount || 0,
-            storeId: order.storeId,
-            
-            // Información expandida del cliente
-            customer: customer ? {
-              id: customer.id,
-              name: customer.name || 'Cliente',
-              phone: customer.phone || order.contactNumber,
-              email: customer.email,
-              address: customer.address || order.deliveryAddress
-            } : {
-              id: order.customerId,
-              name: 'Cliente no encontrado',
-              phone: order.contactNumber,
-              email: null,
-              address: order.deliveryAddress
-            },
-            
-            // Usuario asignado
-            assignedUser: assignedUser ? {
-              id: assignedUser.id,
-              name: assignedUser.name,
-              role: assignedUser.role
-            } : null,
-
-            
-            
-            // Items de la orden
-           // Items de la orden
-items: items.map((item: any) => ({
-  id: item.id,
-  orderId: item.orderId,
-  productId: item.productId,
-  quantity: item.quantity,
-  unitPrice: item.unitPrice,
-  totalPrice: item.totalPrice,
-  installationCost: item.installationCost || '0.00',
-  partsCost: item.partsCost || '0.00',
-  laborHours: item.laborHours || '0',
-  laborRate: item.laborRate || '0.00',
-  deliveryCost: item.deliveryCost || '0.00',
-  deliveryDistance: item.deliveryDistance || '0',
-  notes: item.notes,
-  product: {
-    id: item.productId,
-    name: item.productName || 'Producto sin nombre', // ✅ USAR productName
-    description: item.productDescription || '',
-    category: item.productCategory || 'product',
-    price: item.productPrice || item.unitPrice
-  }
-})),
-            totalItems
-          };
-        } catch (error) {
-          console.error(`❌ Error enriching order ${order.id}:`, error);
-          // En caso de error, devolver orden básica con estructura mínima
-          return {
-            ...order,
-            customer: {
-              id: order.customerId,
-              name: 'Cliente',
-              phone: order.contactNumber,
-              email: null,
-              address: order.deliveryAddress
-            },
-            assignedUser: null,
-            items: [],
-            totalItems: 0,
-            priority: order.priority || 'normal'
-          };
+ router.get('/orders', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    console.log('📦 Fetching orders for store:', user.storeId);
+    
+    // Obtener órdenes básicas
+    const orders = await tenantStorage.getAllOrders();
+    
+    // Enriquecer con información adicional
+    const enrichedOrders = await Promise.all(orders.map(async (order: any) => {
+      try {
+        // Obtener información del cliente
+        let customer = null;
+        if (order.customerId) {
+          customer = await tenantStorage.getCustomerById(order.customerId);
         }
-      }));
-      
-      // Aplicar filtros de query parameters
-      let filteredOrders = enrichedOrders;
-      const { status, limit, offset, priority, customerId } = req.query;
-      
-      if (status && status !== 'all') {
-        filteredOrders = filteredOrders.filter((order: any) => order.status === status);
+        
+        // Obtener información del usuario asignado
+        let assignedUser = null;
+        if (order.assignedUserId) {
+          try {
+            assignedUser = await tenantStorage.getUserById(order.assignedUserId);
+          } catch (err) {
+            console.warn(`⚠️ User ${order.assignedUserId} not found for order ${order.id}`);
+          }
+        }
+        
+        // Obtener items
+        let items = [];
+        try {
+          items = await tenantStorage.getOrderItemsByOrderId(order.id);
+        } catch (err) {
+          console.log(`ℹ️ No items found for order ${order.id}`);
+        }
+        const totalItems = items.length;
+        
+        // Obtener información del viaje si existe
+        let tripNumber = null;
+        if (order.tripId) {
+          try {
+            const trip = await tenantStorage.getTripById(order.tripId);
+            tripNumber = trip?.tripNumber || null;
+          } catch (err) {
+            console.warn(`⚠️ Trip ${order.tripId} not found for order ${order.id}`);
+          }
+        }
+        
+        return {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          assignedUserId: order.assignedUserId,
+          status: order.status,
+          priority: order.priority || 'normal',
+          totalAmount: order.totalAmount,
+          deliveryCost: order.deliveryCost || '0.00',
+          deliveryAddress: order.deliveryAddress,
+          contactNumber: order.contactNumber,
+          estimatedDelivery: order.estimatedDelivery,
+          estimatedDeliveryTime: order.estimatedDeliveryTime,
+          paymentMethod: order.paymentMethod,
+          paymentStatus: order.paymentStatus,
+          description: order.description,
+          notes: order.notes,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          lastStatusUpdate: order.lastStatusUpdate,
+          customerLastInteraction: order.customerLastInteraction,
+          modificationCount: order.modificationCount || 0,
+          storeId: order.storeId,
+          
+          // ✅ CAMPOS DE VIAJE
+          tripId: order.tripId || null,
+          tripNumber: tripNumber,
+          
+          // Información expandida del cliente
+          customer: customer ? {
+            id: customer.id,
+            name: customer.name || 'Cliente',
+            phone: customer.phone || order.contactNumber,
+            email: customer.email,
+            address: customer.address || order.deliveryAddress
+          } : {
+            id: order.customerId,
+            name: 'Cliente no encontrado',
+            phone: order.contactNumber,
+            email: null,
+            address: order.deliveryAddress
+          },
+          
+          // Usuario asignado
+          assignedUser: assignedUser ? {
+            id: assignedUser.id,
+            name: assignedUser.name,
+            role: assignedUser.role
+          } : null,
+          
+          // Items de la orden
+          items: items.map((item: any) => ({
+            id: item.id,
+            orderId: item.orderId,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            installationCost: item.installationCost || '0.00',
+            partsCost: item.partsCost || '0.00',
+            laborHours: item.laborHours || '0',
+            laborRate: item.laborRate || '0.00',
+            deliveryCost: item.deliveryCost || '0.00',
+            deliveryDistance: item.deliveryDistance || '0',
+            notes: item.notes,
+            product: {
+              id: item.productId,
+              name: item.productName || 'Producto sin nombre',
+              description: item.productDescription || '',
+              category: item.productCategory || 'product',
+              price: item.productPrice || item.unitPrice
+            }
+          })),
+          totalItems
+        };
+      } catch (error) {
+        console.error(`❌ Error enriching order ${order.id}:`, error);
+        // En caso de error, devolver orden básica con estructura mínima
+        return {
+          ...order,
+          tripId: order.tripId || null,
+          tripNumber: null,
+          customer: {
+            id: order.customerId,
+            name: 'Cliente',
+            phone: order.contactNumber,
+            email: null,
+            address: order.deliveryAddress
+          },
+          assignedUser: null,
+          items: [],
+          totalItems: 0,
+          priority: order.priority || 'normal'
+        };
       }
-      
-      if (priority && priority !== 'all') {
-        filteredOrders = filteredOrders.filter((order: any) => order.priority === priority);
-      }
-      
-      if (customerId) {
-        filteredOrders = filteredOrders.filter((order: any) => order.customerId === parseInt(customerId));
-      }
-      
-      if (offset) {
-        const offsetNum = parseInt(offset as string);
-        filteredOrders = filteredOrders.slice(offsetNum);
-      }
-      
-      if (limit) {
-        const limitNum = parseInt(limit as string);
-        filteredOrders = filteredOrders.slice(0, limitNum);
-      }
-      
-      console.log(`✅ Returning ${filteredOrders.length} enriched orders`);
-      res.json(filteredOrders);
-      
-    } catch (error) {
-      console.error('❌ Error fetching orders:', error);
-      res.status(500).json({ error: "Failed to fetch orders" });
+    }));
+    
+    // Aplicar filtros de query parameters
+    let filteredOrders = enrichedOrders;
+    const { status, limit, offset, priority, customerId } = req.query;
+    
+    if (status && status !== 'all') {
+      filteredOrders = filteredOrders.filter((order: any) => order.status === status);
     }
-  });
+    
+    if (priority && priority !== 'all') {
+      filteredOrders = filteredOrders.filter((order: any) => order.priority === priority);
+    }
+    
+    if (customerId) {
+      filteredOrders = filteredOrders.filter((order: any) => order.customerId === parseInt(customerId));
+    }
+    
+    if (offset) {
+      const offsetNum = parseInt(offset as string);
+      filteredOrders = filteredOrders.slice(offsetNum);
+    }
+    
+    if (limit) {
+      const limitNum = parseInt(limit as string);
+      filteredOrders = filteredOrders.slice(0, limitNum);
+    }
+    
+    console.log(`✅ Returning ${filteredOrders.length} enriched orders`);
+    res.json(filteredOrders);
+    
+  } catch (error) {
+    console.error('❌ Error fetching orders:', error);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
 
 
 router.post('/orders', authenticateToken, async (req: any, res: any) => {

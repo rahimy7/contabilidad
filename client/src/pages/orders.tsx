@@ -14,6 +14,7 @@ import AssignmentModal from "@/components/orders/assignment-modal";
 import OrderDetailModal from "@/components/orders/order-detail-modal";
 import EditOrderModal from "@/components/orders/edit-order-modal";
 import { useDebouncedOrderUpdate } from "@/hooks/use-debounced-order-update";
+import { Truck } from 'lucide-react';
 
 type OrderWithDetails = {
   id: number;
@@ -38,6 +39,10 @@ type OrderWithDetails = {
   customerLastInteraction?: string | null;
   modificationCount?: number;
   storeId: number;
+  
+  // ✅ AGREGAR ESTOS DOS CAMPOS:
+  tripId?: number | null;
+  tripNumber?: string | null;
   
   customer: {
     longitude: any;
@@ -188,6 +193,28 @@ const handleDeleteOrder = (order: OrderWithDetails) => {
     deleteOrderMutation.mutate(order.id);
   }
 };
+
+// Agregar después de handleDeleteOrder:
+const handleAssignToTrip = (order: OrderWithDetails) => {
+  if (order.status === 'pending') {
+    toast({
+      title: "Advertencia",
+      description: "La orden debe estar confirmada antes de asignarla a un viaje",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  if (order.tripId) {
+    toast({
+      title: "Información",
+      description: "Esta orden ya está asignada a un viaje",
+    });
+    return;
+  }
+  
+  assignToTripMutation.mutate(order.id);
+};
   // Auto-assign mutation
   const autoAssignMutation = useMutation({
     mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
@@ -206,6 +233,36 @@ const handleDeleteOrder = (order: OrderWithDetails) => {
       });
     },
   });
+
+  // Agregar después de las otras mutations (deleteOrderMutation, etc.)
+interface AssignToTripResponse {
+  success: boolean;
+  message: string;
+  tripId: number;
+  tripNumber: string;
+  orderStatus: string;
+  trip: any;
+}
+
+const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
+  mutationFn: async (orderId: number) => {
+    return apiRequest("POST", "/api/trips/assign-order", { orderId });
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    toast({
+      title: "Orden asignada",
+      description: `Orden asignada al viaje ${data.tripNumber}`,
+    });
+  },
+  onError: (error) => {
+    toast({
+      title: "Error",
+      description: error.message || "No se pudo asignar la orden al viaje",
+      variant: "destructive",
+    });
+  },
+});
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = !searchTerm || 
@@ -539,16 +596,32 @@ const handleDeleteOrder = (order: OrderWithDetails) => {
           
           {/* ✅ Todos los botones ya tienen stopPropagation */}
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewOrder(order);
-              }}
-            >
-              <Eye className="w-4 h-4" />
-            </Button>
+          {!order.tripId && order.status !== 'pending' && (
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleAssignToTrip(order);
+    }}
+    disabled={assignToTripMutation.isPending}
+    className="text-green-600 hover:text-green-700"
+    title="Asignar a viaje"
+  >
+    <Truck className="w-4 h-4" />
+  </Button>
+)}
+{order.tripId && (
+  <Button
+    variant="outline"
+    size="sm"
+    disabled
+    className="text-gray-400"
+    title="Ya asignada a viaje"
+  >
+    <Truck className="w-4 h-4" />
+  </Button>
+)}
             <Button
               variant="outline"
               size="sm"
