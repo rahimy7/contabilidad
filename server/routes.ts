@@ -12,6 +12,7 @@ import employeeRouter from './routes/employee-routes.js';
 import tripRoutes from './routes/trip-routes';
 
 
+
 // Schema and Types
 import {
   insertUserSchema,
@@ -2753,145 +2754,66 @@ items: items.map((item: any) => ({
   });
 
 
-// ===== FUNCIÓN CORREGIDA =====
 router.post('/orders', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
+    const orderData = { ...req.body, storeId };
+    
     const tenantStorage = await getTenantStorageWithSchema(user);
-    const orderData = req.body;
     
-    console.log('📝 [CREATE ORDER] Creating new order with data:', orderData);
-
-    // Generar número de orden único
-    const orderNumber = await tenantStorage.generateOrderNumber();
-    
-    // Preparar datos de la orden
-    const newOrderData = {
-      ...orderData,
-      orderNumber,
-      // Asegurar que los campos de sector estén incluidos
-      customerProvince: orderData.customerProvince || null,
-      customerMunicipality: orderData.customerMunicipality || null,
-      customerSector: orderData.customerSector || null,
-      status: 'pending', // Estado inicial
-      autoAssigned: false,
-      assignmentAttempts: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
     // Crear la orden
-    const order = await tenantStorage.createOrder(newOrderData);
+    const order = await tenantStorage.createOrder(orderData, req.body.items || []);
     
-    console.log('✅ [CREATE ORDER] Order created:', order.id);
-
-    // Variable para almacenar el mensaje de asignación
-    let autoAssignmentMessage = '';
-    let assignedUserId = orderData.assignedUserId || null;
-
-    // ===== PASO 1: EJECUTAR ASIGNACIÓN AUTOMÁTICA =====
-    try {
-      console.log('🎯 [AUTO-ASSIGN] Attempting auto-assignment...');
-      console.log('🎯 [AUTO-ASSIGN] Order data:', {
-        id: order.id,
-        customerId: order.customerId,
-        province: order.customerProvince
-      });
-
-      const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
-      console.log('🎯 [AUTO-ASSIGN] Result:', assignmentResult);
-      
-      if (assignmentResult.success) {
-        console.log(`✅ [AUTO-ASSIGN] ${assignmentResult.message}`);
-        autoAssignmentMessage = assignmentResult.message;
-        
-        // Recargar la orden para obtener el assignedUserId actualizado
-        const updatedOrder = await tenantStorage.getOrder(order.id);
-        assignedUserId = updatedOrder.assignedUserId;
-      } else {
-        console.log(`⚠️ [AUTO-ASSIGN] ${assignmentResult.message}`);
-        autoAssignmentMessage = assignmentResult.message;
-      }
-    } catch (autoAssignError) {
-      console.error('❌ [AUTO-ASSIGN] Error during auto-assignment:', autoAssignError);
-      autoAssignmentMessage = 'Error en asignación automática, orden creada sin asignar';
-    }
-
-    // ===== PASO 2: INTEGRAR CON SISTEMA DE VIAJES =====
-    let tripInfo = null;
+    // Trigger notificación
+    const notificationService = new NotificationService(tenantStorage, storeId);
+    await notificationService.triggerOrderNotifications({
+      orderId: order.id,
+      eventType: 'order_created',
+      customData: { source: 'manual_creation' }
+    });
     
-    if (assignedUserId) {
+    // Items
+    if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
       try {
-        console.log('🚚 [TRIPS] Checking if user needs trip assignment...');
-        
-        const db = await getTenantDb(user.storeId);
-        const [assignedUser] = await db
-          .select({ 
-            role: schema.users.role,
-            name: schema.users.name 
-          })
-          .from(schema.users)
-          .where(eq(schema.users.id, assignedUserId));
-        
-        // Si es delivery o technician, crear/agregar a viaje
-        if (assignedUser && (assignedUser.role === 'delivery' || assignedUser.role === 'technician')) {
-          console.log(`🚚 [TRIPS] User is ${assignedUser.role}, integrating with trips...`);
-          
-          const tripResult = await integrateWithAutoAssignment(
-            user.storeId,
-            order.id,
-            assignedUserId
-          );
-          
-          if (tripResult) {
-            tripInfo = tripResult;
-            console.log(`✅ [TRIPS] Order ${order.orderNumber} added to trip ${tripResult.tripNumber}`);
+        for (const item of req.body.items) {
+          if (tenantStorage.createOrderItem) {
+            await tenantStorage.createOrderItem({
+              orderId: order.id,
+              ...item
+            });
           }
-        } else {
-          console.log(`ℹ️ [TRIPS] User role is ${assignedUser?.role || 'unknown'}, skipping trip integration`);
+        }
+      } catch (itemError) {
+        console.warn('⚠️ Could not create order items:', itemError);
+      }
+    }
+    
+    // ✅ INTEGRAR CON VIAJES
+    let tripInfo = null;
+    if (orderData.assignedUserId) {
+      try {
+        const tripResult = await integrateWithAutoAssignment(
+          storeId,
+          order.id,
+          orderData.assignedUserId
+        );
+        
+        if (tripResult) {
+          tripInfo = {
+            tripId: tripResult.tripId,
+            tripNumber: tripResult.tripNumber
+          };
         }
       } catch (tripError) {
-        console.error('❌ [TRIPS] Error integrating with trips:', tripError);
-        // No fallar la creación de la orden, solo registrar el error
+        console.error('❌ [TRIP] Error:', tripError);
       }
-    } else {
-      console.log('ℹ️ [TRIPS] No assigned user, skipping trip integration');
     }
-
-    // ===== PASO 3: RETORNAR RESPUESTA FINAL =====
-    // Recargar la orden con todos los datos actualizados
-    const finalOrder = await tenantStorage.getOrder(order.id);
     
-    const response: any = {
-      ...finalOrder,
-      autoAssignmentMessage
-    };
-
-    // Agregar información del viaje si existe
-    if (tripInfo) {
-      response.trip = {
-        id: tripInfo.tripId,
-        tripNumber: tripInfo.tripNumber,
-        message: `Agregado al viaje ${tripInfo.tripNumber}`
-      };
-    }
-
-    console.log('✅ [CREATE ORDER] Order created successfully:', {
-      orderId: finalOrder.id,
-      orderNumber: finalOrder.orderNumber,
-      assignedUserId: finalOrder.assignedUserId,
-      tripInfo: tripInfo ? tripInfo.tripNumber : 'none',
-      autoAssigned: finalOrder.autoAssigned
-    });
-
-    return res.status(201).json(response);
-
+    res.status(201).json({ order, trip: tripInfo });
   } catch (error) {
-    console.error('❌ [CREATE ORDER] Error creating order:', error);
-    res.status(500).json({ 
-      error: 'Failed to create order',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('❌ Error creating order:', error);
+    res.status(500).json({ error: "Failed to create order" });
   }
 });
 
@@ -3003,69 +2925,6 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
   }
 });
 
- /*  router.post('/orders', authenticateToken, async (req: any, res: any) => {
-    try {
-      const user = req.user as AuthUser;
-      const orderData = { ...req.body, storeId: user.storeId };
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      // Crear la orden
-    const order = await tenantStorage.createOrder(orderData, req.body.items || []);
-
-       // ✅ TRIGGER NOTIFICACIÓN DE CREACIÓN
-    const notificationService = new NotificationService(tenantStorage, user.storeId);
-    await notificationService.triggerOrderNotifications({
-      orderId: order.id,
-      eventType: 'order_created',
-      customData: { source: 'manual_creation' }
-    });
-      
-      // Si hay items, crearlos también
-      if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
-        try {
-          for (const item of req.body.items) {
-            if (tenantStorage.createOrderItem) {
-              await tenantStorage.createOrderItem({
-                orderId: order.id,
-                ...item
-              });
-            }
-          }
-        } catch (itemError) {
-          console.warn('⚠️ Could not create order items:', itemError);
-        }
-      }
-      
-      res.status(201).json(order);
-    } catch (error) {
-      console.error('❌ Error creating order:', error);
-      res.status(500).json({ error: "Failed to create order" });
-    }
-  }); */
-
-/*   router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid order ID' });
-      }
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const order = await tenantStorage.updateOrder(id, req.body);
-      
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      res.json(order);
-    } catch (error) {
-      console.error('❌ Error updating order:', error);
-      res.status(500).json({ error: 'Failed to update order' });
-    }
-  }); */
 
   router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
   try {
@@ -3161,23 +3020,49 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
     }
   });
 
-  router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const order = await tenantStorage.updateOrder(id, req.body);
-      
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-
-      // ✅ TRIGGER NOTIFICACIONES DE CAMBIO
-    const notificationService = new NotificationService(tenantStorage, user.storeId);
-     // Obtener estado anterior
+router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Obtener orden anterior para comparar
     const previousOrder = await tenantStorage.getOrderById(id);
-        // Si cambió el estado
+    
+    // Actualizar orden
+    const order = await tenantStorage.updateOrder(id, req.body);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // ✅ SI CAMBIÓ LA ASIGNACIÓN, INTEGRAR CON VIAJES
+    if (req.body.assignedUserId && 
+        previousOrder?.assignedUserId !== req.body.assignedUserId) {
+      
+      console.log('🚚 [TRIP] Order assignment changed, checking trip integration...');
+      
+      try {
+        const tripResult = await integrateWithAutoAssignment(
+          storeId,
+          id,
+          req.body.assignedUserId
+        );
+        
+        if (tripResult) {
+          console.log(`✅ [TRIP] Order ${id} added to trip ${tripResult.tripNumber}`);
+        }
+      } catch (tripError) {
+        console.error('❌ [TRIP] Error integrating with trips:', tripError);
+        // No fallar la actualización si falla la integración de viajes
+      }
+    }
+
+    // Trigger notificaciones
+    const notificationService = new NotificationService(tenantStorage, storeId);
+    
     if (previousOrder?.status !== order.status) {
       await notificationService.triggerOrderNotifications({
         orderId: order.id,
@@ -3189,7 +3074,6 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
       });
     }
     
-    // Si cambió la asignación
     if (previousOrder?.assignedUserId !== order.assignedUserId) {
       await notificationService.triggerOrderNotifications({
         orderId: order.id,
@@ -3201,17 +3085,19 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
       });
     }
       
-      res.json(order);
-    } catch (error) {
-      console.error('Error updating order:', error);
-      res.status(500).json({ error: 'Failed to update order' });
-    }
-  });
+    res.json(order);
+  } catch (error) {
+    console.error('❌ Error updating order:', error);
+    res.status(500).json({ error: 'Failed to update order' });
+  }
+});
+
  // ✅ NUEVO: Endpoint de auto-asignación de órdenes
 router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: any) => {
   try {
     const orderId = parseInt(req.params.id);
     const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
     
     if (isNaN(orderId)) {
       return res.status(400).json({ error: 'Invalid order ID' });
@@ -3219,13 +3105,11 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
     
     const tenantStorage = await getTenantStorageWithSchema(user);
     
-    // Verificar que la orden existe
     const order = await tenantStorage.getOrderById(orderId);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
     
-    // Si ya está asignada, no hacer nada
     if (order.assignedUserId) {
       return res.status(400).json({ 
         error: 'Order is already assigned',
@@ -3233,78 +3117,77 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
       });
     }
     
-    try {
-      // ✅ CORRECCIÓN: Usar método específico para empleados/admins de la tienda
-      const availableUsers = await tenantStorage.getStoreEmployeesAndAdmins();
-      
-      if (availableUsers.length === 0) {
-        return res.status(404).json({ 
-          error: 'No available users for assignment',
-          message: 'No active employees or administrators found in this store'
-        });
-      }
-      
-      console.log(`🎯 Found ${availableUsers.length} assignable users for store ${user.storeId}`);
-      
-      // ✅ OPTIMIZACIÓN: Calcular carga de trabajo más eficientemente
-      const userWorkloads = await Promise.all(
-        availableUsers.map(async (u: any) => {
-          const currentWorkload = await tenantStorage.getUserWorkload(u.id);
-          return {
-            user: u,
-            currentWorkload
-          };
-        })
-      );
-      
-      // Ordenar por carga de trabajo (menor a mayor)
-      userWorkloads.sort((a, b) => a.currentWorkload.workloadScore - b.currentWorkload.workloadScore);
-      
-      // Seleccionar usuario con menor carga
-      const selectedUser = userWorkloads[0].user;
-      
-      // Asignar la orden
-      const updateData = {
-        assignedUserId: selectedUser.id,
-        status: order.status === 'pending' ? 'assigned' : order.status,
-        lastStatusUpdate: new Date().toISOString()
-      };
-      
-      const updatedOrder = await tenantStorage.updateOrder(orderId, updateData);
-      
-      console.log(`✅ Order ${orderId} auto-assigned to user ${selectedUser.id} (${selectedUser.name}) in store ${user.storeId}`);
-      
-      res.json({
-        success: true,
-        message: `Order assigned to ${selectedUser.name}`,
-        assignedUser: {
-          id: selectedUser.id,
-          name: selectedUser.name,
-          role: selectedUser.role,
-          storeId: user.storeId
-        },
-        order: updatedOrder,
-        algorithm: {
-          method: 'workload_balancing',
-          selectedFrom: availableUsers.length,
-          userWorkload: userWorkloads[0].currentWorkload,
-          storeId: user.storeId
-        }
-      });
-      
-    } catch (assignmentError) {
-      console.error('❌ Error in assignment algorithm:', assignmentError);
-      return res.status(500).json({ 
-        error: 'Assignment algorithm failed',
-        message: 'Could not determine best user for assignment'
+    const availableUsers = await tenantStorage.getStoreEmployeesAndAdmins();
+    
+    if (availableUsers.length === 0) {
+      return res.status(404).json({ 
+        error: 'No available users for assignment',
+        message: 'No active employees or administrators found in this store'
       });
     }
+    
+    const userWorkloads = await Promise.all(
+      availableUsers.map(async (u: any) => {
+        const currentWorkload = await tenantStorage.getUserWorkload(u.id);
+        return { user: u, currentWorkload };
+      })
+    );
+    
+    userWorkloads.sort((a, b) => a.currentWorkload.workloadScore - b.currentWorkload.workloadScore);
+    const selectedUser = userWorkloads[0].user;
+    
+    const updateData = {
+      assignedUserId: selectedUser.id,
+      status: order.status === 'pending' ? 'assigned' : order.status,
+      lastStatusUpdate: new Date().toISOString()
+    };
+    
+    const updatedOrder = await tenantStorage.updateOrder(orderId, updateData);
+    
+    // ✅ INTEGRAR CON VIAJES
+    let tripInfo = null;
+    try {
+      const tripResult = await integrateWithAutoAssignment(
+        storeId,
+        orderId,
+        selectedUser.id
+      );
+      
+      if (tripResult) {
+        tripInfo = {
+          tripId: tripResult.tripId,
+          tripNumber: tripResult.tripNumber
+        };
+        console.log(`✅ [TRIP] Order ${orderId} added to trip ${tripResult.tripNumber}`);
+      }
+    } catch (tripError) {
+      console.error('❌ [TRIP] Error integrating with trips:', tripError);
+    }
+    
+    res.json({
+      success: true,
+      message: `Order assigned to ${selectedUser.name}`,
+      assignedUser: {
+        id: selectedUser.id,
+        name: selectedUser.name,
+        role: selectedUser.role,
+        storeId: storeId
+      },
+      order: updatedOrder,
+      trip: tripInfo,
+      algorithm: {
+        method: 'workload_balancing',
+        selectedFrom: availableUsers.length,
+        userWorkload: userWorkloads[0].currentWorkload
+      }
+    });
     
   } catch (error) {
     console.error('❌ Error in auto-assignment:', error);
     res.status(500).json({ error: 'Failed to auto-assign order' });
   }
 });
+
 
   // ✅ NUEVO: Endpoint para obtener estadísticas de asignación
 
