@@ -11,8 +11,6 @@ import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 import employeeRouter from './routes/employee-routes.js';
 import tripRoutes from './routes/trip-routes';
 
-
-
 // Schema and Types
 import {
   insertUserSchema,

@@ -1,4 +1,5 @@
 // server/routes/trip-routes.ts
+import { Router } from 'express';
 import express from 'express';
 import { eq, and, or, desc, count, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
@@ -6,8 +7,11 @@ import { getTenantStorage } from '../storage';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '../../shared/schema';
 
-const router = express.Router();
 
+
+const router = Router();
+
+// Middleware para verificar roles
 const requireRole = (allowedRoles: string[]) => {
   return (req: any, res: any, next: any) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
@@ -17,10 +21,75 @@ const requireRole = (allowedRoles: string[]) => {
   };
 };
 
-// Helper para obtener la conexión directa de la BD
-async function getDb(storeId: number | string) {
+// Helper para obtener DB con manejo de storeId
+async function getDb(storeId: string | number) {
   const id = typeof storeId === 'string' ? parseInt(storeId) : storeId;
   return await getTenantDb(id);
+}
+
+// Helper para validar ID
+function validateId(id: string | undefined, paramName: string = 'ID'): number {
+  if (!id) {
+    throw new Error(`${paramName} no proporcionado`);
+  }
+  
+  const numId = parseInt(id);
+  
+  if (isNaN(numId) || !Number.isInteger(numId) || numId <= 0) {
+    throw new Error(`${paramName} inválido: ${id}`);
+  }
+  
+  return numId;
+}
+
+// Funciones auxiliares
+function generateQRCode(orderNumber: string, storeId: string | number): string {
+  return `QR-${orderNumber}-${storeId}-${Date.now()}`;
+}
+
+function decodeQRCode(qrCode: string, storeId: string | number): number | null {
+  try {
+    const parts = qrCode.split('-');
+    if (parts.length < 2) return null;
+    
+    const orderNumber = parts[1];
+    return parseInt(orderNumber);
+  } catch {
+    return null;
+  }
+}
+
+async function updateTripProgress(db: any, tripId: number) {
+  try {
+    const [orderCount] = await db
+      .select({
+        total: count(),
+        completed: sql<number>`COUNT(CASE WHEN ${schema.tripOrders.status} = 'picked' THEN 1 END)`,
+      })
+      .from(schema.tripOrders)
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    const [amountSum] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${schema.orders.totalAmount}), 0)`,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    await db
+      .update(schema.trips)
+      .set({
+        totalOrders: orderCount.total,
+        completedOrders: orderCount.completed,
+        totalAmount: amountSum.total || '0',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.trips.id, tripId));
+  } catch (error) {
+    console.error('Error updating trip counters:', error);
+    throw error;
+  }
 }
 
 // ==================== TRIPS CRUD ====================
@@ -51,78 +120,20 @@ router.get('/trips', authenticateToken, async (req, res) => {
       .where(and(...filters))
       .orderBy(desc(schema.trips.createdAt));
     
-    res.json(trips);
+    // Formatear respuesta para el frontend
+    const formattedTrips = trips.map(({ trip, user }) => ({
+      ...trip,
+      assignedUser: user
+    }));
+    
+    res.json(formattedTrips);
   } catch (error) {
     console.error('Error fetching trips:', error);
     res.status(500).json({ error: 'Error al obtener viajes' });
   }
 });
 
-router.get('/trips/:id', authenticateToken, async (req, res) => {
-  try {
-    const db = await getDb(req.user.storeId);
-    const tripId = parseInt(req.params.id);
-    
-    const [trip] = await db
-      .select()
-      .from(schema.trips)
-      .where(and(
-        eq(schema.trips.id, tripId),
-        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
-      ));
-    
-    if (!trip) {
-      return res.status(404).json({ error: 'Viaje no encontrado' });
-    }
-    
-    const [assignedUser] = await db
-      .select({
-        id: schema.users.id,
-        name: schema.users.name,
-        phone: schema.users.phone,
-      })
-      .from(schema.users)
-      .where(eq(schema.users.id, trip.assignedUserId));
-    
-    const tripOrders = await db
-      .select({
-        tripOrder: schema.tripOrders,
-        order: schema.orders,
-        customer: schema.customers,
-      })
-      .from(schema.tripOrders)
-      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
-      .leftJoin(schema.customers, eq(schema.orders.customerId, schema.customers.id))
-      .where(eq(schema.tripOrders.tripId, tripId))
-      .orderBy(schema.tripOrders.sequenceNumber);
-    
-    res.json({
-      ...trip,
-      assignedUser,
-      orders: tripOrders.map(to => ({
-        id: to.tripOrder.id,
-        orderId: to.tripOrder.orderId,
-        orderNumber: to.order?.orderNumber,
-        status: to.tripOrder.status,
-        pickedAt: to.tripOrder.pickedAt,
-        scannedQR: to.tripOrder.scannedQR,
-        sequenceNumber: to.tripOrder.sequenceNumber,
-        order: {
-          customer: to.customer ? {
-            name: to.customer.name,
-            phone: to.customer.phone,
-            address: to.customer.address,
-          } : null,
-          totalAmount: to.order?.totalAmount,
-        }
-      }))
-    });
-  } catch (error) {
-    console.error('Error fetching trip details:', error);
-    res.status(500).json({ error: 'Error al obtener detalles del viaje' });
-  }
-});
-
+// ⚠️ IMPORTANTE: Esta ruta DEBE estar ANTES de /trips/:id
 router.get('/trips/my-active', authenticateToken, async (req, res) => {
   try {
     const db = await getDb(req.user.storeId);
@@ -180,10 +191,80 @@ router.get('/trips/my-active', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/trips/:id', authenticateToken, async (req, res) => {
+  try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
+    const db = await getDb(req.user.storeId);
+    
+    const [trip] = await db
+      .select()
+      .from(schema.trips)
+      .where(and(
+        eq(schema.trips.id, tripId),
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
+      ));
+    
+    if (!trip) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    
+    const [assignedUser] = await db
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        phone: schema.users.phone,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.id, trip.assignedUserId));
+    
+    const tripOrders = await db
+      .select({
+        tripOrder: schema.tripOrders,
+        order: schema.orders,
+        customer: schema.customers,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
+      .leftJoin(schema.customers, eq(schema.orders.customerId, schema.customers.id))
+      .where(eq(schema.tripOrders.tripId, tripId))
+      .orderBy(schema.tripOrders.sequenceNumber);
+    
+    res.json({
+      ...trip,
+      assignedUser,
+      orders: tripOrders.map(to => ({
+        id: to.tripOrder.id,
+        orderId: to.tripOrder.orderId,
+        orderNumber: to.order?.orderNumber,
+        status: to.tripOrder.status,
+        pickedAt: to.tripOrder.pickedAt,
+        scannedQR: to.tripOrder.scannedQR,
+        sequenceNumber: to.tripOrder.sequenceNumber,
+        order: {
+          customer: to.customer ? {
+            name: to.customer.name,
+            phone: to.customer.phone,
+            address: to.customer.address,
+          } : null,
+          totalAmount: to.order?.totalAmount,
+        }
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching trip details:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Error al obtener detalles del viaje' });
+  }
+});
+
 router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_rep']), async (req, res) => {
   try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
-    const tripId = parseInt(req.params.id);
     const { notes } = req.body;
     
     // 1. Validar que existe y está pending
@@ -227,9 +308,6 @@ router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_r
       })
       .where(eq(schema.trips.id, tripId));
     
-    // 4. TODO: Enviar notificación al delivery
-    // await notifyDelivery(trip.assignedUserId, tripId);
-    
     res.json({
       success: true,
       trip: {
@@ -246,14 +324,18 @@ router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_r
     });
   } catch (error) {
     console.error('Error sending trip:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Error al enviar viaje' });
   }
 });
 
 router.post('/trips/:id/scan-order', authenticateToken, async (req, res) => {
   try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
-    const tripId = parseInt(req.params.id);
     const { qrCode } = req.body;
     
     const orderId = decodeQRCode(qrCode, req.user.storeId);
@@ -314,15 +396,23 @@ router.post('/trips/:id/scan-order', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error scanning order:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Error al escanear pedido' });
   }
 });
 
 router.post('/trips/:id/mark-order', authenticateToken, async (req, res) => {
   try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
-    const tripId = parseInt(req.params.id);
     const { orderId, notes } = req.body;
+    
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order ID requerido' });
+    }
     
     const [tripOrder] = await db
       .select()
@@ -370,14 +460,18 @@ router.post('/trips/:id/mark-order', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error marking order:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Error al marcar pedido' });
   }
 });
 
 router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
   try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
-    const tripId = parseInt(req.params.id);
     const { notes } = req.body;
     
     const [trip] = await db
@@ -408,7 +502,7 @@ router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
     }
     
     const duration = trip.startedAt 
-      ? Math.floor((Date.now() - trip.startedAt.getTime()) / 60000) 
+      ? Math.floor((new Date().getTime() - new Date(trip.startedAt).getTime()) / 60000)
       : null;
     
     await db
@@ -422,76 +516,83 @@ router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
       })
       .where(eq(schema.trips.id, tripId));
     
+    // Actualizar estado de órdenes a 'picked_up'
+    const tripOrders = await db
+      .select({ orderId: schema.tripOrders.orderId })
+      .from(schema.tripOrders)
+      .where(eq(schema.tripOrders.tripId, tripId));
+    
+    for (const to of tripOrders) {
+      await db
+        .update(schema.orders)
+        .set({ 
+          status: 'picked_up',
+          updatedAt: new Date()
+        })
+        .where(eq(schema.orders.id, to.orderId));
+    }
+    
     res.json({
       success: true,
-      trip: { id: tripId, status: 'completed', completedAt: new Date(), actualDuration: duration },
+      trip: {
+        id: trip.id,
+        tripNumber: trip.tripNumber,
+        status: 'completed',
+        completedAt: new Date(),
+        actualDuration: duration
+      }
     });
   } catch (error) {
     console.error('Error completing trip:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Error al completar viaje' });
   }
 });
 
-router.get('/trips/stats', authenticateToken, requireRole(['admin', 'sales_rep']), async (req, res) => {
+router.delete('/trips/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
+    // ✅ VALIDACIÓN DEL ID
+    const tripId = validateId(req.params.id, 'Trip ID');
     const db = await getDb(req.user.storeId);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     
-    const [todayStats] = await db
-      .select({
-        total: count(),
-        pending: count(sql`CASE WHEN status = 'pending' THEN 1 END`),
-        active: count(sql`CASE WHEN status = 'active' THEN 1 END`),
-        in_progress: count(sql`CASE WHEN status = 'in_progress' THEN 1 END`),
-        completed: count(sql`CASE WHEN status = 'completed' THEN 1 END`),
-      })
+    const [trip] = await db
+      .select()
       .from(schema.trips)
       .where(and(
-        eq(schema.trips.storeId, parseInt(req.user.storeId as any)),
-        sql`${schema.trips.createdAt} >= ${today}`
+        eq(schema.trips.id, tripId),
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
       ));
     
-    res.json({ today: todayStats });
+    if (!trip) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    
+    if (trip.status === 'in_progress') {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar un viaje en progreso'
+      });
+    }
+    
+    // Eliminar trip_orders primero
+    await db
+      .delete(schema.tripOrders)
+      .where(eq(schema.tripOrders.tripId, tripId));
+    
+    // Eliminar trip
+    await db
+      .delete(schema.trips)
+      .where(eq(schema.trips.id, tripId));
+    
+    res.json({ success: true, message: 'Viaje eliminado correctamente' });
   } catch (error) {
-    console.error('Error fetching trip stats:', error);
-    res.status(500).json({ error: 'Error al obtener estadísticas' });
+    console.error('Error deleting trip:', error);
+    if (error.message.includes('inválido')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Error al eliminar viaje' });
   }
 });
-
-// ==================== HELPERS ====================
-
-async function updateTripProgress(db: any, tripId: number) {
-  const [completedCount] = await db
-    .select({ count: count() })
-    .from(schema.tripOrders)
-    .where(and(
-      eq(schema.tripOrders.tripId, tripId),
-      eq(schema.tripOrders.status, 'picked')
-    ));
-  
-  await db
-    .update(schema.trips)
-    .set({ completedOrders: completedCount.count, updatedAt: new Date() })
-    .where(eq(schema.trips.id, tripId));
-}
-
-function generateQRCode(orderNumber: string, storeId: number): string {
-  return `QR-${orderNumber}-${storeId}-${Date.now()}`;
-}
-
-function decodeQRCode(qrCode: string, storeId: number): number | null {
-  try {
-    const parts = qrCode.split('-');
-    if (parts.length < 4) return null;
-    
-    const qrStoreId = parseInt(parts[3]);
-    if (qrStoreId !== storeId) return null;
-    
-    return parseInt(parts[2]);
-  } catch {
-    return null;
-  }
-}
 
 export default router;
