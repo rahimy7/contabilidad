@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "@shared/schema";
 
 export default function TeamStatus() {
-  const { data: users, isLoading } = useQuery({
-    queryKey: ["/api/employees"],
-  });
+ const { data: users, isLoading } = useQuery<User[]>({
+  queryKey: ["/api/employees"],
+});
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -37,6 +37,19 @@ export default function TeamStatus() {
     }
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "technician":
+        return "Técnico";
+      case "sales_rep":
+        return "Ventas";
+      case "delivery":
+        return "Delivery";
+      default:
+        return role;
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -54,9 +67,9 @@ export default function TeamStatus() {
     );
   }
 
-  // Filter to show only technicians and sellers
+  // Filter to show technicians, sales reps, and delivery
   const teamMembers = users?.filter((user: User) => 
-    user.role === "technician" || user.role === "seller"
+    user.role === "technician" || user.role === "sales_rep" || user.role === "delivery"
   ) || [];
 
   return (
@@ -70,7 +83,7 @@ export default function TeamStatus() {
             <div key={member.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  member.status === "active" ? "bg-green-100" : 
+                  member.status === "active" ? "bg-green-100" :
                   member.status === "busy" ? "bg-blue-100" : "bg-gray-100"
                 }`}>
                   <span className={`text-xs font-medium ${
@@ -82,7 +95,7 @@ export default function TeamStatus() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{member.role}</p>
+                  <p className="text-xs text-gray-500">{getRoleLabel(member.role)}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">

@@ -82,10 +82,7 @@ export default function EmployeesManagement() {
   { id: 'admin', name: 'admin', displayName: 'Administrador' },
   { id: 'technician', name: 'technician', displayName: 'Técnico' },
   { id: 'seller', name: 'seller', displayName: 'Vendedor' },
-  { id: 'delivery', name: 'delivery', displayName: 'Repartidor' },
-  { id: 'support', name: 'support', displayName: 'Soporte' },
-  { id: 'customer_service', name: 'customer_service', displayName: 'Atención al Cliente' },
-  { id: 'store_admin', name: 'store_admin', displayName: 'Administrador de Tienda' },
+  { id: 'delivery', name: 'delivery', displayName: 'Delivery' },
 ];
 
 
@@ -93,10 +90,7 @@ export default function EmployeesManagement() {
   admin: "Administrador",
   technician: "Técnico",
   seller: "Vendedor",
-  delivery: "Repartidor",
-  support: "Soporte",
-  customer_service: "Atención al Cliente",
-  store_admin: "Administrador de Tienda"
+  delivery: "Delivery",
 };
 
   const departmentLabels = useMemo(() => {

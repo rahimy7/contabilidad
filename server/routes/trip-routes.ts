@@ -185,6 +185,7 @@ router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_r
     const tripId = parseInt(req.params.id);
     const { notes } = req.body;
     
+    // 1. Validar que existe y está pending
     const [trip] = await db
       .select()
       .from(schema.trips)
@@ -198,32 +199,49 @@ router.post('/trips/:id/send', authenticateToken, requireRole(['admin', 'sales_r
     }
     
     if (trip.status !== 'pending') {
-      return res.status(400).json({ error: 'Solo se pueden enviar viajes pendientes' });
+      return res.status(400).json({ 
+        error: 'Solo se pueden enviar viajes pendientes',
+        currentStatus: trip.status 
+      });
     }
     
+    // 2. Obtener resumen
+    const orders = await db
+      .select({
+        orderNumber: schema.orders.orderNumber,
+        totalAmount: schema.orders.totalAmount,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
+      .where(eq(schema.tripOrders.tripId, tripId));
+    
+    // 3. Actualizar viaje
     await db
       .update(schema.trips)
-      .set({
-        status: 'active',
+      .set({ 
+        status: 'active', 
         sentAt: new Date(),
         notes: notes || trip.notes,
-        updatedAt: new Date(),
+        updatedAt: new Date()
       })
       .where(eq(schema.trips.id, tripId));
     
-    const [summary] = await db
-      .select({
-        totalOrders: schema.trips.totalOrders,
-        totalAmount: schema.trips.totalAmount,
-        estimatedDuration: schema.trips.estimatedDuration,
-      })
-      .from(schema.trips)
-      .where(eq(schema.trips.id, tripId));
+    // 4. TODO: Enviar notificación al delivery
+    // await notifyDelivery(trip.assignedUserId, tripId);
     
     res.json({
       success: true,
-      trip: { id: tripId, status: 'active', sentAt: new Date() },
-      summary,
+      trip: {
+        id: trip.id,
+        tripNumber: trip.tripNumber,
+        status: 'active',
+        sentAt: new Date()
+      },
+      summary: {
+        totalOrders: trip.totalOrders,
+        totalAmount: trip.totalAmount,
+        orders
+      }
     });
   } catch (error) {
     console.error('Error sending trip:', error);

@@ -35,6 +35,7 @@ import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
 import superAdminRoutes from './routes/super-admin-routes';
 import { executeAutoAssignment } from "./services/auto-assignment-service.js";
+import { integrateWithAutoAssignment } from "./services/trip-service.js";
 
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
@@ -2750,6 +2751,8 @@ items: items.map((item: any) => ({
     }
   });
 
+
+// ===== FUNCIÓN CORREGIDA =====
 router.post('/orders', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
@@ -2781,51 +2784,112 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
     
     console.log('✅ [CREATE ORDER] Order created:', order.id);
 
-    console.log('🎯 [DEBUG] Order created, calling auto-assignment...');
-console.log('🎯 [DEBUG] Order data:', {
-  id: order.id,
-  customerId: order.customerId,
-  province: order.customerProvince
-});
+    // Variable para almacenar el mensaje de asignación
+    let autoAssignmentMessage = '';
+    let assignedUserId = orderData.assignedUserId || null;
 
-
-    // ✅ EJECUTAR ASIGNACIÓN AUTOMÁTICA si hay reglas activas
+    // ===== PASO 1: EJECUTAR ASIGNACIÓN AUTOMÁTICA =====
     try {
+      console.log('🎯 [AUTO-ASSIGN] Attempting auto-assignment...');
+      console.log('🎯 [AUTO-ASSIGN] Order data:', {
+        id: order.id,
+        customerId: order.customerId,
+        province: order.customerProvince
+      });
+
       const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
-      console.log('🎯 [DEBUG] Assignment result:', assignmentResult);
+      console.log('🎯 [AUTO-ASSIGN] Result:', assignmentResult);
       
       if (assignmentResult.success) {
-        console.log(`🎯 [AUTO-ASSIGN] ${assignmentResult.message}`);
+        console.log(`✅ [AUTO-ASSIGN] ${assignmentResult.message}`);
+        autoAssignmentMessage = assignmentResult.message;
         
-        // Recargar la orden con la asignación
+        // Recargar la orden para obtener el assignedUserId actualizado
         const updatedOrder = await tenantStorage.getOrder(order.id);
-        
-        return res.status(201).json({
-          ...updatedOrder,
-          autoAssignmentMessage: assignmentResult.message
-        });
+        assignedUserId = updatedOrder.assignedUserId;
       } else {
         console.log(`⚠️ [AUTO-ASSIGN] ${assignmentResult.message}`);
-        // Si no se pudo asignar automáticamente, devolver la orden sin asignar
-        return res.status(201).json({
-          ...order,
-          autoAssignmentMessage: assignmentResult.message
-        });
+        autoAssignmentMessage = assignmentResult.message;
       }
     } catch (autoAssignError) {
       console.error('❌ [AUTO-ASSIGN] Error during auto-assignment:', autoAssignError);
-      // Si hay error en auto-asignación, aún devolver la orden creada
-      return res.status(201).json({
-        ...order,
-        autoAssignmentMessage: 'Error en asignación automática, orden creada sin asignar'
-      });
+      autoAssignmentMessage = 'Error en asignación automática, orden creada sin asignar';
     }
+
+    // ===== PASO 2: INTEGRAR CON SISTEMA DE VIAJES =====
+    let tripInfo = null;
+    
+    if (assignedUserId) {
+      try {
+        console.log('🚚 [TRIPS] Checking if user needs trip assignment...');
+        
+        const db = await getTenantDb(user.storeId);
+        const [assignedUser] = await db
+          .select({ 
+            role: schema.users.role,
+            name: schema.users.name 
+          })
+          .from(schema.users)
+          .where(eq(schema.users.id, assignedUserId));
+        
+        // Si es delivery o technician, crear/agregar a viaje
+        if (assignedUser && (assignedUser.role === 'delivery' || assignedUser.role === 'technician')) {
+          console.log(`🚚 [TRIPS] User is ${assignedUser.role}, integrating with trips...`);
+          
+          const tripResult = await integrateWithAutoAssignment(
+            user.storeId,
+            order.id,
+            assignedUserId
+          );
+          
+          if (tripResult) {
+            tripInfo = tripResult;
+            console.log(`✅ [TRIPS] Order ${order.orderNumber} added to trip ${tripResult.tripNumber}`);
+          }
+        } else {
+          console.log(`ℹ️ [TRIPS] User role is ${assignedUser?.role || 'unknown'}, skipping trip integration`);
+        }
+      } catch (tripError) {
+        console.error('❌ [TRIPS] Error integrating with trips:', tripError);
+        // No fallar la creación de la orden, solo registrar el error
+      }
+    } else {
+      console.log('ℹ️ [TRIPS] No assigned user, skipping trip integration');
+    }
+
+    // ===== PASO 3: RETORNAR RESPUESTA FINAL =====
+    // Recargar la orden con todos los datos actualizados
+    const finalOrder = await tenantStorage.getOrder(order.id);
+    
+    const response: any = {
+      ...finalOrder,
+      autoAssignmentMessage
+    };
+
+    // Agregar información del viaje si existe
+    if (tripInfo) {
+      response.trip = {
+        id: tripInfo.tripId,
+        tripNumber: tripInfo.tripNumber,
+        message: `Agregado al viaje ${tripInfo.tripNumber}`
+      };
+    }
+
+    console.log('✅ [CREATE ORDER] Order created successfully:', {
+      orderId: finalOrder.id,
+      orderNumber: finalOrder.orderNumber,
+      assignedUserId: finalOrder.assignedUserId,
+      tripInfo: tripInfo ? tripInfo.tripNumber : 'none',
+      autoAssigned: finalOrder.autoAssigned
+    });
+
+    return res.status(201).json(response);
 
   } catch (error) {
     console.error('❌ [CREATE ORDER] Error creating order:', error);
     res.status(500).json({ 
       error: 'Failed to create order',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

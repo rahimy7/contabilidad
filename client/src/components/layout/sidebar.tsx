@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette } from "lucide-react";
+import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -12,6 +12,14 @@ import { DollarSign } from "lucide-react";
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+}
+
+interface ActiveTrip {
+  id: number;
+  status: 'active' | 'in_progress' | 'pending' | 'completed';
+  tripNumber: string;
+  totalOrders: number;
+  completedOrders: number;
 }
 
 interface NavItem {
@@ -66,6 +74,19 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     refetchInterval: 60000,
   });
 
+const { data: activeTrip } = useQuery<ActiveTrip | null>({
+  queryKey: ["/api/trips/my-active"],
+  enabled: isStoreUser && user?.role === 'delivery',
+  refetchInterval: 30000,
+});
+
+  // Query para obtener stats de viajes (para admin/sales)
+  const { data: tripStats } = useQuery({
+    queryKey: ["/api/trips", { status: 'pending' }],
+    enabled: isStoreUser && (user?.role === 'admin' || user?.role === 'sales_rep'),
+    refetchInterval: 30000,
+  });
+
   const pendingOrders = Array.isArray(orders) ? orders.filter((order: any) => order.status === "pending").length : 0;
   const activeConversations = Array.isArray(conversations) ? conversations.filter((conv: any) => conv.unreadCount > 0).length : 0;
   const unreadNotifications = (() => {
@@ -77,6 +98,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     return 0;
   })();
 
+  // Badge para viajes pendientes (admin/sales)
+  const pendingTrips = Array.isArray(tripStats) ? tripStats.filter((trip: any) => trip.status === 'pending').length : 0;
+  
+  // Badge para delivery (muestra si tiene viaje activo)
+const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'in_progress';
   // Función para manejar el clic en las opciones del menú
   const handleMenuItemClick = () => {
     if (isMobile && onClose) {
@@ -116,6 +142,15 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       badge: pendingOrders > 0 ? pendingOrders : null,
       permission: "manage_orders",
       excludeRoles: ["super_admin", "technician"],
+    },
+    // === VIAJES - PARA ADMIN Y SALES ===
+    {
+      href: "/trips",
+      icon: Truck,
+      label: "Gestión de Viajes",
+      badge: pendingTrips > 0 ? pendingTrips : null,
+      permission: "manage_orders",
+      roles: ["admin", "sales_rep"],
     },
     {
       href: "/employees",
@@ -204,6 +239,15 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       badge: null,
       permission: "view_installations",
       roles: ["technician"],
+    },
+    // === MENU ESPECÍFICO PARA DELIVERY ===
+    {
+      href: "/delivery-dashboard",
+      icon: Truck,
+      label: "Mi Viaje",
+      badge: hasActiveTrip ? "●" : null,
+      permission: "view_orders",
+      roles: ["delivery"],
     },
     // === MENU DE SUPER ADMIN ===
     {
@@ -373,6 +417,8 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     variant={item.href === "/conversations" ? "default" : "destructive"}
                     className={`ml-auto text-xs px-2 py-1 ${
                       item.href === "/conversations" ? "whatsapp-bg text-white" : ""
+                    } ${
+                      item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
                     }`}
                   >
                     {item.badge}

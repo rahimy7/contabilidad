@@ -65,6 +65,8 @@ import BrandsManagement from "./pages/brands";
 // ✅ NUEVO: Importar componente de compartir producto y HelmetProvider
 import ShareProduct from '@/pages/share-product';
 import { HelmetProvider } from 'react-helmet-async';
+import DeliveryDashboardPage from "./pages/delivery-dashboard";
+import TripsPage from "./pages/trips";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -216,24 +218,8 @@ function Router() {
       <Route path="/super-admin/reports" component={() => <ProtectedRoute component={SuperAdminReports} permission="super_admin" />} />
       <Route path="/super-admin/support" component={() => <ProtectedRoute component={Support} permission="super_admin" />} />
       <Route path="/super-admin/stores" component={() => <ProtectedRoute component={StoresPage} permission="super_admin" />} />
-      <Route 
-        path="/super-admin/stores/:storeId/whatsapp"
-        component={() => (
-          <ProtectedRoute
-            component={WhatsAppSettingsWrapper}
-            permission="super_admin"
-          />
-        )}
-      />
-      <Route 
-        path="/super-admin/whatsapp-settings"
-        component={() => (
-          <ProtectedRoute
-            component={WhatsAppSettingsWrapper}
-            permission="super_admin"
-          />
-        )}
-      />
+      <Route path="/super-admin/stores/:storeId/whatsapp" component={() => (<ProtectedRoute component={WhatsAppSettingsWrapper} permission="super_admin" />)} />
+      <Route path="/super-admin/whatsapp-settings"  component={() => (          <ProtectedRoute component={WhatsAppSettingsWrapper}            permission="super_admin"  />    )}      />
       <Route path="/super-admin/store-settings" component={() => <ProtectedRoute component={StoreSettings} permission="super_admin" />} />
       <Route path="/super-admin/store-products" component={() => <ProtectedRoute component={StoreProducts} permission="super_admin" />} />
       <Route path="/super-admin/store-themes" component={() => <ProtectedRoute component={StoreThemes} permission="super_admin" />} />
@@ -243,10 +229,7 @@ function Router() {
       <Route path="/catalog" component={Catalog} />
       <Route path="/public-catalog" component={PublicCatalogClean} />
       <Route path="/simple-catalog" component={SimpleCatalog} />
-      <Route path="/cart" component={Cart} />
-      <Route path="/user-settings" component={UserSettings} />
-      <Route path="/login" component={MultiTenantLogin} />
-      <Route component={NotFound} />
+      <Route path="/delivery-dashboard" component={DeliveryDashboardPage} />
     </Switch>
   );
 }

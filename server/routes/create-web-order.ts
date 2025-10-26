@@ -111,18 +111,15 @@ export async function createWebOrder(req: Request, res: Response) {
       console.warn('Warning: Could not create order log:', logError);
     }
 
-    // Crear asignacion automática (si aplica)
-    console.log('🎯 [AUTO-ASSIGN] Iniciando asignación automática para orden desde WhatsApp');
+    // ===== PASO 1: ASIGNACIÓN AUTOMÁTICA =====
+    console.log('🎯 [AUTO-ASSIGN] Iniciando asignación automática para orden desde web');
     
+    let assignedUserId: number | null = null;
     
     try {
-      // ✅ Importar el servicio de asignación automática
       const { executeAutoAssignment } = await import('../services/auto-assignment-service.js');
       
       console.log('✅ [AUTO-ASSIGN] Módulo de asignación importado correctamente');
-      
-      // ✅ IMPORTANTE: Usar el tenantStorage EXISTENTE que ya tiene todos los métodos
-      // NO crear un objeto nuevo, usar el que ya viene en la función
       console.log(`🚀 [AUTO-ASSIGN] Ejecutando asignación automática para orden ${order.id}...`);
       
       const assignmentResult = await executeAutoAssignment(order.id, tenantStorage);
@@ -130,25 +127,26 @@ export async function createWebOrder(req: Request, res: Response) {
       console.log('📊 [AUTO-ASSIGN] Resultado recibido:', assignmentResult);
       
       if (assignmentResult.success) {
-        console.log(`✅ [AUTO-ASSIGN WhatsApp] ¡Orden asignada exitosamente!`);
-        console.log(`👤 [AUTO-ASSIGN WhatsApp] Usuario asignado ID: ${assignmentResult.assignedUserId}`);
-        console.log(`📝 [AUTO-ASSIGN WhatsApp] Mensaje: ${assignmentResult.message}`);
-      
+        console.log(`✅ [AUTO-ASSIGN Web] ¡Orden asignada exitosamente!`);
+        console.log(`👤 [AUTO-ASSIGN Web] Usuario asignado ID: ${assignmentResult.assignedUserId}`);
+        console.log(`📝 [AUTO-ASSIGN Web] Mensaje: ${assignmentResult.message}`);
         
+        // Guardar el ID del usuario asignado para el siguiente paso
+        assignedUserId = assignmentResult.assignedUserId || null;
       } else {
-        console.log(`⚠️ [AUTO-ASSIGN WhatsApp] No se pudo asignar automáticamente`);
-        console.log(`📝 [AUTO-ASSIGN WhatsApp] Razón: ${assignmentResult.message}`);
-        console.log(`ℹ️ [AUTO-ASSIGN WhatsApp] La orden quedó sin asignar y puede asignarse manualmente`);
+        console.log(`⚠️ [AUTO-ASSIGN Web] No se pudo asignar automáticamente`);
+        console.log(`📝 [AUTO-ASSIGN Web] Razón: ${assignmentResult.message}`);
+        console.log(`ℹ️ [AUTO-ASSIGN Web] La orden quedó sin asignar y puede asignarse manualmente`);
       }
       
     } catch (autoAssignError: any) {
-      console.error('❌ [AUTO-ASSIGN WhatsApp] Error crítico en asignación automática:');
+      console.error('❌ [AUTO-ASSIGN Web] Error crítico en asignación automática:');
       console.error('❌ [AUTO-ASSIGN] Error:', autoAssignError.message);
       console.error('❌ [AUTO-ASSIGN] Stack:', autoAssignError.stack);
       
-      console.log('⚠️ [AUTO-ASSIGN WhatsApp] La orden fue creada correctamente');
-      console.log('⚠️ [AUTO-ASSIGN WhatsApp] Pero no se pudo asignar automáticamente');
-      console.log('ℹ️ [AUTO-ASSIGN WhatsApp] Puede asignarse manualmente desde el panel');
+      console.log('⚠️ [AUTO-ASSIGN Web] La orden fue creada correctamente');
+      console.log('⚠️ [AUTO-ASSIGN Web] Pero no se pudo asignar automáticamente');
+      console.log('ℹ️ [AUTO-ASSIGN Web] Puede asignarse manualmente desde el panel');
       
       // Registrar error en logs para revisión
       try {
@@ -157,20 +155,58 @@ export async function createWebOrder(req: Request, res: Response) {
         
         await masterStorage.addWhatsAppLog({
           type: 'auto_assign_error',
-         
           messageContent: `Error en auto-asignación para orden ${order.id}: ${autoAssignError.message}`,
           status: 'error',
           errorMessage: autoAssignError.message || 'Error desconocido',
-        
           rawData: JSON.stringify({ 
             orderId: order.id,
-           
             errorStack: autoAssignError.stack
           })
         });
       } catch (logError) {
         console.error('❌ [AUTO-ASSIGN] Error registrando en logs:', logError);
       }
+    }
+
+    // ===== PASO 2: INTEGRAR CON SISTEMA DE VIAJES =====
+    if (assignedUserId) {
+      try {
+        console.log('🚚 [TRIPS] Verificando integración con viajes...');
+        
+        const { getTenantDb } = await import('../multi-tenant-db.js');
+        const schema = await import('../../shared/schema.js');
+        const { integrateWithAutoAssignment } = await import('../services/trip-service.js');
+        
+        const db = await getTenantDb(validatedData.storeId);
+        const [assignedUser] = await db
+          .select({ 
+            role: schema.users.role,
+            name: schema.users.name 
+          })
+          .from(schema.users)
+          .where(eq(schema.users.id, assignedUserId));
+        
+        if (assignedUser && (assignedUser.role === 'delivery' || assignedUser.role === 'technician')) {
+          console.log(`🚚 [TRIPS] Usuario es ${assignedUser.role}, integrando con viajes...`);
+          
+          const tripResult = await integrateWithAutoAssignment(
+            validatedData.storeId,
+            order.id,
+            assignedUserId
+          );
+          
+          if (tripResult) {
+            console.log(`✅ [TRIPS] Orden ${order.orderNumber || order.id} agregada al viaje ${tripResult.tripNumber}`);
+          }
+        } else {
+          console.log(`ℹ️ [TRIPS] Usuario rol ${assignedUser?.role || 'unknown'}, no requiere viaje`);
+        }
+      } catch (tripError) {
+        console.error('❌ [TRIPS] Error integrando con viajes:', tripError);
+        // No fallar la creación de la orden si falla la integración con viajes
+      }
+    } else {
+      console.log('ℹ️ [TRIPS] No hay usuario asignado, saltando integración con viajes');
     }
     
     // 4. Enviar notificación por WhatsApp (si está configurado)
