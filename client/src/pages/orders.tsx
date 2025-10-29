@@ -215,7 +215,7 @@ const handleAssignToTrip = (order: OrderWithDetails) => {
   }
   
   // Mostrar mensaje apropiado
-  if (order.status === 'pending' && !order.assignedUserId) {
+  if (order.status === 'pending') {
     toast({
       title: "Asignando a viaje compartido",
       description: "La orden se confirmará y agregará al viaje",
