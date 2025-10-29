@@ -147,7 +147,7 @@ router.get('/trips/my-active', authenticateToken, async (req, res) => {
         eq(schema.trips.storeId, parseInt(req.user.storeId as any)),
         or(
           eq(schema.trips.status, 'active'),
-          eq(schema.trips.status, 'in_progress')
+          eq(schema.trips.status, 'processing')
         )
       ))
       .orderBy(desc(schema.trips.createdAt))
@@ -303,7 +303,6 @@ router.post('/trips/assign-order', authenticateToken, async (req: any, res: any)
       .from(schema.orders)
       .where(and(
         eq(schema.orders.id, orderId),
-        eq(schema.orders.storeId, storeId)
       ));
     
     if (!order) {
@@ -406,7 +405,7 @@ router.post('/trips/assign-order', authenticateToken, async (req: any, res: any)
       });
     
     // 7. Actualizar orden: tripId + cambiar estado si es necesario
-    const newOrderStatus = order.status === 'pending' ? 'confirmed' : order.status;
+    const newOrderStatus = order.status === 'pending' ? 'processing' : order.status;
     
     await db
       .update(schema.orders)
@@ -571,7 +570,7 @@ router.post('/trips/:id/scan-order', authenticateToken, async (req, res) => {
     if (trip?.status === 'active') {
       await db
         .update(schema.trips)
-        .set({ status: 'in_progress', startedAt: new Date(), updatedAt: new Date() })
+        .set({ status: 'processing', startedAt: new Date(), updatedAt: new Date() })
         .where(eq(schema.trips.id, tripId));
     }
     
@@ -643,7 +642,7 @@ router.post('/trips/:id/mark-order', authenticateToken, async (req, res) => {
     if (trip?.status === 'active') {
       await db
         .update(schema.trips)
-        .set({ status: 'in_progress', startedAt: new Date(), updatedAt: new Date() })
+        .set({ status: 'processing', startedAt: new Date(), updatedAt: new Date() })
         .where(eq(schema.trips.id, tripId));
     }
     
@@ -761,7 +760,7 @@ router.delete('/trips/:id', authenticateToken, requireRole(['admin']), async (re
     }
     
     // No permitir eliminar viajes en progreso
-    if (trip.status === 'in_progress') {
+    if (trip.status === 'processing') {
       return res.status(400).json({ 
         error: 'No se puede eliminar un viaje en progreso'
       });

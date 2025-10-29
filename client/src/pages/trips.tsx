@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Truck, Package, DollarSign, Clock, Eye, Send } from 'lucide-react';
+import { Truck, Package, DollarSign, Clock, Eye, Send, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TripDetail } from '@/components/trips/TripDetail';
 import { TripSummaryModal } from '@/components/trips/TripSummaryModal';
@@ -23,7 +22,7 @@ interface Trip {
     role: string;
     phone: string;
   };
-  status: 'pending' | 'active' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'processing' | 'completed' | 'cancelled';
   totalOrders: number;
   completedOrders: number;
   totalAmount: string;
@@ -43,8 +42,9 @@ export default function TripsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('pending'); // Por defecto pendientes
   
   // Modales
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -54,41 +54,48 @@ export default function TripsPage() {
 
   // Stats
   const [stats, setStats] = useState({
-    total: 0,
+    todayTotal: 0,
     pending: 0,
     active: 0,
-    completed: 0
+    todayCompleted: 0
   });
 
   useEffect(() => {
     loadTrips();
-  }, [statusFilter]);
+  }, []);
+
+  useEffect(() => {
+    filterTrips();
+  }, [statusFilter, allTrips]);
+
+  const isToday = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
 
   const loadTrips = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
-
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/trips?${params}`, {
+      const response = await fetch(`/api/trips`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error('Error al cargar viajes');
 
       const data = await response.json();
-      setTrips(data);
+      setAllTrips(data);
 
       // Calcular stats
-      const total = data.length;
+      const todayTotal = data.filter((t: Trip) => isToday(t.createdAt)).length;
       const pending = data.filter((t: Trip) => t.status === 'pending').length;
       const active = data.filter((t: Trip) => t.status === 'active').length;
-      const completed = data.filter((t: Trip) => t.status === 'completed').length;
+      const todayCompleted = data.filter((t: Trip) => 
+        t.status === 'completed' && isToday(t.completedAt || t.createdAt)
+      ).length;
       
-      setStats({ total, pending, active, completed });
+      setStats({ todayTotal, pending, active, todayCompleted });
     } catch (error) {
       console.error('Error loading trips:', error);
       toast({
@@ -99,6 +106,33 @@ export default function TripsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterTrips = () => {
+    let filtered = [...allTrips];
+
+    switch (statusFilter) {
+      case 'today':
+        // Solo viajes del día de hoy
+        filtered = filtered.filter(t => isToday(t.createdAt));
+        break;
+      case 'pending':
+        // Todos los pendientes
+        filtered = filtered.filter(t => t.status === 'pending');
+        break;
+      case 'active':
+        // Todos los activos
+        filtered = filtered.filter(t => t.status === 'active');
+        break;
+      case 'completed':
+        // Solo completados del día
+        filtered = filtered.filter(t => 
+          t.status === 'completed' && isToday(t.completedAt || t.createdAt)
+        );
+        break;
+    }
+
+    setTrips(filtered);
   };
 
   const handleViewDetail = (tripId: number) => {
@@ -137,7 +171,7 @@ export default function TripsPage() {
     const variants: Record<string, { label: string; className: string }> = {
       pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
       active: { label: 'Activo', className: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: 'En Progreso', className: 'bg-purple-100 text-purple-800' },
+      processing: { label: 'En Progreso', className: 'bg-purple-100 text-purple-800' },
       completed: { label: 'Completado', className: 'bg-green-100 text-green-800' },
       cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-800' }
     };
@@ -151,80 +185,99 @@ export default function TripsPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gestión de Viajes</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Gestión de Viajes</h1>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Viajes
-            </CardTitle>
-            <Truck className="h-4 w-4 text-gray-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
+      {/* Stats Cards como Filtros - Una sola fila */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <button
+          onClick={() => setStatusFilter('today')}
+          className={`text-left transition-all ${
+            statusFilter === 'today' 
+              ? 'ring-2 ring-gray-600 shadow-md' 
+              : 'hover:shadow-md'
+          }`}
+        >
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-600">Hoy</p>
+                <Calendar className="h-3 w-3 text-gray-600" />
+              </div>
+              <p className="text-xl font-bold">{stats.todayTotal}</p>
+            </CardContent>
+          </Card>
+        </button>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">
-              Pendientes
-            </CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-          </CardContent>
-        </Card>
+        <button
+          onClick={() => setStatusFilter('pending')}
+          className={`text-left transition-all ${
+            statusFilter === 'pending' 
+              ? 'ring-2 ring-yellow-600 shadow-md' 
+              : 'hover:shadow-md'
+          }`}
+        >
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-yellow-600">Pendientes</p>
+                <Clock className="h-3 w-3 text-yellow-600" />
+              </div>
+              <p className="text-xl font-bold">{stats.pending}</p>
+            </CardContent>
+          </Card>
+        </button>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600">
-              Activos
-            </CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-          </CardContent>
-        </Card>
+        <button
+          onClick={() => setStatusFilter('active')}
+          className={`text-left transition-all ${
+            statusFilter === 'active' 
+              ? 'ring-2 ring-blue-600 shadow-md' 
+              : 'hover:shadow-md'
+          }`}
+        >
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-blue-600">Activos</p>
+                <Package className="h-3 w-3 text-blue-600" />
+              </div>
+              <p className="text-xl font-bold">{stats.active}</p>
+            </CardContent>
+          </Card>
+        </button>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-600">
-              Completados
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completed}</div>
-          </CardContent>
-        </Card>
+        <button
+          onClick={() => setStatusFilter('completed')}
+          className={`text-left transition-all ${
+            statusFilter === 'completed' 
+              ? 'ring-2 ring-green-600 shadow-md' 
+              : 'hover:shadow-md'
+          }`}
+        >
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-green-600">Completados</p>
+                <DollarSign className="h-3 w-3 text-green-600" />
+              </div>
+              <p className="text-xl font-bold">{stats.todayCompleted}</p>
+            </CardContent>
+          </Card>
+        </button>
       </div>
 
-      {/* Filters */}
+      {/* Lista de Viajes */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Viajes</CardTitle>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="active">Activos</SelectItem>
-                <SelectItem value="in_progress">En Progreso</SelectItem>
-                <SelectItem value="completed">Completados</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">
+            {statusFilter === 'today' && 'Viajes de Hoy'}
+            {statusFilter === 'pending' && 'Viajes Pendientes'}
+            {statusFilter === 'active' && 'Viajes Activos'}
+            {statusFilter === 'completed' && 'Completados Hoy'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -232,63 +285,156 @@ export default function TripsPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Viaje</TableHead>
-                  <TableHead>Delivery</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Pedidos</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Vista Desktop - Tabla */}
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Viaje</TableHead>
+                      <TableHead>Delivery</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Pedidos</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trips.map((trip) => (
+                      <TableRow key={trip.id}>
+                        <TableCell>
+                          <div className="font-medium">{trip.tripNumber}</div>
+                          <div className="text-sm text-gray-500">ID: {trip.id}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{trip.assignedUser?.name || 'Sin asignar'}</div>
+                          <div className="text-sm text-gray-500">
+                            {trip.assignedUser?.phone || ''}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(trip.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Package className="h-4 w-4" />
+                            <span>
+                              {trip.completedOrders}/{trip.totalOrders}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          ${parseFloat(trip.totalAmount).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(trip.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewDetail(trip.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            
+                            <ReassignTripButton 
+                              trip={trip} 
+                              onSuccess={loadTrips}
+                            />
+                            
+                            <DeleteTripButton
+                              trip={trip}
+                              onSuccess={loadTrips}
+                            />
+                            
+                            {trip.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSendClick(trip)}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <Send className="h-4 w-4 mr-1" />
+                                Enviar
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Vista Mobile/Tablet - Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:hidden">
                 {trips.map((trip) => (
-                  <TableRow key={trip.id}>
-                    <TableCell>
-                      <div className="font-medium">{trip.tripNumber}</div>
-                      <div className="text-sm text-gray-500">ID: {trip.id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{trip.assignedUser?.name || 'Sin asignar'}</div>
-                      <div className="text-sm text-gray-500">
-                        {trip.assignedUser?.phone || ''}
+                  <Card key={trip.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-base font-bold">
+                            {trip.tripNumber}
+                          </CardTitle>
+                          <p className="text-xs text-gray-500">ID: {trip.id}</p>
+                        </div>
+                        {getStatusBadge(trip.status)}
                       </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(trip.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Package className="h-4 w-4" />
-                        <span>
-                          {trip.completedOrders}/{trip.totalOrders}
-                        </span>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-3">
+                      {/* Delivery Info */}
+                      <div className="flex items-start gap-2">
+                        <Truck className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">
+                            {trip.assignedUser?.name || 'Sin asignar'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {trip.assignedUser?.phone || ''}
+                          </p>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      ${parseFloat(trip.totalAmount).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(trip.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+
+                      {/* Stats */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">
+                            {trip.completedOrders}/{trip.totalOrders}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-bold">
+                            ${parseFloat(trip.totalAmount).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Fecha */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Clock className="h-3 w-3" />
+                        {new Date(trip.createdAt).toLocaleDateString()}
+                      </div>
+
+                      {/* Acciones */}
+                      <div className="flex flex-wrap gap-2 pt-2 border-t">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewDetail(trip.id)}
+                          className="flex-1 min-w-[90px]"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
                         </Button>
                         
-                        {/* Botón de reasignación */}
                         <ReassignTripButton 
                           trip={trip} 
                           onSuccess={loadTrips}
                         />
                         
-                        {/* Botón de eliminar */}
                         <DeleteTripButton
                           trip={trip}
                           onSuccess={loadTrips}
@@ -298,23 +444,23 @@ export default function TripsPage() {
                           <Button
                             size="sm"
                             onClick={() => handleSendClick(trip)}
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className="flex-1 min-w-[90px] bg-blue-600 hover:bg-blue-700"
                           >
                             <Send className="h-4 w-4 mr-1" />
                             Enviar
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
 
           {trips.length === 0 && !loading && (
             <div className="text-center py-12 text-gray-500">
-              No hay viajes registrados
+              No hay viajes en esta categoría
             </div>
           )}
         </CardContent>

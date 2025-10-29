@@ -3222,7 +3222,7 @@ router.post('/orders/:id/auto-assign', authenticateToken, async (req: any, res: 
       availableUsers.map(async (u: any) => {
         const userOrders = orders.filter((o: any) => o.assignedUserId === u.id);
         const activeOrders = userOrders.filter((o: any) => 
-          ['assigned', 'in_progress', 'preparing'].includes(o.status)
+          ['assigned', 'processing', 'preparing'].includes(o.status)
         );
         
         return {
@@ -3361,7 +3361,7 @@ router.get('/dashboard/technician/metrics', authenticateToken, async (req: any, 
     );
     
     const inProgressOrders = allOrders.filter(order => 
-      order.status === 'in_progress'
+      order.status === 'processing'
     );
     
     const completedOrders = allOrders.filter(order => 

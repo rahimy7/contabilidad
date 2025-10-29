@@ -149,9 +149,7 @@ export default function EditOrderModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="confirmed">Confirmado</SelectItem>
-                    <SelectItem value="assigned">Asignado</SelectItem>
-                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="processing">En Progreso</SelectItem>
                     <SelectItem value="completed">Completado</SelectItem>
                     <SelectItem value="cancelled">Cancelado</SelectItem>
                   </SelectContent>

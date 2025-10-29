@@ -138,7 +138,7 @@ export class OrderTrackingService {
       LEFT JOIN customers c ON o.customer_id = c.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.customer_id = $1 
-        AND o.status IN ('pending', 'confirmed', 'processing', 'shipped')
+        AND o.status IN ('pending', 'processing')
       GROUP BY o.id, c.name
       ORDER BY o.created_at DESC
     `;
@@ -580,10 +580,10 @@ El equipo de soporte revisará tu nota y te contactará si es necesario.`,
   private getStatusEmoji(status: string): string {
     const statusEmojis: { [key: string]: string } = {
       'pending': '⏳',
-      'confirmed': '✅',
+ 
       'processing': '🔄',
-      'shipped': '🚚',
-      'delivered': '📦',
+
+
       'cancelled': '❌',
       'completed': '✅'
     };
@@ -593,10 +593,10 @@ El equipo de soporte revisará tu nota y te contactará si es necesario.`,
   private getStatusText(status: string): string {
     const statusTexts: { [key: string]: string } = {
       'pending': 'Pendiente',
-      'confirmed': 'Confirmado',
+
       'processing': 'En Proceso',
-      'shipped': 'Enviado',
-      'delivered': 'Entregado',
+
+
       'cancelled': 'Cancelado',
       'completed': 'Completado'
     };

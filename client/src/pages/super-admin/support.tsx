@@ -28,7 +28,7 @@ interface SupportTicket {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in_progress' | 'waiting_response' | 'closed';
+  status: 'open' | 'processing' | 'waiting_response' | 'closed';
   category: 'technical' | 'billing' | 'feature_request' | 'bug_report' | 'general';
   storeId?: number;
   storeName?: string;
@@ -117,7 +117,7 @@ export default function Support() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-red-100 text-red-800';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-yellow-100 text-yellow-800';
       case 'waiting_response': return 'bg-blue-100 text-blue-800';
       case 'closed': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -148,7 +148,7 @@ export default function Support() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open': return <AlertTriangle className="h-4 w-4" />;
-      case 'in_progress': return <Clock className="h-4 w-4" />;
+      case 'processing': return <Clock className="h-4 w-4" />;
       case 'waiting_response': return <MessageCircle className="h-4 w-4" />;
       case 'closed': return <CheckCircle className="h-4 w-4" />;
       default: return <MessageSquare className="h-4 w-4" />;
@@ -323,7 +323,7 @@ export default function Support() {
             >
               <option value="all">Todos los estados</option>
               <option value="open">Abiertos</option>
-              <option value="in_progress">En proceso</option>
+              <option value="processing">En proceso</option>
               <option value="waiting_response">Esperando respuesta</option>
               <option value="closed">Cerrados</option>
             </select>
@@ -379,7 +379,7 @@ export default function Support() {
                     <div className="flex space-x-2">
                       <Badge className={getStatusColor(ticket.status)}>
                         {ticket.status === 'open' && 'Abierto'}
-                        {ticket.status === 'in_progress' && 'En Proceso'}
+                        {ticket.status === 'processing' && 'En Proceso'}
                         {ticket.status === 'waiting_response' && 'Esperando Respuesta'}
                         {ticket.status === 'closed' && 'Cerrado'}
                       </Badge>
@@ -444,8 +444,8 @@ export default function Support() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleStatusChange(ticket.id, 'in_progress')}
-                      disabled={ticket.status === 'in_progress' || ticket.status === 'closed'}
+                      onClick={() => handleStatusChange(ticket.id, 'processing')}
+                      disabled={ticket.status === 'processing' || ticket.status === 'closed'}
                     >
                       Tomar Ticket
                     </Button>

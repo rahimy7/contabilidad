@@ -268,7 +268,7 @@ private async assignOrderToTechnician(orderId: number, userId: number, ruleId: n
       assignedUserId: userId,
       assignedRuleId: ruleId,
       autoAssigned: true,
-      status: 'confirmed',
+      status: 'processing',
       updatedAt: new Date()
     })
     .where(eq(schema.orders.id, orderId));

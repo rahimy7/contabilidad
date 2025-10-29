@@ -93,7 +93,7 @@ export default function OrderDetailModal({
     const colors: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800",
       assigned: "bg-blue-100 text-blue-800",
-      in_progress: "bg-orange-100 text-orange-800",
+      processing: "bg-orange-100 text-orange-800",
       completed: "bg-green-100 text-green-800",
       cancelled: "bg-gray-100 text-gray-800",
     };
@@ -104,7 +104,7 @@ export default function OrderDetailModal({
     const labels: Record<string, string> = {
       pending: "Pendiente",
       assigned: "Asignado",
-      in_progress: "En Proceso",
+      processing: "En Proceso",
       completed: "Completado",
       cancelled: "Cancelado",
     };
@@ -140,10 +140,10 @@ const handlePrintQR = async () => {
   const storeId = order.storeId || 1;
   const qrUrl = `${window.location.origin}/orders/public/${storeId}/${order.id}`;
 
-  if (order.status !== "in_progress") {
+  if (order.status !== "processing") {
     await updateStatusMutation.mutateAsync({
       orderId: order.id,
-      status: "in_progress",
+      status: "processing",
       notes: "Estado actualizado al imprimir QR",
     });
   }
@@ -412,7 +412,7 @@ const handlePrintOrder = () => {
                     <SelectContent>
                       <SelectItem value="pending">Pendiente</SelectItem>
                       <SelectItem value="assigned">Asignado</SelectItem>
-                      <SelectItem value="in_progress">En Proceso</SelectItem>
+                      <SelectItem value="processing">En Proceso</SelectItem>
                       <SelectItem value="completed">Completado</SelectItem>
                       <SelectItem value="cancelled">Cancelado</SelectItem>
                     </SelectContent>

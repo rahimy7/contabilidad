@@ -459,7 +459,7 @@ export const trips = pgTable("trips", {
   status: text("status").notNull().default("pending"), 
   // pending: Creado pero no enviado
   // active: Enviado al delivery
-  // in_progress: Delivery empezó a recoger
+  // processing: Delivery empezó a recoger
   // completed: Todos los pedidos recogidos
   // cancelled: Cancelado
   
@@ -841,7 +841,7 @@ export type NewTrip = typeof trips.$inferInsert;
 export type TripOrder = typeof tripOrders.$inferSelect;
 export type NewTripOrder = typeof tripOrders.$inferInsert;
 
-export type TripStatus = 'pending' | 'active' | 'in_progress' | 'completed' | 'cancelled';
+export type TripStatus = 'pending' | 'active' | 'processing' | 'completed' | 'cancelled';
 export type TripOrderStatus = 'pending' | 'picked' | 'skipped';
 
 // Extended types for API responses

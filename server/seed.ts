@@ -133,7 +133,7 @@ async function seedDatabase() {
       orderNumber: "ORD-1001",
       customerId: customer1.id,
       assignedUserId: technician1.id,
-      status: "in_progress",
+      status: "processing",
       totalAmount: "11000.00",
       notes: "Instalación en departamento nuevo",
       scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // mañana

@@ -194,7 +194,7 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, config:
 
     // 🔧 SOLUCIÓN: Obtener token fresco directamente de la DB
     const { getMasterStorage } = await import('./storage/index.js');
-    const storage = getMasterStorage();
+    const storage = await getMasterStorage();
     
     // Usar storeId del config, o el store conocido como fallback
     const storeId = config.storeId || 6;
@@ -912,7 +912,7 @@ ${collectedData.notes || 'Sin notas adicionales'}
     
     // Obtener configuración de WhatsApp
     const { getMasterStorage } = await import('./storage/index.js');
-    const storage = getMasterStorage();
+    const storage = await getMasterStorage();
     const whatsappConfig = await storage.getWhatsAppConfig(storeId);
     
     if (whatsappConfig) {
@@ -1084,7 +1084,7 @@ ${contactInfo} para coordinar la entrega.
     // ✅ 6. LOG DE AUDITORÍA
     try {
       const { getMasterStorage } = await import('./storage/index.js');
-      const storage = getMasterStorage();
+      const storage = await getMasterStorage();
       
       await storage.addWhatsAppLog({
         type: 'order_completed',
@@ -1575,7 +1575,7 @@ if (messageType === 'text') {
       console.log(`✅ MENSAJE GUARDADO - Conversación: ${conversationId}, Mensaje: ${dbMessageId}`);
       
       // ✅ REGISTRAR EN LOGS DE WHATSAPP (sistema central)
-      const masterStorage = getMasterStorage();
+      const masterStorage = await getMasterStorage();
       await masterStorage.addWhatsAppLog({
         type: 'incoming',
         phoneNumber: customerPhone,
@@ -2133,7 +2133,7 @@ async function processMessageStatus(
     console.log(`📊 STATUS UPDATE - MessageID: ${messageId}, Status: ${statusType}, Recipient: ${recipientId}`);
 
     // ✅ REGISTRAR STATUS EN BASE DE DATOS
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     await masterStorage.addWhatsAppLog({
       type: 'status',
       phoneNumber: recipientId,
@@ -2234,7 +2234,7 @@ async function processWebhookError(
     console.log(`💥 WEBHOOK ERROR - Code: ${errorCode}, Title: ${errorTitle}, Message: ${errorMessage}`);
 
     // Log error to database
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
    await masterStorage.addWhatsAppLog({
       type: 'error',
       phoneNumber: 'WEBHOOK_ERROR',
@@ -2291,7 +2291,7 @@ async function findStoreByPhoneNumberId(phoneNumberId: string) {
     
     // ✅ Import and initialize master storage
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     
     // Buscar configuración directamente en la base de datos
     const config = await masterStorage.getWhatsAppConfigByPhoneNumberId(phoneNumberId);
@@ -2996,7 +2996,7 @@ async function sendWhatsAppMessageDirect(phoneNumber: string, message: string, s
 
     // ✅ IMPORTACIÓN CORRECTA
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(storeId);
     
     if (!config) {
@@ -3118,7 +3118,7 @@ export async function safeWhatsAppLog(
 ): Promise<void> {
   try {
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     
     let validStoreId = logData.storeId || 0;
     
@@ -3263,7 +3263,7 @@ async function sendAutoResponseMessage(phoneNumber: string, trigger: string, sto
 
     // ✅ OBTENER CONFIG DE WHATSAPP
     const { getMasterStorage } = await import('./storage/index.js');
-    const storage = getMasterStorage();
+    const storage = await getMasterStorage();
     const config = await storage.getWhatsAppConfig(storeId);
     
     if (!config) {
@@ -3305,7 +3305,7 @@ async function sendInteractiveMessage(phoneNumber: string, messageText: string, 
 
     // 🔧 SOLUCIÓN: Obtener token fresco directamente de la DB
     const { getMasterStorage } = await import('./storage/index.js');
-    const storage = getMasterStorage();
+    const storage = await getMasterStorage();
     const storeId = config.storeId || 6;
     const freshConfig = await storage.getWhatsAppConfig(storeId);
     
@@ -3688,7 +3688,7 @@ async function executeNextAction(
 export async function findStoreByPhoneNumberSafe(phoneNumberId: string): Promise<any> {
   try {
     const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = getMasterStorage();
+    const masterStorage = await getMasterStorage();
     
     // ✅ INTENTAR BUSCAR POR phone_number_id
     const stores = await masterStorage.getAllVirtualStores();

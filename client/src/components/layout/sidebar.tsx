@@ -16,7 +16,7 @@ interface SidebarProps {
 
 interface ActiveTrip {
   id: number;
-  status: 'active' | 'in_progress' | 'pending' | 'completed';
+  status: 'active' | 'processing' | 'pending' | 'completed';
   tripNumber: string;
   totalOrders: number;
   completedOrders: number;
@@ -102,7 +102,7 @@ const { data: activeTrip } = useQuery<ActiveTrip | null>({
   const pendingTrips = Array.isArray(tripStats) ? tripStats.filter((trip: any) => trip.status === 'pending').length : 0;
   
   // Badge para delivery (muestra si tiene viaje activo)
-const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'in_progress';
+const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'processing';
   // Función para manejar el clic en las opciones del menú
   const handleMenuItemClick = () => {
     if (isMobile && onClose) {

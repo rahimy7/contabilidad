@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, Download, Printer, ShoppingCart } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, Download, Printer, ShoppingCart, Filter } from "lucide-react";
 import AssignmentModal from "@/components/orders/assignment-modal";
 import OrderDetailModal from "@/components/orders/order-detail-modal";
 import EditOrderModal from "@/components/orders/edit-order-modal";
@@ -40,7 +40,6 @@ type OrderWithDetails = {
   modificationCount?: number;
   storeId: number;
   
-  // ✅ AGREGAR ESTOS DOS CAMPOS:
   tripId?: number | null;
   tripNumber?: string | null;
   
@@ -92,29 +91,27 @@ export default function OrdersPage() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
 
-  // ✅ Usar hook con debounce
   const { debouncedUpdate, immediateUpdate, isPending } = useDebouncedOrderUpdate();
 
-  // Fetch orders
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders"],
     staleTime: 30_000,
   });
 
-  // Fetch users for assignment
   const { data: users = [], isLoading: usersLoading } = useQuery<Array<{id: number, name: string, role: string, status: string}>>({
     queryKey: ["/api/assignment-rules/available-users"],
     queryFn: () => apiRequest("GET", "/api/assignment-rules/available-users"),
     staleTime: 30_000,
   });
 
-  // Effect to handle URL parameters
   useEffect(() => {
     const params = new URLSearchParams(search);
     const viewId = params.get('view');
@@ -147,12 +144,8 @@ export default function OrdersPage() {
     }
   }, [orders, search, setLocation, usersLoading]);
 
-  // ✅ Handler para actualizar orden con debounce
   const handleUpdateOrder = (updates: Partial<OrderWithDetails> & { id: number }) => {
-    // Usar debounce para cambios normales
     debouncedUpdate(updates);
-    
-    // Cerrar modal después de programar la actualización
     setIsEditDialogOpen(false);
     setSelectedOrder(null);
   };
@@ -166,65 +159,61 @@ export default function OrdersPage() {
     }
   };
 
-  // Delete order mutation
- const deleteOrderMutation = useMutation({
-  mutationFn: async (id: number) => {
-    return apiRequest("DELETE", `/api/orders/${id}`);
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-    toast({
-      title: "Orden eliminada",
-      description: "La orden se ha eliminado correctamente.",
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: "Error",
-      description: "No se pudo eliminar la orden.",
-      variant: "destructive",
-    });
-    console.error("Error deleting order:", error);
-  },
-});
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/orders/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Orden eliminada",
+        description: "La orden se ha eliminado correctamente.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la orden.",
+        variant: "destructive",
+      });
+      console.error("Error deleting order:", error);
+    },
+  });
 
-const handleDeleteOrder = (order: OrderWithDetails) => {
-  if (window.confirm(`¿Estás seguro de eliminar la orden ${order.orderNumber}? Esta acción no se puede deshacer.`)) {
-    deleteOrderMutation.mutate(order.id);
-  }
-};
+  const handleDeleteOrder = (order: OrderWithDetails) => {
+    if (window.confirm(`¿Estás seguro de eliminar la orden ${order.orderNumber}? Esta acción no se puede deshacer.`)) {
+      deleteOrderMutation.mutate(order.id);
+    }
+  };
 
-// Agregar después de handleDeleteOrder:
-const handleAssignToTrip = (order: OrderWithDetails) => {
-  // ✅ PERMITIR órdenes pending SIN usuario para viajes compartidos
-  if (order.status === 'pending' && order.assignedUserId) {
-    toast({
-      title: "Advertencia",
-      description: "Las órdenes con usuario asignado deben confirmarse primero",
-      variant: "destructive",
-    });
-    return;
-  }
-  
-  if (order.tripId) {
-    toast({
-      title: "Información",
-      description: `Esta orden ya está en el viaje ${order.tripNumber || order.tripId}`,
-    });
-    return;
-  }
-  
-  // Mostrar mensaje apropiado
-  if (order.status === 'pending') {
-    toast({
-      title: "Asignando a viaje compartido",
-      description: "La orden se confirmará y agregará al viaje",
-    });
-  }
-  
-  assignToTripMutation.mutate(order.id);
-};
-  // Auto-assign mutation
+  const handleAssignToTrip = (order: OrderWithDetails) => {
+    if (order.status === 'pending' && order.assignedUserId) {
+      toast({
+        title: "Advertencia",
+        description: "Las órdenes con usuario asignado deben confirmarse primero",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (order.tripId) {
+      toast({
+        title: "Información",
+        description: `Esta orden ya está en el viaje ${order.tripNumber || order.tripId}`,
+      });
+      return;
+    }
+    
+    if (order.status === 'pending') {
+      toast({
+        title: "Asignando a viaje compartido",
+        description: "La orden se confirmará y agregará al viaje",
+      });
+    }
+    
+    assignToTripMutation.mutate(order.id);
+  };
+
   const autoAssignMutation = useMutation({
     mutationFn: (orderId: number) => apiRequest("POST", `/api/orders/${orderId}/auto-assign`),
     onSuccess: (data: any) => {
@@ -243,35 +232,44 @@ const handleAssignToTrip = (order: OrderWithDetails) => {
     },
   });
 
-  // Agregar después de las otras mutations (deleteOrderMutation, etc.)
-interface AssignToTripResponse {
-  success: boolean;
-  message: string;
-  tripId: number;
-  tripNumber: string;
-  orderStatus: string;
-  trip: any;
-}
+  interface AssignToTripResponse {
+    success: boolean;
+    message: string;
+    tripId: number;
+    tripNumber: string;
+    orderStatus: string;
+    trip: any;
+  }
 
-const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
-  mutationFn: async (orderId: number) => {
-    return apiRequest("POST", "/api/trips/assign-order", { orderId });
-  },
-  onSuccess: (data) => {
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-    toast({
-      title: "Orden asignada",
-      description: `Orden asignada al viaje ${data.tripNumber}`,
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: "Error",
-      description: error.message || "No se pudo asignar la orden al viaje",
-      variant: "destructive",
-    });
-  },
-});
+  const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
+    mutationFn: async (orderId: number) => {
+      return apiRequest("POST", "/api/trips/assign-order", { orderId });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Orden asignada",
+        description: `Orden asignada al viaje ${data.tripNumber}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo asignar la orden al viaje",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isToday = (dateString: string) => {
+    const orderDate = new Date(dateString);
+    const today = new Date();
+    return (
+      orderDate.getDate() === today.getDate() &&
+      orderDate.getMonth() === today.getMonth() &&
+      orderDate.getFullYear() === today.getFullYear()
+    );
+  };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = !searchTerm || 
@@ -281,25 +279,42 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
     
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    const matchesDate = dateFilter === "all" || 
+      (dateFilter === "today" && (
+        isToday(order.createdAt) || 
+        (order.lastStatusUpdate && isToday(order.lastStatusUpdate))
+      ));
+    
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   const orderStats = {
-    total: orders.length,
+    today: orders.filter(o => 
+      isToday(o.createdAt) || 
+      (o.lastStatusUpdate && isToday(o.lastStatusUpdate))
+    ).length,
     pending: orders.filter(o => o.status === 'pending').length,
-    inProgress: orders.filter(o => o.status === 'in_progress').length,
+    inProgress: orders.filter(o => o.status === 'processing').length,
     completed: orders.filter(o => o.status === 'completed').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
+  };
+
+  const handleStatClick = (filterType: string) => {
+    if (filterType === "today") {
+      setDateFilter("today");
+      setStatusFilter("all");
+    } else {
+      setDateFilter("all");
+      setStatusFilter(filterType);
+    }
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
       pending: { label: "Pendiente", className: "bg-yellow-100 text-yellow-800" },
-      confirmed: { label: "Confirmado", className: "bg-blue-100 text-blue-800" },
-      in_progress: { label: "En Progreso", className: "bg-purple-100 text-purple-800" },
+      processing: { label: "En Progreso", className: "bg-purple-100 text-purple-800" },
       completed: { label: "Completado", className: "bg-green-100 text-green-800" },
       cancelled: { label: "Cancelado", className: "bg-red-100 text-red-800" },
-      assigned: { label: "Asignado", className: "bg-indigo-100 text-indigo-800" },
     };
 
     const config = statusConfig[status] || { label: status, className: "bg-gray-100 text-gray-800" };
@@ -335,69 +350,148 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
     setSelectedOrder(order);
     setIsAssignDialogOpen(true);
   };
+const generateOrderPrint = async (order: OrderWithDetails) => {
+  try {
+    // Construir ticket ESC/POS
+    const ticket = buildESCPOSTicket(order);
+    
+    // Enviar al backend
+    const response = await fetch('/api/print/thermal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticket })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al imprimir');
+    }
+    
+    const result = await response.json();
+    
+    toast({
+      title: "✓ Impreso",
+      description: `Enviado por ${result.method}`,
+    });
+    
+  } catch (error: any) {
+    console.error('Print error:', error);
+    toast({
+      title: "Error de impresión",
+      description: error.message || "Verifica la conexión de la impresora",
+      variant: "destructive",
+    });
+  }
+};
 
-  const generateOrderPrint = (order: OrderWithDetails) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
 
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Orden ${order.orderNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #333; }
-          .section { margin: 20px 0; }
-          .label { font-weight: bold; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          @media print { button { display: none; } }
-        </style>
-      </head>
-      <body>
-        <h1>Orden ${order.orderNumber}</h1>
-        <div class="section">
-          <p><span class="label">Cliente:</span> ${order.customer?.name}</p>
-          <p><span class="label">Teléfono:</span> ${order.customer?.phone}</p>
-          <p><span class="label">Dirección:</span> ${order.customer?.address || 'N/A'}</p>
-        </div>
-        <div class="section">
-          <p><span class="label">Estado:</span> ${order.status}</p>
-          <p><span class="label">Total:</span> ${formatCurrency(order.totalAmount)}</p>
-          <p><span class="label">Técnico:</span> ${assignedUser(order)}</p>
-        </div>
-        <div class="section">
-          <h3>Productos</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Precio</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${order.items?.map(item => `
-                <tr>
-                  <td>${item.product?.name || 'Producto'}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.totalPrice)}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="4">No hay productos</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-        <button onclick="window.print()">Imprimir</button>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
+  // ✅ IMPRESIÓN DIRECTA A TÉRMICA (sin diálogo)
+  const printDirectToThermal = async (order: OrderWithDetails) => {
+    // @ts-ignore
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    
+    const ticket = buildESCPOSTicket(order);
+    const encoder = new TextEncoder();
+    const writer = port.writable.getWriter();
+    
+    await writer.write(encoder.encode(ticket));
+    await writer.close();
+    await port.close();
+    
+    toast({
+      title: "✓ Impreso",
+      description: "Ticket enviado a impresora térmica"
+    });
   };
+
+  // Construir ticket con comandos ESC/POS
+const buildESCPOSTicket = (order: OrderWithDetails): string => {
+  const ESC = '\x1B';
+  const GS = '\x1D';
+  const INIT = ESC + '@';
+  const CENTER = ESC + 'a' + '\x01';
+  const LEFT = ESC + 'a' + '\x00';
+  const BOLD_ON = ESC + 'E' + '\x01';
+  const BOLD_OFF = ESC + 'E' + '\x00';
+  const SIZE_DOUBLE = GS + '!' + '\x11';
+  const SIZE_NORMAL = GS + '!' + '\x00';
+  const CUT = GS + 'V' + '\x00';
+  const LINE = '-'.repeat(32);
+  
+  let ticket = INIT;
+  
+  // Header
+  ticket += CENTER + SIZE_DOUBLE + BOLD_ON;
+  ticket += 'ORDEN DE SERVICIO\n';
+  ticket += order.orderNumber + '\n';
+  ticket += BOLD_OFF + SIZE_NORMAL;
+  ticket += new Date(order.createdAt).toLocaleString('es-DO', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }) + '\n';
+  ticket += LINE + '\n';
+  
+  // Cliente
+  ticket += LEFT + BOLD_ON + 'Cliente:\n' + BOLD_OFF;
+  ticket += '  ' + (order.customer?.name || 'N/A') + '\n';
+  ticket += BOLD_ON + 'Tel: ' + BOLD_OFF + (order.customer?.phone || 'N/A') + '\n';
+  if (order.customer?.address) {
+    ticket += BOLD_ON + 'Dir:\n' + BOLD_OFF;
+    ticket += '  ' + order.customer.address + '\n';
+  }
+  ticket += LINE + '\n';
+  
+  // Estado
+  const statusText = 
+    order.status === 'pending' ? 'PENDIENTE' :
+    order.status === 'processing' ? 'EN PROCESO' :
+    order.status === 'completed' ? 'COMPLETADO' : 'CANCELADO';
+  
+  ticket += BOLD_ON + 'Estado: ' + BOLD_OFF + statusText + '\n';
+  
+  if (order.assignedUser) {
+    ticket += BOLD_ON + 'Tecnico: ' + BOLD_OFF + order.assignedUser.name + '\n';
+  }
+  ticket += LINE + '\n';
+  
+  // Productos
+  ticket += BOLD_ON + 'PRODUCTOS:\n' + BOLD_OFF;
+  order.items?.forEach(item => {
+    ticket += BOLD_ON + (item.product?.name || 'Producto') + '\n' + BOLD_OFF;
+    const qty = `${item.quantity} x ${formatCurrency(item.unitPrice)}`;
+    const total = formatCurrency(item.totalPrice);
+    const spaces = 32 - qty.length - total.length;
+    ticket += '  ' + qty + ' '.repeat(Math.max(1, spaces)) + total + '\n';
+  });
+  ticket += LINE + '\n';
+  
+  // Total
+  if (order.deliveryCost && parseFloat(order.deliveryCost) > 0) {
+    const deliveryLabel = 'Entrega:';
+    const deliveryAmt = formatCurrency(order.deliveryCost);
+    const spaces = 32 - deliveryLabel.length - deliveryAmt.length;
+    ticket += deliveryLabel + ' '.repeat(Math.max(1, spaces)) + deliveryAmt + '\n';
+  }
+  
+  ticket += SIZE_DOUBLE + BOLD_ON;
+  const totalLabel = 'TOTAL:';
+  const totalAmt = formatCurrency(order.totalAmount);
+  const totalSpaces = 16 - totalLabel.length - totalAmt.length / 2;
+  ticket += totalLabel + ' '.repeat(Math.max(1, totalSpaces)) + totalAmt + '\n';
+  ticket += BOLD_OFF + SIZE_NORMAL;
+  ticket += LINE + '\n';
+  
+  // Footer
+  ticket += CENTER + '\nGracias por su preferencia!\n';
+  if (order.notes) {
+    ticket += '\nNota: ' + order.notes + '\n';
+  }
+  
+  ticket += '\n\n\n';
+  ticket += CUT;
+  
+  return ticket;
+};
 
   const handleDownloadOrder = (order: OrderWithDetails) => {
     const orderData = {
@@ -441,109 +535,164 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
             Gestiona y monitorea todas las órdenes del sistema
           </p>
         </div>
-        <Button onClick={() => setLocation('/orders/new')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Orden
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)}
+            className="gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            {showFilters ? 'Ocultar Filtros' : 'Filtros'}
+          </Button>
+          <Button onClick={() => setLocation('/orders/new')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Orden
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-4">
+      <div className="grid grid-cols-5 gap-3">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            dateFilter === "today" && statusFilter === "all" 
+              ? "ring-2 ring-blue-500 bg-blue-50" 
+              : "bg-gradient-to-r from-blue-50 to-blue-100"
+          } border-blue-200`}
+          onClick={() => handleStatClick("today")}
+        >
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600">Total</p>
-                <p className="text-2xl font-bold text-blue-800">{orderStats.total}</p>
+                <p className="text-xs font-medium text-blue-600">Total Hoy</p>
+                <p className="text-xl font-bold text-blue-800">{orderStats.today}</p>
               </div>
-              <Package className="h-8 w-8 text-blue-600" />
+              <Package className="h-6 w-6 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
-          <CardContent className="p-4">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            statusFilter === "pending" && dateFilter === "all"
+              ? "ring-2 ring-yellow-500 bg-yellow-50" 
+              : "bg-gradient-to-r from-yellow-50 to-yellow-100"
+          } border-yellow-200`}
+          onClick={() => handleStatClick("pending")}
+        >
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-yellow-600">Pendientes</p>
-                <p className="text-2xl font-bold text-yellow-800">{orderStats.pending}</p>
+                <p className="text-xs font-medium text-yellow-600">Pendientes</p>
+                <p className="text-xl font-bold text-yellow-800">{orderStats.pending}</p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
+              <Clock className="h-6 w-6 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-4">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            statusFilter === "processing" && dateFilter === "all"
+              ? "ring-2 ring-purple-500 bg-purple-50" 
+              : "bg-gradient-to-r from-purple-50 to-purple-100"
+          } border-purple-200`}
+          onClick={() => handleStatClick("processing")}
+        >
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600">En Progreso</p>
-                <p className="text-2xl font-bold text-purple-800">{orderStats.inProgress}</p>
+                <p className="text-xs font-medium text-purple-600">En Progreso</p>
+                <p className="text-xl font-bold text-purple-800">{orderStats.inProgress}</p>
               </div>
-              <UserCheck className="h-8 w-8 text-purple-600" />
+              <UserCheck className="h-6 w-6 text-purple-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-4">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            statusFilter === "completed" && dateFilter === "all"
+              ? "ring-2 ring-green-500 bg-green-50" 
+              : "bg-gradient-to-r from-green-50 to-green-100"
+          } border-green-200`}
+          onClick={() => handleStatClick("completed")}
+        >
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600">Completados</p>
-                <p className="text-2xl font-bold text-green-800">{orderStats.completed}</p>
+                <p className="text-xs font-medium text-green-600">Completados</p>
+                <p className="text-xl font-bold text-green-800">{orderStats.completed}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-red-50 to-red-100 border-red-200">
-          <CardContent className="p-4">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            statusFilter === "cancelled" && dateFilter === "all"
+              ? "ring-2 ring-red-500 bg-red-50" 
+              : "bg-gradient-to-r from-red-50 to-red-100"
+          } border-red-200`}
+          onClick={() => handleStatClick("cancelled")}
+        >
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-red-600">Cancelados</p>
-                <p className="text-2xl font-bold text-red-800">{orderStats.cancelled}</p>
+                <p className="text-xs font-medium text-red-600">Cancelados</p>
+                <p className="text-xl font-bold text-red-800">{orderStats.cancelled}</p>
               </div>
-              <XCircle className="h-8 w-8 text-red-600" />
+              <XCircle className="h-6 w-6 text-red-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filtros de Búsqueda</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por número de orden, cliente o teléfono..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+      {showFilters && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Filtros de Búsqueda</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por número de orden, cliente o teléfono..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="processing">En Progreso</SelectItem>
+                  <SelectItem value="completed">Completado</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Fecha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las fechas</SelectItem>
+                  <SelectItem value="today">Hoy</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="confirmed">Confirmado</SelectItem>
-                <SelectItem value="in_progress">En Progreso</SelectItem>
-                <SelectItem value="completed">Completado</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Orders List */}
       <div className="grid gap-4">
@@ -553,154 +702,153 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No se encontraron órdenes</h3>
               <p className="text-muted-foreground text-center">
-                {searchTerm || statusFilter !== "all"
+                {searchTerm || statusFilter !== "all" || dateFilter !== "all"
                   ? "Intenta ajustar los filtros de búsqueda"
                   : "Aún no hay órdenes en el sistema"}
               </p>
             </CardContent>
           </Card>
         ) : (
-      filteredOrders.map((order) => (
-  <Card 
-    key={order.id} 
-    className="hover:shadow-md transition-shadow cursor-pointer"
-    onClick={() => handleViewOrder(order)} // ← NUEVO: Click abre detalle
-  >
-    <CardContent className="p-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">{order.orderNumber}</h3>
-            {getStatusBadge(order.status)}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              <span>{order.customer?.name || "Cliente no especificado"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>📞</span>
-              <span>{order.customer?.phone || "Teléfono no disponible"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              <span>{order.customer?.address || order.description || "Dirección no especificada"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>👷</span>
-              <span>{assignedUser(order)}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="text-right">
-            <div className="text-lg font-bold text-green-600">
-              {formatCurrency(order.totalAmount)}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {new Date(order.createdAt || '').toLocaleDateString('es-MX')}
-            </div>
-          </div>
-          
-          {/* ✅ Todos los botones ya tienen stopPropagation */}
-          <div className="flex gap-2">
-          {!order.tripId && (order.status !== 'pending' || !order.assignedUserId) && (
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleAssignToTrip(order);
-    }}
-    disabled={assignToTripMutation.isPending}
-    className="text-green-600 hover:text-green-700"
-    title={
-      order.status === 'pending' && !order.assignedUserId
-        ? "Asignar a viaje compartido"
-        : "Asignar a viaje"
-    }
-  >
-    <Truck className="w-4 h-4" />
-  </Button>
-)}
+          filteredOrders.map((order) => (
+            <Card 
+              key={order.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => handleViewOrder(order)}
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold">{order.orderNumber}</h3>
+                      {getStatusBadge(order.status)}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4" />
+                        <span>{order.customer?.name || "Cliente no especificado"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>📞</span>
+                        <span>{order.customer?.phone || "Teléfono no disponible"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{order.customer?.address || order.description || "Dirección no especificada"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>👷</span>
+                        <span>{assignedUser(order)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-green-600">
+                        {formatCurrency(order.totalAmount)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(order.createdAt || '').toLocaleDateString('es-MX')}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {!order.tripId && (order.status !== 'pending' || !order.assignedUserId) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAssignToTrip(order);
+                          }}
+                          disabled={assignToTripMutation.isPending}
+                          className="text-green-600 hover:text-green-700"
+                          title={
+                            order.status === 'pending' && !order.assignedUserId
+                              ? "Asignar a viaje compartido"
+                              : "Asignar a viaje"
+                          }
+                        >
+                          <Truck className="w-4 h-4" />
+                        </Button>
+                      )}
 
-{order.tripId && (
-  <Button
-    variant="outline"
-    size="sm"
-    disabled
-    className="text-gray-400"
-    title={`Ya asignada a viaje ${order.tripNumber || order.tripId}`}
-  >
-    <Truck className="w-4 h-4" />
-  </Button>
-)}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditOrder(order);
-              }}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickAssign(order);
-              }}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              <UserCheck className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                generateOrderPrint(order);
-              }}
-              className="text-green-600 hover:text-green-700"
-            >
-              <Printer className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownloadOrder(order);
-              }}
-              className="text-purple-600 hover:text-purple-700"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteOrder(order); // ← CAMBIO: Usa la nueva función
-              }}
-              disabled={deleteOrderMutation.isPending}
-              className="text-red-600 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-))
+                      {order.tripId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="text-gray-400"
+                          title={`Ya asignada a viaje ${order.tripNumber || order.tripId}`}
+                        >
+                          <Truck className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditOrder(order);
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickAssign(order);
+                        }}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <UserCheck className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          generateOrderPrint(order);
+                        }}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadOrder(order);
+                        }}
+                        className="text-purple-600 hover:text-purple-700"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteOrder(order);
+                        }}
+                        disabled={deleteOrderMutation.isPending}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
 
-      {/* Edit Order Modal */}
+      {/* Modals */}
       <EditOrderModal 
         order={selectedOrder}
         isOpen={isEditDialogOpen}
@@ -713,14 +861,12 @@ const assignToTripMutation = useMutation<AssignToTripResponse, Error, number>({
         isPending={isPending}
       />
 
-      {/* View Order Modal */}
       <OrderDetailModal 
         order={selectedOrder as any}
         isOpen={isViewDialogOpen}
         onClose={() => setIsViewDialogOpen(false)}
       />
 
-      {/* Assignment Modal */}
       <AssignmentModal 
         order={selectedOrder}
         isOpen={isAssignDialogOpen}

@@ -133,13 +133,13 @@ export default function Reports() {
 
   // Orders by status chart data
   const statusChartData = React.useMemo(() => {
-    const statuses = ["pending", "assigned", "in_progress", "completed", "cancelled"];
+    const statuses = ["pending", "assigned", "processing", "completed", "cancelled"];
     return statuses.map((status) => {
       const count = filteredOrders.filter((order: any) => order.status === status).length;
       const statusLabels: Record<string, string> = {
         pending: "Pendiente",
         assigned: "Asignado", 
-        in_progress: "En Proceso",
+        processing: "En Proceso",
         completed: "Completado",
         cancelled: "Cancelado"
       };
@@ -197,7 +197,7 @@ export default function Reports() {
     const colors: Record<string, string> = {
       pending: "#ef4444",
       assigned: "#3b82f6",
-      in_progress: "#f59e0b",
+      processing: "#f59e0b",
       completed: "#10b981",
       cancelled: "#6b7280"
     };
@@ -270,7 +270,7 @@ export default function Reports() {
                   <SelectItem value="all">Todos los Estados</SelectItem>
                   <SelectItem value="pending">Pendiente</SelectItem>
                   <SelectItem value="assigned">Asignado</SelectItem>
-                  <SelectItem value="in_progress">En Proceso</SelectItem>
+                  <SelectItem value="processing">En Proceso</SelectItem>
                   <SelectItem value="completed">Completado</SelectItem>
                   <SelectItem value="cancelled">Cancelado</SelectItem>
                 </SelectContent>

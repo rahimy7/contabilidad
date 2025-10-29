@@ -103,11 +103,7 @@ function StatusBadge({ status }: { status: string }) {
     switch (status) {
       case 'pending':
         return { label: 'Pendiente', variant: 'secondary' as const };
-      case 'confirmed':
-        return { label: 'Confirmado', variant: 'default' as const };
-      case 'assigned':
-        return { label: 'Asignado', variant: 'default' as const };
-      case 'in_progress':
+         case 'processing':
         return { label: 'En Progreso', variant: 'default' as const };
       case 'completed':
         return { label: 'Completado', variant: 'default' as const };
@@ -352,7 +348,7 @@ export default function TechnicianDashboard() {
 
   // Filter orders by status
   const pendingOrders = orders.filter(order => order.status === 'assigned' || order.status === 'pending');
-  const inProgressOrders = orders.filter(order => order.status === 'in_progress');
+  const inProgressOrders = orders.filter(order => order.status === 'processing');
   const completedOrders = orders.filter(order => order.status === 'completed');
   
   // Calculate completed today
@@ -379,7 +375,7 @@ export default function TechnicianDashboard() {
 
   // Filtered orders by status
   const filteredPendingOrders = filteredOrders.filter(order => order.status === 'assigned' || order.status === 'pending');
-  const filteredInProgressOrders = filteredOrders.filter(order => order.status === 'in_progress');
+  const filteredInProgressOrders = filteredOrders.filter(order => order.status === 'processing');
   const filteredCompletedOrders = filteredOrders.filter(order => order.status === 'completed');
 
   return (
@@ -567,7 +563,7 @@ export default function TechnicianDashboard() {
                         <Button 
                           size="sm"
                           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={() => updateOrderStatus.mutate({ orderId: order.id, status: 'in_progress' })}
+                          onClick={() => updateOrderStatus.mutate({ orderId: order.id, status: 'processing' })}
                           disabled={updateOrderStatus.isPending}
                         >
                           <Play className="w-4 h-4 mr-2" />

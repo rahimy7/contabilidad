@@ -46,7 +46,7 @@ async getCustomerActiveOrders(customerId: number) {
   const orders = await this.storage.getAllOrders(); // usa método existente
   return orders.filter(o =>
     o.customerId === customerId &&
-    ['pending', 'confirmed', 'processing', 'shipped'].includes(o.status)
+    ['pending', 'processing'].includes(o.status)
   );
 }
 
@@ -469,10 +469,10 @@ El equipo de soporte revisará tu nota y te contactará si es necesario.`,
   private getStatusEmoji(status: string): string {
     const statusEmojis: { [key: string]: string } = {
       'pending': '⏳',
-      'confirmed': '✅',
+
       'processing': '🔄',
-      'shipped': '🚚',
-      'delivered': '📦',
+  
+   
       'cancelled': '❌',
       'completed': '✅'
     };
@@ -482,10 +482,10 @@ El equipo de soporte revisará tu nota y te contactará si es necesario.`,
   private getStatusText(status: string): string {
     const statusTexts: { [key: string]: string } = {
       'pending': 'Pendiente',
-      'confirmed': 'Confirmado',
+ 
       'processing': 'En Proceso',
-      'shipped': 'Enviado',
-      'delivered': 'Entregado',
+
+
       'cancelled': 'Cancelado',
       'completed': 'Completado'
     };

@@ -32,7 +32,7 @@ export function DeleteTripButton({ trip, onSuccess }: DeleteTripButtonProps) {
   const { toast } = useToast();
 
   // No mostrar botón si está en progreso
-  if (trip.status === 'in_progress') {
+  if (trip.status === 'processing') {
     return null;
   }
 

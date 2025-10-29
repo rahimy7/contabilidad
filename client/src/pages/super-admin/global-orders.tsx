@@ -26,7 +26,7 @@ interface GlobalOrder {
   storeName: string;
   customerName: string;
   customerPhone: string;
-  status: 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   totalAmount: number;
   orderDate: string;
@@ -74,9 +74,7 @@ export default function GlobalOrders() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed': return 'bg-blue-100 text-blue-800';
-      case 'assigned': return 'bg-purple-100 text-purple-800';
-      case 'in_progress': return 'bg-orange-100 text-orange-800';
+      case 'processing': return 'bg-orange-100 text-orange-800';
       case 'completed': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -96,9 +94,7 @@ export default function GlobalOrders() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="h-4 w-4" />;
-      case 'confirmed': return <CheckCircle className="h-4 w-4" />;
-      case 'assigned': return <Users className="h-4 w-4" />;
-      case 'in_progress': return <Package className="h-4 w-4" />;
+      case 'processing': return <Package className="h-4 w-4" />;
       case 'completed': return <CheckCircle className="h-4 w-4" />;
       case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
@@ -274,9 +270,7 @@ export default function GlobalOrders() {
             >
               <option value="all">Todos los estados</option>
               <option value="pending">Pendientes</option>
-              <option value="confirmed">Confirmados</option>
-              <option value="assigned">Asignados</option>
-              <option value="in_progress">En proceso</option>
+              <option value="processing">En proceso</option>
               <option value="completed">Completados</option>
               <option value="cancelled">Cancelados</option>
             </select>
@@ -334,9 +328,7 @@ export default function GlobalOrders() {
                   <div className="flex items-center space-x-2">
                     <Badge className={getStatusColor(order.status)}>
                       {order.status === 'pending' && 'Pendiente'}
-                      {order.status === 'confirmed' && 'Confirmado'}
-                      {order.status === 'assigned' && 'Asignado'}
-                      {order.status === 'in_progress' && 'En Proceso'}
+                      {order.status === 'processing' && 'En Proceso'}
                       {order.status === 'completed' && 'Completado'}
                       {order.status === 'cancelled' && 'Cancelado'}
                     </Badge>

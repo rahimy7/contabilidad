@@ -282,18 +282,22 @@ async getActiveCategories() {
       }
     },
 
-    async getOrderById(id: number) {
-      try {
-        const [order] = await tenantDb.select()
-          .from(schema.orders)
-          .where(eq(schema.orders.id, id))
-          .limit(1);
-        return order || null;
-      } catch (error) {
-        console.error('Error getting order by ID:', error);
-        return null;
-      }
-    },
+  async getOrderById(id: number) {
+  try {
+    const [order] = await tenantDb.select()
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.id, id),
+        )
+      )
+      .limit(1);
+    return order || null;
+  } catch (error) {
+    console.error('Error getting order by ID:', error);
+    return null;
+  }
+},
 
 async createOrder(orderData: any, items: any[] = []) {
   try {
@@ -2510,10 +2514,10 @@ async getTechnicianConversations(userId: number) {
         eq(schema.orders.assignedUserId, userId),
         // Solo órdenes abiertas (no completadas ni canceladas)
         or(
-          eq(schema.orders.status, 'assigned'),
+         
           eq(schema.orders.status, 'pending'),
-          eq(schema.orders.status, 'in_progress'),
-          eq(schema.orders.status, 'confirmed')
+          eq(schema.orders.status, 'processing'),
+       
         )
       ));
 
@@ -2592,10 +2596,10 @@ const conversations = await tenantDb.select({
               eq(schema.orders.customerId, conversation.customerId),
               eq(schema.orders.assignedUserId, userId),
               or(
-                eq(schema.orders.status, 'assigned'),
+          
                 eq(schema.orders.status, 'pending'),
-                eq(schema.orders.status, 'in_progress'),
-                eq(schema.orders.status, 'confirmed')
+                eq(schema.orders.status, 'processing')
+        
               )
             ))
             .orderBy(desc(schema.orders.createdAt))
@@ -3915,7 +3919,7 @@ async getUserWorkload(userId: number) {
           eq(schema.orders.assignedUserId, userId),
           or(
             eq(schema.orders.status, 'assigned'),
-            eq(schema.orders.status, 'in_progress'),
+            eq(schema.orders.status, 'processing'),
             eq(schema.orders.status, 'preparing')
           )
         )

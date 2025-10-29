@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Package, User, MapPin, Clock, CheckCircle, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,7 +42,7 @@ interface Trip {
   totalAmount: string;
   createdAt: string;
   sentAt?: string;
-  assignedUser: {
+  assignedUser?: {
     name: string;
     phone: string;
   };
@@ -101,9 +101,12 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
 
       if (!res.ok) throw new Error('Error al enviar viaje');
 
+      // ✅ FIX: Validar que assignedUser exista antes de acceder a .name
+      const userName = trip.assignedUser?.name || 'el usuario asignado';
+      
       toast({
         title: 'Viaje enviado',
-        description: `${trip.tripNumber} fue enviado a ${trip.assignedUser.name}`
+        description: `${trip.tripNumber} fue enviado a ${userName}`
       });
 
       onTripSent?.();
@@ -119,197 +122,231 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { label: string; variant: any }> = {
-      pending: { label: 'Pendiente', variant: 'secondary' },
-      active: { label: 'Activo', variant: 'default' },
-      in_progress: { label: 'En Progreso', variant: 'default' },
-      completed: { label: 'Completado', variant: 'default' },
-      cancelled: { label: 'Cancelado', variant: 'destructive' }
-    };
-
-    const config = variants[status] || { label: status, variant: 'secondary' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const openOrderDetails = async (orderId: number) => {
-    const token = localStorage.getItem('auth_token');
+  const handleViewOrder = async (orderId: number) => {
     try {
+      const token = localStorage.getItem('auth_token');
       const res = await fetch(`/api/orders/${orderId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Error al cargar detalle del pedido');
+      if (!res.ok) throw new Error('Error al cargar orden');
+      
       const data = await res.json();
-
       setOrderDetails(data);
       setOrderDetailOpen(true);
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo cargar el detalle del pedido',
+        description: 'No se pudo cargar la orden',
         variant: 'destructive'
       });
     }
   };
 
-  if (loading) {
-    return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Cargando...</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { label: string; className: string }> = {
+      pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
+      picked: { label: 'Recogido', className: 'bg-blue-100 text-blue-800' },
+      delivered: { label: 'Entregado', className: 'bg-green-100 text-green-800' },
+      cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-800' }
+    };
 
-  if (!trip) return null;
+    const config = variants[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
+    return (
+      <Badge className={config.className}>
+        {config.label}
+      </Badge>
+    );
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <Package className="h-6 w-6" />
-            {trip.tripNumber}
-            {getStatusBadge(trip.status)}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalle del Viaje {trip?.tripNumber}</DialogTitle>
+            {/* ✅ FIX: Agregar DialogDescription para accesibilidad */}
+            <DialogDescription>
+              Información completa del viaje y sus órdenes asociadas
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Info del Delivery */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Información del Delivery
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Nombre</p>
-                  <p className="font-medium">{trip.assignedUser.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Teléfono</p>
-                  <p className="font-medium">{trip.assignedUser.phone}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+            </div>
+          ) : trip ? (
+            <div className="space-y-6">
+              {/* Info del viaje */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Delivery Asignado
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* ✅ FIX: Validar que assignedUser exista */}
+                    {trip.assignedUser ? (
+                      <>
+                        <p className="font-medium">{trip.assignedUser.name}</p>
+                        <p className="text-sm text-gray-500">{trip.assignedUser.phone}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">Sin asignar</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-          {/* Resumen */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen del Viaje</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{trip.totalOrders}</p>
-                  <p className="text-sm text-gray-500">Total Pedidos</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{trip.completedOrders}</p>
-                  <p className="text-sm text-gray-500">Completados</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">
-                    ${parseFloat(trip.totalAmount).toLocaleString()}
-                  </p>
-                  <p className="text-sm text-gray-500">Monto Total</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Lista de Pedidos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Pedidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {trip.orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-start justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                    onClick={() => openOrderDetails(order.orderId)}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium">{order.orderNumber}</span>
-                        {order.status === 'picked' ? (
-                          <Badge variant="default" className="bg-green-500">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Recogido
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Pendiente</Badge>
-                        )}
-                        {order.scannedQR && (
-                          <Badge variant="outline" className="text-xs">QR</Badge>
-                        )}
-                      </div>
-
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {order.order.customer.name}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {order.order.customer.address}
-                        </div>
-                      </div>
-
-                      {order.pickedAt && (
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                          <Clock className="h-3 w-3" />
-                          Recogido: {new Date(order.pickedAt).toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        ${parseFloat(order.order.totalAmount).toLocaleString()}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Estado del Viaje
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {getStatusBadge(trip.status)}
+                      <p className="text-sm text-gray-500">
+                        {trip.completedOrders}/{trip.totalOrders} órdenes completadas
                       </p>
                     </div>
-                  </div>
-                ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Fechas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1 text-sm">
+                      <p>
+                        <span className="text-gray-500">Creado:</span>{' '}
+                        {new Date(trip.createdAt).toLocaleString()}
+                      </p>
+                      {trip.sentAt && (
+                        <p>
+                          <span className="text-gray-500">Enviado:</span>{' '}
+                          {new Date(trip.sentAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Total
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">
+                      ${parseFloat(trip.totalAmount).toLocaleString()}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Acciones */}
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
+              {/* Lista de órdenes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Órdenes del Viaje</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {trip.orders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{order.orderNumber}</span>
+                            {getStatusBadge(order.status)}
+                            {order.scannedQR && (
+                              <Badge variant="outline" className="text-xs">
+                                QR Escaneado
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <p className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {order.order.customer.name}
+                            </p>
+                            <p className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {order.order.customer.address}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right space-x-2">
+                          <span className="font-bold">
+                            ${parseFloat(order.order.totalAmount).toLocaleString()}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewOrder(order.orderId)}
+                          >
+                            Ver
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {trip.status === 'pending' && (
-              <Button onClick={handleSendTrip} disabled={sending}>
-                <Send className="h-4 w-4 mr-2" />
-                {sending ? 'Enviando...' : 'Enviar Viaje'}
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
+              {/* Botón de enviar */}
+              {trip.status === 'pending' && (
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSendTrip}
+                    disabled={sending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {sending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Enviar Viaje
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No se encontró el viaje
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-      {/* Modal de Detalle de Orden */}
-      <OrderDetailModal
-        order={orderDetails}
-        isOpen={orderDetailOpen}
-        onClose={() => setOrderDetailOpen(false)}
-      />
-    </Dialog>
+      {/* Modal de detalle de orden */}
+      {orderDetails && (
+        <OrderDetailModal
+          order={orderDetails}
+          isOpen={orderDetailOpen}
+          onClose={() => {
+            setOrderDetailOpen(false);
+            setOrderDetails(null);
+          }}
+        />
+      )}
+    </>
   );
 }

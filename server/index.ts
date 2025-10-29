@@ -31,6 +31,7 @@ import { createWebOrder } from './routes/create-web-order.ts';
 import { startScheduledTasks } from './scheduled-tasks.ts';
 import { getTenantStorage, getTenantStorageBySlug } from './storage/index.js';
 import { getDefaultTenantStorage } from './tenant-storage.ts';
+import { setupPrintRoutes } from './print-routes';
 
 
 
@@ -71,7 +72,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-
+setupPrintRoutes(app);
 
 // ================================
 // CONFIGURACIÓN MULTER
