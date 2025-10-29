@@ -1,7 +1,7 @@
 // server/routes/trip-routes.ts
 import { Router } from 'express';
 import express from 'express';
-import { eq, and, or, desc, count, sql } from 'drizzle-orm';
+import { eq, and, or, desc, count, sql, gte, lte } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantStorage } from '../storage';
 import { getTenantDb } from '../multi-tenant-db';
@@ -450,6 +450,78 @@ router.post('/trips/assign-order', authenticateToken, async (req: any, res: any)
       error: 'Error al asignar orden a viaje',
       details: error.message 
     });
+  }
+});
+
+router.get('/trips/my-trips', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const storeId = req.user!.storeId;
+    const { status, from, to } = req.query;
+    
+    const db = await getTenantDb(storeId);
+    
+    // Construir query con filtros opcionales
+    let query = db
+      .select({
+        trip: trips,
+        assignedUser: {
+          id: users.id,
+          name: users.name,
+          role: users.role,
+        },
+      })
+      .from(trips)
+      .leftJoin(users, eq(trips.assignedUserId, users.id))
+      .where(
+        and(
+          eq(trips.assignedUserId, userId),
+          eq(trips.storeId, storeId)
+        )
+      );
+
+    // Aplicar filtros
+    const conditions = [
+      eq(trips.assignedUserId, userId),
+      eq(trips.storeId, storeId)
+    ];
+
+    if (status && status !== 'all') {
+      conditions.push(eq(trips.status, status as string));
+    }
+
+    if (from) {
+      conditions.push(gte(trips.createdAt, new Date(from as string)));
+    }
+
+    if (to) {
+      conditions.push(lte(trips.createdAt, new Date(to as string)));
+    }
+
+    const results = await db
+      .select({
+        trip: trips,
+        assignedUser: {
+          id: users.id,
+          name: users.name,
+          role: users.role,
+        },
+      })
+      .from(trips)
+      .leftJoin(users, eq(trips.assignedUserId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(trips.createdAt));
+
+    // Formatear respuesta
+    const formattedTrips = results.map(r => ({
+      ...r.trip,
+      assignedUser: r.assignedUser,
+    }));
+
+    res.json(formattedTrips);
+  } catch (error) {
+    console.error('Error fetching my trips:', error);
+    res.status(500).json({ error: 'Error al obtener viajes' });
   }
 });
 
