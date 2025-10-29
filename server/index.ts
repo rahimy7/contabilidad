@@ -72,7 +72,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-setupPrintRoutes(app);
+
 
 // ================================
 // CONFIGURACIÓN MULTER
@@ -146,6 +146,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.post('/api/orders/create-web-order', createWebOrder);
+
+setupPrintRoutes(app);
 
 // ================================
 // API ROUTER SETUP

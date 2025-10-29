@@ -1,151 +1,188 @@
-// server/print-routes.ts
+// server/print-routes.ts - Versión multi-método para impresoras Bluetooth
 import { Express } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-// Configuración de la impresora
-const PRINTER_CONFIG = {
-  // Cambiar según tu impresora:
-  vendorId: 0x0416,  // ID del fabricante (verificar con lsusb en Linux o Device Manager en Windows)
-  productId: 0x5011, // ID del producto
-  baudRate: 9600,
-  // O usar nombre de impresora de Windows:
-  windowsPrinterName: 'POS-58'
-};
+const execAsync = promisify(exec);
 
 export function setupPrintRoutes(app: Express) {
   
   // POST /api/print/thermal - Imprimir en impresora térmica
   app.post('/api/print/thermal', async (req, res) => {
     try {
+      console.log('📥 Body recibido:', req.body);
+      
       const { ticket } = req.body;
       
       if (!ticket) {
         return res.status(400).json({ error: 'Ticket data required' });
       }
 
-      // Opción 1: USB con escpos (Linux/Mac/Windows)
+      const tempDir = path.join(process.cwd(), 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      
+      const timestamp = Date.now();
+      const tempFile = path.join(tempDir, `ticket-${timestamp}.txt`);
+      
+      // Escribir como binario puro
+      fs.writeFileSync(tempFile, ticket, 'binary');
+      
+      console.log(`✅ Ticket guardado en: ${tempFile}`);
+
       try {
-        const escpos = require('escpos');
-        escpos.USB = require('escpos-usb');
-        
-        const device = new escpos.USB(
-          PRINTER_CONFIG.vendorId,
-          PRINTER_CONFIG.productId
-        );
-        
-        const printer = new escpos.Printer(device);
-        
-        await new Promise((resolve, reject) => {
-          device.open((error: any) => {
-            if (error) {
-              reject(error);
-              return;
-            }
+        if (process.platform === 'win32') {
+          // Buscar impresora POS58
+          const { stdout } = await execAsync(
+            'wmic printer where "name like \'%POS58%\'" get name,portname /value'
+          );
+          
+          const nameMatch = stdout.match(/Name=(.+)/);
+          const portMatch = stdout.match(/PortName=(.+)/);
+          
+          const printerName = nameMatch ? nameMatch[1].trim() : 'POS58 Printer(2)';
+          const portName = portMatch ? portMatch[1].trim() : null;
+          
+          console.log(`🖨️ Impresora: ${printerName}`);
+          console.log(`🔌 Puerto: ${portName}`);
+          
+          // Método 1: Si es puerto COM, escribir directamente
+          if (portName && portName.startsWith('COM')) {
+            console.log(`📡 Intentando escritura directa a ${portName}...`);
             
-            printer
-              .font('a')
-              .align('ct')
-              .style('bu')
-              .size(1, 1)
-              .text(ticket)
-              .cut()
-              .close(() => resolve(true));
+            try {
+              // Leer el contenido binario
+              const data = fs.readFileSync(tempFile);
+              
+              // Escribir directamente al puerto COM
+              fs.writeFileSync(portName, data);
+              
+              console.log(`✅ Impreso directamente en ${portName}`);
+              
+              setTimeout(() => {
+                try { fs.unlinkSync(tempFile); } catch {}
+              }, 3000);
+              
+              return res.json({
+                success: true,
+                method: 'COM-Direct',
+                printer: printerName,
+                port: portName
+              });
+            } catch (comError) {
+              console.log(`⚠️ Error en COM directo:`, comError);
+            }
+          }
+          
+          // Método 2: Comando print de Windows
+          console.log('📝 Intentando con comando print...');
+          const printCmd = `print /D:"${printerName}" "${tempFile}"`;
+          await execAsync(printCmd);
+          
+          console.log('✅ Impreso con comando print');
+          
+          setTimeout(() => {
+            try { fs.unlinkSync(tempFile); } catch {}
+          }, 3000);
+          
+          return res.json({
+            success: true,
+            method: 'Windows-Print',
+            printer: printerName,
+            port: portName
           });
-        });
-        
-        res.json({ success: true, method: 'USB' });
-        
-      } catch (usbError) {
-        console.log('USB failed, trying serial port...', usbError);
-        
-        // Opción 2: Puerto Serial (Bluetooth/USB-Serial)
-        const { SerialPort } = require('serialport');
-        
-        // Detectar puerto automáticamente
-        const ports = await SerialPort.list();
-        const thermalPort = ports.find((p: any) => 
-          p.manufacturer?.includes('USB') || 
-          p.path.includes('COM') ||
-          p.path.includes('ttyUSB')
-        );
-        
-        if (!thermalPort) {
-          throw new Error('No se encontró impresora térmica');
         }
         
-        const port = new SerialPort({
-          path: thermalPort.path,
-          baudRate: PRINTER_CONFIG.baudRate
-        });
+        throw new Error('Solo Windows soportado');
         
-        await new Promise((resolve, reject) => {
-          port.write(ticket, (err: any) => {
-            if (err) reject(err);
-            else {
-              port.drain(() => {
-                port.close();
-                resolve(true);
-              });
-            }
-          });
-        });
+      } catch (printError: any) {
+        console.error('❌ Error al imprimir:', printError.message);
         
-        res.json({ 
-          success: true, 
-          method: 'Serial',
-          port: thermalPort.path 
+        // Fallback: guardar archivo
+        const printsDir = path.join(process.cwd(), 'prints');
+        if (!fs.existsSync(printsDir)) {
+          fs.mkdirSync(printsDir, { recursive: true });
+        }
+        
+        const printFile = path.join(printsDir, `ticket-${timestamp}.txt`);
+        fs.copyFileSync(tempFile, printFile);
+        fs.unlinkSync(tempFile);
+        
+        console.log(`💾 Guardado en: ${printFile}`);
+        
+        res.json({
+          success: true,
+          method: 'File',
+          file: printFile,
+          message: `No se pudo imprimir: ${printError.message}`
         });
       }
       
     } catch (error: any) {
       console.error('Print error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error al imprimir',
-        details: error.message 
+        details: error.message
       });
     }
   });
 
-  // GET /api/print/test - Probar impresora
+  // GET /api/print/list-printers - Listar impresoras con puertos
+  app.get('/api/print/list-printers', async (req, res) => {
+    try {
+      if (process.platform === 'win32') {
+        const { stdout } = await execAsync(
+          'wmic printer get name,default,printerstatus,portname /format:csv'
+        );
+        
+        const lines = stdout.split('\n').filter(l => l.trim() && !l.startsWith('Node'));
+        const printers = lines.map(line => {
+          const [, defaultVal, name, portName, status] = line.split(',');
+          return {
+            name: name?.trim(),
+            isDefault: defaultVal?.trim() === 'TRUE',
+            status: parseInt(status?.trim() || '0'),
+            port: portName?.trim()
+          };
+        }).filter(p => p.name);
+        
+        return res.json({ printers, method: 'wmic' });
+      }
+
+      res.json({ printers: [] });
+      
+    } catch (error: any) {
+      res.status(500).json({
+        error: 'Error listando impresoras',
+        details: error.message
+      });
+    }
+  });
+
+  // GET /api/print/test
   app.get('/api/print/test', async (req, res) => {
     try {
       const testTicket = 
-        '\x1B\x40' + // Init
-        '\x1B\x61\x01' + // Center
-        '\x1D\x21\x11' + // Double size
+        '\x1B\x40' +
+        '\x1B\x61\x01' +
+        '\x1D\x21\x11' +
         'TEST TICKET\n' +
-        '\x1D\x21\x00' + // Normal size
+        '\x1D\x21\x00' +
         'Impresora funcionando\n' +
         '\n\n' +
-        '\x1D\x56\x00'; // Cut
+        '\x1D\x56\x00';
       
-      await fetch('http://localhost:5000/api/print/thermal', {
+      const response = await fetch('http://localhost:5000/api/print/thermal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticket: testTicket })
       });
       
-      res.json({ success: true, message: 'Test enviado' });
-      
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/print/list-ports - Listar puertos disponibles
-  app.get('/api/print/list-ports', async (req, res) => {
-    try {
-      const { SerialPort } = require('serialport');
-      const ports = await SerialPort.list();
-      
-      res.json({ 
-        ports: ports.map((p: any) => ({
-          path: p.path,
-          manufacturer: p.manufacturer,
-          serialNumber: p.serialNumber,
-          productId: p.productId,
-          vendorId: p.vendorId
-        }))
-      });
+      const result = await response.json();
+      res.json({ success: true, message: 'Test enviado', result });
       
     } catch (error: any) {
       res.status(500).json({ error: error.message });
