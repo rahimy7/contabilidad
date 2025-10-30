@@ -8631,6 +8631,10 @@ __metadata:
   dependenciesMeta:
     bufferutil:
       optional: true
+    escpos-usb:
+      optional: true
+    printer:
+      optional: true
   languageName: unknown
   linkType: soft
 
