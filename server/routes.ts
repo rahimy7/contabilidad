@@ -153,6 +153,162 @@ async function getUnifiedStorageForUser(user: AuthUser): Promise<UnifiedStorage>
   return new UnifiedStorage(user.storeId);
 }
 
+async function syncOrderStatusWithTrip(
+  storeId: number, 
+  orderId: number, 
+  newOrderStatus: string
+): Promise<void> {
+  try {
+    console.log(`🔄 [SYNC] Sincronizando estado de orden ${orderId} con viaje...`);
+    
+    const db = await getTenantDb(storeId);
+    
+    // Verificar si la orden está asociada a un viaje
+    const [order] = await db
+      .select({ tripId: schema.orders.tripId })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, orderId))
+      .limit(1);
+    
+    if (!order || !order.tripId) {
+      console.log(`ℹ️ [SYNC] Orden ${orderId} no está asociada a ningún viaje`);
+      return;
+    }
+    
+    const tripId = order.tripId;
+    console.log(`🚚 [SYNC] Orden ${orderId} está en viaje ${tripId}`);
+    
+    // Mapear el estado de la orden al estado del tripOrder
+    let tripOrderStatus: 'pending' | 'picked' | 'cancelled' = 'pending';
+    
+    // Si la orden está completada, delivered o picked_up -> marcar como 'picked' en el viaje
+    if (['completed', 'delivered', 'picked_up'].includes(newOrderStatus)) {
+      tripOrderStatus = 'picked';
+    } else if (newOrderStatus === 'cancelled') {
+      tripOrderStatus = 'cancelled';
+    } else {
+      tripOrderStatus = 'pending';
+    }
+    
+    console.log(`📝 [SYNC] Actualizando tripOrder status a: ${tripOrderStatus}`);
+    
+    // Actualizar el estado en tripOrders
+    await db
+      .update(schema.tripOrders)
+      .set({
+        status: tripOrderStatus,
+        pickedAt: tripOrderStatus === 'picked' ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.tripOrders.tripId, tripId),
+        eq(schema.tripOrders.orderId, orderId)
+      ));
+    
+    // Actualizar el progreso del viaje
+    await updateTripProgress(db, tripId);
+    
+    // Verificar si el viaje debe completarse automáticamente
+    const [tripData] = await db
+      .select({
+        totalOrders: schema.trips.totalOrders,
+        completedOrders: schema.trips.completedOrders,
+        status: schema.trips.status,
+      })
+      .from(schema.trips)
+      .where(eq(schema.trips.id, tripId));
+    
+    // Si todas las órdenes están completadas y el viaje está activo, marcarlo como completado
+    if (tripData && 
+        tripData.completedOrders === tripData.totalOrders && 
+        tripData.completedOrders > 0 &&
+        (tripData.status === 'active' || tripData.status === 'processing')) {
+      
+      console.log(`✅ [SYNC] Todas las órdenes completadas. Marcando viaje ${tripId} como completado`);
+      
+      const [trip] = await db
+        .select({ startedAt: schema.trips.startedAt })
+        .from(schema.trips)
+        .where(eq(schema.trips.id, tripId));
+      
+      const duration = trip?.startedAt 
+        ? Math.floor((new Date().getTime() - new Date(trip.startedAt).getTime()) / 60000)
+        : null;
+      
+      await db
+        .update(schema.trips)
+        .set({
+          status: 'completed',
+          completedAt: new Date(),
+          actualDuration: duration,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.trips.id, tripId));
+      
+      console.log(`🎉 [SYNC] Viaje ${tripId} completado automáticamente`);
+    }
+    
+    console.log(`✅ [SYNC] Sincronización completada para orden ${orderId}`);
+    
+  } catch (error) {
+    console.error(`❌ [SYNC] Error sincronizando orden ${orderId} con viaje:`, error);
+    // No lanzar el error para que no falle la actualización de la orden
+  }
+}
+
+async function updateTripProgress(db: any, tripId: number) {
+  try {
+    const [orderCount] = await db
+      .select({
+        total: count(),
+        // ✅ Cambio: Verificar estado en tabla 'orders', no 'tripOrders'
+        completed: sql<number>`COUNT(CASE WHEN ${schema.orders.status} IN ('completed', 'picked_up') THEN 1 END)`,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))  // ✅ AGREGAR ESTA LÍNEA
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    const [amountSum] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${schema.orders.totalAmount}), 0)`,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))  // ✅ Ya existe este
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    const totalOrders = orderCount.total || 0;
+    const completedOrders = orderCount.completed || 0;
+    
+    // ✅ AGREGAR: Auto-completar viaje si todas las órdenes están completadas
+    let newStatus = undefined;
+    if (totalOrders > 0 && completedOrders === totalOrders) {
+      newStatus = 'completed';
+    }
+
+    const updateData: any = {
+      totalOrders,
+      completedOrders,
+      totalAmount: amountSum.total || '0',
+      updatedAt: new Date(),
+    };
+
+    // ✅ AGREGAR: Actualizar status si corresponde
+    if (newStatus) {
+      updateData.status = newStatus;
+      updateData.completedAt = new Date();
+    }
+
+    await db
+      .update(schema.trips)
+      .set(updateData)
+      .where(eq(schema.trips.id, tripId));
+
+    console.log(`✅ [UPDATE-TRIP] Viaje ${tripId}: ${completedOrders}/${totalOrders} completadas`);
+  } catch (error) {
+    console.error(`❌ [UPDATE-TRIP] Error:`, error);
+    throw error;
+  }
+}
 /**
  * Obtiene el tenant storage directamente para un usuario
  */
@@ -2939,20 +3095,31 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
 });
 
 
-  router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
+router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
     const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
 
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
     const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // ✅ Obtener orden anterior para comparar
+    const previousOrder = await tenantStorage.getOrderById(id);
+    
     const order = await tenantStorage.updateOrder(id, req.body);
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // ✅ NUEVO: Si cambió el estado de la orden, sincronizar con viaje
+    if (req.body.status && previousOrder?.status !== req.body.status) {
+      console.log(`🔄 [PATCH /orders/:id] Estado cambió de ${previousOrder?.status} a ${req.body.status}`);
+      await syncOrderStatusWithTrip(storeId, id, req.body.status);
     }
 
     res.json(order);
@@ -2962,77 +3129,88 @@ router.get('/team/availability-stats', authenticateToken, async (req: any, res: 
   }
 });
 
-
-  router.put('/orders/:id/status', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { status } = req.body;
-      const user = req.user as AuthUser;
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid order ID' });
-      }
-      
-      if (!status) {
-        return res.status(400).json({ error: 'Status is required' });
-      }
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      const updateData = { 
-        status,
-        lastStatusUpdate: new Date().toISOString()
-      };
-      
-      const order = await tenantStorage.updateOrder(id, updateData);
-      
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      res.json(order);
-    } catch (error) {
-      console.error('❌ Error updating order status:', error);
-      res.status(500).json({ error: 'Failed to update order status' });
+// ✅ 2. PUT /orders/:id/status
+router.put('/orders/:id/status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status } = req.body;
+    const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
     }
-  });
-
-  router.delete('/orders/:id', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const user = req.user as AuthUser;
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ error: 'Invalid order ID' });
-      }
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      // Verificar que la orden existe
-      const order = await tenantStorage.getOrderById(id);
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      // Eliminar items si existen
-      try {
-        if (tenantStorage.deleteOrderItem) {
-          await tenantStorage.deleteOrderItem(id);
-        }
-      } catch (itemError) {
-        console.warn('⚠️ Could not delete order items:', itemError);
-      }
-      
-      // Eliminar la orden
-      await tenantStorage.deleteOrder(id);
-      
-      res.json({ success: true, message: 'Order deleted successfully' });
-    } catch (error) {
-      console.error('❌ Error deleting order:', error);
-      res.status(500).json({ error: 'Failed to delete order' });
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
     }
-  });
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // ✅ Obtener orden anterior para comparar
+    const previousOrder = await tenantStorage.getOrderById(id);
+    
+    const updateData = { 
+      status,
+      lastStatusUpdate: new Date().toISOString()
+    };
+    
+    const order = await tenantStorage.updateOrder(id, updateData);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // ✅ NUEVO: Sincronizar con viaje si cambió el estado
+    if (previousOrder?.status !== status) {
+      console.log(`🔄 [PUT /orders/:id/status] Estado cambió de ${previousOrder?.status} a ${status}`);
+      await syncOrderStatusWithTrip(storeId, id, status);
+    }
+    
+    res.json(order);
+  } catch (error) {
+    console.error('❌ Error updating order status:', error);
+    res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
 
+router.delete('/orders/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = req.user as AuthUser;
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    
+    // Verificar que la orden existe
+    const order = await tenantStorage.getOrderById(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Eliminar items si existen
+    try {
+      if (tenantStorage.deleteOrderItem) {
+        await tenantStorage.deleteOrderItem(id);
+      }
+    } catch (itemError) {
+      console.warn('⚠️ Could not delete order items:', itemError);
+    }
+    
+    // Eliminar la orden
+    await tenantStorage.deleteOrder(id);
+    
+    res.json({ success: true, message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('❌ Error deleting order:', error);
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
+
+// ✅ 3. PUT /orders/:id (versión completa con notificaciones)
 router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
@@ -3051,7 +3229,13 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // ✅ SI CAMBIÓ LA ASIGNACIÓN, INTEGRAR CON VIAJES
+    // ✅ NUEVO: Si cambió el estado de la orden, sincronizar con viaje
+    if (req.body.status && previousOrder?.status !== req.body.status) {
+      console.log(`🔄 [PUT /orders/:id] Estado cambió de ${previousOrder?.status} a ${req.body.status}`);
+      await syncOrderStatusWithTrip(storeId, id, req.body.status);
+    }
+
+    // ✅ SI CAMBIÓ LA ASIGNACIÓN, INTEGRAR CON VIAJES (código existente)
     if (req.body.assignedUserId && 
         previousOrder?.assignedUserId !== req.body.assignedUserId) {
       
@@ -3073,7 +3257,7 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
       }
     }
 
-    // Trigger notificaciones
+    // Trigger notificaciones (código existente)
     const notificationService = new NotificationService(tenantStorage, storeId);
     
     if (previousOrder?.status !== order.status) {

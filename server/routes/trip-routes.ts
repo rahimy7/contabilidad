@@ -60,39 +60,6 @@ function decodeQRCode(qrCode: string, storeId: string | number): number | null {
   }
 }
 
-async function updateTripProgress(db: any, tripId: number) {
-  try {
-    const [orderCount] = await db
-      .select({
-        total: count(),
-        completed: sql<number>`COUNT(CASE WHEN ${schema.tripOrders.status} = 'picked' THEN 1 END)`,
-      })
-      .from(schema.tripOrders)
-      .where(eq(schema.tripOrders.tripId, tripId));
-
-    const [amountSum] = await db
-      .select({
-        total: sql<string>`COALESCE(SUM(${schema.orders.totalAmount}), 0)`,
-      })
-      .from(schema.tripOrders)
-      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
-      .where(eq(schema.tripOrders.tripId, tripId));
-
-    await db
-      .update(schema.trips)
-      .set({
-        totalOrders: orderCount.total,
-        completedOrders: orderCount.completed,
-        totalAmount: amountSum.total || '0',
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.trips.id, tripId));
-  } catch (error) {
-    console.error('Error updating trip counters:', error);
-    throw error;
-  }
-}
-
 // ==================== TRIPS CRUD ====================
 
 router.get('/trips', authenticateToken, async (req, res) => {
@@ -1153,5 +1120,9 @@ router.get(
     }
   }
 );
+
+
+
+
 
 export default router;
