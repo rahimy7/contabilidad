@@ -816,6 +816,63 @@ router.post('/trips/:id/complete', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error al completar viaje' });
   }
 });
+router.put('/trips/:id/update-sequence', authenticateToken, async (req, res) => {
+  try {
+    const tripId = validateId(req.params.id, 'Trip ID');
+    const { orderIds } = req.body;
+    const db = await getDb(req.user.storeId);
+
+    // Validar que orderIds sea un array
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ 
+        error: 'Se requiere un array de IDs de órdenes' 
+      });
+    }
+
+    // Verificar que el viaje existe y pertenece a la tienda
+    const [trip] = await db
+      .select()
+      .from(schema.trips)
+      .where(and(
+        eq(schema.trips.id, tripId),
+        eq(schema.trips.storeId, parseInt(req.user.storeId as any))
+      ));
+
+    if (!trip) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+
+    // Actualizar la secuencia de cada orden
+    const updatePromises = orderIds.map((orderId, index) => {
+      return db
+        .update(schema.tripOrders)
+        .set({ 
+          sequenceNumber: index + 1,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(schema.tripOrders.tripId, tripId),
+          eq(schema.tripOrders.id, orderId)
+        ));
+    });
+
+    await Promise.all(updatePromises);
+
+    console.log(`✅ Secuencia actualizada para viaje ${tripId}`);
+
+    res.json({ 
+      success: true,
+      message: 'Secuencia de pedidos actualizada correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error actualizando secuencia:', error);
+    res.status(500).json({ 
+      error: 'Error al actualizar la secuencia de pedidos',
+      details: error.message 
+    });
+  }
+});
 
 router.delete('/trips/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
