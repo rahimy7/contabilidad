@@ -299,7 +299,7 @@ export default function Settings() {
       whatsappPhoneNumberId: config.whatsappPhoneNumberId || "",
       whatsappToken: config.whatsappToken || "",
       whatsappVerifyToken: config.whatsappVerifyToken || "",
-      webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app//webhook",
+      webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app/webhook",
       storeWhatsAppNumber: config.storeWhatsAppNumber || "",
     },
   });
@@ -314,7 +314,7 @@ export default function Settings() {
         whatsappPhoneNumberId: config.phoneNumberId || "",
         whatsappToken: config.accessToken && !config.accessToken.startsWith("****") ? config.accessToken : "",
         whatsappVerifyToken: config.webhookVerifyToken && !config.webhookVerifyToken.startsWith("****") ? config.webhookVerifyToken : "",
-        webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app//webhook",
+        webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app/webhook",
         storeWhatsAppNumber: config.storeWhatsAppNumber || "",
       };
       
@@ -339,7 +339,7 @@ export default function Settings() {
         whatsappPhoneNumberId: config.phoneNumberId || "",
         whatsappToken: config.accessToken || "",
         whatsappVerifyToken: config.webhookVerifyToken || "",
-        webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app//webhook",
+        webhookUrl: config.webhookUrl || "https://delivery-web-production.up.railway.app/webhook",
         storeWhatsAppNumber: config.storeWhatsAppNumber || "",
       };
 
@@ -705,7 +705,7 @@ export default function Settings() {
                       <Input
                         id="webhookUrl"
                         {...form.register("webhookUrl")}
-                        placeholder="https://delivery-web-production.up.railway.app//webhook"
+                        placeholder="https://delivery-web-production.up.railway.app/webhook"
                         className="font-mono"
                       />
                       {form.formState.errors.webhookUrl && (
@@ -862,7 +862,7 @@ export default function Settings() {
                     <AlertDescription>
                       <strong>Webhook URL configurada:</strong><br />
                       <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                        https://delivery-web-production.up.railway.app//webhook
+                        https://delivery-web-production.up.railway.app/webhook
                       </code>
                     </AlertDescription>
                   </Alert>
