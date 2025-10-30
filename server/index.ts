@@ -116,7 +116,7 @@ app.use((req, res, next) => {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5173',
-    'https://whatsappordermanager-production.up.railway.app',
+    'https://delivery-web-production.up.railway.app/',
     process.env.RAILWAY_STATIC_URL
   ].filter(Boolean);
   const isAllowed = process.env.NODE_ENV === 'development' ||

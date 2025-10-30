@@ -11,7 +11,7 @@ const setupCorsForRailway = (app: any) => {
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5173',
     'https://whatsapp2-production-e205.up.railway.app',
-    'https://whatsappordermanager-production.up.railway.app',
+    'https://delivery-web-production.up.railway.app/',
     // Regex para dominios de Railway
     /^https:\/\/.*\.railway\.app$/,
   ];
