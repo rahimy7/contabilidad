@@ -5640,6 +5640,106 @@ export async function registerGlobalRoutes(app: express.Application) {
     }
   });
 
+  // Cambiar contraseña
+app.post('/auth/change-password', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        error: 'Se requiere la contraseña actual y la nueva contraseña' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        error: 'La nueva contraseña debe tener al menos 6 caracteres' 
+      });
+    }
+
+    // Obtener usuario de la base de datos
+    const [dbUser] = await masterDb
+      .select()
+      .from(schema.systemUsers)
+      .where(eq(schema.systemUsers.id, user.id))
+      .limit(1);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Verificar contraseña actual
+    const bcrypt = require('bcrypt');
+    const isValidPassword = await bcrypt.compare(currentPassword, dbUser.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    // Hashear nueva contraseña
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar contraseña
+    await masterDb
+      .update(schema.systemUsers)
+      .set({ 
+        password: hashedNewPassword,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.systemUsers.id, user.id));
+
+    console.log('✅ Password changed successfully for user:', user.id);
+
+    res.json({ 
+      success: true,
+      message: 'Contraseña cambiada correctamente' 
+    });
+
+  } catch (error) {
+    console.error('❌ Error changing password:', error);
+    res.status(500).json({ 
+      error: 'Error al cambiar la contraseña',
+      details: error.message 
+    });
+  }
+});
+
+// Obtener perfil del usuario actual
+app.get('/auth/me', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+
+    // Obtener datos completos del usuario
+    const [dbUser] = await masterDb
+      .select({
+        id: schema.systemUsers.id,
+        username: schema.systemUsers.username,
+        name: schema.systemUsers.name,
+        email: schema.systemUsers.email,
+        role: schema.systemUsers.role,
+        storeId: schema.systemUsers.storeId,
+        isActive: schema.systemUsers.isActive,
+      })
+      .from(schema.systemUsers)
+      .where(eq(schema.systemUsers.id, user.id))
+      .limit(1);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json(dbUser);
+
+  } catch (error) {
+    console.error('❌ Error getting user profile:', error);
+    res.status(500).json({ 
+      error: 'Error al obtener el perfil',
+      details: error.message 
+    });
+  }
+});
+
   console.log("✅ Global routes registered");
 }
 

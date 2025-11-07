@@ -141,6 +141,16 @@ export default function TripsPage() {
   };
 
   const handleSendClick = async (trip: Trip) => {
+
+    // ✅ VALIDACIÓN AGREGADA
+    if (!trip.assignedUserId || !trip.assignedUser) {
+      toast({
+        title: 'Error',
+        description: 'Debes asignar un delivery antes de enviar el viaje',
+        variant: 'destructive'
+      });
+      return;
+    }
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/trips/${trip.id}`, {
