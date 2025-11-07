@@ -201,23 +201,44 @@ router.get('/trips/:id', authenticateToken, async (req, res) => {
     res.json({
       ...trip,
       assignedUser,
-      orders: tripOrders.map(to => ({
-        id: to.tripOrder.id,
-        orderId: to.tripOrder.orderId,
-        orderNumber: to.order?.orderNumber,
-        status: to.tripOrder.status,
-        pickedAt: to.tripOrder.pickedAt,
-        scannedQR: to.tripOrder.scannedQR,
-        sequenceNumber: to.tripOrder.sequenceNumber,
-        order: {
-          customer: to.customer ? {
-            name: to.customer.name,
-            phone: to.customer.phone,
-            address: to.customer.address,
-          } : null,
-          totalAmount: to.order?.totalAmount,
-        }
-      }))
+      orders: tripOrders.map(to => {
+  const orderAddr =
+    to.order?.customerAddress ||
+    to.order?.deliveryAddress ||
+    [to.order?.customerSector, to.order?.customerMunicipality, to.order?.customerProvince]
+      .filter(Boolean)
+      .join(', ') ||
+    null;
+
+  return {
+    id: to.tripOrder.id,
+    orderId: to.tripOrder.orderId,
+    orderNumber: to.order?.orderNumber,
+    status: to.tripOrder.status,
+    pickedAt: to.tripOrder.pickedAt,
+    scannedQR: to.tripOrder.scannedQR,
+    sequenceNumber: to.tripOrder.sequenceNumber,
+
+    // 👇 Esto es lo que tu app necesita
+    order: {
+      customer: {
+        name: to.customer?.name || 'Cliente',
+        phone: to.customer?.phone || '',
+        address: orderAddr,
+      },
+      totalAmount: to.order?.totalAmount || '0.00',
+      deliveryAddress: to.order?.deliveryAddress || orderAddr,
+      customerLocation: {
+        province: to.order?.customerProvince || null,
+        municipality: to.order?.customerMunicipality || null,
+        sector: to.order?.customerSector || null,
+        address: orderAddr,
+        latitude: to.order?.customerLatitude || null,
+        longitude: to.order?.customerLongitude || null,
+      },
+    },
+  };
+})
     });
   } catch (error) {
     console.error('Error fetching trip details:', error);
