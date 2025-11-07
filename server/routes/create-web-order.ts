@@ -4,21 +4,34 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 
 // Esquema de validación
+// Esquema de validación ampliado con ubicación del cliente
 const webOrderSchema = z.object({
+  storeId: z.number(),
+  orderSource: z.literal('web_catalog'),
+  totalAmount: z.number().min(0),
+
+  // Datos del cliente
   customerPhone: z.string().min(8, 'Teléfono debe tener al menos 8 caracteres'),
   customerAddress: z.string().min(10, 'Dirección debe tener al menos 10 caracteres'),
   notes: z.string().optional(),
+
+  // 👇 Campos de ubicación geográfica opcionales
+  customerProvince: z.string().optional(),
+  customerMunicipality: z.string().optional(),
+  customerSector: z.string().optional(),
+  customerLatitude: z.number().optional(),
+  customerLongitude: z.number().optional(),
+
+  // Detalle de productos
   items: z.array(z.object({
     productId: z.number(),
     productName: z.string(),
     quantity: z.number().min(1),
     unitPrice: z.number().min(0),
     totalPrice: z.number().min(0)
-  })).min(1, 'Debe incluir al menos un producto'),
-  totalAmount: z.number().min(0),
-  orderSource: z.literal('web_catalog'),
-  storeId: z.number()
+  })).min(1, 'Debe incluir al menos un producto')
 });
+
 
 export async function createWebOrder(req: Request, res: Response) {
   try {
@@ -76,14 +89,21 @@ export async function createWebOrder(req: Request, res: Response) {
     }
     
     // 2. Crear la orden
-    const orderData = {
-      customerId: customer.id,
-      totalAmount: validatedData.totalAmount.toString(),
-      status: 'pending',
-      orderSource: 'web_catalog',
-      customerNotes: validatedData.notes,
-      deliveryAddress: validatedData.customerAddress
-    };
+   const orderData = {
+  customerId: customer.id,
+  storeId: validatedData.storeId,
+  totalAmount: validatedData.totalAmount.toString(),
+  status: 'pending',
+  priority: 'normal',
+  description: validatedData.notes || 'Orden creada desde web',
+  customerProvince: validatedData.customerProvince || null,
+  customerMunicipality: validatedData.customerMunicipality || null,
+  customerSector: validatedData.customerSector || null,
+  customerAddress: validatedData.customerAddress || null,
+  customerLatitude: validatedData.customerLatitude || null,
+  customerLongitude: validatedData.customerLongitude || null
+};
+
     
     // Crear orden con items
     const order = await tenantStorage.createOrder(orderData, validatedData.items.map(item => ({

@@ -2799,7 +2799,16 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
           priority: order.priority || 'normal',
           totalAmount: order.totalAmount,
           deliveryCost: order.deliveryCost || '0.00',
-          deliveryAddress: order.deliveryAddress,
+          // Dirección completa combinada
+deliveryAddress: order.customerAddress || order.deliveryAddress,
+customerLocation: {
+  province: order.customerProvince || null,
+  municipality: order.customerMunicipality || null,
+  sector: order.customerSector || null,
+  address: order.customerAddress || null,
+  latitude: order.customerLatitude || null,
+  longitude: order.customerLongitude || null,
+},
           contactNumber: order.contactNumber,
           estimatedDelivery: order.estimatedDelivery,
           estimatedDeliveryTime: order.estimatedDeliveryTime,
@@ -2819,19 +2828,31 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
           tripNumber: tripNumber,
           
           // Información expandida del cliente
-          customer: customer ? {
-            id: customer.id,
-            name: customer.name || 'Cliente',
-            phone: customer.phone || order.contactNumber,
-            email: customer.email,
-            address: customer.address || order.deliveryAddress
-          } : {
-            id: order.customerId,
-            name: 'Cliente no encontrado',
-            phone: order.contactNumber,
-            email: null,
-            address: order.deliveryAddress
-          },
+         customer: customer ? {
+  id: customer.id,
+  name: customer.name || 'Cliente',
+  phone: customer.phone || order.contactNumber,
+  email: customer.email,
+  address:
+    customer.address ||
+    order.customerAddress ||
+    [order.customerSector, order.customerMunicipality, order.customerProvince]
+      .filter(Boolean)
+      .join(', ') ||
+    'Sin dirección'
+} : {
+  id: order.customerId,
+  name: 'Cliente no encontrado',
+  phone: order.contactNumber,
+  email: null,
+  address:
+    order.customerAddress ||
+    [order.customerSector, order.customerMunicipality, order.customerProvince]
+      .filter(Boolean)
+      .join(', ') ||
+    'Sin dirección'
+},
+
           
           // Usuario asignado
           assignedUser: assignedUser ? {
@@ -3695,8 +3716,13 @@ router.patch('/users/:userId/status', authenticateToken, async (req: any, res: a
           name: 'Cliente no encontrado',
           phone: order.contactNumber,
           email: null,
-          address: order.deliveryAddress
-        },
+          address:
+    order.customerAddress ||
+    [order.customerSector, order.customerMunicipality, order.customerProvince]
+      .filter(Boolean)
+      .join(', ') ||
+    'Sin dirección'
+},
         assignedUser: assignedUser ? {
           id: assignedUser.id,
           name: assignedUser.name,
