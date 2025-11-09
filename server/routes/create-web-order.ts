@@ -65,7 +65,16 @@ export async function createWebOrder(req: Request, res: Response) {
 
     // Intentar validar con Zod
     console.log('🔄 Iniciando validación con Zod...');
-    const validatedData = webOrderSchema.parse(req.body);
+    const parsed = webOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => ({
+        path: Array.isArray(i.path) ? i.path.join('.') : String(i.path),
+        message: i.message,
+        code: i.code,
+      }));
+      return res.status(422).json({ error: 'Validation failed', issues });
+    }
+    const validatedData = parsed.data;
     console.log('✅ Validación exitosa:', validatedData);
     
     // Importar storage functions

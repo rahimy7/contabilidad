@@ -365,6 +365,55 @@ async generateOrderNumber(): Promise<string> {
       }
     },
 
+    async updateOrderWithItems(id: number, orderData: any, items?: any[]) {
+      try {
+        console.log(`🔄 Updating order ${id} with items...`);
+
+        // 1️⃣ Actualizar la orden principal
+        const [order] = await tenantDb.update(schema.orders)
+          .set({ ...orderData, updatedAt: new Date() })
+          .where(eq(schema.orders.id, id))
+          .returning();
+
+        if (!order) {
+          throw new Error('Order not found');
+        }
+
+        // 2️⃣ Si se proporcionan items, reemplazar todos los items existentes
+        if (items !== undefined) {
+          console.log(`🗑️ Deleting existing items for order ${id}...`);
+
+          // Eliminar items existentes
+          await tenantDb.delete(schema.orderItems)
+            .where(eq(schema.orderItems.orderId, id));
+
+          console.log(`✅ Existing items deleted`);
+
+          // Insertar nuevos items si hay alguno
+          if (items.length > 0) {
+            console.log(`➕ Inserting ${items.length} new items...`);
+
+            const itemsWithOrderId = items.map(item => ({
+              ...item,
+              orderId: id
+            }));
+
+            await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
+            console.log(`✅ New items inserted`);
+          }
+        }
+
+        // 3️⃣ Retornar la orden actualizada con sus items
+        const updatedOrderWithItems = await this.getOrderById(id);
+        console.log(`✅ Order ${id} updated successfully`);
+
+        return updatedOrderWithItems;
+      } catch (error) {
+        console.error('❌ Error updating order with items:', error);
+        throw error;
+      }
+    },
+
 async deleteOrder(id: number) {
   try {
     console.log(`🗑️ Deleting order ${id}...`);

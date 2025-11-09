@@ -496,13 +496,49 @@ export default function SimpleCatalog() {
   // ✅ CONVERTIR PRODUCTOS PARA MOSTRAR EN DOP
   const convertedProducts = Array.isArray(products) ? products.map(convertProduct) : [];
 
-  // Filtrado de productos
-  const filteredProducts = convertedProducts.filter((product: any) => {
-    if (!product) return false;
-    const matchesSearch = product.name && product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  // ✅ HOOK PARA BÚSQUEDA AVANZADA (por nombre, SKU, categoría)
+  const { data: searchResults = [], isLoading: searchLoading } = useQuery({
+    queryKey: [`/api/public/stores/${storeId}/products/search`, searchTerm, selectedCategory],
+    queryFn: async () => {
+      if (!searchTerm && selectedCategory === "all") {
+        // Si no hay búsqueda ni filtro, retornar todos
+        return products;
+      }
+
+      // Construir parámetros de búsqueda
+      const params = new URLSearchParams();
+
+      // Buscar por nombre o SKU
+      if (searchTerm) {
+        params.append('sku', searchTerm);
+        params.append('name', searchTerm);
+      }
+
+      // Filtrar por categoría
+      if (selectedCategory !== "all") {
+        params.append('category', selectedCategory);
+      }
+
+      const response = await fetch(
+        `/api/public/stores/${storeId}/products/search?${params.toString()}`
+      );
+      if (!response.ok) {
+        throw new Error('Error en búsqueda');
+      }
+      return response.json();
+    },
+    enabled: !!storeId && (!!searchTerm || selectedCategory !== "all"),
+    staleTime: 30 * 1000, // Cache por 30 segundos
   });
+
+  // Filtrado de productos (usar resultados de búsqueda si están disponibles, sino usar todos)
+  const filteredProducts = (searchTerm || selectedCategory !== "all")
+    ? searchResults.map(convertProduct)
+    : convertedProducts.filter((product: any) => {
+        if (!product) return false;
+        const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+        return matchesCategory;
+      });
 
 const getProductImages = (product: any): string[] => {
   if (product.image_urls && Array.isArray(product.image_urls)) {

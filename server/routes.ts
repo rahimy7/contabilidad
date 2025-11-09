@@ -67,6 +67,29 @@ const assignmentRuleSchema = z.object({
   estimatedResponseTime: z.number().default(60),
 });
 
+const byCustomerOrderSchema = z.object({
+  customerId: z.coerce.number().int().positive(),
+  totalAmount: z.coerce.number().nonnegative().optional(),
+  notes: z.string().optional(),
+  assignedUserId: z.coerce.number().int().positive().optional(),
+  customerAddress: z.string().optional(),
+  customerLatitude: z.coerce.number().optional(),
+  customerLongitude: z.coerce.number().optional(),
+  items: z.array(z.object({
+    productId: z.coerce.number().int(),
+    quantity: z.coerce.number().int().min(1).default(1),
+    unitPrice: z.coerce.number().nonnegative().optional(),
+    totalPrice: z.coerce.number().nonnegative().optional(),
+    installationCost: z.coerce.number().optional(),
+    partsCost: z.coerce.number().optional(),
+    laborHours: z.coerce.number().optional(),
+    laborRate: z.coerce.number().optional(),
+    deliveryCost: z.coerce.number().optional(),
+    deliveryDistance: z.coerce.number().optional(),
+    notes: z.string().optional(),
+  })).optional(),
+}).passthrough();
+
 export async function getTenantStorageWithSchema(user: any) {
   // ✅ Super admins no usan tenant storage
   if (user.role === 'super_admin') {
@@ -2943,6 +2966,138 @@ customerLocation: {
   }
 });
 
+router.post('/orders/by-customer', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
+    const tenantStorage = await getTenantStorageWithSchema(user);
+
+    // Validar payload con Zod y devolver errores detallados (422)
+    const parsed = byCustomerOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i: any) => ({
+        path: Array.isArray(i.path) ? i.path.join('.') : String(i.path),
+        message: i.message,
+        code: i.code,
+      }));
+      return res.status(422).json({ error: 'Validation failed', issues });
+    }
+    const validated = parsed.data;
+    const customerId = validated.customerId;
+    const customer = await tenantStorage.getCustomerById(customerId);
+    if (!customer) {
+      return res.status(400).json({ error: `El cliente ${customerId} no existe` });
+    }
+
+    const rawItems = Array.isArray(validated.items) ? validated.items : [];
+
+    // Calcular totalAmount si no viene y hay items
+    let totalAmount = validated.totalAmount as any;
+    if ((totalAmount === undefined || totalAmount === null || totalAmount === '') && rawItems.length > 0) {
+      const sum = rawItems.reduce((acc: number, it: any) => {
+        const qty = Number(it.quantity || 0);
+        const unit = Number(it.unitPrice || 0);
+        const total = it.totalPrice !== undefined ? Number(it.totalPrice) : (qty * unit);
+        return acc + (isNaN(total) ? 0 : total);
+      }, 0);
+      totalAmount = sum;
+    }
+
+    // Preparar datos de la orden, hidratando con datos del cliente si faltan
+    const { items: _omitItems, totalAmount: _omitTotal, customerId: _omitCustomerId, ...rest } = validated as any;
+    const orderData: any = {
+      ...rest,
+      storeId,
+      customerId,
+      customerAddress: validated.customerAddress ?? customer.address ?? null,
+      customerLatitude: validated.customerLatitude ?? customer.latitude ?? null,
+      customerLongitude: validated.customerLongitude ?? customer.longitude ?? null,
+    };
+
+    if (totalAmount !== undefined && totalAmount !== null && totalAmount !== '') {
+      orderData.totalAmount = String(totalAmount);
+    }
+
+    if (orderData.contactNumber === undefined && customer.phone) {
+      orderData.contactNumber = customer.phone;
+    }
+
+    // Normalizar items al formato esperado por storage (coincide con create-web-order)
+    const normalizedItems = rawItems.map((it: any) => {
+      const qty = Number(it.quantity ?? 1);
+      const unit = it.unitPrice !== undefined ? Number(it.unitPrice) : (it.price !== undefined ? Number(it.price) : 0);
+      const total = it.totalPrice !== undefined ? Number(it.totalPrice) : (qty * unit);
+      return {
+        productId: Number(it.productId),
+        quantity: qty,
+        unitPrice: String(unit),
+        totalPrice: String(total),
+        // Campos opcionales si vienen
+        installationCost: it.installationCost !== undefined ? String(it.installationCost) : undefined,
+        partsCost: it.partsCost !== undefined ? String(it.partsCost) : undefined,
+        laborHours: it.laborHours !== undefined ? String(it.laborHours) : undefined,
+        laborRate: it.laborRate !== undefined ? String(it.laborRate) : undefined,
+        deliveryCost: it.deliveryCost !== undefined ? String(it.deliveryCost) : undefined,
+        deliveryDistance: it.deliveryDistance !== undefined ? String(it.deliveryDistance) : undefined,
+        notes: it.notes,
+      };
+    });
+
+    // Crear la orden principal con items normalizados
+    const order = await tenantStorage.createOrder(orderData, normalizedItems);
+
+    // Registrar historial si el storage lo soporta (mismo patrón que create-web-order)
+    try {
+      if (typeof (tenantStorage as any).addOrderHistory === 'function') {
+        await (tenantStorage as any).addOrderHistory({
+          orderId: order.id,
+          action: 'order_created_by_customer',
+          statusFrom: null,
+          statusTo: 'pending',
+          notes: validated.notes || 'Orden creada con /orders/by-customer'
+        });
+      }
+    } catch (logError) {
+      console.warn('No se pudo registrar historial de orden:', logError);
+    }
+
+    // Notificaciones
+    const notificationService = new NotificationService(tenantStorage, storeId);
+    await notificationService.triggerOrderNotifications({
+      orderId: order.id,
+      eventType: 'order_created',
+      customData: { source: 'by_customer_creation' }
+    });
+
+    // No recrear items manualmente para evitar duplicados; seguimos el patrón de create-web-order
+
+    // Integrar con viajes si hay assignedUserId
+    let tripInfo = null;
+    if (orderData.assignedUserId) {
+      try {
+        const tripResult = await integrateWithAutoAssignment(
+          storeId,
+          order.id,
+          orderData.assignedUserId
+        );
+        if (tripResult) {
+          tripInfo = {
+            tripId: tripResult.tripId,
+            tripNumber: tripResult.tripNumber
+          };
+        }
+      } catch (tripError) {
+        console.error('Error integrando con viajes:', tripError);
+      }
+    }
+
+    return res.status(201).json({ order, trip: tripInfo });
+  } catch (error: any) {
+    console.error('Error creando orden por customerId:', error);
+    return res.status(500).json({ error: 'Failed to create order by customerId', details: error.message });
+  }
+});
+
 
 router.post('/orders', authenticateToken, async (req: any, res: any) => {
   try {
@@ -3127,20 +3282,31 @@ router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
     }
 
     const tenantStorage = await getTenantStorageWithSchema(user);
-    
+
     // ✅ Obtener orden anterior para comparar
     const previousOrder = await tenantStorage.getOrderById(id);
-    
-    const order = await tenantStorage.updateOrder(id, req.body);
+
+    // ✅ Separar items del resto de datos de la orden
+    const { items, ...orderData } = req.body;
+
+    // ✅ Actualizar orden con o sin items según lo que se envíe
+    let order;
+    if (items !== undefined) {
+      // Si se envían items, usar la función que actualiza items
+      order = await tenantStorage.updateOrderWithItems(id, orderData, items);
+    } else {
+      // Si no se envían items, solo actualizar la orden principal
+      order = await tenantStorage.updateOrder(id, orderData);
+    }
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
     // ✅ NUEVO: Si cambió el estado de la orden, sincronizar con viaje
-    if (req.body.status && previousOrder?.status !== req.body.status) {
-      console.log(`🔄 [PATCH /orders/:id] Estado cambió de ${previousOrder?.status} a ${req.body.status}`);
-      await syncOrderStatusWithTrip(storeId, id, req.body.status);
+    if (orderData.status && previousOrder?.status !== orderData.status) {
+      console.log(`🔄 [PATCH /orders/:id] Estado cambió de ${previousOrder?.status} a ${orderData.status}`);
+      await syncOrderStatusWithTrip(storeId, id, orderData.status);
     }
 
     res.json(order);
@@ -3237,38 +3403,48 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
     const id = parseInt(req.params.id);
     const user = req.user as AuthUser;
     const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
-    
+
     const tenantStorage = await getTenantStorageWithSchema(user);
-    
+
     // Obtener orden anterior para comparar
     const previousOrder = await tenantStorage.getOrderById(id);
-    
-    // Actualizar orden
-    const order = await tenantStorage.updateOrder(id, req.body);
-    
+
+    // ✅ Separar items del resto de datos de la orden
+    const { items, ...orderData } = req.body;
+
+    // ✅ Actualizar orden con o sin items según lo que se envíe
+    let order;
+    if (items !== undefined) {
+      // Si se envían items, usar la función que actualiza items
+      order = await tenantStorage.updateOrderWithItems(id, orderData, items);
+    } else {
+      // Si no se envían items, solo actualizar la orden principal
+      order = await tenantStorage.updateOrder(id, orderData);
+    }
+
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
     // ✅ NUEVO: Si cambió el estado de la orden, sincronizar con viaje
-    if (req.body.status && previousOrder?.status !== req.body.status) {
-      console.log(`🔄 [PUT /orders/:id] Estado cambió de ${previousOrder?.status} a ${req.body.status}`);
-      await syncOrderStatusWithTrip(storeId, id, req.body.status);
+    if (orderData.status && previousOrder?.status !== orderData.status) {
+      console.log(`🔄 [PUT /orders/:id] Estado cambió de ${previousOrder?.status} a ${orderData.status}`);
+      await syncOrderStatusWithTrip(storeId, id, orderData.status);
     }
 
     // ✅ SI CAMBIÓ LA ASIGNACIÓN, INTEGRAR CON VIAJES (código existente)
-    if (req.body.assignedUserId && 
-        previousOrder?.assignedUserId !== req.body.assignedUserId) {
-      
+    if (orderData.assignedUserId &&
+        previousOrder?.assignedUserId !== orderData.assignedUserId) {
+
       console.log('🚚 [TRIP] Order assignment changed, checking trip integration...');
-      
+
       try {
         const tripResult = await integrateWithAutoAssignment(
           storeId,
           id,
-          req.body.assignedUserId
+          orderData.assignedUserId
         );
-        
+
         if (tripResult) {
           console.log(`✅ [TRIP] Order ${id} added to trip ${tripResult.tripNumber}`);
         }
@@ -3280,18 +3456,18 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
 
     // Trigger notificaciones (código existente)
     const notificationService = new NotificationService(tenantStorage, storeId);
-    
+
     if (previousOrder?.status !== order.status) {
       await notificationService.triggerOrderNotifications({
         orderId: order.id,
         eventType: 'order_status_changed',
-        customData: { 
+        customData: {
           previousStatus: previousOrder?.status,
-          newStatus: order.status 
+          newStatus: order.status
         }
       });
     }
-    
+
     if (previousOrder?.assignedUserId !== order.assignedUserId) {
       await notificationService.triggerOrderNotifications({
         orderId: order.id,
@@ -3302,7 +3478,7 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
         }
       });
     }
-      
+
     res.json(order);
   } catch (error) {
     console.error('❌ Error updating order:', error);
@@ -5730,6 +5906,11 @@ app.post('/auth/change-password', authenticateToken, async (req: any, res: any) 
     });
   }
 });
+
+// NUEVO: Crear orden usando solo customerId, hidratando datos del cliente si faltan
+
+
+
 
 // Obtener perfil del usuario actual
 app.get('/auth/me', authenticateToken, async (req: any, res: any) => {

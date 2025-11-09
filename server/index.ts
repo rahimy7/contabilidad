@@ -116,6 +116,7 @@ app.use((req, res, next) => {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5173',
+    'http://10.0.0.3:5000',
     'https://delivery-web-production.up.railway.app/',
     process.env.RAILWAY_STATIC_URL
   ].filter(Boolean);
@@ -1675,6 +1676,65 @@ app.get('/api/public/stores/:storeId/products/:productId', async (req, res) => {
     console.error('❌ [PUBLIC] Error getting product:', error);
     res.status(500).json({ 
       error: 'Failed to fetch product',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// ✅ NUEVO ENDPOINT: Buscar productos por SKU
+app.get('/api/public/stores/:storeId/products/search', async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const { sku, name, category } = req.query;
+
+    if (!storeId || isNaN(storeId)) {
+      return res.status(400).json({ error: 'Valid store ID required' });
+    }
+
+    // ✅ VERIFICAR TIENDA
+    const store = await masterStorage.getVirtualStore(storeId);
+
+    if (!store || !store.isActive) {
+      return res.status(404).json({ error: 'Store not found or inactive' });
+    }
+
+    // ✅ OBTENER TODOS LOS PRODUCTOS
+    const tenantStorage = await storageFactory.getTenantStorage(storeId);
+    const allProducts = await tenantStorage.getAllProducts();
+
+    // ✅ FILTRAR POR ESTADO ACTIVO
+    let filteredProducts = allProducts.filter((product: any) => product.isActive !== false);
+
+    // ✅ FILTRAR POR SKU (búsqueda insensible a mayúsculas)
+    if (sku) {
+      const skuLower = (sku as string).toLowerCase().trim();
+      filteredProducts = filteredProducts.filter((product: any) =>
+        product.sku && product.sku.toLowerCase().includes(skuLower)
+      );
+    }
+
+    // ✅ FILTRAR POR NOMBRE (búsqueda insensible a mayúsculas)
+    if (name) {
+      const nameLower = (name as string).toLowerCase().trim();
+      filteredProducts = filteredProducts.filter((product: any) =>
+        product.name && product.name.toLowerCase().includes(nameLower)
+      );
+    }
+
+    // ✅ FILTRAR POR CATEGORÍA
+    if (category) {
+      filteredProducts = filteredProducts.filter((product: any) =>
+        product.category === category
+      );
+    }
+
+    console.log(`🔍 [SEARCH] Found ${filteredProducts.length} products with SKU: ${sku} in store ${storeId}`);
+
+    res.json(filteredProducts);
+  } catch (error) {
+    console.error('Error searching products:', error);
+    res.status(500).json({
+      error: 'Failed to search products',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
