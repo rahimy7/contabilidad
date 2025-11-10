@@ -73,18 +73,33 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
   // ✅ Mutación con debounce
   const assignOrderMutation = useMutation({
     mutationFn: async ({ orderId, userId }: { orderId: number; userId: number | null }) => {
-      return apiRequest("PUT", `/api/orders/${orderId}`, { 
-        assignedUserId: userId,
-        ...(userId && order?.status === 'pending' && { status: 'assigned' })
-      });
+      // Si se asigna un usuario (no "unassigned")
+      if (userId && order?.status === 'pending') {
+        // Asignar a viaje del usuario específico
+        try {
+          return await apiRequest("POST", "/api/trips/assign-order-with-user", { orderId, userId });
+        } catch (tripError) {
+          console.warn('Error asignando a viaje:', tripError);
+          // Fallback: solo actualizar el usuario asignado
+          await apiRequest("PUT", `/api/orders/${orderId}`, { assignedUserId: userId });
+          return { orderId, userId };
+        }
+      } else {
+        // Si es "unassigned", solo actualizar el usuario
+        await apiRequest("PUT", `/api/orders/${orderId}`, { assignedUserId: userId });
+        return { orderId, userId };
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({
         title: "Orden asignada",
-        description: selectedUserId === "unassigned" 
+        description: selectedUserId === "unassigned"
           ? "La asignación ha sido removida exitosamente."
-          : "La orden ha sido asignada exitosamente.",
+          : data?.tripNumber
+            ? `Asignada al viaje ${data.tripNumber} del usuario.`
+            : "La orden ha sido asignada exitosamente.",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       onClose(true);
     },
     onError: (error) => {

@@ -99,7 +99,7 @@ export default function OrdersPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
 
-  const { debouncedUpdate, immediateUpdate, isPending } = useDebouncedOrderUpdate();
+  const { debouncedUpdate, isPending } = useDebouncedOrderUpdate();
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders"],
@@ -354,25 +354,51 @@ const generateOrderPrint = async (order: OrderWithDetails) => {
   try {
     // Construir ticket ESC/POS
     const ticket = buildESCPOSTicket(order);
-    
+
     // Enviar al backend
     const response = await fetch('/api/print/thermal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticket })
     });
-    
+
     if (!response.ok) {
       throw new Error('Error al imprimir');
     }
-    
+
     const result = await response.json();
-    
+
     toast({
       title: "✓ Impreso",
       description: `Enviado por ${result.method}`,
     });
-    
+
+    // ✅ NUEVO: Después de imprimir, asignar a viaje automáticamente (igual que el botón del carrito)
+    if (order.status === 'pending' && !order.tripId) {
+      try {
+        const assignResponse = await fetch('/api/trips/assign-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: order.id })
+        });
+
+        if (assignResponse.ok) {
+          const assignResult = await assignResponse.json();
+          toast({
+            title: "✓ Orden asignada",
+            description: `Asignada al viaje ${assignResult.tripNumber}`,
+          });
+          // Recargar órdenes para mostrar el viaje asignado
+          queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        } else {
+          console.warn('No se pudo asignar a viaje automáticamente');
+        }
+      } catch (assignError) {
+        console.warn('Error asignando a viaje:', assignError);
+        // No fallar la impresión si falla la asignación
+      }
+    }
+
   } catch (error: any) {
     console.error('Print error:', error);
     toast({

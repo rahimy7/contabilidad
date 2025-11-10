@@ -38,6 +38,14 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
+    }).format(num);
+  };
+
   const handleConfirm = async () => {
     if (!trip) return;
 
@@ -115,7 +123,7 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-500" />
                     <span className="text-sm">
-                      <strong>${parseFloat(trip.totalAmount).toLocaleString()}</strong>
+                      <strong>{formatCurrency(trip.totalAmount)}</strong>
                     </span>
                   </div>
                 </div>
@@ -142,7 +150,7 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
                     <span className="font-medium">{order.orderNumber}</span>
                   </div>
                   <span className="text-gray-600 font-medium">
-                    ${parseFloat(order.totalAmount).toLocaleString()}
+                    {formatCurrency(order.totalAmount)}
                   </span>
                 </div>
               ))}

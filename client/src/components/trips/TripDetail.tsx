@@ -57,6 +57,14 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
   const [orderDetails, setOrderDetails] = useState<OrderWithDetails | null>(null);
   const { toast } = useToast();
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
+    }).format(num);
+  };
+
   useEffect(() => {
     if (open && tripId) {
       loadTripDetails();
@@ -248,7 +256,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">
-                      ${parseFloat(trip.totalAmount).toLocaleString()}
+                      {formatCurrency(trip.totalAmount)}
                     </p>
                   </CardContent>
                 </Card>
@@ -289,7 +297,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                         </div>
                         <div className="text-right space-x-2">
                           <span className="font-bold">
-                            ${parseFloat(order.order.totalAmount).toLocaleString()}
+                            {formatCurrency(order.order.totalAmount)}
                           </span>
                           <Button
                             size="sm"

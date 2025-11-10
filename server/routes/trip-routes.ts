@@ -52,11 +52,95 @@ function decodeQRCode(qrCode: string, storeId: string | number): number | null {
   try {
     const parts = qrCode.split('-');
     if (parts.length < 2) return null;
-    
+
     const orderNumber = parts[1];
     return parseInt(orderNumber);
   } catch {
     return null;
+  }
+}
+
+// ✅ Función para actualizar progreso del viaje
+async function updateTripProgress(db: any, tripId: number) {
+  try {
+    const [orderCount] = await db
+      .select({
+        total: count(),
+        completed: sql<number>`COUNT(CASE WHEN ${schema.orders.status} IN ('completed', 'picked_up') THEN 1 END)`,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    const [amountSum] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${schema.orders.totalAmount}), 0)`,
+      })
+      .from(schema.tripOrders)
+      .leftJoin(schema.orders, eq(schema.tripOrders.orderId, schema.orders.id))
+      .where(eq(schema.tripOrders.tripId, tripId));
+
+    const totalOrders = orderCount.total || 0;
+    const completedOrders = orderCount.completed || 0;
+
+    let newStatus = undefined;
+    if (totalOrders > 0 && completedOrders === totalOrders) {
+      newStatus = 'completed';
+    }
+
+    const updateData: any = {
+      totalOrders,
+      completedOrders,
+      totalAmount: amountSum.total || '0',
+      updatedAt: new Date(),
+    };
+
+    if (newStatus) {
+      updateData.status = newStatus;
+      updateData.completedAt = new Date();
+    }
+
+    await db
+      .update(schema.trips)
+      .set(updateData)
+      .where(eq(schema.trips.id, tripId));
+
+    console.log(`✅ [UPDATE-TRIP] Viaje ${tripId}: ${completedOrders}/${totalOrders} completadas`);
+  } catch (error) {
+    console.error(`❌ [UPDATE-TRIP] Error:`, error);
+    throw error;
+  }
+}
+
+// ✅ Función para sincronizar cambio de estado en tripOrders
+async function syncOrderStatusInTrip(db: any, tripId: number, orderId: number, newOrderStatus: string) {
+  try {
+    // Mapear el estado de la orden al estado del tripOrder
+    let tripOrderStatus: 'pending' | 'picked' | 'cancelled' = 'pending';
+
+    if (['completed', 'delivered', 'picked_up'].includes(newOrderStatus)) {
+      tripOrderStatus = 'picked';
+    } else if (newOrderStatus === 'cancelled') {
+      tripOrderStatus = 'cancelled';
+    }
+
+    // Actualizar el estado en tripOrders
+    await db
+      .update(schema.tripOrders)
+      .set({
+        status: tripOrderStatus,
+        pickedAt: tripOrderStatus === 'picked' ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.tripOrders.tripId, tripId),
+        eq(schema.tripOrders.orderId, orderId)
+      ));
+
+    console.log(`✅ [SYNC-TRIP] Orden ${orderId} en viaje ${tripId} sincronizada a estado: ${tripOrderStatus}`);
+  } catch (error) {
+    console.error(`❌ [SYNC-TRIP] Error:`, error);
+    throw error;
   }
 }
 
@@ -405,7 +489,13 @@ router.post('/trips/assign-order', authenticateToken, async (req: any, res: any)
       .where(eq(schema.orders.id, orderId));
     
     console.log(`✅ [ASSIGN-ORDER] Orden actualizada con tripId ${trip.id}, nuevo status: ${newOrderStatus}`);
-    
+
+    // ✅ NUEVO: Si el estado cambió a 'processing', sincronizar en tripOrders
+    if (order.status !== newOrderStatus && newOrderStatus === 'processing') {
+      console.log(`🔄 [ASSIGN-ORDER] Sincronizando tripOrders para orden ${orderId}...`);
+      await syncOrderStatusInTrip(db, trip.id, orderId, newOrderStatus);
+    }
+
     // 8. Actualizar contadores del viaje
     await updateTripProgress(db, trip.id);
     
@@ -434,9 +524,187 @@ router.post('/trips/assign-order', authenticateToken, async (req: any, res: any)
     
   } catch (error) {
     console.error('❌ [ASSIGN-ORDER] Error asignando orden a viaje:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al asignar orden a viaje',
-      details: error.message 
+      details: error.message
+    });
+  }
+});
+
+// ✅ NUEVO: POST /api/trips/assign-order-with-user - Asignar orden a viaje de usuario específico
+router.post('/trips/assign-order-with-user', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { orderId, userId } = req.body;
+
+    if (!orderId || !userId) {
+      return res.status(400).json({ error: 'orderId y userId son requeridos' });
+    }
+
+    const db = await getDb(req.user.storeId);
+    const storeId = parseInt(req.user.storeId);
+
+    console.log(`🔍 [ASSIGN-ORDER-USER] Asignando orden ${orderId} a viaje del usuario ${userId}...`);
+
+    // 1. Verificar que la orden existe
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, orderId));
+
+    if (!order) {
+      console.error(`❌ [ASSIGN-ORDER-USER] Orden ${orderId} no encontrada`);
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    // 2. Si ya está en un viaje, verificar si es diferente
+    // Si es el mismo usuario, no hacer nada. Si es diferente, mover a nuevo viaje
+    if (order.tripId) {
+      const [currentTrip] = await db
+        .select({ assignedUserId: schema.trips.assignedUserId })
+        .from(schema.trips)
+        .where(eq(schema.trips.id, order.tripId));
+
+      // Si ya está en viaje del mismo usuario, no hacer nada
+      if (currentTrip?.assignedUserId === userId) {
+        console.log(`ℹ️ [ASSIGN-ORDER-USER] Orden ya está en viaje del usuario ${userId}`);
+        return res.json({
+          success: true,
+          message: 'La orden ya está asignada a este usuario',
+          tripId: order.tripId,
+          orderStatus: order.status,
+          info: {
+            wasNewTrip: false,
+            alreadyAssigned: true
+          }
+        });
+      }
+
+      // Si está en viaje de otro usuario, primero remover de tripOrders
+      console.log(`🔄 [ASSIGN-ORDER-USER] Removiendo orden del viaje anterior ${order.tripId}...`);
+      await db
+        .delete(schema.tripOrders)
+        .where(and(
+          eq(schema.tripOrders.tripId, order.tripId),
+          eq(schema.tripOrders.orderId, orderId)
+        ));
+
+      // Actualizar progreso del viaje anterior
+      await updateTripProgress(db, order.tripId);
+    }
+
+    // 3. Buscar viaje pendiente del usuario
+    console.log(`🔍 [ASSIGN-ORDER-USER] Buscando viaje pendiente del usuario ${userId}...`);
+    let [trip] = await db
+      .select()
+      .from(schema.trips)
+      .where(and(
+        eq(schema.trips.storeId, storeId),
+        eq(schema.trips.assignedUserId, userId),
+        eq(schema.trips.status, 'pending')
+      ))
+      .orderBy(desc(schema.trips.createdAt))
+      .limit(1);
+
+    // 4. Si no existe, crear viaje nuevo ASIGNADO al usuario
+    if (!trip) {
+      console.log(`📦 [ASSIGN-ORDER-USER] No hay viaje pendiente para usuario ${userId}, creando nuevo...`);
+
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const [countResult] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(schema.trips)
+        .where(eq(schema.trips.storeId, storeId));
+
+      const tripNumber = `TRIP-${today}-${String((countResult.count || 0) + 1).padStart(3, '0')}`;
+
+      console.log(`✨ [ASSIGN-ORDER-USER] Creando viaje ${tripNumber} para usuario ${userId}`);
+
+      [trip] = await db
+        .insert(schema.trips)
+        .values({
+          tripNumber,
+          assignedUserId: userId, // ⚠️ IMPORTANTE: Asignado al usuario específico
+          storeId,
+          status: 'pending',
+          totalOrders: 0,
+          completedOrders: 0,
+          totalAmount: '0',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+
+      console.log(`✅ [ASSIGN-ORDER-USER] Viaje ${tripNumber} creado con ID ${trip.id} para usuario ${userId}`);
+    } else {
+      console.log(`✅ [ASSIGN-ORDER-USER] Usando viaje existente ${trip.tripNumber} (ID: ${trip.id})`);
+    }
+
+    // 5. Agregar orden al viaje
+    console.log(`🔗 [ASSIGN-ORDER-USER] Agregando orden ${order.id} al viaje ${trip.id}...`);
+
+    await db
+      .insert(schema.tripOrders)
+      .values({
+        tripId: trip.id,
+        orderId: order.id,
+        storeId,
+        status: 'pending',
+        sequenceNumber: trip.totalOrders + 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+    // 6. Actualizar orden: tripId + cambiar estado a 'processing'
+    const newOrderStatus = order.status === 'pending' ? 'processing' : order.status;
+
+    await db
+      .update(schema.orders)
+      .set({
+        tripId: trip.id,
+        assignedUserId: userId, // Asegurar que está asignado
+        status: newOrderStatus,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.orders.id, orderId));
+
+    console.log(`✅ [ASSIGN-ORDER-USER] Orden actualizada: tripId ${trip.id}, userId ${userId}, status ${newOrderStatus}`);
+
+    // 7. Sincronizar estado en tripOrders si cambió a 'processing'
+    if (order.status !== newOrderStatus && newOrderStatus === 'processing') {
+      console.log(`🔄 [ASSIGN-ORDER-USER] Sincronizando tripOrders para orden ${orderId}...`);
+      await syncOrderStatusInTrip(db, trip.id, orderId, newOrderStatus);
+    }
+
+    // 8. Actualizar contadores del viaje
+    await updateTripProgress(db, trip.id);
+
+    // 9. Obtener viaje actualizado
+    const [updatedTrip] = await db
+      .select()
+      .from(schema.trips)
+      .where(eq(schema.trips.id, trip.id));
+
+    console.log(`✅ [ASSIGN-ORDER-USER] Orden ${order.orderNumber || order.id} asignada a viaje ${trip.tripNumber} del usuario ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Orden asignada al viaje correctamente',
+      tripId: trip.id,
+      tripNumber: trip.tripNumber,
+      orderStatus: newOrderStatus,
+      trip: updatedTrip,
+      info: {
+        wasNewTrip: !trip.totalOrders,
+        totalOrdersInTrip: updatedTrip.totalOrders,
+        tripHasUser: !!updatedTrip.assignedUserId
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [ASSIGN-ORDER-USER] Error asignando orden a viaje del usuario:', error);
+    res.status(500).json({
+      error: 'Error al asignar orden a viaje',
+      details: error.message
     });
   }
 });

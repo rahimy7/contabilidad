@@ -177,6 +177,14 @@ export default function TripsPage() {
     }
   };
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
+    }).format(num);
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { label: string; className: string }> = {
       pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
@@ -333,7 +341,7 @@ export default function TripsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          ${parseFloat(trip.totalAmount).toLocaleString()}
+                          {formatCurrency(trip.totalAmount)}
                         </TableCell>
                         <TableCell>
                           {new Date(trip.createdAt).toLocaleDateString()}
@@ -417,7 +425,7 @@ export default function TripsPage() {
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-green-600" />
                           <span className="text-sm font-bold">
-                            ${parseFloat(trip.totalAmount).toLocaleString()}
+                            {formatCurrency(trip.totalAmount)}
                           </span>
                         </div>
                       </div>

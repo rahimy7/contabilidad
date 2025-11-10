@@ -2,6 +2,8 @@
 
 import { eq, and, inArray, sql, desc } from 'drizzle-orm';
 import type { AuthUser } from '../../shared/auth';
+import { getTenantDb } from '../multi-tenant-db.js';
+import * as schema from '../../shared/schema.js';
 
 interface Order {
   id: number;
@@ -258,42 +260,94 @@ private async getEligibleTechnicians(order: Order, rule: AssignmentRule): Promis
   /**
    * Asigna la orden al técnico seleccionado
    */
-private async assignOrderToTechnician(orderId: number, userId: number, ruleId: number): Promise<void> {
-  const { schema, tenantDb } = this.tenantStorage;
-  
-  // 1. Actualizar la orden
-  await tenantDb
-    .update(schema.orders)
-    .set({
-      assignedUserId: userId,
-      assignedRuleId: ruleId,
-      autoAssigned: true,
-      status: 'processing',
-      updatedAt: new Date()
-    })
-    .where(eq(schema.orders.id, orderId));
+  private async assignOrderToTechnician(orderId: number, userId: number, ruleId: number): Promise<void> {
+    const { schema, tenantDb, storeId } = this.tenantStorage;
 
-  // 2. Incrementar contador en USERS (no en employeeProfiles)
-  await tenantDb
-    .update(schema.users)
-    .set({
-      currentOrders: sql`${schema.users.currentOrders} + 1`,
-      updatedAt: new Date()
-    })
-    .where(eq(schema.users.id, userId));
+    // 1. Actualizar la orden
+    await tenantDb
+      .update(schema.orders)
+      .set({
+        assignedUserId: userId,
+        assignedRuleId: ruleId,
+        autoAssigned: true,
+        status: 'processing',
+        updatedAt: new Date()
+      })
+      .where(eq(schema.orders.id, orderId));
 
-  // 3. Crear notificación
-  await tenantDb.insert(schema.notifications).values({
-    userId: userId,
-    title: 'Nueva orden asignada',
-    message: `Se te ha asignado automáticamente la orden #${orderId}`,
+    // ✅ NUEVO: Sincronizar cambio de estado a 'processing' con viaje
+    await this.syncOrderStatusWithTrip(storeId, orderId, 'processing');
+
+    // 2. Incrementar contador en USERS (no en employeeProfiles)
+    await tenantDb
+      .update(schema.users)
+      .set({
+        currentOrders: sql`${schema.users.currentOrders} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.users.id, userId));
+
+    // 3. Crear notificación
+    await tenantDb.insert(schema.notifications).values({
+      userId: userId,
+      title: 'Nueva orden asignada',
+      message: `Se te ha asignado automáticamente la orden #${orderId}`,
     type: 'order_assigned',
     relatedId: orderId,
     relatedType: 'order',
     isRead: false,
     createdAt: new Date()
   });
-}
+  }
+
+  /**
+   * Sincroniza cambio de estado de orden con su viaje
+   */
+  private async syncOrderStatusWithTrip(storeId: number, orderId: number, newStatus: string): Promise<void> {
+    try {
+      const db = await getTenantDb(storeId);
+
+      // Obtener la orden y su viaje
+      const [order] = await db
+        .select({ tripId: schema.orders.tripId })
+        .from(schema.orders)
+        .where(eq(schema.orders.id, orderId));
+
+      if (!order || !order.tripId) {
+        console.log(`ℹ️ [AUTO-ASSIGN-SYNC] Orden ${orderId} no está en un viaje`);
+        return;
+      }
+
+      const tripId = order.tripId;
+
+      // Mapear estado de orden a estado de tripOrder
+      let tripOrderStatus: 'pending' | 'picked' | 'cancelled' = 'pending';
+
+      if (['completed', 'delivered', 'picked_up'].includes(newStatus)) {
+        tripOrderStatus = 'picked';
+      } else if (newStatus === 'cancelled') {
+        tripOrderStatus = 'cancelled';
+      }
+
+      // Actualizar tripOrders
+      await db
+        .update(schema.tripOrders)
+        .set({
+          status: tripOrderStatus,
+          pickedAt: tripOrderStatus === 'picked' ? new Date() : undefined,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(schema.tripOrders.tripId, tripId),
+          eq(schema.tripOrders.orderId, orderId)
+        ));
+
+      console.log(`✅ [AUTO-ASSIGN-SYNC] Orden ${orderId} sincronizada en viaje ${tripId} con estado: ${tripOrderStatus}`);
+    } catch (error) {
+      console.error(`❌ [AUTO-ASSIGN-SYNC] Error sincronizando orden con viaje:`, error);
+      // No lanzar error para que la asignación continúe aunque falle la sincronización
+    }
+  }
 }
 
 // Función helper para usar en routes

@@ -35,7 +35,7 @@ import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
 import superAdminRoutes from './routes/super-admin-routes';
 import { executeAutoAssignment } from "./services/auto-assignment-service.js";
-import { integrateWithAutoAssignment } from "./services/trip-service.js";
+import { integrateWithAutoAssignment, TripService } from "./services/trip-service.js";
 
 
 function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
@@ -177,33 +177,63 @@ async function getUnifiedStorageForUser(user: AuthUser): Promise<UnifiedStorage>
 }
 
 async function syncOrderStatusWithTrip(
-  storeId: number, 
-  orderId: number, 
+  storeId: number,
+  orderId: number,
   newOrderStatus: string
 ): Promise<void> {
   try {
-    console.log(`🔄 [SYNC] Sincronizando estado de orden ${orderId} con viaje...`);
-    
+    console.log(`🔄 [SYNC] Sincronizando estado de orden ${orderId} con viaje... (nuevo estado: ${newOrderStatus})`);
+
     const db = await getTenantDb(storeId);
-    
-    // Verificar si la orden está asociada a un viaje
+
+    // Obtener información completa de la orden
     const [order] = await db
-      .select({ tripId: schema.orders.tripId })
+      .select({
+        tripId: schema.orders.tripId,
+        assignedUserId: schema.orders.assignedUserId
+      })
       .from(schema.orders)
       .where(eq(schema.orders.id, orderId))
       .limit(1);
-    
-    if (!order || !order.tripId) {
+
+    if (!order) {
+      console.log(`❌ [SYNC] Orden ${orderId} no encontrada`);
+      return;
+    }
+
+    // ✅ NUEVO: Si la orden cambia a "processing" y NO está en un viaje, asignarla automáticamente
+    if (newOrderStatus === 'processing' && !order.tripId) {
+      console.log(`📌 [SYNC] Orden ${orderId} cambió a 'processing' sin viaje asignado. Asignando automáticamente...`);
+
+      try {
+        const result = await TripService.assignOrderToTripAutomatically(
+          storeId,
+          orderId,
+          order.assignedUserId
+        );
+
+        console.log(`✅ [SYNC] Orden ${orderId} asignada automáticamente al viaje ${result.tripNumber} (ID: ${result.tripId})`);
+
+        // ✅ CRÍTICO: Actualizar order.tripId para reflejar la asignación
+        order.tripId = result.tripId;
+      } catch (assignError) {
+        console.error(`⚠️ [SYNC] Error asignando orden a viaje:`, assignError);
+        // Continuar con la sincronización aunque falle la asignación automática
+      }
+    }
+
+    // Si la orden no está en un viaje, no hay más qué sincronizar
+    if (!order.tripId) {
       console.log(`ℹ️ [SYNC] Orden ${orderId} no está asociada a ningún viaje`);
       return;
     }
-    
+
     const tripId = order.tripId;
     console.log(`🚚 [SYNC] Orden ${orderId} está en viaje ${tripId}`);
-    
+
     // Mapear el estado de la orden al estado del tripOrder
     let tripOrderStatus: 'pending' | 'picked' | 'cancelled' = 'pending';
-    
+
     // Si la orden está completada, delivered o picked_up -> marcar como 'picked' en el viaje
     if (['completed', 'delivered', 'picked_up'].includes(newOrderStatus)) {
       tripOrderStatus = 'picked';
@@ -212,9 +242,9 @@ async function syncOrderStatusWithTrip(
     } else {
       tripOrderStatus = 'pending';
     }
-    
+
     console.log(`📝 [SYNC] Actualizando tripOrder status a: ${tripOrderStatus}`);
-    
+
     // Actualizar el estado en tripOrders
     await db
       .update(schema.tripOrders)
@@ -227,10 +257,10 @@ async function syncOrderStatusWithTrip(
         eq(schema.tripOrders.tripId, tripId),
         eq(schema.tripOrders.orderId, orderId)
       ));
-    
+
     // Actualizar el progreso del viaje
     await updateTripProgress(db, tripId);
-    
+
     // Verificar si el viaje debe completarse automáticamente
     const [tripData] = await db
       .select({
@@ -240,24 +270,24 @@ async function syncOrderStatusWithTrip(
       })
       .from(schema.trips)
       .where(eq(schema.trips.id, tripId));
-    
+
     // Si todas las órdenes están completadas y el viaje está activo, marcarlo como completado
-    if (tripData && 
-        tripData.completedOrders === tripData.totalOrders && 
+    if (tripData &&
+        tripData.completedOrders === tripData.totalOrders &&
         tripData.completedOrders > 0 &&
         (tripData.status === 'active' || tripData.status === 'processing')) {
-      
+
       console.log(`✅ [SYNC] Todas las órdenes completadas. Marcando viaje ${tripId} como completado`);
-      
+
       const [trip] = await db
         .select({ startedAt: schema.trips.startedAt })
         .from(schema.trips)
         .where(eq(schema.trips.id, tripId));
-      
-      const duration = trip?.startedAt 
+
+      const duration = trip?.startedAt
         ? Math.floor((new Date().getTime() - new Date(trip.startedAt).getTime()) / 60000)
         : null;
-      
+
       await db
         .update(schema.trips)
         .set({
@@ -267,12 +297,12 @@ async function syncOrderStatusWithTrip(
           updatedAt: new Date(),
         })
         .where(eq(schema.trips.id, tripId));
-      
+
       console.log(`🎉 [SYNC] Viaje ${tripId} completado automáticamente`);
     }
-    
+
     console.log(`✅ [SYNC] Sincronización completada para orden ${orderId}`);
-    
+
   } catch (error) {
     console.error(`❌ [SYNC] Error sincronizando orden ${orderId} con viaje:`, error);
     // No lanzar el error para que no falle la actualización de la orden
@@ -3642,36 +3672,43 @@ router.patch('/orders/:id/status', authenticateToken, async (req: any, res: any)
   try {
     const orderId = parseInt(req.params.id);
     const user = req.user as AuthUser;
+    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
     const { status, notes } = req.body;
-    
+
     if (isNaN(orderId)) {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
-    
+
     if (!status) {
       return res.status(400).json({ error: 'Status is required' });
     }
 
     console.log(`📝 [PATCH /orders/${orderId}/status] Updating to:`, status);
-    
+
     const tenantStorage = await getTenantStorageWithSchema(user);
-    
+
     const order = await tenantStorage.getOrderById(orderId);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    
-    const updatedOrder = await tenantStorage.updateOrder(orderId, { 
+
+    const updatedOrder = await tenantStorage.updateOrder(orderId, {
       status,
       updatedAt: new Date()
     });
-    
+
+    // ✅ NUEVO: Sincronizar cambio de estado con viaje
+    if (order.status !== status) {
+      console.log(`🔄 [PATCH /orders/:id/status] Sincronizando estado con viaje...`);
+      await syncOrderStatusWithTrip(storeId, orderId, status);
+    }
+
     console.log(`✅ Updated successfully`);
     res.json(updatedOrder);
-    
+
   } catch (error) {
     console.error('❌ Error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to update order status',
       message: error instanceof Error ? error.message : 'Unknown error'
     });

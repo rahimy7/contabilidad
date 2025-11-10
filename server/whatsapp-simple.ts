@@ -6,7 +6,9 @@ import { IntelligentWelcomeService, OrderTrackingService } from './order-trackin
 
 import { resilientDb } from './db'; // Tu nuevo db con ResilientDatabase
 import { ImprovedWebhookHandler } from '../webhook/improved-handler';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { getTenantDb } from './multi-tenant-db.js';
+import * as schema from '@shared/schema';
 
 
 const webhookHandler = new ImprovedWebhookHandler(resilientDb);
@@ -15,6 +17,53 @@ const masterStorage = storageFactory.getMasterStorage();
 
 async function getStorageHelper() {
   return masterStorage;
+}
+
+// ✅ Función para sincronizar cambio de estado de orden con viaje
+async function syncOrderStatusWithTripInWhatsApp(storeId: number, orderId: number, newStatus: string) {
+  try {
+    const db = await getTenantDb(storeId);
+
+    // Obtener la orden y su viaje
+    const [order] = await db
+      .select({ tripId: schema.orders.tripId })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, orderId));
+
+    if (!order || !order.tripId) {
+      console.log(`ℹ️ [WHATSAPP-SYNC] Orden ${orderId} no está en un viaje`);
+      return;
+    }
+
+    const tripId = order.tripId;
+
+    // Mapear estado de orden a estado de tripOrder
+    let tripOrderStatus: 'pending' | 'picked' | 'cancelled' = 'pending';
+
+    if (['completed', 'delivered', 'picked_up'].includes(newStatus)) {
+      tripOrderStatus = 'picked';
+    } else if (newStatus === 'cancelled') {
+      tripOrderStatus = 'cancelled';
+    }
+
+    // Actualizar tripOrders
+    await db
+      .update(schema.tripOrders)
+      .set({
+        status: tripOrderStatus,
+        pickedAt: tripOrderStatus === 'picked' ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.tripOrders.tripId, tripId),
+        eq(schema.tripOrders.orderId, orderId)
+      ));
+
+    console.log(`✅ [WHATSAPP-SYNC] Orden ${orderId} sincronizada en viaje ${tripId} con estado: ${tripOrderStatus}`);
+  } catch (error) {
+    console.error(`❌ [WHATSAPP-SYNC] Error sincronizando orden con viaje:`, error);
+    // No lanzar error para que la cancelación continúe aunque falle la sincronización
+  }
 }
 
 interface CollectedData {
@@ -992,7 +1041,7 @@ if (collectedData.address) customerUpdates.address = collectedData.address;
       const deliveryContactNumber = collectedData.contactNumber || customer.phone;
       
       const orderUpdates = {
-        status: 'confirmed',
+        status: 'pending',
         deliveryAddress: collectedData.address || null,
         contactNumber: deliveryContactNumber, // ✅ CAMPO ESPECÍFICO PARA ENTREGA
         paymentMethod: collectedData.paymentMethod || null,
@@ -1178,7 +1227,7 @@ async function finalizeOrderWithData(
     console.log(`📋 Order details: ID ${orderId}, Number: ${orderNumber}`);
     
     const orderUpdates = {
-      status: 'confirmed',
+      status: 'pending',
       notes: `Datos del cliente:\n• Contacto: ${collectedData.contactNumber}\n• Dirección: ${collectedData.address}\n• Pago: ${collectedData.paymentMethod}\n• Notas adicionales: ${collectedData.notes}`,
       updatedAt: new Date()
     };
@@ -2819,18 +2868,22 @@ Responde el número de la opción que quieres cambiar.`,
 
 case 'cancel_order':
   console.log(`❌ CANCELING ORDER for ${phoneNumber}`);
-  
+
   // Ya tienes esta lógica implementada en el código existente
   const cancelFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
   if (cancelFlow && cancelFlow.orderId) {
     await tenantStorage.updateOrder(cancelFlow.orderId, { status: 'cancelled' });
-    await tenantStorage.updateRegistrationFlowByPhone(phoneNumber, { 
+
+    // ✅ NUEVO: Sincronizar cancelación con viaje si existe
+    await syncOrderStatusWithTripInWhatsApp(storeMapping.storeId, cancelFlow.orderId, 'cancelled');
+
+    await tenantStorage.updateRegistrationFlowByPhone(phoneNumber, {
       isCompleted: true,
-      currentStep: 'cancelled' 
+      currentStep: 'cancelled'
     });
-    
-    await sendWhatsAppMessageDirect(phoneNumber, 
-      "❌ Tu pedido ha sido cancelado exitosamente. Si necesitas ayuda, no dudes en contactarnos.", 
+
+    await sendWhatsAppMessageDirect(phoneNumber,
+      "❌ Tu pedido ha sido cancelado exitosamente. Si necesitas ayuda, no dudes en contactarnos.",
       storeMapping.storeId);
   }
   break;
@@ -3460,9 +3513,8 @@ async function detectOrderFlow(phoneNumber: string, messageText: string, config:
 
     // 2. Verificar si hay órdenes pendientes para este cliente
     if (config.storeId) {
-     const { storageFactory } = await import('./storage/index.js');
-const tenantStorage = await storageFactory.getTenantStorage(config.storeId);
-      
+      const tenantStorage = await getTenantStorage(config.storeId);
+
       if (tenantStorage) {
         const customer = await tenantStorage.getCustomerByPhone(phoneNumber);
         if (customer) {

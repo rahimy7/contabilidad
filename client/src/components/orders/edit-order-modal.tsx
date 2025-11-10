@@ -8,36 +8,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Edit } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 interface EditOrderModalProps {
   order: any;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (updates: any) => void;
-  users: Array<{ id: number; name: string; role: string }>;
+  users: Array<{ id: number; name: string; role: string; status: string }>;
   isPending: boolean;
 }
 
-export default function EditOrderModal({ 
-  order, 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  users, 
-  isPending 
+export default function EditOrderModal({
+  order,
+  isOpen,
+  onClose,
+  onSubmit,
+  users,
+  isPending
 }: EditOrderModalProps) {
-  
+  const { toast } = useToast();
+
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('es-DO', { 
-      style: 'currency', 
-      currency: 'DOP' 
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
     }).format(num);
   };
 
   if (!order) return null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
@@ -55,10 +58,45 @@ export default function EditOrderModal({
 
     // Manejar assignedUserId
     const formAssignedUserId = formData.get("assignedUserId") as string;
-    if (formAssignedUserId === "unassigned") {
-      updates.assignedUserId = null;
-    } else if (formAssignedUserId) {
-      updates.assignedUserId = parseInt(formAssignedUserId);
+    const newUserId = formAssignedUserId === "unassigned" ? null :
+                      formAssignedUserId ? parseInt(formAssignedUserId) : null;
+
+    // ✅ Si cambió el usuario asignado Y la orden está en un viaje Y en estado pending
+    const userChanged = order.assignedUserId !== newUserId;
+    if (userChanged && order.tripId && order.status === 'pending' && newUserId) {
+      try {
+        // Asignar a viaje del nuevo usuario
+        const assignResponse = await fetch('/api/trips/assign-order-with-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: order.id, userId: newUserId })
+        });
+
+        if (assignResponse.ok) {
+          const assignResult = await assignResponse.json();
+          toast({
+            title: "✓ Reasignación exitosa",
+            description: `Orden movida al viaje ${assignResult.tripNumber} del nuevo usuario.`,
+          });
+          // Actualizar el usuario en los cambios
+          updates.assignedUserId = newUserId;
+        } else {
+          console.warn('No se pudo reasignar a viaje');
+          // Intentar actualizar solo el usuario
+          updates.assignedUserId = newUserId;
+        }
+      } catch (error) {
+        console.warn('Error reasignando a viaje:', error);
+        // Continuar con la actualización del usuario aunque falle la reasignación
+        updates.assignedUserId = newUserId;
+      }
+    } else {
+      // Si no hay cambio de usuario o la orden no está en viaje, solo actualizar
+      if (formAssignedUserId === "unassigned") {
+        updates.assignedUserId = null;
+      } else if (formAssignedUserId) {
+        updates.assignedUserId = parseInt(formAssignedUserId);
+      }
     }
 
     // Filtrar valores vacíos (pero permitir null para assignedUserId)
@@ -73,6 +111,8 @@ export default function EditOrderModal({
 
     // ✅ Llamar al handler que tiene debounce
     onSubmit(filteredUpdates);
+    // Recargar órdenes
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
   };
 
   return (
@@ -173,8 +213,8 @@ export default function EditOrderModal({
 
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="assignedUserId">Técnico Asignado</Label>
-                <Select 
-                  name="assignedUserId" 
+                <Select
+                  name="assignedUserId"
                   defaultValue={order.assignedUserId?.toString() || "unassigned"}
                 >
                   <SelectTrigger id="assignedUserId">
@@ -182,11 +222,21 @@ export default function EditOrderModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    {users.filter(u => u.role === 'technician' || u.role === 'admin').map(user => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.name}
-                      </SelectItem>
-                    ))}
+                    {users
+                      .filter(u => {
+                        // Incluir usuarios activos/disponibles con roles de entrega o técnico
+                        const isActive = u.status === 'active' || u.status === 'available';
+                        const isRelevantRole = u.role === 'delivery' || u.role === 'technician' || u.role === 'admin';
+                        return isActive && isRelevantRole;
+                      })
+                      .map(user => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <span>{user.name}</span>
+                            <Badge className="text-xs">{user.role}</Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

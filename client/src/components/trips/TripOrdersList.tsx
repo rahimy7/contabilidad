@@ -37,6 +37,14 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
+    }).format(num);
+  };
+
   useEffect(() => {
     if (open) {
       loadOrders();
@@ -180,7 +188,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
 
                             <div className="text-right flex flex-col gap-2">
                               <p className="font-semibold text-lg">
-                                ${parseFloat(order.totalAmount).toLocaleString()}
+                                {formatCurrency(order.totalAmount)}
                               </p>
                               <Button
                                 size="sm"
@@ -236,7 +244,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
 
                             <div className="text-right">
                               <p className="font-semibold">
-                                ${parseFloat(order.totalAmount).toLocaleString()}
+                                {formatCurrency(order.totalAmount)}
                               </p>
                             </div>
                           </div>
@@ -284,7 +292,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
                     <div>
                       <p className="text-sm text-gray-500">Monto</p>
                       <p className="font-semibold text-lg">
-                        ${parseFloat(selectedOrder.totalAmount).toLocaleString()}
+                        {formatCurrency(selectedOrder.totalAmount)}
                       </p>
                     </div>
                   </div>

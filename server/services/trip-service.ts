@@ -13,7 +13,9 @@ export class TripService {
   ): Promise<number> {
     try {
       const db = await getTenantDb(storeId);
-      
+
+      console.log(`🔍 [FIND-TRIP] Buscando viaje pendiente para user ${userId} en store ${storeId}...`);
+
       const [existingTrip] = await db
         .select()
         .from(schema.trips)
@@ -26,11 +28,14 @@ export class TripService {
         .limit(1);
 
       if (existingTrip) {
+        console.log(`✅ [FIND-TRIP] Reutilizando viaje existente: ${existingTrip.tripNumber} (ID: ${existingTrip.id}, user: ${userId})`);
         return existingTrip.id;
       }
 
+      console.log(`📦 [FIND-TRIP] No hay viaje pendiente para user ${userId}, creando uno nuevo...`);
+
       const tripNumber = await this.generateTripNumber(storeId);
-      
+
       const [newTrip] = await db
         .insert(schema.trips)
         .values({
@@ -46,10 +51,10 @@ export class TripService {
         })
         .returning();
 
-      console.log(`✅ Created new trip ${tripNumber} for user ${userId}`);
+      console.log(`✅ [FIND-TRIP] Nuevo viaje creado: ${tripNumber} (ID: ${newTrip.id}, user: ${userId})`);
       return newTrip.id;
     } catch (error) {
-      console.error('Error finding/creating trip:', error);
+      console.error('❌ [FIND-TRIP] Error finding/creating trip:', error);
       throw error;
     }
   }
@@ -178,6 +183,60 @@ export class TripService {
   }
 
   /**
+   * Encuentra o crea un viaje SIN responsable (para órdenes sin asignar)
+   */
+  static async findOrCreateTripWithoutUser(
+    storeId: number
+  ): Promise<number> {
+    try {
+      const db = await getTenantDb(storeId);
+
+      console.log(`🔍 [FIND-SHARED-TRIP] Buscando viaje compartido pendiente para store ${storeId}...`);
+
+      const [existingTrip] = await db
+        .select()
+        .from(schema.trips)
+        .where(and(
+          eq(schema.trips.assignedUserId, null),
+          eq(schema.trips.storeId, storeId),
+          eq(schema.trips.status, 'pending')
+        ))
+        .orderBy(desc(schema.trips.createdAt))
+        .limit(1);
+
+      if (existingTrip) {
+        console.log(`✅ [FIND-SHARED-TRIP] Reutilizando viaje compartido existente: ${existingTrip.tripNumber} (ID: ${existingTrip.id})`);
+        return existingTrip.id;
+      }
+
+      console.log(`📦 [FIND-SHARED-TRIP] No hay viaje compartido pendiente, creando uno nuevo...`);
+
+      const tripNumber = await this.generateTripNumber(storeId);
+
+      const [newTrip] = await db
+        .insert(schema.trips)
+        .values({
+          tripNumber,
+          assignedUserId: null,
+          storeId,
+          status: 'pending',
+          totalOrders: 0,
+          completedOrders: 0,
+          totalAmount: '0',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      console.log(`✅ [FIND-SHARED-TRIP] Nuevo viaje compartido creado: ${tripNumber} (ID: ${newTrip.id})`);
+      return newTrip.id;
+    } catch (error) {
+      console.error('❌ [FIND-SHARED-TRIP] Error finding/creating shared trip:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Integración con asignación de pedidos
    */
   static async assignOrderWithTrip(
@@ -187,7 +246,7 @@ export class TripService {
   ): Promise<{ tripId: number; tripNumber: string }> {
     try {
       const db = await getTenantDb(storeId);
-      
+
       const tripId = await this.findOrCreateTrip(storeId, userId);
       await this.addOrderToTrip(storeId, tripId, orderId);
 
@@ -202,6 +261,76 @@ export class TripService {
       };
     } catch (error) {
       console.error('Error assigning order with trip:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Asigna una orden a un viaje, buscando uno existente o creando uno nuevo
+   * Maneja tanto órdenes CON responsable como SIN responsable
+   */
+  static async assignOrderToTripAutomatically(
+    storeId: number,
+    orderId: number,
+    assignedUserId: number | null
+  ): Promise<{ tripId: number; tripNumber: string; wasNewTrip: boolean }> {
+    try {
+      const db = await getTenantDb(storeId);
+
+      console.log(`🚀 [AUTO-ASSIGN-TRIP] Asignando orden ${orderId} a viaje automáticamente...`);
+      console.log(`   - Responsable: ${assignedUserId ? `User ${assignedUserId}` : 'Ninguno (viaje compartido)'}`);
+
+      let tripId: number;
+      let wasNewTrip = false;
+
+      if (assignedUserId) {
+        // Si la orden tiene responsable, buscar/crear viaje del responsable
+        console.log(`   - Buscando viaje personal del responsable...`);
+        tripId = await this.findOrCreateTrip(storeId, assignedUserId);
+      } else {
+        // Si no tiene responsable, buscar/crear viaje compartido (sin responsable)
+        console.log(`   - Buscando viaje compartido...`);
+        tripId = await this.findOrCreateTripWithoutUser(storeId);
+      }
+
+      // Verificar si la orden ya está en otro viaje
+      const [existingOrderTrip] = await db
+        .select({ tripId: schema.orders.tripId })
+        .from(schema.orders)
+        .where(eq(schema.orders.id, orderId));
+
+      // Si la orden ya estaba en un viaje diferente, no agregar de nuevo
+      if (existingOrderTrip?.tripId && existingOrderTrip.tripId !== tripId) {
+        console.log(`⚠️ [AUTO-ASSIGN-TRIP] Orden ${orderId} ya estaba en viaje ${existingOrderTrip.tripId}`);
+        const [trip] = await db
+          .select({ tripNumber: schema.trips.tripNumber })
+          .from(schema.trips)
+          .where(eq(schema.trips.id, existingOrderTrip.tripId));
+
+        return {
+          tripId: existingOrderTrip.tripId,
+          tripNumber: trip?.tripNumber || `TRIP-${existingOrderTrip.tripId}`,
+          wasNewTrip: false,
+        };
+      }
+
+      // Agregar orden al viaje
+      await this.addOrderToTrip(storeId, tripId, orderId);
+
+      const [trip] = await db
+        .select({ tripNumber: schema.trips.tripNumber })
+        .from(schema.trips)
+        .where(eq(schema.trips.id, tripId));
+
+      console.log(`✅ [AUTO-ASSIGN-TRIP] Orden ${orderId} asignada al viaje ${trip?.tripNumber} (ID: ${tripId})`);
+
+      return {
+        tripId,
+        tripNumber: trip?.tripNumber || `TRIP-${tripId}`,
+        wasNewTrip,
+      };
+    } catch (error) {
+      console.error('❌ [AUTO-ASSIGN-TRIP] Error assigning order to trip automatically:', error);
       throw error;
     }
   }

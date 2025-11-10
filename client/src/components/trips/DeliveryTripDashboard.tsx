@@ -39,6 +39,14 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
   const [completing, setCompleting] = useState(false);
   const { toast } = useToast();
 
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP'
+    }).format(num);
+  };
+
   useEffect(() => {
     loadActiveTrip();
     // Recargar cada 30 segundos
@@ -242,7 +250,7 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-semibold">
-                      ${parseFloat(order.totalAmount).toLocaleString()}
+                      {formatCurrency(order.totalAmount)}
                     </p>
                   </div>
                 </div>
