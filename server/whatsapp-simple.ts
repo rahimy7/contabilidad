@@ -2955,10 +2955,10 @@ ${orderItems.map(item =>
       
     } catch (autoResponseError) {
       console.error(`❌ ERROR SENDING order_received AUTO-RESPONSE:`, autoResponseError);
-      
+
       // Mensaje de respaldo en caso de error
-      await sendWhatsAppMessageDirect(phoneNumber, 
-        `✅ Pedido recibido correctamente. Un agente te contactará pronto para completar los datos.`, 
+      await sendWhatsAppMessageDirect(phoneNumber,
+        `✅ Pedido recibido correctamente. Un agente te contactará pronto para completar los datos.`,
         storeId);
     }
 
@@ -3021,6 +3021,15 @@ ${orderItems.map(item =>
 
       console.log(`📋 FLOW DATA TO CREATE:`, flowData);
       await tenantStorage.createOrUpdateRegistrationFlow(flowData);
+    }
+
+    // ✅ IMPORTANTE: Si cliente NO está registrado, enviar "Pedido recibido"
+    // Si está registrado, NO enviar este mensaje (va directo a confirmación)
+    if (!isCustomerFullyRegistered) {
+      console.log(`✅ CUSTOMER NOT REGISTERED - Sending "Order received" message`);
+      // El mensaje "Pedido recibido" ya fue enviado arriba
+    } else {
+      console.log(`⏭️ CUSTOMER FULLY REGISTERED - Skipping "Order received", sending confirmation instead`);
     }
 
     // ✅ SI CLIENTE ESTÁ REGISTRADO, ENVIAR CONFIRMACIÓN DIRECTAMENTE
