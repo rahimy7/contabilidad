@@ -511,6 +511,44 @@ async function handleRegistrationFlow(
     }
 
     switch (currentStep) {
+      case 'awaiting_start':
+        console.log(`⏳ AWAITING USER TO START DATA COLLECTION`);
+
+        const startLower = messageText.toLowerCase().trim();
+
+        // Detectar si el usuario quiere comenzar el registro
+        if (startLower.includes('comenzar') ||
+            startLower.includes('start') ||
+            startLower.includes('sí') ||
+            startLower.includes('si') ||
+            startLower.includes('yes') ||
+            startLower.includes('proceder') ||
+            startLower.includes('ok')) {
+
+          console.log(`✅ USER WANTS TO START DATA COLLECTION`);
+
+          // Actualizar flujo para iniciar recolección
+          await tenantStorage.updateRegistrationFlowByPhone(customer.phone, {
+            currentStep: 'collect_name',
+            updatedAt: new Date()
+          });
+
+          console.log(`✅ FLOW UPDATED - Starting name collection`);
+
+          // Enviar auto-respuesta para collect_name
+          await sendAutoResponseMessage(customer.phone, 'collect_name', storeId, tenantStorage);
+        } else {
+          // Respuesta no clara - volver a mostrar opción de comenzar
+          console.log(`❓ UNCLEAR RESPONSE IN awaiting_start`);
+
+          await sendWhatsAppMessageDirect(
+            customer.phone,
+            `❓ Para completar tu pedido, por favor responde:\n\n📝 *"Comenzar"* - Para iniciar la recolección de datos\n\n¿Listo?`,
+            storeId
+          );
+        }
+        break;
+
       case 'collect_name':
         console.log(`📝 PROCESSING NAME COLLECTION`);
         
@@ -964,6 +1002,7 @@ async function handleRegistrationFlow(
 
           // Regenerar y enviar confirmación con datos actualizados
           await generateAndSendOrderConfirmation(customer, registrationFlow, collectedData, storeId, tenantStorage);
+          return; // ⚠️ IMPORTANTE: Salir sin continuar
         } else if (menuChoice === '3') {
           // Cancelar pedido
           console.log(`❌ USER WANTS TO CANCEL ORDER FROM MODIFY MENU`);
@@ -979,6 +1018,7 @@ async function handleRegistrationFlow(
             "❌ Pedido cancelado. Si cambias de opinión, puedes hacer un nuevo pedido cuando gustes.",
             storeId
           );
+          return; // ⚠️ IMPORTANTE: Salir sin continuar
         } else {
           console.log(`❌ INVALID MENU CHOICE: "${menuChoice}"`);
           await sendWhatsAppMessageDirect(
@@ -986,6 +1026,7 @@ async function handleRegistrationFlow(
             "❌ Opción inválida. Por favor selecciona:\n\n1️⃣ Editar otro campo\n2️⃣ Continuar\n3️⃣ Cancelar",
             storeId
           );
+          return; // ⚠️ IMPORTANTE: No cambiar de paso si hay error
         }
         break;
 
