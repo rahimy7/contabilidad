@@ -3151,73 +3151,14 @@ async function handleInteractiveAction(action: string, phoneNumber: string, tena
       break;
       
     case 'edit_order':
-      await sendWhatsAppMessageDirect(phoneNumber, 
-        "Para modificar tu pedido, por favor contacta con nuestro soporte al +1 809-357-6939", 
+      await sendWhatsAppMessageDirect(phoneNumber,
+        "Para modificar tu pedido, por favor contacta con nuestro soporte al +1 809-357-6939",
         storeMapping.storeId);
       break;
 
-      case 'confirm_order':
-  console.log(`✅ CONFIRMING ORDER for ${phoneNumber}`);
-  
-  const flow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
-  if (flow) {
-    // Obtener datos recopilados
-    let collectedData = {};
-    try {
-      if (flow.collectedData && typeof flow.collectedData === 'string') {
-        collectedData = JSON.parse(flow.collectedData);
-      } else if (flow.collectedData) {
-        collectedData = flow.collectedData;
-      }
-    } catch (parseError) {
-      console.log(`⚠️ Error parsing collected data`);
-    }
-    
-    // Completar el registro del pedido
-    const customer = await tenantStorage.getCustomerByPhone(phoneNumber);
-    if (customer) {
-      await completeOrderRegistration(customer, flow, collectedData, storeMapping.storeId, tenantStorage);
-    }
-  }
-  break;
-
-case 'modify_order':
-  console.log(`✏️ MODIFYING ORDER for ${phoneNumber}`);
-  
-  await sendWhatsAppMessageDirect(phoneNumber, 
-    `✏️ *¿Qué deseas modificar?*
-
-1️⃣ Nombre
-2️⃣ Dirección  
-3️⃣ Número de contacto
-4️⃣ Método de pago
-5️⃣ Notas
-
-Responde el número de la opción que quieres cambiar.`, 
-    storeMapping.storeId);
-  break;
-
-case 'cancel_order':
-  console.log(`❌ CANCELING ORDER for ${phoneNumber}`);
-
-  // Ya tienes esta lógica implementada en el código existente
-  const cancelFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
-  if (cancelFlow && cancelFlow.orderId) {
-    await tenantStorage.updateOrder(cancelFlow.orderId, { status: 'cancelled' });
-
-    // ✅ NUEVO: Sincronizar cancelación con viaje si existe
-    await syncOrderStatusWithTripInWhatsApp(storeMapping.storeId, cancelFlow.orderId, 'cancelled');
-
-    await tenantStorage.updateRegistrationFlowByPhone(phoneNumber, {
-      isCompleted: true,
-      currentStep: 'cancelled'
-    });
-
-    await sendWhatsAppMessageDirect(phoneNumber,
-      "❌ Tu pedido ha sido cancelado exitosamente. Si necesitas ayuda, no dudes en contactarnos.",
-      storeMapping.storeId);
-  }
-  break;
+    // ⚠️ NOTA: 'confirm_order', 'modify_order', y 'cancel_order' se manejan en el switch (currentStep)
+    // NO procesarlos aquí para evitar duplicados de mensajes
+    // Las acciones interactivas solo disparan la intención, el switch principal maneja la lógica
       
    
   }
