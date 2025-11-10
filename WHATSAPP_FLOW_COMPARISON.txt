@@ -1,0 +1,141 @@
+╔════════════════════════════════════════════════════════════════════════════════════════════╗
+║                    WHATSAPP FLOW - ANTES VS DESPUÉS                                       ║
+╚════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ANTES: TODOS RECIBÍAN "PEDIDO RECIBIDO"                                                    │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+
+  CLIENTE NUEVO                              CLIENTE REGISTRADO (Juan García)
+  
+  1. Envía pedido                            1. Envía pedido
+     ↓                                          ↓
+  2. Recibe "✅ Pedido Recibido"             2. Recibe "✅ Pedido Recibido" ❌ INNECESARIO
+     ├─ Número: ORD-123                        ├─ Número: ORD-124
+     ├─ Productos (2)                          ├─ Productos (3)
+     ├─ Total: $50                             ├─ Total: $75
+     └─ "¿Comenzamos?"                         └─ "¿Comenzamos?" ❌ YA TIENE DATOS
+     ↓                                          ↓
+  3. Presiona "Comenzar"                     3. Presiona "Comenzar" ❌ ESPERA INNECESARIA
+     ↓                                          ↓
+  4. Recopila: Nombre                        4. Recopila: Nombre ❌ YA LO TIENE
+     ↓                                          ↓
+  5. Recopila: Teléfono                      5. Recopila: Teléfono ❌ YA LO TIENE
+     ↓                                          ↓
+  6. Recopila: Dirección                     6. Recopila: Dirección ❌ YA LO TIENE
+     ↓                                          ↓
+  7. Recopila: Método pago                   7. Recopila: Método pago ❌ DUPLICADO
+     ↓                                          ↓
+  8. Recopila: Notas                         8. Recopila: Notas ❌ INNECESARIO
+     ↓                                          ↓
+  9. Envía Confirmación                      9. Envía Confirmación (finalmente)
+     ↓                                          ↓
+ 10. Cliente confirma                       10. Cliente confirma
+  
+  TOTAL: 10 PASOS = Experiencia normal      TOTAL: 10 PASOS = Experiencia LENTA ❌
+
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ DESPUÉS: DIFERENCIADO POR ESTADO DE REGISTRO                                              │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+
+  CLIENTE NUEVO                              CLIENTE REGISTRADO (Juan García)
+  
+  1. Envía pedido                            1. Envía pedido
+     ↓                                          ↓
+  2. Recibe "✅ Pedido Recibido"             2. ⏭️ SALTA "Pedido Recibido" ✅
+     ├─ Número: ORD-123                        ↓
+     ├─ Productos (2)                       3. Recibe Confirmación DIRECTA ✅
+     ├─ Total: $50                             ├─ Datos pre-llenados:
+     └─ "¿Comenzamos?"                         │  ✓ Nombre: Juan García
+     ↓                                         │  ✓ Dirección: Calle Principal 123
+  3. Presiona "Comenzar"                     │  ✓ Teléfono: +1809123456
+     ↓                                         ├─ Productos (3)
+  4. Recopila: Nombre                        ├─ Total: $75
+     ↓                                         └─ "¿Confirmar?"
+  5. Recopila: Teléfono                         ↓
+     ↓                                      4. Cliente elige:
+  6. Recopila: Dirección                        a) "Confirmar" → ORD completada ✅
+     ↓                                          b) "Modificar" → Menú de campos
+  7. Recopila: Método pago                      c) "Cancelar" → ORD cancelada
+     ↓                                          ↓
+  8. Recopila: Notas                        5. Si modifica → Menu de edición:
+     ↓                                          1️⃣ Nombre
+  9. Envía Confirmación                        2️⃣ Dirección
+     ├─ "¿Confirmar?"                          3️⃣ Contacto
+     ├─ "¿Modificar?" (si quiere cambiar)      4️⃣ Método de pago
+     └─ "¿Cancelar?"                           5️⃣ Notas
+     ↓                                          ↓
+ 10. Si modifica → Menu de campos:          6. Edita campo (ej: dirección)
+     1️⃣ Nombre                                 ↓
+     2️⃣ Dirección                          7. Actualiza dato en BD
+     3️⃣ Contacto                              ↓
+     4️⃣ Método de pago                     8. Menu post-edición:
+     5️⃣ Notas                                 1️⃣ Editar otro campo
+     ↓                                         2️⃣ Continuar a confirmación
+ 11. Edita campo                               3️⃣ Cancelar
+     ↓                                         ↓
+ 12. Menu post-edición                      9. Elige "Continuar"
+     1️⃣ Editar otro campo                      ↓
+     2️⃣ Continuar                         10. Confirmación ACTUALIZADA
+     3️⃣ Cancelar                              ├─ Nombre: Juan García
+     ↓                                        ├─ Dirección: NUEVA DIRECCIÓN ✅
+ 13. Vuelve a confirmación                    ├─ Teléfono: +1809123456
+     ↓                                         └─ "¿Confirmar?"
+ 14. Cliente confirma                        ↓
+                                           11. Cliente confirma
+  TOTAL: 14 PASOS ✅ Eficiente              TOTAL: 4 PASOS ✅✅✅ MUY RÁPIDO
+                                           
+                                           REDUCCIÓN: 71% MENOS PASOS
+
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════════════════╗
+║                               RESUMEN DE CAMBIOS                                          ║
+╠════════════════════════════════════════════════════════════════════════════════════════════╣
+
+VERIFICACIÓN:
+  ✅ isCustomerFullyRegistered = customer.name && 
+                                customer.name !== phoneNumber &&  // No es temporal
+                                customer.address
+
+SI ES VERDADERO (Cliente registrado):
+  ✅ NO enviar mensaje "Pedido recibido"
+  ✅ Enviar confirmación directa
+  ✅ currentStep = 'confirm_order'
+  ✅ collectedData pre-llenado con datos existentes
+  ✅ Más rápido: 4 pasos en lugar de 10+
+
+SI ES FALSO (Cliente nuevo):
+  ✅ Enviar mensaje "Pedido recibido" (como antes)
+  ✅ currentStep = 'awaiting_start'
+  ✅ Esperar que cliente inicie recopilación
+  ✅ Recolectar 5 campos
+  ✅ Luego enviar confirmación
+
+VENTAJAS:
+  ✅ Clientes registrados: 71% menos pasos
+  ✅ Sin cambios para clientes nuevos
+  ✅ Menú de edición funciona igual para ambos
+  ✅ Datos se actualizan en BD cuando editan
+  ✅ UX diferenciada según estado
+  ✅ Menos abandono de clientes registrados
+
+ARCHIVOS MODIFICADOS:
+  📝 server/whatsapp-simple.ts
+     - Línea 2968: isCustomerFullyRegistered check
+     - Línea 3026: Lógica diferenciada
+     - Línea 3036: Envío de confirmación si está registrado
+
+DOCUMENTACIÓN CREADA:
+  📄 PRINT_ORDER_SEQUENCE.md - Secuencia completa de impresión
+  📄 WHATSAPP_IMPROVED_FLOW.md - Flujo detallado de WhatsApp
+
+╚════════════════════════════════════════════════════════════════════════════════════════════╝
+
+COMMITS RELACIONADOS:
+  6361d8d - Fix WhatsApp flow: skip 'order received' for registered customers
+  b4db09f - Implement smart WhatsApp order flow with customer detection
+  fe7905d - Implement comprehensive automatic trip assignment system
+
