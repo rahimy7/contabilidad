@@ -1617,14 +1617,30 @@ export class MasterStorageService {
    */
   async getAICredits(storeId: number) {
     try {
-      const [credits] = await this.db
+      console.log(`🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda ${storeId}...`);
+
+      const result = await this.db
         .select()
         .from(schema.aiCredits)
         .where(eq(schema.aiCredits.storeId, storeId))
         .limit(1);
-      return credits || null;
+
+      console.log(`🔍 [MASTER-STORAGE] Resultado de búsqueda:`, JSON.stringify(result));
+
+      if (result && result.length > 0) {
+        const credits = result[0];
+        console.log(`✅ [MASTER-STORAGE] Créditos encontrados para tienda ${storeId}:`, {
+          totalCredits: credits.totalCredits,
+          availableCredits: credits.availableCredits,
+          isEnabled: credits.isEnabled
+        });
+        return credits;
+      }
+
+      console.log(`⚠️ [MASTER-STORAGE] No se encontraron créditos para tienda ${storeId}`);
+      return null;
     } catch (error) {
-      console.error('Error getting AI credits:', error);
+      console.error(`❌ [MASTER-STORAGE] Error buscando créditos para tienda ${storeId}:`, error);
       return null;
     }
   }

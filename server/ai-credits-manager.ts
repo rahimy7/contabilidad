@@ -24,14 +24,14 @@ export class AICreditsManager {
       console.log(`🔍 [AI-CREDITS] Verificando créditos para tienda ${storeId}:`, JSON.stringify(credits));
 
       if (!credits) {
-        console.log(`⚠️ [AI-CREDITS] No se encontraron créditos para tienda ${storeId}`);
+        console.log(`ℹ️ [AI-CREDITS] No hay configuración de créditos para tienda ${storeId} → Usar auto-respuestas`);
         return false;
       }
 
       // ✅ CORREGIR: Verificar ambas formas (camelCase y snake_case)
       const isEnabled = credits.isEnabled || credits.is_enabled;
       if (!isEnabled) {
-        console.log(`⚠️ [AI-CREDITS] IA deshabilitada para tienda ${storeId}`);
+        console.log(`ℹ️ [AI-CREDITS] IA deshabilitada para tienda ${storeId} → Usar auto-respuestas`);
         return false;
       }
 
@@ -45,13 +45,15 @@ export class AICreditsManager {
       const available = credits.availableCredits || credits.available_credits || 0;
       const hasEnough = available >= cost;
 
-      console.log(`💰 [AI-CREDITS] Tienda ${storeId} - Operación: ${operation}, Costo: ${cost}, Disponibles: ${available}, ¿Suficiente?: ${hasEnough}`);
+      console.log(`💰 [AI-CREDITS] Tienda ${storeId} - Op: ${operation}, Costo: ${cost}, Disponibles: ${available}, ¿Suficiente?: ${hasEnough}`);
 
-      if (!hasEnough) {
-        console.log(`❌ [AI-CREDITS] Créditos insuficientes: ${available} < ${cost}`);
+      if (hasEnough) {
+        console.log(`✅ [AI-CREDITS] Créditos SUFICIENTES - Activar IA`);
+        return true;
+      } else {
+        console.log(`ℹ️ [AI-CREDITS] Créditos insuficientes (${available} < ${cost}) → Usar auto-respuestas`);
+        return false;
       }
-
-      return hasEnough;
     } catch (error) {
       console.error('❌ [AI-CREDITS] Error verificando créditos:', error);
       return false;
