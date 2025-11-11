@@ -1014,3 +1014,136 @@ export const schema = {
   tripOrders,
   exchangeRates,
 };
+
+// ================================
+// SISTEMA DE IA - TABLAS
+// ================================
+
+// Tabla de créditos de IA (en base de datos MAESTRA)
+export const aiCredits = pgTable("ai_credits", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull().unique(),
+
+  // Créditos disponibles
+  totalCredits: integer("total_credits").notNull().default(0),
+  usedCredits: integer("used_credits").notNull().default(0),
+  availableCredits: integer("available_credits").notNull().default(0),
+
+  // Control de uso
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  autoRecharge: boolean("auto_recharge").default(false),
+  rechargeThreshold: integer("recharge_threshold").default(100),
+  rechargeAmount: integer("recharge_amount").default(1000),
+
+  // Costos por operación
+  costPerMessage: integer("cost_per_message").default(1),
+  costPerOrder: integer("cost_per_order").default(5),
+  costPerVoiceNote: integer("cost_per_voice_note").default(10),
+
+  // Configuración
+  fallbackWhenNoCredits: boolean("fallback_when_no_credits").default(true),
+  notifyLowCredits: boolean("notify_low_credits").default(true),
+  lowCreditThreshold: integer("low_credit_threshold").default(50),
+
+  // Estadísticas
+  totalMessagesProcessed: integer("total_messages_processed").default(0),
+  totalOrdersCreated: integer("total_orders_created").default(0),
+  totalVoiceNotesTranscribed: integer("total_voice_notes_transcribed").default(0),
+
+  // Fechas
+  lastRecharge: timestamp("last_recharge"),
+  lastUsage: timestamp("last_usage"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Tabla de log de uso de IA (en base de datos de TIENDA)
+export const aiUsageLog = pgTable("ai_usage_log", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+
+  // Identificación
+  conversationId: integer("conversation_id"),
+  customerId: integer("customer_id"),
+  customerPhone: text("customer_phone"),
+
+  // Tipo de operación
+  operationType: text("operation_type").notNull(),
+
+  // Costos
+  creditsCost: integer("credits_cost").notNull(),
+
+  // Detalles
+  inputText: text("input_text"),
+  outputText: text("output_text"),
+  interpretation: text("interpretation"),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+
+  // Resultado
+  wasSuccessful: boolean("was_successful").default(true),
+  errorMessage: text("error_message"),
+
+  // Metadatos
+  processingTimeMs: integer("processing_time_ms"),
+  modelUsed: text("model_used").default("gpt-4o-mini"),
+  tokensUsed: integer("tokens_used"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Tabla de conversaciones con IA (en base de datos de TIENDA)
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+
+  // Identificación
+  conversationId: integer("conversation_id").notNull(),
+  customerId: integer("customer_id").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+
+  // Estado
+  isActive: boolean("is_active").default(true),
+  mode: text("mode").default("assistant"),
+
+  // Contexto
+  conversationContext: text("conversation_context"),
+  currentIntent: text("current_intent"),
+
+  // Carrito/Pedido
+  draftOrderId: integer("draft_order_id"),
+  cartItems: text("cart_items"),
+
+  // Métricas
+  messageCount: integer("message_count").default(0),
+  lastMessageAt: timestamp("last_message_at"),
+
+  // Fechas
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Tabla de cache de búsqueda de productos (en base de datos de TIENDA)
+export const aiProductMatches = pgTable("ai_product_matches", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+
+  // Query
+  searchQuery: text("search_query").notNull(),
+  normalizedQuery: text("normalized_query").notNull(),
+
+  // Productos encontrados
+  matchedProducts: text("matched_products").notNull(),
+  matchCount: integer("match_count").default(0),
+
+  // Calidad
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+
+  // Uso
+  timesUsed: integer("times_used").default(1),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});

@@ -10,6 +10,15 @@ import { eq, and } from 'drizzle-orm';
 import { getTenantDb } from './multi-tenant-db.js';
 import * as schema from '@shared/schema';
 
+// ✅ IMPORTAR IA INTELIGENTE
+import {
+  tryProcessWithAI,
+  markWelcomeSent,
+  markCatalogSent,
+  clearContext,
+  createOrderFromAICart
+} from './whatsapp-smart-ai';
+
 
 const webhookHandler = new ImprovedWebhookHandler(resilientDb);
 const storageFactory = StorageFactory.getInstance();
@@ -2091,13 +2100,72 @@ if (conversation) {
 }
 
 
+    // 🤖 INTENTAR PROCESAR CON IA (NUEVO - ANTES DE ÓRDENES PENDIENTES)
+    console.log(`🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...`);
+
+    const aiResult = await tryProcessWithAI(
+      messageText,
+      customerPhone,
+      safeStoreMapping.storeId,
+      customer.id,
+      customer.name,
+      conversationId,
+      tenantStorage
+    );
+
+    if (aiResult.handled) {
+      console.log(`✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected`);
+
+      // Enviar respuesta de IA
+      if (aiResult.responseMessage) {
+        await sendWhatsAppMessageDirect(
+          customerPhone,
+          aiResult.responseMessage,
+          safeStoreMapping.storeId
+        );
+      }
+
+      // Si debe crear orden, crearla
+      if (aiResult.shouldCreateOrder && aiResult.cart) {
+        console.log(`📦 [AI-SMART] Creating order from AI cart...`);
+
+        const orderId = await createOrderFromAICart(
+          aiResult.cart,
+          customer.id,
+          safeStoreMapping.storeId,
+          tenantStorage
+        );
+
+        if (orderId) {
+          await sendWhatsAppMessageDirect(
+            customerPhone,
+            `✅ ¡Orden #${orderId} creada exitosamente!\n\nUn agente te contactará pronto para confirmar los detalles de entrega. 😊`,
+            safeStoreMapping.storeId
+          );
+
+          // Limpiar contexto AI
+          clearContext(customerPhone);
+        } else {
+          await sendWhatsAppMessageDirect(
+            customerPhone,
+            `❌ Hubo un problema creando tu orden. Un agente te contactará pronto para asistirte.`,
+            safeStoreMapping.storeId
+          );
+        }
+      }
+
+      return; // ⚠️ IMPORTANTE: Salir aquí, AI ya manejó el mensaje
+    }
+
+    console.log(`❌ [AI-SMART] NOT HANDLED BY AI - Continuing with normal flow`);
+
     // ✅ VALIDACIÓN DE ÓRDENES PENDIENTES TEMPRANA (TU FLUJO ORIGINAL)
     console.log(`🔍 CHECKING FOR PENDING ORDERS FIRST...`);
 
     const orderValidationResult = await validateCustomerOrdersEarly(
-      customer, 
-      messageText, 
-      safeStoreMapping.storeId, 
+      customer,
+      messageText,
+      safeStoreMapping.storeId,
       tenantStorage
     );
 
@@ -3651,8 +3719,15 @@ async function sendAutoResponseMessage(phoneNumber: string, trigger: string, sto
       console.log(`📤 SENDING SIMPLE TEXT MESSAGE`);
       await sendWhatsAppMessageDirect(phoneNumber, messageText, storeId);
     }
-    
+
     console.log(`✅ AUTO-RESPONSE SENT - Trigger: ${trigger}`);
+
+    // 🤖 MARCAR CONTEXTO PARA IA
+    if (trigger === 'welcome' || trigger === 'hola' || trigger === 'inicio') {
+      markWelcomeSent(phoneNumber);
+    } else if (trigger === 'catalog' || trigger === 'catálogo' || trigger === 'productos' || trigger === 'ver productos') {
+      markCatalogSent(phoneNumber);
+    }
     
   } catch (error) {
     console.error(`❌ ERROR sending auto-response for trigger ${trigger}:`, error);

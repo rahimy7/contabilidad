@@ -1,7 +1,7 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
-import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray } from "drizzle-orm";
+import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray, gte } from "drizzle-orm";
 import { getTenantDb } from "./multi-tenant-db.js";
 import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
 import { ProductBrand, InsertProductBrand } from "@shared/types.js";
@@ -4281,13 +4281,125 @@ async getUsersByRole(role: string) {
   }
 },
 
+  // ========================================
+  // MÉTODOS DE IA
+  // ========================================
 
-    };
+  /**
+   * Obtener conversación de IA
+   */
+  async getAIConversation(conversationId: number) {
+    try {
+      const [conversation] = await tenantDb
+        .select()
+        .from(schema.aiConversations)
+        .where(eq(schema.aiConversations.conversationId, conversationId))
+        .limit(1);
+      return conversation || null;
+    } catch (error) {
+      console.error('Error getting AI conversation:', error);
+      return null;
+    }
+  },
 
+  /**
+   * Crear conversación de IA
+   */
+  async createAIConversation(data: any) {
+    try {
+      const [conversation] = await tenantDb
+        .insert(schema.aiConversations)
+        .values({
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return conversation;
+    } catch (error) {
+      console.error('Error creating AI conversation:', error);
+      throw error;
+    }
+  },
 
+  /**
+   * Actualizar conversación de IA
+   */
+  async updateAIConversation(conversationId: number, data: any) {
+    try {
+      await tenantDb
+        .update(schema.aiConversations)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(schema.aiConversations.conversationId, conversationId));
+    } catch (error) {
+      console.error('Error updating AI conversation:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Registrar uso de IA
+   */
+  async logAIUsage(data: any) {
+    try {
+      await tenantDb.insert(schema.aiUsageLog).values({
+        ...data,
+        createdAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error logging AI usage:', error);
+    }
+  },
+
+  /**
+   * Obtener estadísticas de uso de IA
+   */
+  async getAIUsageStats(days: number = 30) {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+
+      const logs = await tenantDb
+        .select()
+        .from(schema.aiUsageLog)
+        .where(
+          and(
+            eq(schema.aiUsageLog.storeId, storeId),
+            gte(schema.aiUsageLog.createdAt, since)
+          )
+        );
+
+      const totalMessages = logs.filter(l => l.operationType === 'message_analysis').length;
+      const totalOrders = logs.filter(l => l.operationType === 'order_creation').length;
+      const totalVoiceNotes = logs.filter(l => l.operationType === 'voice_transcription').length;
+      const totalCreditsUsed = logs.reduce((sum, l) => sum + (l.creditsCost || 0), 0);
+      const avgConfidence = logs.length > 0
+        ? logs.reduce((sum, l) => sum + (parseFloat(l.confidence as any) || 0), 0) / logs.length
+        : 0;
+
+      return {
+        totalMessages,
+        totalOrders,
+        totalVoiceNotes,
+        totalCreditsUsed,
+        averageConfidence: avgConfidence
+      };
+    } catch (error) {
+      console.error('Error getting AI usage stats:', error);
+      return {
+        totalMessages: 0,
+        totalOrders: 0,
+        totalVoiceNotes: 0,
+        totalCreditsUsed: 0,
+        averageConfidence: 0
+      };
+    }
   }
 
-  
+  }; // Fin del return del createTenantStorage
+
+} // Fin de createTenantStorage
+
 export async function getDefaultTenantStorage(): Promise<TenantStorage> {
   const publicTenantId = 1;
   return getTenantStorage(publicTenantId);

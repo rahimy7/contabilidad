@@ -9,7 +9,10 @@
       "Bash(taskkill:*)",
       "Bash(curl:*)",
       "Bash(npm run build:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run ai:test:*)",
+      "Bash(npm run ai:migrate:*)"
     ],
     "deny": [],
     "ask": []

@@ -32,6 +32,7 @@ import { startScheduledTasks } from './scheduled-tasks.ts';
 import { getTenantStorage, getTenantStorageBySlug } from './storage/index.js';
 import { getDefaultTenantStorage } from './tenant-storage.ts';
 import { setupPrintRoutes } from './print-routes';
+import aiRoutes from './ai-routes';
 
 
 
@@ -145,6 +146,7 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api', aiRoutes);
 
 app.post('/api/orders/create-web-order', createWebOrder);
 

@@ -1607,4 +1607,117 @@ export class MasterStorageService {
       console.error('Error closing master storage connection:', error);
     }
   }
+
+  // ========================================
+  // MÉTODOS DE IA
+  // ========================================
+
+  /**
+   * Obtener configuración de créditos de IA
+   */
+  async getAICredits(storeId: number) {
+    try {
+      const [credits] = await this.db
+        .select()
+        .from(schema.aiCredits)
+        .where(eq(schema.aiCredits.storeId, storeId))
+        .limit(1);
+      return credits || null;
+    } catch (error) {
+      console.error('Error getting AI credits:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Actualizar créditos de IA
+   */
+  async updateAICredits(storeId: number, data: any) {
+    try {
+      await this.db
+        .update(schema.aiCredits)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(schema.aiCredits.storeId, storeId));
+      return true;
+    } catch (error) {
+      console.error('Error updating AI credits:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Crear configuración de créditos de IA para una tienda
+   */
+  async createAICredits(storeId: number, initialCredits: number = 1000) {
+    try {
+      const [credits] = await this.db
+        .insert(schema.aiCredits)
+        .values({
+          storeId,
+          totalCredits: initialCredits,
+          usedCredits: 0,
+          availableCredits: initialCredits,
+          isEnabled: true,
+          costPerMessage: 1,
+          costPerOrder: 5,
+          costPerVoiceNote: 10,
+          fallbackWhenNoCredits: true,
+          notifyLowCredits: true,
+          lowCreditThreshold: 50,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return credits;
+    } catch (error) {
+      console.error('Error creating AI credits:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recargar créditos
+   */
+  async rechargeAICredits(storeId: number, amount: number) {
+    try {
+      const credits = await this.getAICredits(storeId);
+      if (!credits) {
+        throw new Error('AI credits configuration not found');
+      }
+
+      await this.updateAICredits(storeId, {
+        totalCredits: credits.totalCredits + amount,
+        availableCredits: credits.availableCredits + amount,
+        lastRecharge: new Date()
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error recharging AI credits:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all stores (alias for getAllVirtualStores for migration compatibility)
+   */
+  async getAllStores(): Promise<Array<{ id: number; name: string; databaseUrl: string }>> {
+    try {
+      const stores = await this.db
+        .select({
+          id: schema.virtualStores.id,
+          name: schema.virtualStores.name,
+          databaseUrl: schema.virtualStores.databaseUrl
+        })
+        .from(schema.virtualStores)
+        .where(eq(schema.virtualStores.isActive, true))
+        .orderBy(desc(schema.virtualStores.createdAt));
+
+      console.log(`✅ Retrieved ${stores.length} active stores for migration`);
+      return stores;
+    } catch (error) {
+      console.error('Error getting stores:', error);
+      return [];
+    }
+  }
 }
