@@ -118,11 +118,31 @@ export class MasterStorageService {
         throw new Error('Store name and domain are required');
       }
 
-      // Generar slug automáticamente
-      const slug = (storeData.domain || storeData.name)
+      // Generar slug automáticamente (único)
+      let baseSlug = (storeData.domain || storeData.name)
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '');
+
+      // Verificar que el slug sea único
+      let slug = baseSlug;
+      let slugExists = true;
+      let counter = 1;
+
+      while (slugExists) {
+        const existing = await this.db
+          .select()
+          .from(schema.virtualStores)
+          .where(eq(schema.virtualStores.slug, slug))
+          .limit(1);
+
+        if (existing.length === 0) {
+          slugExists = false;
+        } else {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
 
       console.log(`[CreateStore] 🔤 Generated slug: "${slug}"`);
 
