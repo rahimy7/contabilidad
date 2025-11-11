@@ -3,9 +3,11 @@ import express from 'express';
 // Ajusta estas rutas según tu estructura de proyecto
 import { authenticateToken, requireSuperAdmin } from '../authMiddleware';
 import NodeCache from 'node-cache';
-import { getMasterStorage, getTenantStorage } from '../storage';
+import { getTenantStorage } from '../storage';
+import { StorageFactory } from '../storage/storage-factory.js';
 
-const masterStorage = getMasterStorage();
+const storageFactory = StorageFactory.getInstance();
+const masterStorage = storageFactory.getMasterStorage();
 const router = express.Router();
 
 /* -------------------------------------------------------------------------- */

@@ -4,7 +4,10 @@
       "Bash(npx tsc:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd comprehensive WhatsApp smart flow implementation documentation\n\n- IMPLEMENTATION_SUMMARY.md: Complete overview of smart customer detection flow with testing checklist\n- WHATSAPP_FLOW_COMPARISON.txt: Visual before/after comparison showing 71% step reduction\n- Includes all implementation details, file locations, flow sequences, and validation rules\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
