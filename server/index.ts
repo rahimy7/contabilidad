@@ -2892,35 +2892,10 @@ apiRouter.post('/messages', authenticateToken, async (req, res) => {
 // WEBHOOK WHATSAPP ENDPOINTS
 // ================================
 
-apiRouter.get('/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-  
-  const verify_token = process.env.WEBHOOK_VERIFY_TOKEN || 'default_verify_token_12345';
-  
-  if (mode === 'subscribe' && token === verify_token) {
-    console.log('✅ Webhook verified successfully');
-    res.status(200).send(challenge);
-  } else {
-    console.log('❌ Webhook verification failed');
-    res.status(403).send('Forbidden');
-  }
-});
-
-apiRouter.post('/webhook', async (req, res) => {
-  try {
-    console.log('📥 Webhook received:', JSON.stringify(req.body, null, 2));
-    
-    const { processWhatsAppMessageSafe } = await import('./whatsapp-simple.js');
-await processWhatsAppMessageSafe (req.body);
-    
-    res.status(200).send('OK');
-  } catch (error) {
-    console.error('❌ Error processing webhook:', error);
-    res.status(500).send('Error');
-  }
-});
+// ⚠️ REMOVED: Duplicate webhook handlers
+// These handlers were processing the same webhook twice
+// The primary webhook handlers are defined in routes.ts:1499 and routes.ts:1513
+// DO NOT re-add these handlers as they cause duplicate message processing
 
 // ================================
 // STORES ENDPOINTS (MASTER STORAGE)

@@ -15,6 +15,25 @@ const webhookHandler = new ImprovedWebhookHandler(resilientDb);
 const storageFactory = StorageFactory.getInstance();
 const masterStorage = storageFactory.getMasterStorage();
 
+// ✅ IDEMPOTENCY CACHE - Track processed message IDs to prevent duplicates
+// Stores: messageId → timestamp of when it was processed
+// Messages older than 5 minutes are auto-removed
+const processedMessageIds = new Map<string, number>();
+
+// Clean up old entries every minute
+setInterval(() => {
+  const now = Date.now();
+  const fiveMinutesAgo = now - (5 * 60 * 1000);
+
+  for (const [messageId, timestamp] of processedMessageIds.entries()) {
+    if (timestamp < fiveMinutesAgo) {
+      processedMessageIds.delete(messageId);
+    }
+  }
+
+  console.log(`🧹 Cleaned idempotency cache. Currently tracking: ${processedMessageIds.size} message(s)`);
+}, 60000); // Run every minute
+
 async function getStorageHelper() {
   return masterStorage;
 }
@@ -1860,6 +1879,16 @@ const messageId = message.id;
 const messageType = message.type || 'text';
 let messageText = '';
 
+// ✅ IDEMPOTENCY CHECK: Prevent processing duplicate messages
+if (processedMessageIds.has(messageId)) {
+  console.log(`⚠️ DUPLICATE MESSAGE DETECTED - MessageId: ${messageId} was already processed. Skipping.`);
+  return; // Don't process this message again
+}
+
+// Mark this messageId as processed
+processedMessageIds.set(messageId, Date.now());
+console.log(`✅ IDEMPOTENCY: Marked messageId ${messageId} as processed`);
+
 // Extraer texto o acción según el tipo de mensaje
 if (messageType === 'text') {
   messageText = message.text?.body || '';
@@ -2306,7 +2335,15 @@ export async function processWhatsAppMessageSafe(webhookData: any): Promise<void
 async function processMessageStatusSafe(status: any, storeMapping: any): Promise<void> {
   try {
     console.log(`📊 Processing status: ${status.status} for message ${status.id}`);
-    
+
+    // ✅ IDEMPOTENCY CHECK for status updates
+    const statusId = `status_${status.id}`;
+    if (processedMessageIds.has(statusId)) {
+      console.log(`⚠️ DUPLICATE STATUS UPDATE - StatusId: ${statusId} was already processed. Skipping.`);
+      return;
+    }
+    processedMessageIds.set(statusId, Date.now());
+
     await safeWhatsAppLog({
       type: 'status',
       phoneNumber: status.recipient_id,
