@@ -136,6 +136,20 @@ export class MasterStorageService {
         .returning();
 
       console.log(`✅ Created virtual store: ${newStore.name} (ID: ${newStore.id})`);
+
+      // Intentar inicializar el tenant storage (esto ejecutará las migraciones necesarias)
+      try {
+        console.log(`🔧 Initializing tenant schema for store ${newStore.id}...`);
+        const { StorageFactory } = await import('./storage-factory.js');
+        const factory = StorageFactory.getInstance();
+        await factory.getTenantStorage(newStore.id);
+        console.log(`✅ Tenant schema initialized successfully for store ${newStore.id}`);
+      } catch (storageError) {
+        console.warn(`⚠️ Warning: Could not initialize tenant schema for store ${newStore.id}:`, storageError);
+        // No lanzar error aquí, la tienda se creó exitosamente
+        // El schema se puede inicializar manualmente después si es necesario
+      }
+
       return newStore;
     } catch (error) {
       console.error('❌ Error creating virtual store:', error);
