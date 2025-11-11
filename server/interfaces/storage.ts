@@ -284,9 +284,9 @@ export interface MasterStorage extends BaseStorage {
   /**
    * Gestión de tiendas virtuales
    */
-  createVirtualStore(storeData: any): Promise<VirtualStore>;
-  updateVirtualStore(id: number, updates: any): Promise<VirtualStore | null>;
-  deleteVirtualStore(id: number): Promise<void>;
+  createStore(storeData: any): Promise<VirtualStore>;
+  updateStore(id: number, updates: any): Promise<VirtualStore | null>;
+  deleteStore(id: number): Promise<boolean>;
   getVirtualStore(id: number): Promise<VirtualStore | null>;
   getAllVirtualStores(): Promise<VirtualStore[]>;
 }
