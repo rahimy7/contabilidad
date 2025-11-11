@@ -8,35 +8,8 @@ import * as schema from "@shared/schema";
 // @ts-ignore
 globalThis.WebSocket = ws;
 
-// Lista de tablas que deben estar en el schema de cada tienda
-const TENANT_TABLES = [
-  'users',
-  'customers', 
-  'products',
-  'orders',
-  'order_items',
-  'conversations',
-  'messages',
-  'auto_responses',
-  'store_settings',
-  'whatsapp_settings',
-  'notifications',
-  'assignment_rules',
-  'customer_history',
-  'shopping_cart',
-  'whatsapp_logs'
-];
-
-// Tablas que deben permanecer en el schema global
-const GLOBAL_TABLES = [
-  'virtual_stores',
-  'system_users',
-  'product_categories',
-  'employee_profiles',
-  'system_audit_log',
-  'customer_registration_flows',
-  'order_history'
-];
+// Schema de referencia para copiar estructura de tablas
+const MODEL_SCHEMA = 'store_6';
 
 export interface MigrationResult {
   success: boolean;
@@ -86,7 +59,7 @@ export async function migrateStoreToSeparateSchema(storeId: number): Promise<Mig
       migratedTables: [],
       errors: [],
       summary: {
-        totalTables: TENANT_TABLES.length,
+        totalTables: 0,
         migratedSuccessfully: 0,
         errors: 0
       }
@@ -96,15 +69,34 @@ export async function migrateStoreToSeparateSchema(storeId: number): Promise<Mig
     await masterPool.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
     console.log(`✅ Schema "${schemaName}" creado/verificado`);
 
-    // Migrar cada tabla
-    for (const tableName of TENANT_TABLES) {
+    // Obtener dinámicamente las tablas del schema de referencia (modelo)
+    console.log(`🔍 Leyendo estructura de tablas del ${MODEL_SCHEMA} (modelo)...`);
+    const tablesQuery = `
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = $1
+      AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `;
+    const tablesResult = await masterPool.query(tablesQuery, [MODEL_SCHEMA]);
+    const modelTables = tablesResult.rows.map((row: any) => row.table_name);
+
+    if (modelTables.length === 0) {
+      throw new Error(`No se encontraron tablas en el schema modelo ${MODEL_SCHEMA}. Asegúrate que ${MODEL_SCHEMA} existe.`);
+    }
+
+    console.log(`📋 Tablas encontradas en ${MODEL_SCHEMA}: ${modelTables.join(', ')}`);
+    result.summary.totalTables = modelTables.length;
+
+    // Migrar cada tabla copiando la estructura del schema modelo
+    for (const tableName of modelTables) {
       try {
         console.log(`🔄 Migrando tabla: ${tableName}`);
-        
+
         // Verificar si la tabla ya existe en el schema de destino
         const tableExistsQuery = `
           SELECT EXISTS (
-            SELECT 1 FROM information_schema.tables 
+            SELECT 1 FROM information_schema.tables
             WHERE table_schema = $1 AND table_name = $2
           )
         `;
@@ -116,28 +108,28 @@ export async function migrateStoreToSeparateSchema(storeId: number): Promise<Mig
           continue;
         }
 
-        // Crear tabla en el nuevo schema copiando estructura
+        // Crear tabla en el nuevo schema copiando estructura del modelo
         const createTableQuery = `
-          CREATE TABLE "${schemaName}"."${tableName}" 
-          (LIKE public."${tableName}" INCLUDING ALL)
+          CREATE TABLE "${schemaName}"."${tableName}"
+          (LIKE "${MODEL_SCHEMA}"."${tableName}" INCLUDING ALL)
         `;
         await masterPool.query(createTableQuery);
-        console.log(`✅ Estructura de tabla ${tableName} creada en ${schemaName}`);
+        console.log(`✅ Estructura de tabla ${tableName} creada en ${schemaName} (copiada de ${MODEL_SCHEMA})`);
 
         // Copiar datos específicos de la tienda (donde sea aplicable)
-        if (await hasStoreIdColumn(masterPool, tableName)) {
+        if (await hasStoreIdColumnInSchema(masterPool, MODEL_SCHEMA, tableName)) {
           const copyDataQuery = `
-            INSERT INTO "${schemaName}"."${tableName}" 
-            SELECT * FROM public."${tableName}" 
+            INSERT INTO "${schemaName}"."${tableName}"
+            SELECT * FROM "${MODEL_SCHEMA}"."${tableName}"
             WHERE store_id = $1
           `;
           const copyResult = await masterPool.query(copyDataQuery, [storeId]);
           console.log(`✅ ${copyResult.rowCount} registros copiados para ${tableName}`);
         } else {
-          // Para tablas sin store_id, copiar todo (como auto_responses)
+          // Para tablas sin store_id, copiar todo (como auto_responses, system tables)
           const copyAllQuery = `
-            INSERT INTO "${schemaName}"."${tableName}" 
-            SELECT * FROM public."${tableName}"
+            INSERT INTO "${schemaName}"."${tableName}"
+            SELECT * FROM "${MODEL_SCHEMA}"."${tableName}"
           `;
           const copyResult = await masterPool.query(copyAllQuery);
           console.log(`✅ ${copyResult.rowCount} registros copiados para ${tableName} (sin filtro)`);
@@ -180,22 +172,22 @@ export async function migrateStoreToSeparateSchema(storeId: number): Promise<Mig
 }
 
 /**
- * Verifica si una tabla tiene columna store_id
+ * Verifica si una tabla en un schema específico tiene columna store_id
  */
-async function hasStoreIdColumn(pool: Pool, tableName: string): Promise<boolean> {
+async function hasStoreIdColumnInSchema(pool: Pool, schemaName: string, tableName: string): Promise<boolean> {
   try {
     const query = `
       SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-        AND table_name = $1 
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = $1
+        AND table_name = $2
         AND column_name = 'store_id'
       )
     `;
-    const result = await pool.query(query, [tableName]);
+    const result = await pool.query(query, [schemaName, tableName]);
     return result.rows[0].exists;
   } catch (error) {
-    console.error(`Error verificando columna store_id en ${tableName}:`, error);
+    console.error(`Error verificando columna store_id en ${schemaName}.${tableName}:`, error);
     return false;
   }
 }
