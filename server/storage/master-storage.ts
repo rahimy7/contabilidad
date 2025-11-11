@@ -158,15 +158,31 @@ export class MasterStorageService {
 
       console.log(`[CreateStore] ✅ Store created: ID=${newStore.id}, name="${newStore.name}"`);
 
+      // Ejecutar migración automática de schema para crear tablas
+      try {
+        console.log(`[CreateStore] 🔄 Running schema migration for store ${newStore.id}...`);
+        const { migrateStoreToSeparateSchema } = await import('../schema-migration.js');
+        const migrationResult = await migrateStoreToSeparateSchema(newStore.id);
+        if (migrationResult.success) {
+          console.log(`[CreateStore] ✅ Schema migration completed successfully`);
+          console.log(`[CreateStore] 📊 Migrated tables:`, migrationResult.migratedTables.join(', '));
+        } else {
+          console.warn(`[CreateStore] ⚠️ Schema migration had errors:`, migrationResult.errors);
+        }
+      } catch (migrationError) {
+        console.error(`[CreateStore] ❌ Schema migration failed:`, migrationError instanceof Error ? migrationError.message : migrationError);
+        throw new Error(`Failed to create store schema: ${migrationError instanceof Error ? migrationError.message : String(migrationError)}`);
+      }
+
       // Intentar inicializar el tenant storage
       try {
-        console.log(`[CreateStore] 🔧 Initializing tenant schema for store ${newStore.id}...`);
+        console.log(`[CreateStore] 🔧 Initializing tenant storage for store ${newStore.id}...`);
         const { StorageFactory } = await import('./storage-factory.js');
         const factory = StorageFactory.getInstance();
         await factory.getTenantStorage(newStore.id);
-        console.log(`[CreateStore] ✅ Tenant schema initialized`);
+        console.log(`[CreateStore] ✅ Tenant storage initialized successfully`);
       } catch (storageError) {
-        console.warn(`[CreateStore] ⚠️ Could not initialize tenant schema:`, storageError instanceof Error ? storageError.message : storageError);
+        console.warn(`[CreateStore] ⚠️ Could not initialize tenant storage:`, storageError instanceof Error ? storageError.message : storageError);
       }
 
       return newStore;
