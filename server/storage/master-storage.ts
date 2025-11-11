@@ -111,48 +111,68 @@ export class MasterStorageService {
 
   async createStore(storeData: CreateStoreData): Promise<VirtualStore> {
     try {
-      // Generar slug automáticamente si no existe
-      const slug = storeData.domain ||
-                   storeData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      console.log(`[CreateStore] 📦 Received data:`, storeData);
 
-      // Usar la misma URL de base de datos de la tienda (la cual compartirá esquema inicialmente)
-      // En el futuro esto puede ser migrado a una BD separada
+      // Validar campos requeridos
+      if (!storeData.name || !storeData.domain) {
+        throw new Error('Store name and domain are required');
+      }
+
+      // Generar slug automáticamente
+      const slug = (storeData.domain || storeData.name)
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+
+      console.log(`[CreateStore] 🔤 Generated slug: "${slug}"`);
+
       const databaseUrl = process.env.DATABASE_URL;
       if (!databaseUrl) {
         throw new Error('DATABASE_URL environment variable is not set');
       }
 
-      console.log(`📦 Creating virtual store: ${storeData.name} (slug: ${slug})`);
+      console.log(`[CreateStore] 🗄️ Using DATABASE_URL`);
+
+      const storeValues = {
+        name: storeData.name,
+        slug: slug,
+        description: storeData.description || null,
+        domain: storeData.domain,
+        databaseUrl: databaseUrl,
+        isActive: storeData.isActive !== false,
+        whatsappNumber: storeData.whatsappNumber || null,
+        address: storeData.address || null,
+        logo: storeData.logo || null,
+        timezone: storeData.timezone || 'America/Mexico_City',
+        currency: storeData.currency || 'MXN',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      console.log(`[CreateStore] 📋 Prepared values for insert`);
 
       const [newStore] = await this.db
         .insert(schema.virtualStores)
-        .values({
-          ...storeData,
-          slug: slug,
-          databaseUrl: databaseUrl,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
+        .values(storeValues as any)
         .returning();
 
-      console.log(`✅ Created virtual store: ${newStore.name} (ID: ${newStore.id})`);
+      console.log(`[CreateStore] ✅ Store created: ID=${newStore.id}, name="${newStore.name}"`);
 
-      // Intentar inicializar el tenant storage (esto ejecutará las migraciones necesarias)
+      // Intentar inicializar el tenant storage
       try {
-        console.log(`🔧 Initializing tenant schema for store ${newStore.id}...`);
+        console.log(`[CreateStore] 🔧 Initializing tenant schema for store ${newStore.id}...`);
         const { StorageFactory } = await import('./storage-factory.js');
         const factory = StorageFactory.getInstance();
         await factory.getTenantStorage(newStore.id);
-        console.log(`✅ Tenant schema initialized successfully for store ${newStore.id}`);
+        console.log(`[CreateStore] ✅ Tenant schema initialized`);
       } catch (storageError) {
-        console.warn(`⚠️ Warning: Could not initialize tenant schema for store ${newStore.id}:`, storageError);
-        // No lanzar error aquí, la tienda se creó exitosamente
-        // El schema se puede inicializar manualmente después si es necesario
+        console.warn(`[CreateStore] ⚠️ Could not initialize tenant schema:`, storageError instanceof Error ? storageError.message : storageError);
       }
 
       return newStore;
     } catch (error) {
-      console.error('❌ Error creating virtual store:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[CreateStore] ❌ Error: ${errorMsg}`);
       throw error;
     }
   }

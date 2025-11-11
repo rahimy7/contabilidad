@@ -445,7 +445,7 @@ async deleteOrder(id: number) {
 },
  async getOrderItemsByOrderId(orderId: number) {
   try {
-    console.log(`🔍 GETTING ORDER ITEMS WITH PRODUCT NAMES - Order ID: ${orderId}`);
+   // console.log(`🔍 GETTING ORDER ITEMS WITH PRODUCT NAMES - Order ID: ${orderId}`);
     
     // ✅ HACER JOIN entre order_items y products para obtener nombres
     const orderItemsWithProducts = await tenantDb
@@ -482,7 +482,7 @@ async deleteOrder(id: number) {
       .where(eq(schema.orderItems.orderId, orderId))
       .orderBy(desc(schema.orderItems.id));
 
-    console.log(`📦 ORDER ITEMS WITH PRODUCTS FOUND: ${orderItemsWithProducts.length}`);
+    //console.log(`📦 ORDER ITEMS WITH PRODUCTS FOUND: ${orderItemsWithProducts.length}`);
     
     // ✅ LOGGING DETALLADO para debugging
     orderItemsWithProducts.forEach((item, index) => {
