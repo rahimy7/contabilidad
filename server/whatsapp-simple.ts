@@ -185,9 +185,10 @@ async function checkCustomerOrders(phoneNumber: string, tenantStorage: any, stor
 }
 
 
-async function processAutoResponse(messageText: string, phoneNumber: string, storeId: number, tenantStorage: any) {
+async function processAutoResponse(messageText: string, phoneNumber: string, storeId: number, tenantStorage: any, lastAutoResponseTrigger?: string) {
   try {
     console.log(`🤖 PROCESSING AUTO-RESPONSE - Store ID: ${storeId}, Message: "${messageText}"`);
+    console.log(`📋 Last auto-response trigger: ${lastAutoResponseTrigger || 'none'}`);
 
     // ✅ VERIFICACIÓN ADICIONAL: Asegurar que no hay flujo activo
     const activeFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
@@ -204,22 +205,22 @@ async function processAutoResponse(messageText: string, phoneNumber: string, sto
       // ✅ Usar getAllOrders y filtrar por customerId
       const allOrders = await tenantStorage.getAllOrders();
       const customerOrders = allOrders.filter(order => order.customerId === customer.id);
-      const pendingOrders = customerOrders.filter(order => 
+      const pendingOrders = customerOrders.filter(order =>
         order.status === 'pending' || order.status === 'created'
       );
 
       if (pendingOrders.length > 0) {
         console.log(`📦 PENDING ORDERS FOUND: ${pendingOrders.length}`);
-        
+
         // Mostrar información sobre órdenes pendientes
         let pendingMessage = `🔔 **Tienes ${pendingOrders.length} pedido(s) en proceso:**\n\n`;
-        
+
         for (const order of pendingOrders.slice(0, 3)) { // Mostrar máximo 3
           pendingMessage += `📦 Orden #${order.orderNumber || order.id}\n`;
           pendingMessage += `💰 Total: $${order.totalAmount}\n`;
           pendingMessage += `📅 Fecha: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}\n\n`;
         }
-        
+
         pendingMessage += `¿Qué deseas hacer?\n\n`;
         pendingMessage += `🔍 **"Seguimiento"** - Ver estado del pedido\n`;
         pendingMessage += `📞 **"Contactar"** - Hablar con un agente\n`;
@@ -236,15 +237,26 @@ async function processAutoResponse(messageText: string, phoneNumber: string, sto
 
     // Buscar respuesta exacta por trigger
     for (const response of responses) {
-      if (response.isActive && response.trigger && 
+      if (response.isActive && response.trigger &&
           messageTextLower.includes(response.trigger.toLowerCase())) {
         matchedResponse = response;
         break;
       }
     }
 
-    // Si no hay coincidencia exacta, usar respuesta de bienvenida por defecto
+    // ✅ CRITERIO MEJORADO: NO reenviar la misma auto-respuesta
+    // Si no hay coincidencia exacta, NO usar welcome como fallback
+    // El sistema debe reconocer que el usuario escribió un texto libre que no corresponde a una opción esperada
     if (!matchedResponse) {
+      // ✅ NUEVA LÓGICA: Si ya se envió welcome o catalog, no buscar fallback
+      if (lastAutoResponseTrigger === 'welcome' || lastAutoResponseTrigger === 'catalog') {
+        console.log(`⚠️ [CRITERIO MEJORADO] NO REENVIAR - Ya se envió: ${lastAutoResponseTrigger}`);
+        console.log(`⚠️ [CRITERIO MEJORADO] Texto libre sin coincidencia: "${messageText}"`);
+        console.log(`⚠️ [CRITERIO MEJORADO] Este mensaje debería ser procesado por otro sistema (IA, pedido, etc.)`);
+        return; // NO procesar auto-respuestas si ya se envió una respuesta automática
+      }
+
+      // Solo si NO es un mensaje después de welcome/catalog, usar welcome como fallback
       matchedResponse = responses.find(r => r.trigger === 'welcome' && r.isActive);
     }
 
@@ -2178,14 +2190,20 @@ if (conversation) {
 
     // ✅ PROCESAR AUTO-RESPUESTAS (Solo si NO es un pedido) (TU FLUJO ORIGINAL)
     console.log(`🤖 PROCESSING AUTO-RESPONSES`);
-    
+
+    // Obtener contexto de IA para saber si ya se envió una respuesta automática
+    const { getContext } = await import('./whatsapp-smart-ai.js');
+    const aiContext = getContext(customerPhone);
+    const lastAutoResponseTrigger = aiContext?.lastAutoResponse;
+
     await resilientDb.executeWithRetry(
       async (client) => {
         await processAutoResponse(
-          messageText, 
-          customerPhone, 
-          safeStoreMapping.storeId, 
-          tenantStorage
+          messageText,
+          customerPhone,
+          safeStoreMapping.storeId,
+          tenantStorage,
+          lastAutoResponseTrigger  // ✅ Pasar contexto de IA
         );
       },
       `process auto-response ${customerPhone}`
