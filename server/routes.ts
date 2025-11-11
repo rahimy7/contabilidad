@@ -2222,10 +2222,8 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
     }
 
     console.log(`📞 Sending to phone: ${customer.phone}`);
-    
+
     // ✅ OBTENER CONFIGURACIÓN DE WHATSAPP
-    const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(user.storeId);
     
     if (!config) {
@@ -2371,8 +2369,6 @@ router.post('/conversations/:id/test-whatsapp', authenticateToken, async (req: a
     }
 
     // ✅ ENVÍO DE PRUEBA DIRECTO
-    const { getMasterStorage } = await import('./storage/index.js');
-    const masterStorage = await getMasterStorage();
     const config = await masterStorage.getWhatsAppConfig(user.storeId);
     
     if (!config) {
