@@ -1,5 +1,6 @@
-// client/src/pages/super-admin/global-dashboard-optimized.tsx
+// client/src/pages/super-admin/global-dashboard.tsx
 import { useState } from "react";
+import { useLocation } from "wouter"; // ✅ IMPORTAR useLocation
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,12 +26,16 @@ import {
   Eye,
   Filter,
   Download,
-  Gauge
+  Gauge,
+  MessageSquare,
+  Package,
+  Palette
 } from "lucide-react";
 
 export default function OptimizedGlobalDashboard() {
   const [showConfig, setShowConfig] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation(); // ✅ Hook de navegación
   
   // ✅ Hook principal optimizado
   const {
@@ -63,85 +68,37 @@ export default function OptimizedGlobalDashboard() {
     });
   };
 
-  // ✅ Cambiar pestaña con lazy loading
-  const handleTabChange = (tab: string) => {
-    setCurrentTab(tab);
-    
-    // Log para debugging
-    if (config.debugMode) {
-      console.log(`[Dashboard] Switched to ${tab}, lazy loading: ${config.lazyLoading}`);
-    }
+  // ✅ Manejar cambio de tab
+  const handleTabChange = (value: string) => {
+    setCurrentTab(value);
   };
-
-  // ✅ Loading state optimizado
-  if (isLoading && state.currentTab === 'overview') {
-    return <OptimizedSkeleton />;
-  }
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header optimizado con indicadores */}
+      {/* Header con acciones */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Building2 className="w-8 h-8 text-blue-600" />
-          <div>
-            <h1 className="text-3xl font-bold">🚀 Panel de Control Optimizado</h1>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <span>
-                Rendimiento del dashboard mejorado
-              </span>
-              {state.lastRefresh && (
-                <span className="flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>Última actualización: {state.lastRefresh.toLocaleTimeString()}</span>
-                </span>
-              )}
-            </div>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Panel de Control Global</h1>
+          <p className="text-muted-foreground">
+            Administración centralizada de todas las tiendas
+          </p>
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* Indicador de estado */}
-          {systemHealth.data && (
-            <Badge 
-              variant={systemHealth.data.status === 'healthy' ? 'default' : 'destructive'}
-              className="flex items-center space-x-1"
-            >
-              {systemHealth.data.status === 'healthy' ? (
-                <>
-                  <CheckCircle className="w-3 h-3" />
-                  <span>Sistema OK</span>
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="w-3 h-3" />
-                  <span>{systemHealth.data.status}</span>
-                </>
-              )}
-            </Badge>
-          )}
-
-          {/* Estadísticas de rendimiento */}
-          <Badge variant="outline" className="flex items-center space-x-1">
-            <Gauge className="w-3 h-3" />
-            <span>{state.requestCount} requests</span>
-          </Badge>
-
-          {/* Botones de control */}
           <Button 
             variant="outline" 
             size="sm"
             onClick={() => setShowConfig(!showConfig)}
           >
             <Settings className="w-4 h-4 mr-1" />
-            Config
+            Configuración
           </Button>
 
           <Button 
-            variant="outline" 
             size="sm"
-            onClick={refreshData}
+            onClick={() => refreshData()}
             disabled={isRefreshing}
+            variant="outline"
           >
             <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? 'Actualizando...' : 'Actualizar'}
@@ -154,6 +111,16 @@ export default function OptimizedGlobalDashboard() {
           >
             <Zap className="w-4 h-4 mr-1" />
             Optimizar
+          </Button>
+
+          {/* ✅ NUEVO: Botón para ir a página de tiendas */}
+          <Button 
+            size="sm"
+            onClick={() => setLocation('/super-admin/stores')}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Building2 className="w-4 h-4 mr-1" />
+            Gestionar Tiendas
           </Button>
         </div>
       </div>
@@ -221,8 +188,8 @@ export default function OptimizedGlobalDashboard() {
           {/* Métricas principales */}
           {config.enableMetrics && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <OptimizedMetricCard
-                title="Total de Tiendas"
+              <OptimizedMetricCard 
+                title="Total Tiendas"
                 value={metrics.data?.totalStores || 0}
                 icon={Building2}
                 color="blue"
@@ -231,9 +198,9 @@ export default function OptimizedGlobalDashboard() {
                 error={metrics.error}
               />
               
-              <OptimizedMetricCard
-                title="Ingresos Mensuales"
-                value={`$${(metrics.data?.monthlyRevenue || 0).toLocaleString()}`}
+              <OptimizedMetricCard 
+                title="Ingresos Totales"
+                value={`$${metrics.data?.totalRevenue || 0}`}
                 icon={DollarSign}
                 color="green"
                 subtitle="Este mes"
@@ -241,93 +208,27 @@ export default function OptimizedGlobalDashboard() {
                 error={metrics.error}
               />
               
-              <OptimizedMetricCard
-                title="Órdenes Totales"
+              <OptimizedMetricCard 
+                title="Órdenes Activas"
                 value={metrics.data?.totalOrders || 0}
                 icon={ShoppingCart}
                 color="purple"
-                subtitle="Todas las tiendas"
+                subtitle="En proceso"
                 isLoading={metrics.isLoading}
                 error={metrics.error}
               />
               
-              <OptimizedMetricCard
-                title="Soporte Pendiente"
-                value={metrics.data?.pendingSupport || 0}
-                icon={AlertTriangle}
-                color={(metrics.data?.pendingSupport || 0) > 0 ? "red" : "gray"}
-                subtitle="Tickets abiertos"
+              <OptimizedMetricCard 
+                title="Usuarios Total"
+                value={metrics.data?.totalUsers || 0}
+                icon={Users}
+                color="red"
+                subtitle="Todos los roles"
                 isLoading={metrics.isLoading}
                 error={metrics.error}
               />
             </div>
           )}
-
-          {/* System Health */}
-          {config.enableSystemHealth && systemHealth.data && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Activity className="w-5 h-5" />
-                  <span>Salud del Sistema</span>
-                  {config.enablePolling && (
-                    <Badge variant="outline" className="text-xs">
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      Auto-refresh
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {systemHealth.data.uptimeHuman}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Uptime</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {systemHealth.data.responseTime}ms
-                    </div>
-                    <div className="text-sm text-muted-foreground">Response Time</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {100 - systemHealth.data.errorRate}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">Success Rate</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {Object.values(systemHealth.data.checks).filter(c => c === 'ok').length}/
-                      {Object.values(systemHealth.data.checks).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Health Checks</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Placeholder para gráficos */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tendencias de Rendimiento</CardTitle>
-              <CardDescription>
-                Evolución de métricas clave (implementar con Chart.js)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-                <div className="text-center text-muted-foreground">
-                  <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-                  <p>Gráfico de tendencias</p>
-                  <p className="text-sm">Datos cargados: {metrics.data ? 'Sí' : 'No'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* TAB: Tiendas con lazy loading */}
@@ -384,7 +285,11 @@ export default function OptimizedGlobalDashboard() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {stores.data.map((store: any) => (
-                      <OptimizedStoreCard key={store.id} store={store} />
+                      <OptimizedStoreCard 
+                        key={store.id} 
+                        store={store} 
+                        onNavigate={setLocation} // ✅ PASAR FUNCIÓN DE NAVEGACIÓN
+                      />
                     ))}
                   </div>
                 </>
@@ -494,130 +399,49 @@ export default function OptimizedGlobalDashboard() {
               </CardContent>
             </Card>
 
-            {/* Performance Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Gauge className="w-5 h-5" />
-                  <span>Estadísticas de Rendimiento</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span>Queries Totales:</span>
-                  <Badge variant="outline">{performanceStats.totalQueries}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Super Admin:</span>
-                  <Badge variant="outline">{performanceStats.superAdminQueries}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Cache Hit Rate:</span>
-                  <Badge variant="outline" className="text-green-600">
-                    {performanceStats.cacheHitRate}%
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Response Time:</span>
-                  <Badge variant="outline">{performanceStats.averageResponseTime}ms</Badge>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Salud del Sistema */}
+            {systemHealth.data && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Activity className="w-5 h-5" />
+                    <span>Estado del Sistema</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span>Base de Datos:</span>
+                    <Badge variant={systemHealth.data.database ? "default" : "destructive"}>
+                      {systemHealth.data.database ? "Conectado" : "Desconectado"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>API WhatsApp:</span>
+                    <Badge variant={systemHealth.data.whatsapp ? "default" : "secondary"}>
+                      {systemHealth.data.whatsapp ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Colas de Trabajo:</span>
+                    <Badge variant={systemHealth.data.queues ? "default" : "destructive"}>
+                      {systemHealth.data.queues ? "Operativas" : "Con problemas"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-
-          {/* Acciones del Sistema */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Acciones del Sistema</CardTitle>
-              <CardDescription>
-                Herramientas de administración y optimización
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  variant="outline" 
-                  className="h-20 flex-col"
-                  onClick={() => setShowConfig(true)}
-                >
-                  <Settings className="w-6 h-6 mb-2" />
-                  Configuración Avanzada
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="h-20 flex-col"
-                  onClick={handleOptimize}
-                >
-                  <Zap className="w-6 h-6 mb-2" />
-                  Optimizar Ahora
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="h-20 flex-col"
-                  onClick={() => {
-                    const stats = getPerformanceStats();
-                    console.table(stats);
-                    toast({
-                      title: "📊 Stats",
-                      description: "Estadísticas mostradas en consola"
-                    });
-                  }}
-                >
-                  <Activity className="w-6 h-6 mb-2" />
-                  Ver Estadísticas
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Debug Info */}
-          {config.debugMode && (
-            <Card className="bg-gray-50 dark:bg-gray-900 border-dashed">
-              <CardHeader>
-                <CardTitle className="text-lg">🐛 Información de Debug</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-mono">
-                  <div>
-                    <h4 className="font-bold mb-2">Estado Actual:</h4>
-                    <pre className="text-xs">
-{JSON.stringify({
-  tab: state.currentTab,
-  optimized: state.isOptimized,
-  requests: state.requestCount,
-  lastRefresh: state.lastRefresh?.toISOString()
-}, null, 2)}
-                    </pre>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-bold mb-2">Configuración:</h4>
-                    <pre className="text-xs">
-{JSON.stringify({
-  lazyLoading: config.lazyLoading,
-  cache: config.cacheEnabled,
-  autoRefresh: config.autoRefresh,
-  polling: config.enablePolling
-}, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-// ✅ Componente de métrica optimizado con estados de carga
+// ✅ Componente de métrica optimizado
 interface OptimizedMetricCardProps {
   title: string;
   value: string | number;
-  icon: React.ElementType;
+  icon: any;
   color: 'blue' | 'green' | 'purple' | 'red' | 'gray';
   subtitle?: string;
   isLoading?: boolean;
@@ -696,12 +520,13 @@ function OptimizedMetricCard({
   );
 }
 
-// ✅ Componente de tienda optimizado
+// ✅ Componente de tienda optimizado CON NAVEGACIÓN
 interface OptimizedStoreCardProps {
   store: any;
+  onNavigate: (path: string) => void; // ✅ AGREGAR PROP
 }
 
-function OptimizedStoreCard({ store }: OptimizedStoreCardProps) {
+function OptimizedStoreCard({ store, onNavigate }: OptimizedStoreCardProps) {
   const statusColors = {
     active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     inactive: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
@@ -731,7 +556,7 @@ function OptimizedStoreCard({ store }: OptimizedStoreCardProps) {
           {store.subscriptionStatus || 'unknown'}
         </Badge>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <span className="text-muted-foreground">Órdenes/mes:</span>
@@ -755,59 +580,52 @@ function OptimizedStoreCard({ store }: OptimizedStoreCardProps) {
             </Badge>
           </div>
         )}
+
+        {/* ✅ BOTONES DE ACCIÓN CON NAVEGACIÓN */}
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate(`/super-admin/store-settings?store=${store.id}`)}
+            className="w-full text-xs"
+          >
+            <Settings className="w-3 h-3 mr-1" />
+            Configurar
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate(`/super-admin/stores/${store.id}/whatsapp`)}
+            className="w-full text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+          >
+            <MessageSquare className="w-3 h-3 mr-1" />
+            WhatsApp
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate(`/super-admin/store-products?store=${store.id}`)}
+            className="w-full text-xs"
+          >
+            <Package className="w-3 h-3 mr-1" />
+            Productos
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate(`/super-admin/store-themes?store=${store.id}`)}
+            className="w-full text-xs"
+          >
+            <Palette className="w-3 h-3 mr-1" />
+            Temas
+          </Button>
+        </div>
       </CardContent>
     </Card>
-  );
-}
-
-// ✅ Skeleton optimizado
-function OptimizedSkeleton() {
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header skeleton */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gray-200 rounded"></div>
-          <div>
-            <div className="h-8 bg-gray-200 rounded w-64 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-96"></div>
-          </div>
-        </div>
-        <div className="flex space-x-2">
-          <div className="h-8 bg-gray-200 rounded w-20"></div>
-          <div className="h-8 bg-gray-200 rounded w-24"></div>
-          <div className="h-8 bg-gray-200 rounded w-24"></div>
-        </div>
-      </div>
-
-      {/* Metrics skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-24"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16"></div>
-                  <div className="h-3 bg-gray-200 rounded w-20"></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Content skeleton */}
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-64"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-48 bg-gray-200 rounded"></div>
-        </CardContent>
-      </Card>
-    </div>
   );
 }

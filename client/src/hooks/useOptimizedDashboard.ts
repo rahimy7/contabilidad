@@ -100,25 +100,28 @@ export function useOptimizedDashboard() {
     }
   }, [config.debugMode]);
 
-  // ✅ 4. CONTROL DE RATE LIMITING
+  // ✅ 4. CONTROL DE RATE LIMITING (más permisivo para inicial load)
   const canMakeRequest = useCallback(() => {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime.current;
-    
-    // Prevenir más de 1 request por segundo
-    if (timeSinceLastRequest < 1000) {
+
+    // Permitir initial burst de requests (primeros 5 segundos)
+    const isInitialLoad = lastRequestTime.current === 0;
+
+    // Solo aplicar rate limit después de inicial load
+    if (!isInitialLoad && timeSinceLastRequest < 200) {  // 200ms entre requests
       logDebug('Request bloqueado por rate limiting');
       return false;
     }
-    
+
     lastRequestTime.current = now;
     requestCountRef.current += 1;
-    
-    setState(prev => ({ 
-      ...prev, 
-      requestCount: requestCountRef.current 
+
+    setState(prev => ({
+      ...prev,
+      requestCount: requestCountRef.current
     }));
-    
+
     return true;
   }, [logDebug]);
 

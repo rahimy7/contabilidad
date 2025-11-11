@@ -68,19 +68,19 @@ export default function StoreManagement() {
   const queryClient = useQueryClient();
 
   const { data: stores, isLoading } = useQuery<VirtualStore[]>({
-    queryKey: ["/api/admin/stores"],
+    queryKey: ["/api/super-admin/stores"],
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: StoreFormData) => {
-      return apiRequest("POST", "/api/admin/stores", data);
+      return apiRequest("POST", "/api/super-admin/stores", data);
     },
     onSuccess: () => {
       toast({
         title: "Tienda creada",
         description: "La tienda virtual ha sido creada exitosamente",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stores"] });
       setIsCreateOpen(false);
     },
     onError: () => {
@@ -94,14 +94,14 @@ export default function StoreManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<StoreFormData> }) => {
-      return apiRequest("PUT", `/api/admin/stores/${id}`, data);
+      return apiRequest("PUT", `/api/super-admin/stores/${id}`, data);
     },
     onSuccess: () => {
       toast({
         title: "Tienda actualizada",
         description: "La información de la tienda ha sido actualizada",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stores"] });
       setEditingStore(null);
     },
     onError: () => {
@@ -115,14 +115,14 @@ export default function StoreManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/admin/stores/${id}`, {});
+      return apiRequest("DELETE", `/api/super-admin/stores/${id}`, {});
     },
     onSuccess: () => {
       toast({
         title: "Tienda desactivada",
         description: "La tienda ha sido desactivada exitosamente",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stores"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stores"] });
     },
     onError: () => {
       toast({

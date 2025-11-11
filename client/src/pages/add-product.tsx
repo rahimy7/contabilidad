@@ -43,14 +43,16 @@ import {
 } from 'lucide-react';
 import { Controller } from 'react-hook-form';
 
-const productSchema = z.object({
+// Esquema base del formulario (categoría opcional por defecto)
+const productFormBaseSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
   price: z.string().min(1, 'El precio es requerido'),
   currency: z.enum(['DOP', 'USD'], { 
     errorMap: () => ({ message: 'Selecciona una moneda válida (DOP o USD)' })
   }),
-  category: z.string().min(1, 'La categoría es requerida'),
+  // Categoría opcional en el esquema base; se obliga solo en creación
+  category: z.string().optional(),
   type: z.string().default('product'),
   brand: z.string().optional(),
   model: z.string().optional(),
@@ -80,12 +82,20 @@ const productSchema = z.object({
   promotionText: z.string().optional(),
 });
 
+// Esquema para creación: exige categoría
+const productSchemaCreate = productFormBaseSchema.extend({
+  category: z.string().min(1, 'La categoría es requerida'),
+});
+
+// Esquema para edición: deja categoría opcional
+const productSchemaEdit = productFormBaseSchema;
+
 const SUPPORTED_CURRENCIES = [
   { code: 'DOP', name: 'Peso Dominicano', symbol: 'RD$' },
   { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
 ];
 
-type ProductFormData = z.infer<typeof productSchema>;
+type ProductFormData = z.infer<typeof productFormBaseSchema>;
 
 interface ImageData {
   id: string;
@@ -174,9 +184,14 @@ export default function EnhancedAddProduct() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Detectar modo e ID desde la URL de forma síncrona para inicializar correctamente el resolver
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialIsEditMode = urlParams.get('mode') === 'edit' && !!urlParams.get('id');
+  const initialProductId = initialIsEditMode ? parseInt(urlParams.get('id') as string) : null;
+
   // Estados para determinar el modo (crear/editar)
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [productId, setProductId] = useState<number | null>(null);
+  const [isEditMode, setIsEditMode] = useState(initialIsEditMode);
+  const [productId, setProductId] = useState<number | null>(initialProductId);
   
   // Estados para gestión de imágenes
   const [productImages, setProductImages] = useState<ImageData[]>([]);
@@ -244,7 +259,8 @@ export default function EnhancedAddProduct() {
     control,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
+    // En edición no requerimos categoría; en creación sí
+    resolver: zodResolver(productFormBaseSchema),
     defaultValues: {
       type: "product",
       isActive: true,
@@ -784,6 +800,16 @@ export default function EnhancedAddProduct() {
     }
   };
 
+  // Actualiza el asterisco visual de la etiqueta de categoría según el modo
+  useEffect(() => {
+    const label = document.querySelector('label[for="category"]') as HTMLLabelElement | null;
+    if (label) {
+      const text = label.textContent || '';
+      const base = text.replace(/\s*\*$/, '');
+      label.textContent = isEditMode ? base : base + ' *';
+    }
+  }, [isEditMode]);
+
   // Estados de carga
   if (loadingCategories || (isEditMode && loadingProductData)) {
     return (
@@ -924,7 +950,7 @@ export default function EnhancedAddProduct() {
                   </div>
 
                   <div>
-                    <Label htmlFor="category">Categoría *</Label>
+                    <Label htmlFor="category">Categoría </Label>
                     <Controller
                       name="category"
                       control={control}
@@ -1555,7 +1581,7 @@ export default function EnhancedAddProduct() {
                       type="number"
                       {...register("minQuantity", { valueAsNumber: true })}
                       placeholder="1"
-                      min="1"
+                   
                     />
                   </div>
                 </div>
@@ -1567,7 +1593,7 @@ export default function EnhancedAddProduct() {
                     type="number"
                     {...register("maxQuantity", { valueAsNumber: true })}
                     placeholder="Sin límite"
-                    min="1"
+               
                   />
                 </div>
 
