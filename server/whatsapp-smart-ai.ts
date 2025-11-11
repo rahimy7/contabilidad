@@ -27,6 +27,7 @@ interface MessageContext {
   isAfterCatalog?: boolean;
   expectedResponses?: string[];
   lastAutoResponse?: string;
+  isHelpMode?: boolean;  // ✅ Nuevo: indica si el usuario pidió ayuda
 }
 
 // Mapa de contextos por teléfono (en producción usar Redis o DB)
@@ -55,6 +56,22 @@ export function markCatalogSent(phoneNumber: string) {
     lastAutoResponse: 'catalog'
   });
   console.log(`✅ [AI-SMART] Marcado: ${phoneNumber} recibió catálogo`);
+}
+
+/**
+ * Registrar que se solicitó ayuda (Obtener Ayuda)
+ * Activa la IA para responder a consultas de ayuda
+ */
+export function markHelpRequested(phoneNumber: string) {
+  const context = conversationContexts.get(phoneNumber) || {};
+  conversationContexts.set(phoneNumber, {
+    ...context,
+    isAfterWelcome: true,  // Activar IA como si fuera después de bienvenida
+    isAfterCatalog: false,
+    lastAutoResponse: 'help',
+    isHelpMode: true  // Bandero especial para saber que el usuario pidió ayuda
+  });
+  console.log(`✅ [AI-SMART] Marcado: ${phoneNumber} solicitó ayuda - IA activada para responder`);
 }
 
 /**
@@ -112,7 +129,8 @@ export async function tryProcessWithAI(
       storeId,
       messageText,
       context.isAfterWelcome,
-      context.isAfterCatalog
+      context.isAfterCatalog,
+      context.isHelpMode  // ✅ Pasar el modo de ayuda
     );
 
     if (!shouldUse) {

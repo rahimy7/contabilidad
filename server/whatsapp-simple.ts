@@ -2112,6 +2112,23 @@ if (conversation) {
 }
 
 
+    // ✅ DETECTAR SI SE PRESIONÓ "OBTENER AYUDA" Y ACTIVAR IA
+    if (messageText === 'show_help' || messageText === 'help') {
+      console.log(`🆘 [AI-SMART] HELP REQUESTED - Marking for AI response`);
+      const { markHelpRequested } = await import('./whatsapp-smart-ai.js');
+      markHelpRequested(customerPhone);
+
+      // Enviar mensaje inicial de ayuda
+      await sendWhatsAppMessageDirect(
+        customerPhone,
+        `¡Hola! 👋\n\n¿En qué puedo ayudarte hoy? Cuéntame tu pregunta o problema y haré mi mejor esfuerzo para resolverlo. 😊`,
+        safeStoreMapping.storeId
+      );
+
+      console.log(`✅ Help mode activated - Waiting for user question`);
+      return; // Esperar a que el usuario escriba su pregunta
+    }
+
     // 🤖 INTENTAR PROCESAR CON IA (NUEVO - ANTES DE ÓRDENES PENDIENTES)
     console.log(`🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...`);
 

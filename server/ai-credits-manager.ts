@@ -363,7 +363,8 @@ export async function shouldUseAI(
   storeId: number,
   messageText: string,
   isAfterWelcome: boolean = false,
-  isAfterCatalog: boolean = false
+  isAfterCatalog: boolean = false,
+  isHelpMode: boolean = false  // ✅ Nuevo: si el usuario pidió ayuda
 ): Promise<boolean> {
   // Verificar créditos disponibles
   const hasCredits = await AICreditsManager.hasCredits(storeId, 'message');
@@ -376,10 +377,11 @@ export async function shouldUseAI(
   // Condiciones para usar IA:
   // 1. Después del mensaje de bienvenida
   // 2. Después del catálogo de productos
-  // 3. Si no respondió con opciones esperadas
+  // 3. Cuando el usuario solicitó ayuda (Help Mode)
+  // 4. Si no respondió con opciones esperadas
 
-  if (isAfterWelcome || isAfterCatalog) {
-    console.log('✅ Usando IA - flujo cumplido');
+  if (isAfterWelcome || isAfterCatalog || isHelpMode) {
+    console.log(`✅ Usando IA - flujo cumplido (welcome: ${isAfterWelcome}, catalog: ${isAfterCatalog}, help: ${isHelpMode})`);
     return true;
   }
 
