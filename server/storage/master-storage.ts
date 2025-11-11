@@ -111,19 +111,34 @@ export class MasterStorageService {
 
   async createStore(storeData: CreateStoreData): Promise<VirtualStore> {
     try {
+      // Generar slug automáticamente si no existe
+      const slug = storeData.domain ||
+                   storeData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+      // Usar la misma URL de base de datos de la tienda (la cual compartirá esquema inicialmente)
+      // En el futuro esto puede ser migrado a una BD separada
+      const databaseUrl = process.env.DATABASE_URL;
+      if (!databaseUrl) {
+        throw new Error('DATABASE_URL environment variable is not set');
+      }
+
+      console.log(`📦 Creating virtual store: ${storeData.name} (slug: ${slug})`);
+
       const [newStore] = await this.db
         .insert(schema.virtualStores)
         .values({
           ...storeData,
+          slug: slug,
+          databaseUrl: databaseUrl,
           createdAt: new Date(),
           updatedAt: new Date()
         })
         .returning();
 
-      console.log(`✅ Created virtual store: ${newStore.name}`);
+      console.log(`✅ Created virtual store: ${newStore.name} (ID: ${newStore.id})`);
       return newStore;
     } catch (error) {
-      console.error('Error creating virtual store:', error);
+      console.error('❌ Error creating virtual store:', error);
       throw error;
     }
   }

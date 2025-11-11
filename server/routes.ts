@@ -5123,11 +5123,44 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   router.post('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
       const storeData = req.body;
-      const store = await masterStorage.createVirtualStore(storeData);
-      res.status(201).json(store);
+
+      // Validar campos requeridos
+      if (!storeData.name || storeData.name.trim() === '') {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Store name is required'
+        });
+      }
+
+      if (!storeData.description || storeData.description.trim() === '') {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Store description is required'
+        });
+      }
+
+      if (!storeData.domain || storeData.domain.trim() === '') {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Store domain is required'
+        });
+      }
+
+      console.log('[Store Creation] 📦 Creating new store:', storeData);
+      const store = await masterStorage.createStore(storeData);
+      console.log('[Store Creation] ✅ Store created successfully:', store.id, store.name);
+
+      res.status(201).json({
+        success: true,
+        data: store,
+        message: `Store "${store.name}" created successfully`
+      });
     } catch (error) {
-      console.error('Error creating store:', error);
-      res.status(500).json({ error: 'Failed to create store' });
+      console.error('[Store Creation] ❌ Error creating store:', error);
+      res.status(500).json({
+        error: 'Failed to create store',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -5135,28 +5168,40 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     try {
       const id = parseInt(req.params.id);
       const updateData = req.body;
+      console.log('[Store Update] Updating store:', id, updateData);
 
-      const store = await masterStorage.updateVirtualStore(id, updateData);
+      const store = await masterStorage.updateStore(id, updateData);
+      console.log('[Store Update] Store updated successfully:', id);
+
       if (!store) {
         return res.status(404).json({ error: 'Store not found' });
       }
 
       res.json(store);
     } catch (error) {
-      console.error('Error updating store:', error);
-      res.status(500).json({ error: 'Failed to update store' });
+      console.error('[Store Update] Error updating store:', error);
+      res.status(500).json({
+        error: 'Failed to update store',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
   router.delete('/super-admin/stores/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
+      console.log('[Store Deletion] Deleting store:', id);
 
-      await masterStorage.deleteVirtualStore(id);
-      res.json({ success: true });
+      const success = await masterStorage.deleteStore(id);
+      console.log('[Store Deletion] Store deleted successfully:', id);
+
+      res.json({ success });
     } catch (error) {
-      console.error('Error deleting store:', error);
-      res.status(500).json({ error: 'Failed to delete store' });
+      console.error('[Store Deletion] Error deleting store:', error);
+      res.status(500).json({
+        error: 'Failed to delete store',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
