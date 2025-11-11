@@ -1054,7 +1054,10 @@ async function handleRegistrationFlow(
 
   const confirmLower = messageText.toLowerCase().trim();
 
+  // ✅ DETECTAR CONFIRMACIÓN: palabras en español O buttonId de WhatsApp
   if (confirmLower.includes('confirmar') ||
+      confirmLower.includes('confirm_order') ||  // ← Button ID from WhatsApp
+      confirmLower === 'confirm_order' ||        // ← Exact match for button
       confirmLower.includes('sí') ||
       confirmLower.includes('si') ||
       confirmLower.includes('confirm') ||
@@ -1102,6 +1105,8 @@ async function handleRegistrationFlow(
     }
 
   } else if (confirmLower.includes('modificar') ||
+             confirmLower.includes('modify_order') ||  // ← Button ID from WhatsApp
+             confirmLower === 'modify_order' ||        // ← Exact match for button
              confirmLower.includes('cambiar') ||
              confirmLower.includes('editar')) {
 
@@ -1122,7 +1127,10 @@ async function handleRegistrationFlow(
 
     return; // ⚠️ IMPORTANTE: Salir sin continuar
 
-  } else if (confirmLower.includes('cancelar') || confirmLower.includes('cancel')) {
+  } else if (confirmLower.includes('cancelar') ||
+             confirmLower.includes('cancel_order') ||  // ← Button ID from WhatsApp
+             confirmLower === 'cancel_order' ||        // ← Exact match for button
+             confirmLower.includes('cancel')) {
   console.log(`❌ USER WANTS TO CANCEL ORDER`);
 
   if (registrationFlow.orderId) {
