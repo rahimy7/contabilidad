@@ -1,0 +1,191 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                     QUICK WEBHOOK TESTING COMMANDS                             ║
+║                    Copiar y pegar en la terminal                               ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+BASE_URL: http://localhost:3000
+STORE_ID: 6
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+1️⃣ CLIENTE REGISTRADO - Envía Pedido
+Esperado: Confirmación directa con detalles y 3 botones (Confirmar/Modificar/Cancelar)
+NO debe enviar "Pedido Recibido"
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "3 Prezoom La Bestia en Polvo, 2 4Life Transfer Factor AgePro",
+  "messageType": "text"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+2️⃣ CLIENTE NUEVO - Envía Pedido
+Esperado: Mensaje "Pedido Recibido" solamente
+NO debe enviar confirmación aún
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18091234567",
+  "messageText": "2 Prezoom, 1 Transfer Factor",
+  "messageType": "text"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+3️⃣ CONFIRMAR PEDIDO - Cliente Registrado Presiona "Confirmar"
+Esperado: Un mensaje de confirmación exitosa
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "confirm_order",
+  "messageType": "interactive",
+  "buttonId": "confirm_order",
+  "buttonTitle": "✅ Confirmar"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+4️⃣ MODIFICAR PEDIDO - Cliente Presiona "Modificar"
+Esperado: Menú de selección de campos (1=Nombre, 2=Dirección, 3=Contacto, etc)
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "modify_order",
+  "messageType": "interactive",
+  "buttonId": "modify_order",
+  "buttonTitle": "✏️ Modificar"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+5️⃣ CANCELAR PEDIDO - Cliente Presiona "Cancelar"
+Esperado: Un solo mensaje de cancelación
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "cancel_order",
+  "messageType": "interactive",
+  "buttonId": "cancel_order",
+  "buttonTitle": "❌ Cancelar"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+6️⃣ PRUEBA DE IDEMPOTENCIA - Enviar Mismo Mensaje Dos Veces
+Primer curl: Debe procesar normalmente
+Segundo curl: Debe detectar como duplicado y NO procesar
+
+PRIMER ENVÍO:
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18091111111",
+  "messageText": "1 Producto Test",
+  "messageType": "text",
+  "messageId": "test-duplicate-123"
+}'
+
+SEGUNDO ENVÍO (mismo messageId):
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18091111111",
+  "messageText": "1 Producto Test",
+  "messageType": "text",
+  "messageId": "test-duplicate-123"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+7️⃣ EDITAR CAMPO - Cliente Selecciona "2" (Dirección)
+Esperado: Solicitud de nueva dirección
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "2",
+  "messageType": "text"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+8️⃣ EDITAR CAMPO - Cliente Ingresa Nueva Dirección
+Esperado: Confirmación de actualización + Menú de opciones
+
+curl -X POST http://localhost:3000/test/simulate-webhook/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "customerPhone": "18494553242",
+  "messageText": "Calle Nueva 123, Apartamento 4B",
+  "messageType": "text"
+}'
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+LOGS A BUSCAR:
+
+✅ Cliente Registrado Correcto:
+  - "🔍 CUSTOMER REGISTRATION CHECK - Fully Registered: true"
+  - "⏭️ CUSTOMER FULLY REGISTERED - Skipping \"Order received\", sending confirmation directly"
+  - "✅ IDEMPOTENCY: Marked messageId"
+  - "📋 GENERATING INTERACTIVE ORDER CONFIRMATION"
+
+❌ Cliente Nuevo Correcto:
+  - "🔍 CUSTOMER REGISTRATION CHECK - Fully Registered: false"
+  - "✅ CUSTOMER NOT REGISTERED - Sending \"Order received\" message"
+  - "🎯 TRIGGERING order_received AUTO-RESPONSE..."
+  - "✅ order_received AUTO-RESPONSE SENT SUCCESSFULLY"
+
+⚠️ Duplicado Detectado:
+  - "⚠️ DUPLICATE MESSAGE DETECTED - MessageId: ... was already processed. Skipping."
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+MONITOREAR LOGS EN TIEMPO REAL:
+
+# Ver todos los logs
+tail -f server.log
+
+# Filtrar solo webhook
+tail -f server.log | grep -i webhook
+
+# Filtrar solo pedidos
+tail -f server.log | grep -i "order\|pedido"
+
+# Filtrar solo confirmación
+tail -f server.log | grep -i "confirmation\|confirmacion"
+
+# Filtrar solo duplicados
+tail -f server.log | grep -i "duplicate\|idempotency"
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+SCRIPT AUTOMÁTICO (si tienes bash/git bash):
+
+bash test-webhook.sh
+
+Esto ejecuta todos los 7 tests automáticamente
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+VALIDACIÓN DE ÉXITO:
+
+✅ Registrado recibe 1 confirmación (no 2)
+✅ Nuevo recibe "Pedido Recibido" (no confirmación aún)
+✅ Los botones funcionan (Confirmar/Modificar/Cancelar)
+✅ Idempotencia detecta duplicados
+✅ Logs muestran el flujo esperado
+✅ Base de datos se actualiza correctamente
+
+═══════════════════════════════════════════════════════════════════════════════════
