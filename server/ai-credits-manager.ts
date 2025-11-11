@@ -21,27 +21,39 @@ export class AICreditsManager {
       const masterStorage = await getMasterStorage();
       const credits = await masterStorage.getAICredits(storeId);
 
-      if (!credits || !credits.isEnabled) {
-        console.log(`⚠️ IA deshabilitada para tienda ${storeId}`);
+      console.log(`🔍 [AI-CREDITS] Verificando créditos para tienda ${storeId}:`, JSON.stringify(credits));
+
+      if (!credits) {
+        console.log(`⚠️ [AI-CREDITS] No se encontraron créditos para tienda ${storeId}`);
+        return false;
+      }
+
+      // ✅ CORREGIR: Verificar ambas formas (camelCase y snake_case)
+      const isEnabled = credits.isEnabled || credits.is_enabled;
+      if (!isEnabled) {
+        console.log(`⚠️ [AI-CREDITS] IA deshabilitada para tienda ${storeId}`);
         return false;
       }
 
       const costMap = {
-        message: credits.costPerMessage || 1,
-        order: credits.costPerOrder || 5,
-        voice: credits.costPerVoiceNote || 10
+        message: credits.costPerMessage || credits.cost_per_message || 1,
+        order: credits.costPerOrder || credits.cost_per_order || 5,
+        voice: credits.costPerVoiceNote || credits.cost_per_voice_note || 10
       };
 
       const cost = costMap[operation];
-      const hasEnough = credits.availableCredits >= cost;
+      const available = credits.availableCredits || credits.available_credits || 0;
+      const hasEnough = available >= cost;
+
+      console.log(`💰 [AI-CREDITS] Tienda ${storeId} - Operación: ${operation}, Costo: ${cost}, Disponibles: ${available}, ¿Suficiente?: ${hasEnough}`);
 
       if (!hasEnough) {
-        console.log(`❌ Créditos insuficientes: ${credits.availableCredits} < ${cost}`);
+        console.log(`❌ [AI-CREDITS] Créditos insuficientes: ${available} < ${cost}`);
       }
 
       return hasEnough;
     } catch (error) {
-      console.error('Error verificando créditos:', error);
+      console.error('❌ [AI-CREDITS] Error verificando créditos:', error);
       return false;
     }
   }
