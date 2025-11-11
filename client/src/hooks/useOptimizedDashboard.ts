@@ -28,9 +28,9 @@ const DEFAULT_CONFIG: DashboardConfig = {
   autoRefresh: false,
   refreshInterval: 300,
   enablePolling: false,
-  lazyLoading: true,
+  lazyLoading: false,  // ✅ DISABLED: Load all data immediately
   cacheEnabled: true,
-  debugMode: false,
+  debugMode: true,  // ✅ ENABLED: Show debug logs
   enableMetrics: true,
   enableStores: true,
   enableSystemHealth: true,
@@ -129,7 +129,7 @@ export function useOptimizedDashboard() {
       if (!canMakeRequest()) {
         throw new Error('Rate limit exceeded');
       }
-      
+
       logDebug('Fetching metrics...');
       const response = await fetch('/api/super-admin/metrics?timeRange=30d', {
         headers: {
@@ -137,14 +137,14 @@ export function useOptimizedDashboard() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
-    enabled: config.enableMetrics && (state.currentTab === 'overview' || !config.lazyLoading),
+    enabled: config.enableMetrics,  // ✅ FIXED: Always load metrics
     staleTime: config.cacheEnabled ? 5 * 60 * 1000 : 0,
     gcTime: config.cacheEnabled ? 10 * 60 * 1000 : 0,
     refetchOnWindowFocus: false,
@@ -161,7 +161,7 @@ export function useOptimizedDashboard() {
       if (!canMakeRequest()) {
         throw new Error('Rate limit exceeded');
       }
-      
+
       logDebug('Fetching stores...');
       const response = await fetch('/api/super-admin/stores', {
         headers: {
@@ -169,14 +169,14 @@ export function useOptimizedDashboard() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
-    enabled: config.enableStores && (state.currentTab === 'stores' || !config.lazyLoading),
+    enabled: config.enableStores,  // ✅ FIXED: Always load stores
     staleTime: config.cacheEnabled ? 3 * 60 * 1000 : 0,
     gcTime: config.cacheEnabled ? 5 * 60 * 1000 : 0,
     refetchOnWindowFocus: false,
@@ -193,7 +193,7 @@ export function useOptimizedDashboard() {
       if (!canMakeRequest()) {
         throw new Error('Rate limit exceeded');
       }
-      
+
       logDebug('Fetching system health...');
       const response = await fetch('/api/super-admin/system-health', {
         headers: {
@@ -201,14 +201,14 @@ export function useOptimizedDashboard() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
-    enabled: config.enableSystemHealth && state.currentTab === 'overview',
+    enabled: config.enableSystemHealth,  // ✅ FIXED: Always load system health
     staleTime: 30 * 1000,
     refetchInterval: config.enablePolling ? 60 * 1000 : false,
     refetchOnWindowFocus: false,
