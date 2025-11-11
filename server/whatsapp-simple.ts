@@ -2921,84 +2921,6 @@ try {
   }
 }
 
-    // ✅ USAR LA AUTO-RESPUESTA order_received EN LUGAR DE MENSAJE MANUAL
-    console.log(`🎯 TRIGGERING order_received AUTO-RESPONSE...`);
-    
-    try {
-      // Buscar la auto-respuesta order_received
-      const orderReceivedResponse = await tenantStorage.getAutoResponsesByTrigger('order_received');
-      
-      if (orderReceivedResponse && orderReceivedResponse.length > 0) {
-        const autoResponse = orderReceivedResponse[0];
-        console.log(`✅ FOUND order_received AUTO-RESPONSE: "${autoResponse.name}"`);
-        
-        // Preparar datos para reemplazar en el mensaje
-        const orderItemsText = orderItems.map(item => 
-          `• ${item.name} x${item.quantity} - ${(item.price * item.quantity).toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
-`
-          
-        ).join('\n');
-        
-        const subtotal = total;
-        const deliveryCost = 0; // Por ahora cero, puede calcularse después
-        const totalAmount = subtotal + deliveryCost;
-        
-        // Reemplazar variables en el mensaje
-        let finalMessage = autoResponse.messageText || autoResponse.message;
-        finalMessage = finalMessage
-          .replace('{customerName}', customer.name || 'Cliente')
-          .replace('{orderItems}', orderItemsText)
-          .replace('{subtotal}', subtotal.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
-          .replace('{deliveryCost}', deliveryCost.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
-          .replace('{totalAmount}', totalAmount.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }));
-
-        
-        console.log(`📤 SENDING order_received MESSAGE...`);
-        
-        // Enviar mensaje con botones interactivos
-        if (autoResponse.menuOptions) {
-          const menuOptions = typeof autoResponse.menuOptions === 'string' 
-            ? JSON.parse(autoResponse.menuOptions) 
-            : autoResponse.menuOptions;
-          
-          await sendInteractiveMessage(phoneNumber, finalMessage, menuOptions, { storeId, phoneNumberId });
-        } else {
-          await sendWhatsAppMessageDirect(phoneNumber, finalMessage, storeId);
-        }
-        
-        console.log(`✅ order_received AUTO-RESPONSE SENT SUCCESSFULLY`);
-        
-      } else {
-        console.log(`❌ order_received AUTO-RESPONSE NOT FOUND - Using fallback message`);
-        
-        // Mensaje de respaldo si no encuentra la auto-respuesta
-        const fallbackMessage = `✅ *PEDIDO RECIBIDO*
-
-📦 *Resumen de tu pedido:*
-📋 Número: ${orderNumber}
-🛍️ Productos: ${orderItems.length} artículo(s)
-${orderItems.map(item => 
-          `• ${item.name} (Cantidad: ${item.quantity})`
-        ).join('\n')}
-💰 Total: ${total.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
-
-
-
-🎯 Tu pedido ha sido registrado exitosamente.
-📝 Para procesar tu pedido necesitamos algunos datos. ¿Comenzamos?`;
-
-        await sendWhatsAppMessageDirect(phoneNumber, fallbackMessage, storeId);
-      }
-      
-    } catch (autoResponseError) {
-      console.error(`❌ ERROR SENDING order_received AUTO-RESPONSE:`, autoResponseError);
-
-      // Mensaje de respaldo en caso de error
-      await sendWhatsAppMessageDirect(phoneNumber,
-        `✅ Pedido recibido correctamente. Un agente te contactará pronto para completar los datos.`,
-        storeId);
-    }
-
     // ✅ CREAR FLUJO DE RECOLECCIÓN (PREPARADO PARA CUANDO EL USUARIO PRESIONE "Comenzar Registro")
     console.log(`🚀 ===== PREPARING REGISTRATION FLOW =====`);
 
@@ -3060,21 +2982,95 @@ ${orderItems.map(item =>
       await tenantStorage.createOrUpdateRegistrationFlow(flowData);
     }
 
-    // ✅ IMPORTANTE: Si cliente NO está registrado, enviar "Pedido recibido"
-    // Si está registrado, NO enviar este mensaje (va directo a confirmación)
-    if (!isCustomerFullyRegistered) {
-      console.log(`✅ CUSTOMER NOT REGISTERED - Sending "Order received" message`);
-      // El mensaje "Pedido recibido" ya fue enviado arriba
-    } else {
-      console.log(`⏭️ CUSTOMER FULLY REGISTERED - Skipping "Order received", sending confirmation instead`);
-    }
+    // ✅ FLUJO CONDICIONAL DE MENSAJERÍA
+    // - Si cliente REGISTRADO: Enviar SOLO confirmación directa con detalles y botones
+    // - Si cliente NUEVO: Enviar SOLO "Pedido Recibido" y esperar que inicie flujo
 
-    // ✅ SI CLIENTE ESTÁ REGISTRADO, ENVIAR CONFIRMACIÓN DIRECTAMENTE
     if (isCustomerFullyRegistered) {
-      console.log(`✅ CUSTOMER FULLY REGISTERED - Sending confirmation directly`);
+      // ✅ CLIENTE REGISTRADO: Enviar confirmación directamente
+      console.log(`⏭️ CUSTOMER FULLY REGISTERED - Skipping "Order received", sending confirmation directly`);
       const registrationFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
       await generateAndSendOrderConfirmation(customer, registrationFlow, initialCollectedData, storeId, tenantStorage);
     } else {
+      // ✅ CLIENTE NUEVO: Enviar "Pedido Recibido"
+      console.log(`✅ CUSTOMER NOT REGISTERED - Sending "Order received" message`);
+      console.log(`🎯 TRIGGERING order_received AUTO-RESPONSE...`);
+
+      try {
+        // Buscar la auto-respuesta order_received
+        const orderReceivedResponse = await tenantStorage.getAutoResponsesByTrigger('order_received');
+
+        if (orderReceivedResponse && orderReceivedResponse.length > 0) {
+          const autoResponse = orderReceivedResponse[0];
+          console.log(`✅ FOUND order_received AUTO-RESPONSE: "${autoResponse.name}"`);
+
+          // Preparar datos para reemplazar en el mensaje
+          const orderItemsText = orderItems.map(item =>
+            `• ${item.name} x${item.quantity} - ${(item.price * item.quantity).toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
+`
+
+          ).join('\n');
+
+          const subtotal = total;
+          const deliveryCost = 0; // Por ahora cero, puede calcularse después
+          const totalAmount = subtotal + deliveryCost;
+
+          // Reemplazar variables en el mensaje
+          let finalMessage = autoResponse.messageText || autoResponse.message;
+          finalMessage = finalMessage
+            .replace('{customerName}', customer.name || 'Cliente')
+            .replace('{orderItems}', orderItemsText)
+            .replace('{subtotal}', subtotal.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
+            .replace('{deliveryCost}', deliveryCost.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }))
+            .replace('{totalAmount}', totalAmount.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' }));
+
+
+          console.log(`📤 SENDING order_received MESSAGE...`);
+
+          // Enviar mensaje con botones interactivos
+          if (autoResponse.menuOptions) {
+            const menuOptions = typeof autoResponse.menuOptions === 'string'
+              ? JSON.parse(autoResponse.menuOptions)
+              : autoResponse.menuOptions;
+
+            await sendInteractiveMessage(phoneNumber, finalMessage, menuOptions, { storeId, phoneNumberId });
+          } else {
+            await sendWhatsAppMessageDirect(phoneNumber, finalMessage, storeId);
+          }
+
+          console.log(`✅ order_received AUTO-RESPONSE SENT SUCCESSFULLY`);
+
+        } else {
+          console.log(`❌ order_received AUTO-RESPONSE NOT FOUND - Using fallback message`);
+
+          // Mensaje de respaldo si no encuentra la auto-respuesta
+          const fallbackMessage = `✅ *PEDIDO RECIBIDO*
+
+📦 *Resumen de tu pedido:*
+📋 Número: ${orderNumber}
+🛍️ Productos: ${orderItems.length} artículo(s)
+${orderItems.map(item =>
+            `• ${item.name} (Cantidad: ${item.quantity})`
+          ).join('\n')}
+💰 Total: ${total.toLocaleString('es-DO', { style: 'currency', currency: 'DOP' })}
+
+
+
+🎯 Tu pedido ha sido registrado exitosamente.
+📝 Para procesar tu pedido necesitamos algunos datos. ¿Comenzamos?`;
+
+          await sendWhatsAppMessageDirect(phoneNumber, fallbackMessage, storeId);
+        }
+
+      } catch (autoResponseError) {
+        console.error(`❌ ERROR SENDING order_received AUTO-RESPONSE:`, autoResponseError);
+
+        // Mensaje de respaldo en caso de error
+        await sendWhatsAppMessageDirect(phoneNumber,
+          `✅ Pedido recibido correctamente. Un agente te contactará pronto para completar los datos.`,
+          storeId);
+      }
+
       console.log(`✅ REGISTRATION FLOW PREPARED - Waiting for user to start data collection`);
     }
 
