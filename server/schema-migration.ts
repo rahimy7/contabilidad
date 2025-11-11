@@ -73,9 +73,8 @@ export async function migrateStoreToSeparateSchema(storeId: number): Promise<Mig
       throw new Error(`Tienda con ID ${storeId} no encontrada`);
     }
 
-    // Extraer nombre del schema de la URL
-    const schemaMatch = store.databaseUrl?.match(/schema=([^&]+)/);
-    const schemaName = schemaMatch ? schemaMatch[1] : `store_${storeId}_${Date.now()}`;
+    // Generar nombre del schema (siempre store_ID)
+    const schemaName = `store_${storeId}`;
     
     console.log(`📋 Migrando tienda: ${store.name} al schema: ${schemaName}`);
 
