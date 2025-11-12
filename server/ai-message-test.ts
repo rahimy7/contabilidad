@@ -34,9 +34,17 @@ async function runTest() {
     console.log("⚠️ No hay créditos disponibles para IA.");
     process.exit(0);
   }
+const products = await tenantStorage.getAllProducts();
+console.log(`🛒 Productos cargados: ${products.length}`);
 
   // 4️⃣ Analizar mensaje
-  const interpretation = await interpretOrderMessage(messageText, tenantStorage, STORE_ID);
+  const interpretation = await interpretOrderMessage(
+  messageText,
+  products,         // ✅ lista real de productos
+  tenantStorage,    // ✅ conexión tenant
+  STORE_ID
+);
+
 
   // 5️⃣ Mostrar resultado en consola
   console.log("\n🎯 RESULTADO DE INTERPRETACIÓN:");

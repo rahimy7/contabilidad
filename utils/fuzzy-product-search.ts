@@ -1,86 +1,126 @@
 /**
- * Fuzzy Product Search (v2 mejorada)
- * ----------------------------------
- * Coincidencias por similitud, tokenización y normalización avanzada.
+ * utils/fuzzy-product-search.ts
+ * ------------------------------------
+ * Búsqueda difusa inteligente de productos.
+ * - Ignora mayúsculas/minúsculas, acentos y espacios.
+ * - Devuelve coincidencias ordenadas por similitud.
+ * - Ideal para interpretación de pedidos por chat.
  */
 
-import levenshtein from "fast-levenshtein";
+import Fuse from "fuse.js";
 
-export interface Product {
-  id: number;
-  name: string;
-  description?: string;
-  category?: string;
-  brand?: string;
-  price?: string;
-  image_url?: string;
-  is_active?: boolean;
-}
-
-function normalize(text: string) {
+// 🔹 Normaliza texto eliminando tildes y caracteres especiales
+export function normalizeText(text: string): string {
   return text
-    ?.toLowerCase()
     ?.normalize("NFD")
-    ?.replace(/[\u0300-\u036f]/g, "") // quitar acentos
-    ?.replace(/[^a-z0-9\s]/g, "") // quitar símbolos
-    ?.replace(/\b(4life|tf|t f|transfer factor)\b/g, "") // quitar prefijos comunes
-    ?.replace(/\s+/g, " ")
+    ?.replace(/[\u0300-\u036f]/g, "")
+    ?.replace(/[^\w\s]/g, "")
+    ?.toLowerCase()
     ?.trim();
 }
 
-function similarity(a: string, b: string) {
-  if (!a || !b) return 0;
-  const distance = levenshtein.get(a, b);
-  const maxLen = Math.max(a.length, b.length);
-  return 1 - distance / maxLen;
+export interface ProductMatch {
+  id: number;
+  name: string;
+  price?: number | string;
+  image?: string | null;
+  score: number; // 0 = exacto, 1 = muy diferente
 }
 
-export function searchSimilarProducts(
+/**
+ * Realiza una búsqueda difusa sobre la lista de productos
+ */
+export function searchProductsByName(
   query: string,
-  products: Product[],
-  threshold: number = 0.55
-): Product[] {
-  const normalizedQuery = normalize(query);
-  const queryTokens = normalizedQuery.split(/\s+/);
-  const results: { product: Product; score: number }[] = [];
-console.log(`🧠 FuzzySearch recibió ${products.length} productos`);
-console.log(`📋 Primeros nombres:`, products.slice(0, 5).map(p => p.name));
+  products: any[],
+  limit: number = 5
+): ProductMatch[] {
+  if (!query || !products?.length) return [];
 
-  for (const p of products) {
-    const textCombined = normalize(
-      [p.name, p.description, p.category, p.brand].filter(Boolean).join(" ")
-    );
-    const productTokens = textCombined.split(/\s+/);
+  const fuse = new Fuse(products, {
+    includeScore: true,
+    threshold: 0.4, // Sensibilidad (más alto = más tolerante)
+    ignoreLocation: true,
+    keys: [
+      { name: "name", weight: 0.7 },
+      { name: "description", weight: 0.2 },
+      { name: "category", weight: 0.1 },
+    ],
+  });
 
-    let maxScore = 0;
-    // comparar cada palabra del query con cada palabra del producto
-    for (const qt of queryTokens) {
-      for (const pt of productTokens) {
-        const s = similarity(qt, pt);
-        if (s > maxScore) maxScore = s;
-      }
-    }
+  const results = fuse.search(normalizeText(query));
 
-    // ajustar el threshold dinámicamente
-    const adjustedThreshold = normalizedQuery.length < 6 ? 0.45 : threshold;
+  return results.slice(0, limit).map((r) => ({
+    id: r.item.id,
+    name: r.item.name,
+    price: r.item.price,
+    image: r.item.images?.[0] || null,
+    score: r.score ?? 1,
+  }));
+}
 
-    if (maxScore >= adjustedThreshold) {
-      results.push({ product: p, score: maxScore });
+/**
+ * Encuentra el producto más probable a partir de un mensaje del cliente.
+ * Ejemplo: "Quiero 2 Renuvo y 1 RioVida"
+ */
+export function extractProductMatchesFromMessage(
+  message: string,
+  products: any[],
+  minConfidence = 0.65
+): ProductMatch[] {
+  const normalized = normalizeText(message);
+  if (!normalized) return [];
+
+  const words = normalized.split(/\s+/);
+  const matches: ProductMatch[] = [];
+
+  // Buscar coincidencias de productos dentro del texto
+  for (const product of products) {
+    const name = normalizeText(product.name);
+    if (!name) continue;
+
+    // Si alguna palabra clave aparece dentro del nombre o viceversa
+    if (words.some((w) => name.includes(w) || w.includes(name))) {
+      matches.push({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.images?.[0] || null,
+        score: 0.1,
+      });
     }
   }
 
-  // ordenar por score descendente
-  results.sort((a, b) => b.score - a.score);
-
-  // 🔍 depuración
-  if (results.length === 0) {
-    console.log(`⚠️ No se encontró coincidencia fuzzy para "${query}"`);
-  } else {
-    console.log(`🧩 Coincidencias fuzzy para "${query}":`);
-    for (const r of results.slice(0, 5)) {
-      console.log(`   → ${r.product.name} (${(r.score * 100).toFixed(1)}%)`);
-    }
+  // Si no hay coincidencias simples, usar búsqueda difusa
+  if (matches.length === 0) {
+    const fuzzy = searchProductsByName(message, products, 5);
+    return fuzzy.filter((p) => 1 - p.score >= minConfidence);
   }
 
-  return results.map(r => r.product);
+  return matches;
+}
+
+/**
+ * Devuelve los 3 productos más parecidos al texto proporcionado
+ */
+export function getTopSuggestions(
+  query: string,
+  products: any[],
+  limit = 3
+): ProductMatch[] {
+  const results = searchProductsByName(query, products, limit);
+  return results.sort((a, b) => a.score - b.score);
+}
+
+// Ejemplo rápido de uso
+if (process.argv[1]?.includes("fuzzy-product-search.ts")) {
+  const sampleProducts = [
+    { id: 1, name: "4Life Transfer Factor Renuvo", price: 70 },
+    { id: 2, name: "T.F. RioVida (1 botella)", price: 62 },
+    { id: 3, name: "Pro-TF Chocolate", price: 92 },
+  ];
+
+  const test = "Quiero 2 Renuvó y 1 Riovita";
+  const result = extractProductMatchesFromMessage(test, sampleProducts);
+  console.log("🧠 Resultado fuzzy:", result);
 }

@@ -1,4 +1,4 @@
-/**
+/**for createOrderFromCart
  * AI ORDER ASSISTANT
  *
  * Sistema inteligente para procesar pedidos mediante IA
@@ -417,3 +417,48 @@ export function looksLikeOrder(message: string): boolean {
 export function hasHighConfidence(confidence: number): boolean {
   return confidence >= 0.7; // 70% o más
 }
+
+/**
+ * Crear una orden real desde el carrito de IA (usa el mismo esquema que WhatsApp)
+ */
+export async function createOrderFromCart(
+  cart: CartItem[],
+  customer: any,
+  storeId: number,
+  tenantStorage: any
+): Promise<any> {
+  try {
+    console.log('📦 Creando orden desde carrito (IA)...');
+
+    if (!cart || cart.length === 0) {
+      throw new Error('El carrito está vacío.');
+    }
+
+    const totalAmount = cart.reduce((sum, item) => sum + item.totalPrice, 0);
+
+    // 🧾 Crear la orden principal
+    const order = await tenantStorage.createOrder(
+      {
+        customerId: customer.id,
+        totalAmount: totalAmount.toFixed(2),
+        status: 'pending',
+        notes: 'Orden creada automáticamente por asistente IA',
+        storeId: storeId
+      },
+      cart.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toFixed(2),
+        totalPrice: item.totalPrice.toFixed(2)
+      }))
+    );
+
+    console.log(`✅ Orden creada correctamente: ID ${order.id}, Número ${order.orderNumber}`);
+    return order;
+
+  } catch (error: any) {
+    console.error('❌ Error al crear la orden desde carrito (IA):', error.message);
+    throw error;
+  }
+}
+
