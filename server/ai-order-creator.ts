@@ -1,16 +1,19 @@
-// ai-order-creator.ts
+/**
+ * AI ORDER CREATOR
+ * Crea órdenes reales en la API interna usando token Bearer
+ */
 import axios from 'axios';
 
-interface OrderItem {
+export interface OrderItemPayload {
   productId: number;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
 }
 
-interface OrderPayload {
+export interface OrderPayload {
   customerId: number;
-  items: OrderItem[];
+  items: OrderItemPayload[];
   notes?: string;
   paymentMethod?: string;
   receivedAmount?: number;
@@ -40,7 +43,7 @@ export async function createOrderFromAI(
       throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
     }
   } catch (err: any) {
-    console.error('❌ Error creating order from AI:', err.response?.data || err.message);
+    console.error('❌ Error creating order from AI:', err?.response?.data || err?.message || err);
     throw err;
   }
 }
