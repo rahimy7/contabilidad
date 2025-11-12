@@ -35,6 +35,7 @@ interface AIContext {
   customerId: number;
   token: string;
   apiBaseUrl: string;
+  tenantStorage?: any; 
 }
 
 async function analyzeMessageWithAI(message: string): Promise<OrderInterpretation> {

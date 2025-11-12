@@ -13,6 +13,41 @@ import { AICreditsConfig, AIUsageLogEntry, AIConversationState, CartItem } from 
 // ========================================
 
 export class AICreditsManager {
+  private tenantStorage: any;
+
+  constructor(tenantStorage?: any) {
+    this.tenantStorage = tenantStorage;
+  }
+
+  async verifyCredits(storeId: number, operation: 'message' | 'order' | 'voice' = 'message') {
+    const storage = this.tenantStorage;
+    const record = await storage?.getCreditsForStore?.(storeId);
+    if (!record?.isEnabled) return false;
+
+    const required =
+      operation === 'message' ? record.costPerMessage :
+      operation === 'order'   ? record.costPerOrder :
+      record.costPerVoiceNote;
+
+    return record.availableCredits >= required;
+  }
+
+  async consumeCredits(storeId: number, operation: 'message' | 'order' | 'voice' = 'order') {
+    const storage = this.tenantStorage;
+    const record = await storage?.getCreditsForStore?.(storeId);
+    if (!record) return;
+
+    const cost =
+      operation === 'message' ? record.costPerMessage :
+      operation === 'order'   ? record.costPerOrder :
+      record.costPerVoiceNote;
+
+    await storage.updateCreditsUsage(storeId, cost);
+  }
+
+
+
+  
   /**
    * Verificar si una tienda tiene créditos disponibles
    * ✅ AHORA USA tenantStorage para respetar el esquema de la tienda

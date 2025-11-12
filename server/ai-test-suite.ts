@@ -1,9 +1,3 @@
-/**
- * TEST SCRIPT - Sistema de IA Delivery
- *
- * Permite probar las funcionalidades de IA (interpretación, intención, sentimiento, etc.)
- * sin necesidad de enviar mensajes reales por WhatsApp ni levantar el servidor completo.
- */
 
 import dotenv from 'dotenv';
 dotenv.config();

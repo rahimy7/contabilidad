@@ -1,304 +1,93 @@
 /**
- * WHATSAPP AI INTEGRATION V2
+ * WHATSAPP AI INTEGRATION v2
+ * -----------------------------------------------------
+ * Flujo actualizado de integración entre WhatsApp y la IA de pedidos.
  *
- * Integración completa de IA en el flujo de WhatsApp.
- * Incluye:
- *  - Análisis inteligente de intención con IA
- *  - Consulta a catálogo real (tenantStorage)
- *  - Sugerencias de productos y manejo de carrito
- *  - Creación automática de órdenes
- *  - Gestión de créditos IA
+ * Reemplaza el sistema antiguo basado en addToCart/removeFromCart/updateQuantity
+ * por el flujo unificado con interpretOrderMessage() + createOrderFromCart().
  */
 
-import { AICreditsManager, AIConversationManager, shouldUseAI } from "./ai-credits-manager";
-import { interpretOrderMessage } from "./ai-order-analyzer";
-import {
-  addToCart,
-  removeFromCart,
-  updateQuantity,
-  getCartSummary,
-  generateAddedToCartMessage,
-  generateOrderConfirmationMessage
-} from "./ai-order-assistant";
-import { CartItem } from "./ai-credits-schema";
+import { interpretOrderMessage } from './ai-order-analyzer';
+import { createOrderFromCart } from './ai-order-creator';
+import { sendWhatsAppMessageDirect } from './whatsapp-simple';
+import { getTenantStorageWithSchema } from './routes.ts';
+import { AICreditsManager } from './ai-credits-manager';
+import { getMasterStorage } from './storage';
 
-// ========================================
-// INTEGRACIÓN PRINCIPAL
-// ========================================
 
-export interface AIProcessResult {
-  shouldContinue: boolean;
-  responseMessage?: string;
-  createOrder?: boolean;
-  cart?: CartItem[];
-  needsMoreInfo?: boolean;
+interface WhatsAppEvent {
+  from: string;
+  text: string;
+  storeId: number;
+  customerId: number;
 }
 
 /**
- * Procesar mensaje con IA (punto de entrada principal)
+ * Procesa un mensaje entrante de WhatsApp con IA
  */
-export async function processMessageWithAI(
-  messageText: string,
-  storeId: number,
-  conversationId: number,
-  customerId: number,
-  customerPhone: string,
-  customerName: string,
-  tenantStorage: any,
-  context: {
-    isAfterWelcome?: boolean;
-    isAfterCatalog?: boolean;
-    expectedResponses?: string[];
-  } = {}
-): Promise<AIProcessResult> {
+export async function handleAIOrderMessage(event: WhatsAppEvent) {
+  const { text, storeId, customerId, from } = event;
+
+  console.log(`\n🤖 [IA-WHATSAPP] Procesando mensaje de cliente ${from}: "${text}"`);
+
   try {
-    console.log("\n🤖 ========================================");
-    console.log("   PROCESAMIENTO CON IA INICIADO");
-    console.log("========================================");
-    console.log(`📱 Cliente: ${customerPhone}`);
-    console.log(`💬 Mensaje: "${messageText}"`);
-
-    // ========================================
-    // PASO 1: Verificar si debe usar IA
-    // ========================================
-
-    if (context.expectedResponses && context.expectedResponses.length > 0) {
-      const messageLower = messageText.toLowerCase().trim();
-      const matches = context.expectedResponses.some(expected =>
-        messageLower === expected.toLowerCase() ||
-        messageLower.includes(expected.toLowerCase())
-      );
-
-      if (matches) {
-        console.log("✅ Respuesta esperada detectada - flujo normal");
-        return { shouldContinue: true };
-      }
-    }
-
-    const useAI = await shouldUseAI(
+    // 1️⃣ Crear conexión tenant
+    const tenantStorage = await getTenantStorageWithSchema({
       storeId,
-      messageText,
-      context.isAfterWelcome,
-      context.isAfterCatalog
-    );
+      schema: `store_${storeId}`,
+    });
 
-    if (!useAI) {
-      console.log("⏭️ IA no aplicable - continuar flujo normal");
-      return { shouldContinue: true };
-    }
-
-    // ========================================
-    // PASO 2: Obtener o iniciar conversación IA
-    // ========================================
-
-    let aiConversation = await AIConversationManager.getActiveConversation(storeId, conversationId);
-
-    if (!aiConversation) {
-      aiConversation = await AIConversationManager.startConversation(
-        storeId,
-        conversationId,
-        customerId,
-        customerPhone
+    // 2️⃣ Validar créditos IA
+    const credits = new AICreditsManager(tenantStorage);
+    const hasCredits = await credits.verifyCredits(storeId, 'message');
+    if (!hasCredits) {
+      await sendWhatsAppMessageDirect(
+        from,
+        '⚠️ Lo siento, no hay créditos disponibles para procesar tu mensaje.',
+        storeId
       );
-
-      if (!aiConversation) {
-        console.error("❌ No se pudo iniciar conversación IA");
-        return { shouldContinue: true };
-      }
+      return;
     }
 
-    // ========================================
-    // PASO 3: Interpretar mensaje con IA
-    // ========================================
+    // 3️⃣ Interpretar el mensaje con IA (buscar productos, intención, etc.)
+    const interpretation = await interpretOrderMessage(text, tenantStorage);
 
-    console.log("🧠 Analizando mensaje del cliente con IA de pedidos...");
-    const interpretation = await interpretOrderMessage(messageText, tenantStorage, storeId);
-
-    console.log(`🎯 Intención detectada: ${interpretation.intent}`);
-    console.log(`📊 Confianza: ${(interpretation.confidence * 100).toFixed(0)}%`);
-
-    // Consumir crédito por análisis
-    await AICreditsManager.consumeCredits(storeId, "message", {
-      operationType: "message_analysis",
-      customerPhone,
-      creditsCost: 1,
-      inputText: messageText,
-      outputText: interpretation.message,
-      interpretation: JSON.stringify(interpretation),
-      confidence: interpretation.confidence,
-      wasSuccessful: true,
-      storeId: 0
-    }, tenantStorage);
-
-    // ========================================
-    // PASO 4: Procesar según intención
-    // ========================================
-
-    let cart = [...(aiConversation.cartItems || [])];
-    let responseMessage = interpretation.message;
-    let createOrder = false;
-    let needsMoreInfo = false;
-
-    switch (interpretation.intent) {
-      case "order":
-        console.log("🛒 Procesando pedido detectado");
-
-        if (interpretation.items.length > 0) {
-          for (const item of interpretation.items) {
-            if (item.suggestedProduct) {
-              cart = addToCart(cart, item.suggestedProduct, item.quantity);
-              console.log(`✅ Agregado: ${item.suggestedProduct.name} x${item.quantity}`);
-            }
-          }
-
-          await AIConversationManager.updateCart(storeId, conversationId, cart);
-          const cartSummary = getCartSummary(cart);
-          responseMessage = generateAddedToCartMessage(cart[cart.length - 1], cartSummary);
-          createOrder = true;
-
-          await AICreditsManager.consumeCredits(storeId, "order", {
-            operationType: "order_creation",
-            customerPhone,
-            creditsCost: 5,
-            inputText: messageText,
-            outputText: responseMessage,
-            wasSuccessful: true,
-            storeId: 0
-          }, tenantStorage);
-        } else {
-          responseMessage = interpretation.message;
-        }
-        break;
-
-      case "question":
-        console.log("❓ Pregunta general detectada");
-        responseMessage = interpretation.message;
-        break;
-
-      case "catalog":
-        console.log("📖 Sugiriendo catálogo");
-        responseMessage = interpretation.message;
-        break;
-
-      case "greeting":
-        console.log("👋 Saludo detectado");
-        responseMessage = "¡Hola! 😊 ¿Te gustaría ver nuestro catálogo de productos?";
-        break;
-
-      default:
-        console.log("❓ Intención desconocida");
-        responseMessage = interpretation.message;
-        break;
+    if (!interpretation || !interpretation.items?.length) {
+      console.log('❌ No se detectaron productos en el mensaje.');
+      await sendWhatsAppMessageDirect(
+        from,
+        interpretation?.message || 'No pude entender tu pedido. ¿Podrías aclararlo?',
+        storeId
+      );
+      return;
     }
 
-    // ========================================
-    // PASO 5: Retornar resultado
-    // ========================================
-
-    console.log("✅ Procesamiento IA completado");
-    console.log("========================================\n");
-
-    return {
-      shouldContinue: !needsMoreInfo,
-      responseMessage,
-      createOrder,
-      cart,
-      needsMoreInfo
-    };
-
-  } catch (error: any) {
-    console.error("❌ Error en procesamiento IA:", error);
-    return {
-      shouldContinue: true,
-      responseMessage: "Disculpa, ocurrió un error. ¿Podrías repetir tu mensaje? 😊"
-    };
-  }
-}
-
-// ========================================
-// FUNCIÓN DE INTEGRACIÓN EN WHATSAPP-SIMPLE.TS
-// ========================================
-
-export async function tryProcessWithAI(
-  messageText: string,
-  storeMapping: any,
-  conversation: any,
-  customer: any,
-  tenantStorage: any,
-  context: {
-    isAfterWelcome?: boolean;
-    isAfterCatalog?: boolean;
-    expectedResponses?: string[];
-  }
-): Promise<{
-  handled: boolean;
-  responseMessage?: string;
-  shouldCreateOrder?: boolean;
-  cart?: CartItem[];
-}> {
-  try {
-    const result = await processMessageWithAI(
-      messageText,
-      storeMapping.storeId,
-      conversation.id,
-      customer.id,
-      customer.phone,
-      customer.name,
+    // 4️⃣ Crear la orden a partir del carrito IA
+    const order = await createOrderFromCart({
+      storeId,
+      customerId,
+      items: interpretation.items,
+      notes: interpretation.message,
       tenantStorage,
-      context
+    });
+
+    // 5️⃣ Registrar uso de créditos
+    await credits.consumeCredits(storeId, 'order');
+
+    // 6️⃣ Enviar confirmación al cliente
+    const confirmation = `🧾 Tu pedido ha sido registrado con éxito.\n\n` +
+      order.items.map(i => `• ${i.quantity} × ${i.productName}`).join('\n') +
+      `\n\n💰 Total: ${order.total.toFixed(2)}\n\nGracias por tu compra 🙏`;
+
+    await sendWhatsAppMessageDirect(from, confirmation, storeId);
+
+    console.log(`✅ Pedido IA creado con éxito (ID: ${order.id})`);
+  } catch (err: any) {
+    console.error('❌ Error procesando pedido IA:', err);
+    await sendWhatsAppMessageDirect(
+      from,
+      'Ocurrió un error procesando tu pedido. Intenta nuevamente más tarde.',
+      storeId
     );
-
-    if (result.shouldContinue) {
-      return { handled: false };
-    }
-
-    return {
-      handled: true,
-      responseMessage: result.responseMessage,
-      shouldCreateOrder: result.createOrder,
-      cart: result.cart
-    };
-  } catch (error) {
-    console.error("Error en tryProcessWithAI:", error);
-    return { handled: false };
-  }
-}
-
-// ========================================
-// CREAR ORDEN DESDE CARRITO
-// ========================================
-
-export async function createOrderFromCart(
-  cart: CartItem[],
-  customer: any,
-  storeId: number,
-  tenantStorage: any
-): Promise<any> {
-  try {
-    console.log("📦 Creando orden desde carrito IA...");
-
-    const cartSummary = getCartSummary(cart);
-
-    const order = await tenantStorage.createOrder(
-      {
-        customerId: customer.id,
-        totalAmount: cartSummary.totalAmount.toString(),
-        status: "pending",
-        notes: "Creado mediante asistente IA",
-        storeId: storeId
-      },
-      cart.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice.toString(),
-        totalPrice: item.totalPrice.toString()
-      }))
-    );
-
-    console.log(`✅ Orden creada - ID: ${order.id}, Número: ${order.orderNumber}`);
-    return order;
-  } catch (error: any) {
-    console.error("❌ Error creando orden:", error);
-    throw error;
   }
 }

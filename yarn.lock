@@ -5126,7 +5126,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:^17.2.1":
+"dotenv@npm:^17.2.3":
   version: 17.2.3
   resolution: "dotenv@npm:17.2.3"
   checksum: 10c0/c884403209f713214a1b64d4d1defa4934c2aa5b0002f5a670ae298a51e3c3ad3ba79dfee2f8df49f01ae74290fcd9acdb1ab1d09c7bfb42b539036108bb2ba0
@@ -7722,12 +7722,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"openai@npm:^5.23.2":
-  version: 5.23.2
-  resolution: "openai@npm:5.23.2"
+"openai@npm:^6.8.1":
+  version: 6.8.1
+  resolution: "openai@npm:6.8.1"
   peerDependencies:
     ws: ^8.18.0
-    zod: ^3.23.8
+    zod: ^3.25 || ^4.0
   peerDependenciesMeta:
     ws:
       optional: true
@@ -7735,7 +7735,7 @@ __metadata:
       optional: true
   bin:
     openai: bin/cli
-  checksum: 10c0/8ee37f37c64fd04a61622c4782d231e8f0245e2d85956d833e43d30946edbf07d5276cd74e09aa5d23006de8da43dad312246a9dd7ca6ca6d65d983fc976ffa6
+  checksum: 10c0/84d663179db9f97b1ba921e7eafd870501b93e376f59fd035207edfa3bc6de97a1fd00a904f1f22bff72f19981781bb69a529f89a14e7c548150ae659dd2d100
   languageName: node
   linkType: hard
 
@@ -8743,7 +8743,7 @@ __metadata:
     connect-pg-simple: "npm:^10.0.0"
     cors: "npm:^2.8.5"
     date-fns: "npm:^3.6.0"
-    dotenv: "npm:^17.2.1"
+    dotenv: "npm:^17.2.3"
     drizzle-kit: "npm:^0.31.5"
     drizzle-orm: "npm:^0.44.3"
     drizzle-zod: "npm:^0.7.0"
@@ -8768,7 +8768,7 @@ __metadata:
     node-cache: "npm:^5.1.2"
     node-fetch: "npm:^3.3.2"
     nodemailer: "npm:^7.0.5"
-    openai: "npm:^5.23.2"
+    openai: "npm:^6.8.1"
     openid-client: "npm:^6.6.1"
     passport: "npm:^0.7.0"
     passport-local: "npm:^1.0.0"
@@ -8790,7 +8790,7 @@ __metadata:
     tailwind-merge: "npm:^2.6.0"
     tailwindcss: "npm:^3.4.17"
     tailwindcss-animate: "npm:^1.0.7"
-    tsx: "npm:^4.19.1"
+    tsx: "npm:^4.20.6"
     tw-animate-css: "npm:^1.2.5"
     typescript: "npm:5.6.3"
     vaul: "npm:^1.1.2"
@@ -9559,7 +9559,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.19.1":
+"tsx@npm:^4.20.6":
   version: 4.20.6
   resolution: "tsx@npm:4.20.6"
   dependencies:

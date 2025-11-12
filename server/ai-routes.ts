@@ -5,7 +5,6 @@ import {
   validateAIConfiguration,
   getAPIUsage
 } from './ai-service';
-import { processWhatsAppMessageWithAI } from './whatsapp-ai-handler';
 import { authenticateToken } from './authMiddleware';
 import { getTenantStorageWithSchema } from './routes.ts';
 
