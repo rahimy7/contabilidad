@@ -43,6 +43,7 @@ export interface ConversationContext {
     timestamp: Date;
   }>;
   orderHistory?: any[];
+   tenantStorage?: any;
 }
 
 // ========================================

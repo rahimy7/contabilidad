@@ -302,6 +302,7 @@ export interface MasterStorage extends BaseStorage {
 // ================================
 
 export interface TenantStorage extends BaseStorage {
+    getOrdersByCustomer: any;
   // Store context
   readonly storeId: number;
 

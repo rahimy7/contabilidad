@@ -34,28 +34,46 @@ export function createTenantStorage(tenantDb: any, storeId: number, schemaType?:
 
 async getAllProducts() {
   try {
-    console.log(`📦 Getting all products for store ${storeId} - tenantDb exists: ${!!tenantDb}`);
-    
-    if (usePublicSchema) {
-      return await tenantDb.select()
-        .from(schema.products)
-        .orderBy(desc(schema.products.createdAt));
-    } else {
-      // ✅ SOLUCIÓN: String interpolation directa
-      const directQuery = `
-        SELECT * FROM "store_${storeId}".products 
-        WHERE store_id = ${storeId}
-        ORDER BY created_at DESC
-      `;
-      console.log(`🚀 Executing direct query for store ${storeId}`);
-      const result = await tenantDb.execute(directQuery);
-      return result.rows;
+    // Detectar correctamente el nombre del esquema
+    const schemaName =
+      typeof this.schema === "string"
+        ? this.schema
+        : this.schema?.value || this.schema?.schema || "public";
+
+    console.log(`📦 Ejecutando getAllProducts() en schema: ${schemaName}`);
+
+    // Consulta directa al esquema del tenant
+    const sqlQuery = `
+      SELECT id, name, description, price, category, is_active, store_id
+      FROM ${schemaName}.products
+      WHERE is_active = true
+      ORDER BY name ASC
+    `;
+
+    const { rows } = await this.db.execute(sqlQuery);
+    console.log(`📊 Productos encontrados en ${schemaName}: ${rows.length}`);
+
+    // Fallback si el tenant no tiene productos
+    if (!rows.length && schemaName !== "public") {
+      console.warn(`⚠️ Sin productos en ${schemaName}, usando fallback public.products`);
+      const { rows: fallback } = await this.db.execute(`
+        SELECT id, name, description, price, category, is_active, store_id
+        FROM public.products
+        WHERE is_active = true
+        ORDER BY name ASC
+      `);
+      return fallback;
     }
-  } catch (error) {
-    console.error(`❌ Error in getAllProducts for store ${storeId}:`, error);
-    throw error;
+
+    return rows;
+  } catch (error: any) {
+    console.error(`❌ Error en getAllProducts():`, error.message);
+    return [];
   }
 },
+
+
+
 
     async getProductById(id: number) {
       try {
