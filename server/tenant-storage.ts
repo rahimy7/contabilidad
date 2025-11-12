@@ -4403,7 +4403,18 @@ async getUsersByRole(role: string) {
     try {
       console.log(`🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda ${storeId}...`);
 
-      const credits = await tenantDb.select()
+      // Consultar solo las columnas que sabemos que existen (sin columnas nuevas que podrían no existir)
+      const credits = await tenantDb.select({
+        id: schema.aiCredits.id,
+        storeId: schema.aiCredits.storeId,
+        totalCredits: schema.aiCredits.totalCredits,
+        usedCredits: schema.aiCredits.usedCredits,
+        availableCredits: schema.aiCredits.availableCredits,
+        isEnabled: schema.aiCredits.isEnabled,
+        costPerMessage: schema.aiCredits.costPerMessage,
+        costPerOrder: schema.aiCredits.costPerOrder,
+        costPerVoiceNote: schema.aiCredits.costPerVoiceNote
+      })
         .from(schema.aiCredits)
         .where(eq(schema.aiCredits.storeId, storeId))
         .limit(1);
@@ -4411,8 +4422,9 @@ async getUsersByRole(role: string) {
       if (credits && credits.length > 0) {
         const creditData = credits[0];
         console.log(`✅ [TENANT-STORAGE] Créditos encontrados para tienda ${storeId}:`, {
-          available: creditData.availableCredits || creditData.available_credits,
-          isEnabled: creditData.isEnabled || creditData.is_enabled
+          available: creditData.availableCredits,
+          isEnabled: creditData.isEnabled,
+          totalCredits: creditData.totalCredits
         });
         return creditData;
       }
@@ -4421,6 +4433,29 @@ async getUsersByRole(role: string) {
       return null;
     } catch (error) {
       console.error(`❌ [TENANT-STORAGE] Error obteniendo créditos para tienda ${storeId}:`, error);
+      // Try fallback with minimal columns
+      try {
+        console.log(`🔄 [TENANT-STORAGE] Intentando consulta fallback con columnas mínimas...`);
+        const result = await tenantDb.execute(`
+          SELECT id, store_id, available_credits, is_enabled, total_credits
+          FROM ai_credits
+          WHERE store_id = ${storeId}
+          LIMIT 1
+        `);
+
+        if (result && result.rows && result.rows.length > 0) {
+          const row = result.rows[0];
+          return {
+            id: row[0],
+            storeId: row[1],
+            availableCredits: row[2],
+            isEnabled: row[3],
+            totalCredits: row[4]
+          };
+        }
+      } catch (fallbackError) {
+        console.error(`❌ [TENANT-STORAGE] Fallback también falló:`, fallbackError);
+      }
       return null;
     }
   }
