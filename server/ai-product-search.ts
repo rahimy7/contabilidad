@@ -6,7 +6,38 @@
 
 import { Router, Request, Response } from 'express';
 import { getTenantStorageWithSchema } from './routes';
-import { searchProductsWithAI } from './ai-order-assistant';
+
+
+
+export async function searchProducts(query: string, storeId: number) {
+  const { getTenantStorageWithSchema } = await import('./routes');
+  const tenantStorage = await getTenantStorageWithSchema({ storeId } as any);
+
+  // Obtener productos activos
+  const allProducts = await tenantStorage.getAllProducts();
+  const activeProducts = allProducts.filter((p: any) => p.isActive);
+
+  // Buscar coincidencias por nombre o descripción
+  const matches = activeProducts.filter((p: any) =>
+    p.name.toLowerCase().includes(query.toLowerCase()) ||
+    p.description?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  // Formatear respuesta
+  return matches.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price: p.price,
+    category: p.category,
+    brand: p.brand,
+    imageUrl: p.imageUrl,
+    isActive: p.isActive
+  }));
+}
+
+
+
 
 const router = Router();
 
@@ -39,7 +70,7 @@ router.post('/ai/search-products', async (req: Request, res: Response) => {
     const activeProducts = allProducts.filter(p => p.isActive);
 
     // Buscar con IA
-    const matches = await searchProductsWithAI(query, activeProducts as any);
+    const matches = await searchProducts(query, activeProducts as any);
 
     // Formatear respuesta
     const formattedMatches = matches.map(p => ({
