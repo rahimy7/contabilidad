@@ -253,6 +253,14 @@ async function processAutoResponse(messageText: string, phoneNumber: string, sto
         console.log(`⚠️ [CRITERIO MEJORADO] NO REENVIAR - Ya se envió: ${lastAutoResponseTrigger}`);
         console.log(`⚠️ [CRITERIO MEJORADO] Texto libre sin coincidencia: "${messageText}"`);
         console.log(`⚠️ [CRITERIO MEJORADO] Este mensaje debería ser procesado por otro sistema (IA, pedido, etc.)`);
+
+        // ✅ NUEVO: Enviar respuesta por defecto en lugar de simplemente retornar
+        console.log(`📤 [CRITERIO MEJORADO] Enviando respuesta por defecto...`);
+        await sendWhatsAppMessageDirect(
+          phoneNumber,
+          "Entiendo tu mensaje 😊. Un agente estará disponible pronto para ayudarte. Mientras tanto, puedes seleccionar una opción del menú anterior.",
+          storeId
+        );
         return; // NO procesar auto-respuestas si ya se envió una respuesta automática
       }
 
