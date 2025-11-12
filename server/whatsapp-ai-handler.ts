@@ -4,7 +4,8 @@ import {
   interpretMessage,
   ConversationContext 
 } from './ai-service';
-import { getMasterStorage } from './storage-factory';
+import { getMasterStorage } from './storage';
+
 
 // ========================================
 // TIPOS WHATSAPP
@@ -116,10 +117,12 @@ export async function processWhatsAppMessageWithAI(
     // ========================================
     
     console.log('🤖 Analizando mensaje con IA...');
-    const { interpretation, suggestedResponse } = await processTextMessage(
-      processedText,
-      context
-    );
+  const { interpretation, suggestedResponse } = await processTextMessage(
+  processedText,
+  context,
+  tenantStorage
+);
+
     
     // Guardar análisis en la base de datos
     await saveAIAnalysis(

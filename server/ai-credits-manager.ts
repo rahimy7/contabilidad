@@ -76,12 +76,18 @@ export class AICreditsManager {
   /**
    * Consumir créditos
    */
+  /**
+   * Consumir créditos
+   * ✅ Ahora compatible con tenantStorage y registro correcto en el esquema de tienda
+   */
   static async consumeCredits(
     storeId: number,
     operation: 'message' | 'order' | 'voice',
-    details?: AIUsageLogEntry
+    details?: AIUsageLogEntry,
+    tenantStorage?: any
   ): Promise<boolean> {
     try {
+      // 1️⃣ Obtener créditos desde masterStorage
       const masterStorage = await getMasterStorage();
       const credits = await masterStorage.getAICredits(storeId);
 
@@ -89,26 +95,26 @@ export class AICreditsManager {
         throw new Error('Configuración de créditos no encontrada');
       }
 
+      // 2️⃣ Determinar costo según operación
       const costMap = {
-        message: credits.costPerMessage || 1,
-        order: credits.costPerOrder || 5,
-        voice: credits.costPerVoiceNote || 10
+        message: credits.costPerMessage || credits.cost_per_message || 1,
+        order: credits.costPerOrder || credits.cost_per_order || 5,
+        voice: credits.costPerVoiceNote || credits.cost_per_voice_note || 10
       };
-
       const cost = costMap[operation];
+      const available = credits.availableCredits || credits.available_credits || 0;
 
-      // Verificar disponibilidad
-      if (credits.availableCredits < cost) {
-        console.error(`❌ Créditos insuficientes para ${operation}`);
+      // 3️⃣ Verificar disponibilidad
+      if (available < cost) {
+        console.error(`❌ Créditos insuficientes (${available} < ${cost}) para operación ${operation}`);
         return false;
       }
 
-      // Consumir créditos
+      // 4️⃣ Actualizar uso en masterStorage
       await masterStorage.updateAICredits(storeId, {
-        usedCredits: credits.usedCredits + cost,
-        availableCredits: credits.availableCredits - cost,
+        usedCredits: (credits.usedCredits || credits.used_credits || 0) + cost,
+        availableCredits: available - cost,
         lastUsage: new Date(),
-        // Actualizar estadísticas
         ...(operation === 'message' && {
           totalMessagesProcessed: (credits.totalMessagesProcessed || 0) + 1
         }),
@@ -120,30 +126,36 @@ export class AICreditsManager {
         })
       });
 
-      // Registrar uso en log (si hay detalles)
+      // 5️⃣ Registrar uso en log de la tienda (usa tenantStorage si está disponible)
       if (details) {
-        const tenantStorage = await getTenantStorage(storeId);
-        await tenantStorage.logAIUsage({
-          ...details,
-          storeId,
-          creditsCost: cost,
-          createdAt: new Date()
-        });
+        const storage = tenantStorage || (await getTenantStorage(storeId));
+        if (storage?.logAIUsage) {
+          await storage.logAIUsage({
+            ...details,
+            storeId,
+            creditsCost: cost,
+            createdAt: new Date()
+          });
+          console.log(`🧾 [AI-CREDITS] Log registrado en tenant store_${storeId}`);
+        } else {
+          console.warn(`⚠️ [AI-CREDITS] No se pudo registrar log — método logAIUsage no disponible`);
+        }
       }
 
-      console.log(`✅ Consumidos ${cost} créditos. Restantes: ${credits.availableCredits - cost}`);
-
-      // Verificar si necesita notificación de créditos bajos
-      if (credits.notifyLowCredits && (credits.availableCredits - cost) <= (credits.lowCreditThreshold || 50)) {
-        await this.notifyLowCredits(storeId, credits.availableCredits - cost);
+      // 6️⃣ Notificar créditos bajos si aplica
+      const remaining = available - cost;
+      if (credits.notifyLowCredits && remaining <= (credits.lowCreditThreshold || 50)) {
+        await this.notifyLowCredits(storeId, remaining);
       }
 
+      console.log(`✅ [AI-CREDITS] Consumidos ${cost} créditos. Restantes: ${remaining}`);
       return true;
     } catch (error) {
-      console.error('Error consumiendo créditos:', error);
+      console.error('❌ [AI-CREDITS] Error consumiendo créditos:', error);
       return false;
     }
   }
+
 
   /**
    * Recargar créditos

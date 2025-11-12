@@ -161,12 +161,27 @@ export interface AICreditsConfig {
 }
 
 export interface AIUsageLogEntry {
+  storeId: number;
+  conversationId?: number;
+  customerId?: number;
+  customerPhone?: string;
+
   operationType: 'message_analysis' | 'order_creation' | 'voice_transcription' | 'product_search';
-  customerPhone: string;
   creditsCost: number;
+
   inputText?: string;
   outputText?: string;
+
+  // 🔧 Campos que causaban error — añadidos ahora
+  interpretation?: string;
   confidence?: number;
+  wasSuccessful?: boolean;
+
+  errorMessage?: string;
+  processingTimeMs?: number;
+  modelUsed?: string;
+  tokensUsed?: number;
+  createdAt?: Date;
 }
 
 export interface AIConversationState {

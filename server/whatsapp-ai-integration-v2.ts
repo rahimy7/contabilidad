@@ -139,8 +139,9 @@ export async function processMessageWithAI(
       outputText: interpretation.message,
       interpretation: JSON.stringify(interpretation),
       confidence: interpretation.confidence,
-      wasSuccessful: true
-    });
+      wasSuccessful: true,
+      storeId: 0
+    }, tenantStorage);
 
     // ========================================
     // PASO 5: Procesar según intención
@@ -183,7 +184,8 @@ export async function processMessageWithAI(
               creditsCost: 5,
               inputText: messageText,
               outputText: responseMessage,
-              wasSuccessful: true
+              wasSuccessful: true,
+              storeId: 0
             });
           } else {
             // Producto no encontrado - buscar y sugerir

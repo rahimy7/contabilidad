@@ -34,7 +34,7 @@ interface MessageInterpretation {
   confidence: number;
 }
 
-interface ConversationContext {
+export interface ConversationContext {
   customerId: number;
   customerName: string;
   recentMessages: Array<{
@@ -294,9 +294,7 @@ Genera una respuesta apropiada:`;
  * Proceso completo: interpretar + generar respuesta
  */
 export async function processTextMessage(
-  messageText: string,
-  context?: ConversationContext
-): Promise<{
+messageText: string, context?: ConversationContext, tenantStorage?: any): Promise<{
   interpretation: MessageInterpretation;
   suggestedResponse: string;
 }> {
