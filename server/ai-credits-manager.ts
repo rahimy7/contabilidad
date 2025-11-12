@@ -15,11 +15,24 @@ import { AICreditsConfig, AIUsageLogEntry, AIConversationState, CartItem } from 
 export class AICreditsManager {
   /**
    * Verificar si una tienda tiene créditos disponibles
+   * ✅ AHORA USA tenantStorage para respetar el esquema de la tienda
    */
-  static async hasCredits(storeId: number, operation: 'message' | 'order' | 'voice'): Promise<boolean> {
+  static async hasCredits(
+    storeId: number,
+    operation: 'message' | 'order' | 'voice',
+    tenantStorage?: any  // ✅ Nuevo parámetro opcional
+  ): Promise<boolean> {
     try {
-      const masterStorage = await getMasterStorage();
-      const credits = await masterStorage.getAICredits(storeId);
+      // ✅ Si no se proporciona tenantStorage, usar masterStorage como fallback
+      let credits;
+      if (tenantStorage) {
+        console.log(`🔍 [AI-CREDITS] Usando tenantStorage para tienda ${storeId}`);
+        credits = await tenantStorage.getAICredits();
+      } else {
+        console.log(`🔍 [AI-CREDITS] Usando masterStorage como fallback para tienda ${storeId}`);
+        const masterStorage = await getMasterStorage();
+        credits = await masterStorage.getAICredits(storeId);
+      }
 
       console.log(`🔍 [AI-CREDITS] Verificando créditos para tienda ${storeId}:`, JSON.stringify(credits));
 
@@ -378,10 +391,11 @@ export async function shouldUseAI(
   messageText: string,
   isAfterWelcome: boolean = false,
   isAfterCatalog: boolean = false,
-  isHelpMode: boolean = false  // ✅ Nuevo: si el usuario pidió ayuda
+  isHelpMode: boolean = false,  // ✅ Nuevo: si el usuario pidió ayuda
+  tenantStorage?: any  // ✅ Parámetro opcional para tenant-aware credits check
 ): Promise<boolean> {
   // Verificar créditos disponibles
-  const hasCredits = await AICreditsManager.hasCredits(storeId, 'message');
+  const hasCredits = await AICreditsManager.hasCredits(storeId, 'message', tenantStorage);
 
   if (!hasCredits) {
     console.log('⚠️ Sin créditos disponibles para IA');

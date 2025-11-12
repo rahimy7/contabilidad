@@ -289,6 +289,12 @@ export interface MasterStorage extends BaseStorage {
   deleteStore(id: number): Promise<boolean>;
   getVirtualStore(id: number): Promise<VirtualStore | null>;
   getAllVirtualStores(): Promise<VirtualStore[]>;
+
+  // ========================================
+  // AI CREDITS MANAGEMENT
+  // ========================================
+  getAICredits(storeId: number): Promise<any>;
+  updateAICredits(storeId: number, data: any): Promise<any>;
 }
 
 // ================================
@@ -590,6 +596,20 @@ deleteEmployeeProfile(id: number): Promise<void>;
   // UTILITIES
   // ========================================
   determineConversationType(customerId: number): Promise<'initial' | 'tracking' | 'support'>;
+
+  // ========================================
+  // AI CREDITS MANAGEMENT
+  // ========================================
+  getAICredits(): Promise<any>;
+  logAIUsage(entry: any): Promise<any>;
+  getAIUsageStats(days?: number): Promise<any>;
+
+  // ========================================
+  // AI CONVERSATIONS
+  // ========================================
+  getAIConversation(conversationId: number): Promise<any>;
+  createAIConversation(data: any): Promise<any>;
+  updateAIConversation(conversationId: number, updates: any): Promise<any>;
 }
 
 // ================================

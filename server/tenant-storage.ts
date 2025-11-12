@@ -4394,6 +4394,35 @@ async getUsersByRole(role: string) {
         averageConfidence: 0
       };
     }
+  },
+
+  /**
+   * ✅ OBTENER CRÉDITOS DE IA - Consulta desde tenantDb (específico de la tienda)
+   */
+  async getAICredits() {
+    try {
+      console.log(`🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda ${storeId}...`);
+
+      const credits = await tenantDb.select()
+        .from(schema.aiCredits)
+        .where(eq(schema.aiCredits.storeId, storeId))
+        .limit(1);
+
+      if (credits && credits.length > 0) {
+        const creditData = credits[0];
+        console.log(`✅ [TENANT-STORAGE] Créditos encontrados para tienda ${storeId}:`, {
+          available: creditData.availableCredits || creditData.available_credits,
+          isEnabled: creditData.isEnabled || creditData.is_enabled
+        });
+        return creditData;
+      }
+
+      console.log(`ℹ️ [TENANT-STORAGE] No hay créditos configurados para tienda ${storeId}`);
+      return null;
+    } catch (error) {
+      console.error(`❌ [TENANT-STORAGE] Error obteniendo créditos para tienda ${storeId}:`, error);
+      return null;
+    }
   }
 
   }; // Fin del return del createTenantStorage

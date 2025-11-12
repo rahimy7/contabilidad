@@ -130,7 +130,8 @@ export async function tryProcessWithAI(
       messageText,
       context.isAfterWelcome,
       context.isAfterCatalog,
-      context.isHelpMode  // ✅ Pasar el modo de ayuda
+      context.isHelpMode,  // ✅ Pasar el modo de ayuda
+      tenantStorage  // ✅ Pasar tenantStorage para tenant-aware credits check
     );
 
     if (!shouldUse) {
@@ -139,7 +140,7 @@ export async function tryProcessWithAI(
     }
 
     // 3. Verificar créditos disponibles
-    const hasCredits = await AICreditsManager.hasCredits(storeId, 'message');
+    const hasCredits = await AICreditsManager.hasCredits(storeId, 'message', tenantStorage);
     if (!hasCredits) {
       console.log('❌ [AI-SMART] Sin créditos disponibles');
       return {
