@@ -36,11 +36,7 @@ async getAllProducts() {
   try {
     console.log(`📦 Getting all products for store ${storeId} - tenantDb exists: ${!!tenantDb}`);
     
-    if (usePublicSchema) {
-      return await tenantDb.select()
-        .from(schema.products)
-        .orderBy(desc(schema.products.createdAt));
-    } else {
+  
       // ✅ SOLUCIÓN: String interpolation directa
       const directQuery = `
         SELECT * FROM "store_${storeId}".products 
@@ -50,8 +46,7 @@ async getAllProducts() {
       console.log(`🚀 Executing direct query for store ${storeId}`);
       const result = await tenantDb.execute(directQuery);
       return result.rows;
-    }
-  } catch (error) {
+    } catch (error) {
     console.error(`❌ Error in getAllProducts for store ${storeId}:`, error);
     throw error;
   }

@@ -23,12 +23,28 @@ interface OrderInterpretationItem {
   quantity: number;
   confidence: number;
 }
+export interface OrderInterpretation {
+  intent:
+    | "add_to_cart"
+    | "confirm_order"
+    | "ask_question"
+    | "search_product"
+    | "other";
 
-interface OrderInterpretation {
-  intent: 'add_to_cart' | 'remove_from_cart' | 'modify_quantity' | 'confirm_order' | 'view_cart' | 'search_product' | 'ask_question';
-  items: OrderInterpretationItem[];
+  items: Array<{
+    productId?: number;
+    productName?: string;
+    searchQuery?: string;
+    suggestedProduct?: Product;
+    quantity: number;
+    confidence?: number;
+  }>;
+
   message: string;
+  confidence: number;
 }
+
+
 
 interface AIContext {
   storeId: number;
@@ -43,7 +59,8 @@ async function analyzeMessageWithAI(message: string): Promise<OrderInterpretatio
   return {
     intent: 'search_product',
     items: [{ searchQuery: message, quantity: 1, confidence: 0.9 }],
-    message: `Buscando producto para: ${message}`
+    message: `Buscando producto para: ${message}`,
+    confidence: 0.9 
   };
 }
 

@@ -1365,7 +1365,7 @@ export function setupUserManagementRoutes(app: any) {
   });
 
   // Estadísticas de usuarios
-  app.get('/api/super-admin/user-metrics', authenticateToken, requireSuperAdmin, async (req: Request, res: Response) => {
+/*   app.get('/api/super-admin/user-metrics', authenticateToken, requireSuperAdmin, async (req: Request, res: Response) => {
     try {
       const stats = await masterStorage.getUserStats();
       
@@ -1384,7 +1384,7 @@ export function setupUserManagementRoutes(app: any) {
       console.error('Error fetching user metrics:', error);
       res.status(500).json({ error: 'Failed to fetch user metrics' });
     }
-  });
+  }); */
 
   
 }
@@ -4590,7 +4590,7 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
       // WhatsApp logs en master storage (centralizados)
       const logs = await masterStorage.getWhatsAppLogs(
         user.storeId,
-        phoneNumberId as string,
+        phoneNumberId as integer,
         parseInt(limit as string),
         parseInt(offset as string)
       );
