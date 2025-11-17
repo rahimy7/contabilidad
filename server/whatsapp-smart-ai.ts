@@ -559,11 +559,10 @@ export async function tryProcessWithAI(
         // ✨ Si no se agregó nada, buscar el producto y sugerir
         if (currentCart.length === 0) {
           const query = interpretation.items[0]?.searchQuery || messageText;
-          const matches = await searchProductsWithAI(query, activeProducts);
           const searchResponse = await generateSalesAgentResponse(
             messageText,
             await interpretMessage(messageText),
-            matches,
+            activeProducts,
             {
               customerId,
               customerName: customerName,
@@ -600,14 +599,12 @@ export async function tryProcessWithAI(
         };
 
       case 'search_product': {
-        const query = interpretation.items[0]?.searchQuery || messageText;
-        const matches = await searchProductsWithAI(query, activeProducts);
-
         // ✨ Usar el nuevo Sales Agent para generar respuesta persuasiva
+        // Pass activeProducts instead of matches so the Sales Agent has the full catalog
         const searchResponse = await generateSalesAgentResponse(
           messageText,
           await interpretMessage(messageText),
-          matches,
+          activeProducts,
           {
             customerId,
             customerName: customerName,
