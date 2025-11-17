@@ -79,7 +79,7 @@ const productSchema = z.object({
   model: z.string().optional(),
   sku: z.string().optional(),
   isActive: z.boolean().default(true),
-  stock: z.number().min(0).default(0),
+  stock_quantity: z.number().min(0).default(0),
   specifications: z.string().optional(),
   installationCost: z.string().optional(),
   warrantyMonths: z.number().min(0).default(0),
@@ -104,7 +104,7 @@ interface Product {
   model?: string;
   sku?: string;
   isActive?: boolean;
-  stock?: number;
+  stock_quantity?: number;
   specifications?: string;
   installationCost?: string;
   warrantyMonths?: number;
@@ -355,7 +355,7 @@ const updateProductMutation = useMutation({
     defaultValues: {
       type: "product",
       isActive: true,
-      stock: 0,
+      stock_quantity: 0,
       warrantyMonths: 0,
       images: [],
       currency: "DOP", // Moneda por defecto
@@ -385,7 +385,7 @@ useEffect(() => {
       model: selectedProduct.model || "",
       sku: selectedProduct.sku || "",
       isActive: selectedProduct.isActive ?? true,
-      stock: selectedProduct.stock || 0,
+      stock_quantity: selectedProduct.stock_quantity || 0,
       specifications: selectedProduct.specifications || "",
       installationCost: selectedProduct.installationCost || "",
       warrantyMonths: selectedProduct.warrantyMonths || 0,
@@ -412,7 +412,7 @@ useEffect(() => {
     reset({
       type: "product",
       isActive: true,
-      stock: 0,
+      stock_quantity : 0,
       warrantyMonths: 0,
       images: [],
       currency: "DOP", // ✅ VALOR POR DEFECTO DOP
@@ -850,7 +850,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">
-                    Stock: {product.stock || 0}
+                    Stock: {product.stock_quantity || 0}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -921,6 +921,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                         <span className="text-sm font-medium text-green-600">
                          {formatCurrency(product.price || "0", product.baseCurrency || product.currency || 'DOP')}
                         </span>
+                        <Badge variant="outline">Stock: {product.stock_quantity || 0}</Badge>
                         {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
@@ -1064,7 +1065,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                   <div>
                     <Label>Stock</Label>
                     <Input
-                      value={selectedProduct?.stock?.toString() || '0'}
+                      value={selectedProduct?.stock_quantity?.toString() || '0'}
                       disabled
                       className="bg-gray-50"
                     />
@@ -1210,7 +1211,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                       )}
                       <div>
                         <span className="text-gray-600">Stock:</span>
-                        <span className="ml-2 font-medium">{selectedProduct?.stock || 0}</span>
+                        <span className="ml-2 font-medium">{selectedProduct?.stock_quantity || 0}</span>
                       </div>
                       {selectedProduct?.warrantyMonths && selectedProduct.warrantyMonths > 0 && (
                         <div>
