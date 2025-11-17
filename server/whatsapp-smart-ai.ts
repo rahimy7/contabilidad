@@ -565,7 +565,12 @@ export async function tryProcessWithAI(
           const query = interpretation.items[0]?.searchQuery || messageText;
           const searchResponse = await generateSalesAgentResponse(
             messageText,
-            await interpretMessage(messageText),
+            await interpretMessage(messageText, {
+              customerId,
+              customerName: customerName,
+              recentMessages,
+              tenantStorage
+            }),
             activeProducts,
             {
               customerId,
@@ -586,7 +591,12 @@ export async function tryProcessWithAI(
         const cartSummary = getCartSummary(currentCart);
         const salesResponse = await generateSalesAgentResponse(
           messageText,
-          await interpretMessage(messageText),
+          await interpretMessage(messageText, {
+            customerId,
+            customerName: customerName,
+            recentMessages,
+            tenantStorage
+          }),
           activeProducts,
           {
             customerId,
@@ -607,7 +617,12 @@ export async function tryProcessWithAI(
         // Pass activeProducts instead of matches so the Sales Agent has the full catalog
         const searchResponse = await generateSalesAgentResponse(
           messageText,
-          await interpretMessage(messageText),
+          await interpretMessage(messageText, {
+            customerId,
+            customerName: customerName,
+            recentMessages,
+            tenantStorage
+          }),
           activeProducts,
           {
             customerId,
@@ -652,7 +667,12 @@ export async function tryProcessWithAI(
         // ✨ Usar Sales Agent para preguntas y otras intenciones también
         const defaultResponse = await generateSalesAgentResponse(
           messageText,
-          await interpretMessage(messageText),
+          await interpretMessage(messageText, {
+            customerId,
+            customerName: customerName,
+            recentMessages,
+            tenantStorage
+          }),
           activeProducts,
           {
             customerId,

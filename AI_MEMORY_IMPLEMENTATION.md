@@ -391,9 +391,137 @@ const historyWithoutCurrent = recentMessages.slice(0, -1);
 - [x] Importar `desc` de drizzle-orm
 - [x] Obtener historial en `tryProcessWithAI`
 - [x] Actualizar llamadas a `generateSalesAgentResponse` (4x)
+- [x] **FIX CRÍTICO:** Actualizar `interpretMessage()` para recibir y usar contexto (4x)
 - [x] Agregar logs de debug
 - [x] Probar con conversación real
 - [x] Documentar implementación
+
+---
+
+## 🔧 FIX CRÍTICO - Contexto en interpretMessage()
+
+**Fecha:** 2025-11-17 (Segunda actualización)
+
+### El Problema Persistía
+
+Después de implementar la memoria conversacional, el problema continuaba:
+- El historial se cargaba correctamente: `📜 [AI-SMART] Historial de 10 mensajes cargado para contexto`
+- Se pasaba a `generateSalesAgentResponse()` correctamente
+- **PERO** la función `interpretMessage()` NO recibía el historial
+- Resultado: La interpretación inicial fallaba en entender el contexto
+
+**Ejemplo del problema:**
+```
+Usuario: "Un renuvo"
+IA: Encuentra "4Life Transfer Factor Renuvo - RD$70.00"
+
+Usuario: "Pon 3"
+interpretMessage() retorna: { products: [], quantity: 3 }  ❌
+// Debería retornar: { products: ["renuvo"], quantity: 3 } ✅
+```
+
+### La Solución
+
+Se actualizaron **DOS componentes críticos**:
+
+#### 1. Actualizar prompt en `interpretMessage()` (server/ai-service.ts)
+
+**Líneas 172-206:** Modificado el prompt para incluir historial de conversación
+
+```typescript
+const userPrompt = `Analiza este mensaje de cliente:
+"${messageText}"
+
+${context && context.recentMessages.length > 0 ? `
+Contexto del cliente:
+- Nombre: ${context.customerName}
+${context.orderHistory ? `- Órdenes previas: ${context.orderHistory.length}` : ''}
+
+HISTORIAL DE CONVERSACIÓN RECIENTE (usa esto para entender el contexto):
+${context.recentMessages.map((msg, idx) =>
+  `${idx + 1}. ${msg.role === 'user' ? 'Cliente' : 'Asistente'}: "${msg.content}"`
+).join('\n')}
+
+IMPORTANTE: Usa el historial para entender referencias a productos mencionados anteriormente.
+Por ejemplo, si el cliente dijo "Un renuvo" y ahora dice "Quiero 3", debes interpretar que quiere 3 unidades de renuvo.
+` : context ? `
+Contexto del cliente:
+- Nombre: ${context.customerName}
+${context.orderHistory ? `- Órdenes previas: ${context.orderHistory.length}` : ''}
+` : ''}
+```
+
+**Cambios clave:**
+- ❌ Antes: Solo mostraba la CANTIDAD de mensajes recientes
+- ✅ Ahora: Muestra el CONTENIDO COMPLETO del historial
+- ✅ Agrega instrucción explícita de cómo usar el contexto
+- ✅ Da ejemplo concreto del caso de uso
+
+#### 2. Pasar contexto en las 4 llamadas (server/whatsapp-smart-ai.ts)
+
+**Líneas 568, 594, 620, 670:** Actualizadas TODAS las llamadas a `interpretMessage()`
+
+**Antes:**
+```typescript
+await interpretMessage(messageText)
+```
+
+**Ahora:**
+```typescript
+await interpretMessage(messageText, {
+  customerId,
+  customerName: customerName,
+  recentMessages,
+  tenantStorage
+})
+```
+
+**Ubicaciones exactas:**
+1. **Línea 568** - Cuando no se agregó nada al carrito
+2. **Línea 594** - Para mensaje de carrito persuasivo
+3. **Línea 620** - Para búsqueda de productos
+4. **Línea 670** - Para caso default (otras intenciones)
+
+### Flujo Completo Corregido
+
+```mermaid
+graph TD
+    A[Usuario: Pon 3] --> B[tryProcessWithAI]
+    B --> C[getRecentMessages<br/>Obtiene últimos 10]
+    C --> D[interpretMessage<br/>CON historial ✅]
+    D --> E[IA ve contexto:<br/>Renuvo mencionado antes]
+    E --> F[Retorna:<br/>products: renuvo<br/>quantity: 3]
+    F --> G[generateSalesAgentResponse<br/>CON contexto ✅]
+    G --> H[Respuesta correcta:<br/>Agregando 3 Renuvos]
+```
+
+### Logs de Verificación Actualizados
+
+Ahora verás estos logs cuando funciona correctamente:
+
+```
+🤖 [AI-SMART] Intentando procesar con IA...
+📜 Getting last 10 messages for conversation 57
+✅ Retrieved 10 recent messages
+📜 [AI-SMART] Historial de 10 mensajes cargado para contexto
+📦 [AI-SMART] 71 productos activos disponibles
+
+🤖 Interpretando mensaje con IA...
+📝 Historial enviado a interpretMessage:
+  1. Cliente: "Hola"
+  2. Asistente: "¡Hola! ¿Cómo estás?..."
+  3. Cliente: "Un renuvo"
+  4. Asistente: "¡Claro! Tenemos 4Life Transfer Factor Renuvo..."
+  5. Cliente: "Pon 3"  ← Mensaje actual
+
+✅ Mensaje interpretado: {
+  intent: "add to cart",
+  entities: {
+    products: ["renuvo"],  ✅ ¡Ahora SÍ identifica el producto!
+    quantity: 3
+  }
+}
+```
 
 ---
 

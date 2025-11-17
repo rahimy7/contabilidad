@@ -172,10 +172,21 @@ Responde SOLO con un JSON válido, sin texto adicional.`;
     const userPrompt = `Analiza este mensaje de cliente:
 "${messageText}"
 
-${context ? `
+${context && context.recentMessages.length > 0 ? `
 Contexto del cliente:
 - Nombre: ${context.customerName}
-- Mensajes recientes: ${context.recentMessages.length}
+${context.orderHistory ? `- Órdenes previas: ${context.orderHistory.length}` : ''}
+
+HISTORIAL DE CONVERSACIÓN RECIENTE (usa esto para entender el contexto):
+${context.recentMessages.map((msg, idx) =>
+  `${idx + 1}. ${msg.role === 'user' ? 'Cliente' : 'Asistente'}: "${msg.content}"`
+).join('\n')}
+
+IMPORTANTE: Usa el historial para entender referencias a productos mencionados anteriormente.
+Por ejemplo, si el cliente dijo "Un renuvo" y ahora dice "Quiero 3", debes interpretar que quiere 3 unidades de renuvo.
+` : context ? `
+Contexto del cliente:
+- Nombre: ${context.customerName}
 ${context.orderHistory ? `- Órdenes previas: ${context.orderHistory.length}` : ''}
 ` : ''}
 
