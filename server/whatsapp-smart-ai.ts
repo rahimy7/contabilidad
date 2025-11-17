@@ -355,7 +355,7 @@ export async function tryProcessWithAI(
       customerId,
       token: process.env.STORE_BEARER_TOKEN!,
       apiBaseUrl: process.env.API_BASE_URL!
-    });
+    }, recentMessages);
 
     console.log('🧠 [AI-SMART] Interpretación IA:', {
       intent: interpretation.intent,

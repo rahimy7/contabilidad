@@ -59,7 +59,7 @@ interface AIContext {
  * Analizar mensaje con IA real usando OpenAI GPT-4o-mini
  * Extrae productos, cantidades e intención del mensaje
  */
-async function analyzeMessageWithAI(message: string, context?: AIContext): Promise<OrderInterpretation> {
+async function analyzeMessageWithAI(message: string, context?: AIContext, recentMessages: any[] = []): Promise<OrderInterpretation> {
   try {
     console.log(`🤖 [AI-ASSISTANT] Analizando mensaje: "${message}"`);
 
@@ -67,7 +67,7 @@ async function analyzeMessageWithAI(message: string, context?: AIContext): Promi
     const interpretation = await interpretMessage(message, context ? {
       customerId: context.customerId,
       customerName: `Customer ${context.customerId}`,
-      recentMessages: []
+      recentMessages: recentMessages
     } : undefined);
 
     console.log(`✅ [AI-ASSISTANT] Interpretación obtenida:`, interpretation);
@@ -110,10 +110,10 @@ async function analyzeMessageWithAI(message: string, context?: AIContext): Promi
   }
 }
 
-export async function interpretAIMessage(message: string, context: AIContext) {
+export async function interpretAIMessage(message: string, context: AIContext, recentMessages: any[] = []) {
   const { storeId, customerId, token, apiBaseUrl } = context;
 
-  const interpretation = await analyzeMessageWithAI(message, context);
+  const interpretation = await analyzeMessageWithAI(message, context, recentMessages);
 
   switch (interpretation.intent) {
     case 'search_product':
