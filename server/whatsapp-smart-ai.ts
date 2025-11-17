@@ -586,29 +586,54 @@ export async function tryProcessWithAI(
           };
         }
 
-        // ✨ Usar Sales Agent para mensaje de carrito persuasivo
+        // ✅ PASO 1 COMPLETADO: Producto agregado
+        // ✅ PASO 2: Automáticamente iniciar proceso de confirmación
         const addedItem = currentCart[currentCart.length - 1];
         const cartSummary = getCartSummary(currentCart);
-        const salesResponse = await generateSalesAgentResponse(
-          messageText,
-          await interpretMessage(messageText, {
-            customerId,
-            customerName: customerName,
-            recentMessages,
-            tenantStorage
-          }),
-          activeProducts,
-          {
-            customerId,
-            customerName: customerName,
-            recentMessages,
-            tenantStorage
+
+        console.log(`✅ [AI-SMART] Producto agregado, iniciando proceso de confirmación automático`);
+
+        // Verificar si el cliente ya tiene dirección
+        const customer = await tenantStorage.getCustomerById(customerId);
+        console.log(`👤 [AI-SMART] Cliente ${customerId}: ${customer?.name}, Dirección: ${customer?.address ? 'SÍ' : 'NO'}`);
+
+        // Si tiene dirección, ir directo a método de pago
+        if (customer?.address) {
+          const orderFlowConversation = {
+            ...aiConversation,
+            orderFlowStep: 'collect_payment',
+            pendingOrder: {
+              cartItems: currentCart,
+              address: customer.address,
+              paymentMethod: undefined,
+              notes: undefined
+            }
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
+
+          return {
+            handled: true,
+            responseMessage: `✅ ${addedItem.productName} x${addedItem.quantity}\n\n${cartSummary.formattedSummary}\n\n📦 Enviando a: ${customer.address}\n\n${getPaymentCollectionPrompt()}`,
+            cart: currentCart
+          };
+        }
+
+        // Si NO tiene dirección, solicitar dirección
+        const orderFlowConversation = {
+          ...aiConversation,
+          orderFlowStep: 'collect_address',
+          pendingOrder: {
+            cartItems: currentCart,
+            address: undefined,
+            paymentMethod: undefined,
+            notes: undefined
           }
-        );
+        } as any;
+        await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
 
         return {
           handled: true,
-          responseMessage: `✅ Agregado: ${addedItem.productName} x${addedItem.quantity} a tu carrito\n\n${cartSummary.formattedSummary}\n\n${salesResponse}`,
+          responseMessage: `✅ ${addedItem.productName} x${addedItem.quantity}\n\n${cartSummary.formattedSummary}\n\n${getAddressCollectionPrompt()}`,
           cart: currentCart
         };
 
@@ -643,7 +668,33 @@ export async function tryProcessWithAI(
         if (currentCart.length === 0) {
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
         } else {
-          // ✅ NUEVO: Iniciar flujo de recolección de datos en lugar de crear orden directamente - GUARDAR EN DB
+          // ✅ PASO 2: Verificar si el cliente ya está registrado con dirección
+          const customer = await tenantStorage.getCustomerById(customerId);
+          console.log(`👤 [AI-SMART] Cliente ${customerId}: ${customer?.name}, Dirección: ${customer?.address ? 'SÍ' : 'NO'}`);
+
+          // Si el cliente YA tiene dirección registrada, saltar a método de pago
+          if (customer?.address) {
+            console.log(`✅ [AI-SMART] Cliente registrado con dirección, saltando a pago`);
+            const orderFlowConversation = {
+              ...aiConversation,
+              orderFlowStep: 'collect_payment',
+              pendingOrder: {
+                cartItems: currentCart,
+                address: customer.address, // Usar dirección registrada
+                paymentMethod: undefined,
+                notes: undefined
+              }
+            } as any;
+            await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
+
+            return {
+              handled: true,
+              responseMessage: `📦 Enviando a: ${customer.address}\n\n${getPaymentCollectionPrompt()}`
+            };
+          }
+
+          // Si NO tiene dirección, solicitar dirección
+          console.log(`📍 [AI-SMART] Cliente sin dirección registrada, solicitando datos`);
           const orderFlowConversation = {
             ...aiConversation,
             orderFlowStep: 'collect_address',
@@ -656,7 +707,6 @@ export async function tryProcessWithAI(
           } as any;
           await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
 
-          console.log(`📍 [AI-SMART] Iniciando flujo de recolección para ${phoneNumber}`);
           return {
             handled: true,
             responseMessage: getAddressCollectionPrompt()
