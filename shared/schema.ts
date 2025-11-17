@@ -324,9 +324,6 @@ export const orders = pgTable("orders", {
   description: text("description"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
 
-  // Fidelización - Puntos totales de lealtad para la orden
-  loyaltyPointsTotal: decimal("loyalty_points_total", { precision: 10, scale: 2 }).default("0"),
-
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   scheduledDate: timestamp("scheduled_date"),
