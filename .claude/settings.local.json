@@ -22,7 +22,8 @@
       "Bash(Get-ChildItem \"d:\\Proyectos Programacion\\Delivery\\Delivery Web\\logs\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -Last 5 -ExpandProperty Name)",
       "Bash(npm run dev:*)",
-      "Bash(server.log)"
+      "Bash(server.log)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "ask": []

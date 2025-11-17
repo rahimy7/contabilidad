@@ -258,16 +258,27 @@ export async function generateSalesAgentResponse(
     let matchedProducts: any[] = [];
     let recommendedProducts: any[] = [];
 
+    console.log(`📊 [SALES-AGENT] Productos disponibles en catálogo: ${availableProducts?.length || 0}`);
+    if (availableProducts && availableProducts.length > 0) {
+      console.log(`📦 [SALES-AGENT] Listado de productos:`);
+      availableProducts.forEach((p: any, idx: number) => {
+        console.log(`   ${idx + 1}. ${p.name} - RD$${p.price} (${p.category})`);
+      });
+    }
+
     if (interpretation.entities.products && interpretation.entities.products.length > 0) {
+      console.log(`🔍 [SALES-AGENT] Cliente busca: ${interpretation.entities.products.join(', ')}`);
       // Buscar cada producto mencionado
       for (const productQuery of interpretation.entities.products) {
         const matches = findMatchingProducts(productQuery, availableProducts || []);
+        console.log(`   → Búsqueda de "${productQuery}": ${matches.length} coincidencia(s)`);
         matchedProducts.push(...matches);
       }
     }
 
     // Si no hay coincidencia exacta, sugerir productos del catálogo
     if (matchedProducts.length === 0 && availableProducts && availableProducts.length > 0) {
+      console.log(`⚠️ [SALES-AGENT] Sin coincidencia exacta - Usando primeros 3 productos del catálogo`);
       recommendedProducts = availableProducts.slice(0, 3);
     }
 
@@ -283,10 +294,16 @@ export async function generateSalesAgentResponse(
         productCatalog += `✓ ${p.name}: RD$${price} (${category})${description}\n`;
       });
     } else {
-      productCatalog = '\n\n📦 Consulta nuestro catálogo completo\n';
+      productCatalog = '\n\n⚠️ CATÁLOGO VACÍO: No hay productos disponibles en este momento.';
     }
 
-    const systemPrompt = `Eres un AGENTE DE VENTAS profesional para una tienda en República Dominicana.
+    // Determinar si hay productos disponibles
+    const hasProducts = productsToShow.length > 0;
+
+    let systemPrompt: string;
+
+    if (hasProducts) {
+      systemPrompt = `Eres un AGENTE DE VENTAS profesional para una tienda en República Dominicana.
 
 🎯 REGLA FUNDAMENTAL: SOLO recomienda y habla de productos reales que están en el catálogo.
 ⚠️ NUNCA inventes nombres de productos, precios o especificaciones.
@@ -306,7 +323,7 @@ INSTRUCCIONES DE RESPUESTA:
    - Pregunta cantidad y cierra la venta
 
 2. SI NO EXISTE EL PRODUCTO EXACTO:
-   - Ofrece alternativas REALES del catálogo
+   - Ofrece alternativas REALES del catálogo abajo
    - Explica por qué pueden interesarle
 
 3. SI PREGUNTA POR DISPONIBILIDAD:
@@ -314,6 +331,21 @@ INSTRUCCIONES DE RESPUESTA:
    - Nunca digas que tenemos algo que no está en la lista
 
 ${productCatalog}`;
+    } else {
+      systemPrompt = `Eres un AGENTE DE SERVICIO AL CLIENTE profesional para una tienda en República Dominicana.
+
+⚠️ SITUACIÓN CRÍTICA: ${productCatalog}
+
+REGLAS ESTRICTAS:
+❌ NUNCA sugieras productos (aunque sean creíbles)
+❌ NUNCA menciones "alternativas" que no sean reales
+❌ NUNCA inventes marcas, modelos o categorías de productos
+✅ Solo reconoce la solicitud del cliente
+✅ Sé honesto: "No contamos con eso en este momento"
+✅ Ofrece contacto directo para más información
+
+Tu objetivo es SERVIR AL CLIENTE con honestidad, no vender lo que no existe.`;
+    }
 
     const userPrompt = `Cliente dice: "${messageText}"
 
@@ -328,7 +360,14 @@ ${matchedProducts.length > 0
   ? matchedProducts.map(p => `✓ ${p.name}: RD$${p.price}`).join('\n')
   : 'No hay coincidencia exacta'}
 
-Responde como VENDEDOR usando SOLO los datos reales anteriores. Sé entusiasta pero honesto:`;
+${hasProducts
+  ? 'Responde como VENDEDOR usando SOLO los datos reales anteriores. Sé entusiasta pero honesto:'
+  : 'Responde como AGENTE DE SERVICIO al CLIENTE. Sé honesto y cortés. NO sugieras productos:'}`;
+
+    console.log(`\n📤 [SALES-AGENT] ENVIANDO A OPENAI:`);
+    console.log(`   Productos que se envían: ${productsToShow.length > 0 ? productsToShow.map((p: any) => p.name).join(', ') : 'NINGUNO'}`);
+    console.log(`   Modo: ${hasProducts ? 'VENDEDOR (con productos)' : 'SERVICIO (sin productos)'}`);
+    console.log(`   Prompt resumido: ${userPrompt.substring(0, 150)}...`);
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -341,7 +380,7 @@ Responde como VENDEDOR usando SOLO los datos reales anteriores. Sé entusiasta p
     });
 
     const response = completion.choices[0].message.content || interpretation.suggestedResponse;
-    console.log('✅ [SALES-AGENT] Respuesta basada en datos reales:', response);
+    console.log(`\n✅ [SALES-AGENT] RESPUESTA GENERADA:\n${response}`);
     return response;
 
   } catch (error: any) {
