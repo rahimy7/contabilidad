@@ -14,6 +14,13 @@ interface MessageContext {
   expectedResponses?: string[];
   lastAutoResponse?: string;
   isHelpMode?: boolean;
+  orderFlowStep?: 'confirm_cart' | 'collect_address' | 'collect_payment' | 'collect_notes' | 'confirm_order' | null;
+  pendingOrder?: {
+    cartItems: CartItem[];
+    address?: string;
+    paymentMethod?: string;
+    notes?: string;
+  };
 }
 
 const conversationContexts = new Map<string, MessageContext>();
@@ -100,11 +107,6 @@ function generateProductSuggestionMessage(searchQuery: string, matches: any[]) {
   return `Encontré estos productos similares a "${searchQuery}":\n${suggestions}`;
 }
 
-function generateOrderConfirmationMessage(cart: CartItem[], customerName: string) {
-  const summary = getCartSummary(cart);
-  return `✅ ${customerName}, tu pedido está listo para confirmar:\n${summary.formattedSummary}\n\n¿Deseas proceder con la orden?`;
-}
-
 async function searchProductsWithAI(query: string, allProducts: any[]) {
   const q = query.toLowerCase();
   return allProducts.filter(
@@ -120,10 +122,22 @@ export async function createOrderFromAICart(
   cart: CartItem[],
   customerId: number,
   storeId: number,
-  tenantStorage: any
+  tenantStorage: any,
+  orderData?: {
+    address?: string;
+    paymentMethod?: string;
+    notes?: string;
+  }
 ): Promise<number | null> {
   try {
     console.log('📦 [AI-SMART] Creando orden desde carrito IA...');
+    if (orderData) {
+      console.log(`📍 [AI-SMART] Datos de entrega:`, {
+        address: orderData.address?.substring(0, 50) + '...',
+        payment: orderData.paymentMethod,
+        notes: orderData.notes?.substring(0, 50) + '...'
+      });
+    }
 
     if (!cart || cart.length === 0) {
       console.error('❌ [AI-SMART] Carrito vacío');
@@ -138,6 +152,9 @@ export async function createOrderFromAICart(
       subtotal,
       totalAmount: subtotal,
       source: 'whatsapp_ai',
+      deliveryAddress: orderData?.address || '',
+      paymentMethod: orderData?.paymentMethod || '',
+      notes: orderData?.notes || '',
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -152,7 +169,7 @@ export async function createOrderFromAICart(
       });
     }
 
-    console.log(`✅ [AI-SMART] Orden creada: #${order.id}`);
+    console.log(`✅ [AI-SMART] Orden creada: #${order.id} con datos de entrega`);
     return order.id;
   } catch (error: any) {
     console.error('❌ [AI-SMART] Error creando orden IA:', error);
@@ -174,6 +191,103 @@ export async function createOrderFromAICart(
 
     return null;
   }
+}
+
+// ===== Funciones de recolección de datos de orden =====
+
+/**
+ * Solicita dirección de entrega al cliente
+ */
+function getAddressCollectionPrompt(): string {
+  return `📍 Para procesar tu pedido, necesito tu dirección de entrega.\n\nPuedes:\n✅ Enviar tu ubicación GPS (botón de ubicación)\n✅ Escribir tu dirección completa (ej: Calle Principal 123, Apt 4B, Santo Domingo)\n\n¿Cuál prefieres?`;
+}
+
+/**
+ * Solicita método de pago al cliente
+ */
+function getPaymentCollectionPrompt(): string {
+  return `💳 Ahora, ¿cuál es tu método de pago preferido?\n\nOpciones:\n1️⃣ Tarjeta de Crédito/Débito\n2️⃣ Transferencia Bancaria\n3️⃣ Efectivo (Contra Entrega)\n4️⃣ Otro\n\nDime el número o tu opción.`;
+}
+
+/**
+ * Solicita notas especiales al cliente
+ */
+function getNotesCollectionPrompt(): string {
+  return `📝 ¿Hay algo más que debamos saber? (instrucciones especiales, horario de entrega, etc.)\n\nPuedes escribir tus notas o escribir "Sin notas" para continuar.`;
+}
+
+/**
+ * Genera mensaje de confirmación de orden con detalles
+ */
+function generateOrderConfirmationMessage(order: any, cartItems: CartItem[]): string {
+  let message = `🎉 *RESUMEN DE TU PEDIDO*\n\n`;
+  message += `📦 *PRODUCTOS:*\n`;
+
+  let total = 0;
+  cartItems.forEach((item, idx) => {
+    total += item.totalPrice;
+    message += `${idx + 1}. ${item.productName} x${item.quantity} = RD$${item.totalPrice.toFixed(2)}\n`;
+  });
+
+  message += `\n💰 *TOTAL:* RD$${total.toFixed(2)}\n`;
+  message += `\n📍 *DIRECCIÓN:* ${order.address || 'No especificada'}\n`;
+  message += `💳 *MÉTODO DE PAGO:* ${order.paymentMethod || 'No especificado'}\n`;
+
+  if (order.notes) {
+    message += `📝 *NOTAS:* ${order.notes}\n`;
+  }
+
+  message += `\n¿Confirmas tu pedido? Responde "Sí" para confirmar o "No" para modificar.`;
+
+  return message;
+}
+
+/**
+ * Valida y procesa dirección ingresada por el cliente
+ */
+function validateAndProcessAddress(input: string): { valid: boolean; address: string } {
+  // Limpiar entrada
+  const cleaned = input.trim();
+
+  // Mínimo 10 caracteres para dirección válida
+  if (cleaned.length >= 10) {
+    return { valid: true, address: cleaned };
+  }
+
+  return { valid: false, address: '' };
+}
+
+/**
+ * Valida y mapea método de pago
+ */
+function validateAndProcessPayment(input: string): { valid: boolean; method: string } {
+  const lower = input.toLowerCase().trim();
+
+  const paymentMappings: { [key: string]: string } = {
+    '1': 'Tarjeta de Crédito/Débito',
+    'tarjeta': 'Tarjeta de Crédito/Débito',
+    'credito': 'Tarjeta de Crédito/Débito',
+    'debito': 'Tarjeta de Crédito/Débito',
+    '2': 'Transferencia Bancaria',
+    'transferencia': 'Transferencia Bancaria',
+    'banco': 'Transferencia Bancaria',
+    '3': 'Efectivo (Contra Entrega)',
+    'efectivo': 'Efectivo (Contra Entrega)',
+    'contraentrega': 'Efectivo (Contra Entrega)',
+    'contra': 'Efectivo (Contra Entrega)',
+  };
+
+  const mapped = paymentMappings[lower];
+  if (mapped) {
+    return { valid: true, method: mapped };
+  }
+
+  // Si no coincide, usar como está
+  if (input.length >= 3) {
+    return { valid: true, method: input };
+  }
+
+  return { valid: false, method: '' };
 }
 
 // ===== Proceso principal IA =====
@@ -262,6 +376,164 @@ export async function tryProcessWithAI(
 
     let currentCart = aiConversation.cartItems || [];
 
+    // ✅ NUEVO: Manejar flujo de recolección de datos del pedido
+    const orderFlowStep = context.orderFlowStep;
+    if (orderFlowStep && context.pendingOrder) {
+      const pendingOrder = context.pendingOrder;
+
+      switch (orderFlowStep) {
+        case 'collect_address':
+          const addressValidation = validateAndProcessAddress(messageText);
+          if (!addressValidation.valid) {
+            console.log(`⚠️ [AI-SMART] Dirección inválida. Intentando interpretar...`);
+            return {
+              handled: true,
+              responseMessage: getAddressCollectionPrompt() + '\n\n(Por favor proporciona una dirección más completa)'
+            };
+          }
+
+          // ✅ Dirección válida - pasar a pago
+          const updatedContext = conversationContexts.get(phoneNumber) || {};
+          conversationContexts.set(phoneNumber, {
+            ...updatedContext,
+            orderFlowStep: 'collect_payment',
+            pendingOrder: {
+              ...pendingOrder,
+              address: addressValidation.address
+            }
+          });
+
+          console.log(`📍 [AI-SMART] Dirección guardada: ${addressValidation.address}`);
+          return {
+            handled: true,
+            responseMessage: getPaymentCollectionPrompt()
+          };
+
+        case 'collect_payment':
+          const paymentValidation = validateAndProcessPayment(messageText);
+          if (!paymentValidation.valid) {
+            console.log(`⚠️ [AI-SMART] Método de pago no reconocido`);
+            return {
+              handled: true,
+              responseMessage: getPaymentCollectionPrompt() + '\n\n(Opciones: Efectivo, Tarjeta, Transferencia)'
+            };
+          }
+
+          // ✅ Pago válido - pasar a notas
+          const updatedContext2 = conversationContexts.get(phoneNumber) || {};
+          conversationContexts.set(phoneNumber, {
+            ...updatedContext2,
+            orderFlowStep: 'collect_notes',
+            pendingOrder: {
+              ...pendingOrder,
+              address: pendingOrder.address,
+              paymentMethod: paymentValidation.method
+            }
+          });
+
+          console.log(`💳 [AI-SMART] Método de pago guardado: ${paymentValidation.method}`);
+          return {
+            handled: true,
+            responseMessage: getNotesCollectionPrompt()
+          };
+
+        case 'collect_notes':
+          // ✅ Permitir saltarse las notas con "sin notas" o similar
+          const skipNotes = ['sin notas', 'ninguna', 'nada', 'ok', 'listo', 'siguiente'].some(
+            keyword => messageText.toLowerCase().includes(keyword)
+          );
+
+          const notes = skipNotes ? '' : messageText;
+
+          // ✅ Pasar a confirmación final
+          const updatedContext3 = conversationContexts.get(phoneNumber) || {};
+          conversationContexts.set(phoneNumber, {
+            ...updatedContext3,
+            orderFlowStep: 'confirm_order',
+            pendingOrder: {
+              ...pendingOrder,
+              address: pendingOrder.address,
+              paymentMethod: pendingOrder.paymentMethod,
+              notes: notes
+            }
+          });
+
+          const confirmationMessage = generateOrderConfirmationMessage(
+            {
+              address: pendingOrder.address,
+              paymentMethod: pendingOrder.paymentMethod,
+              notes: notes
+            },
+            pendingOrder.cartItems
+          );
+
+          console.log(`📝 [AI-SMART] Notas guardadas, mostrando confirmación`);
+          return {
+            handled: true,
+            responseMessage: confirmationMessage + '\n\n¿Confirmas tu pedido? (responde SI para confirmar o CANCELAR para volver atrás)'
+          };
+
+        case 'confirm_order':
+          // ✅ Detectar confirmación o cancelación
+          const confirmationKeywords = ['si', 'sí', 'confirmar', 'yes', 'yep', 'ok', 'vale', 'adelante'];
+          const cancellationKeywords = ['no', 'cancelar', 'cancel', 'atrás', 'volver'];
+
+          const isConfirmed = confirmationKeywords.some(
+            keyword => messageText.toLowerCase().includes(keyword)
+          );
+          const isCancelled = cancellationKeywords.some(
+            keyword => messageText.toLowerCase().includes(keyword)
+          );
+
+          if (isCancelled) {
+            // ✅ Limpiar contexto y volver al flujo normal
+            conversationContexts.delete(phoneNumber);
+            return {
+              handled: true,
+              responseMessage: '❌ Pedido cancelado. ¿En qué más puedo ayudarte?'
+            };
+          }
+
+          if (!isConfirmed) {
+            return {
+              handled: true,
+              responseMessage: '⏳ Por favor confirma tu pedido respondiendo SI o escribe CANCELAR para volver atrás'
+            };
+          }
+
+          // ✅ CREAR ORDEN CON TODOS LOS DATOS RECOLECTADOS
+          try {
+            console.log(`✅ [AI-SMART] Creando orden con datos recolectados...`);
+            const orderId = await createOrderFromAICart(
+              pendingOrder.cartItems,
+              customerId,
+              storeId,
+              tenantStorage,
+              {
+                address: pendingOrder.address,
+                paymentMethod: pendingOrder.paymentMethod,
+                notes: pendingOrder.notes
+              }
+            );
+
+            // ✅ Limpiar contexto después de crear la orden
+            conversationContexts.delete(phoneNumber);
+            await AIConversationManager.updateCart(storeId, conversationId, []);
+
+            return {
+              handled: true,
+              responseMessage: `✅ ¡Pedido confirmado! ID: ${orderId}\n\nEstaremos entregando en la dirección proporcionada. Gracias por tu compra.`
+            };
+          } catch (orderError: any) {
+            console.error(`❌ [AI-SMART] Error creando orden:`, orderError);
+            return {
+              handled: true,
+              responseMessage: '❌ Hubo un error al procesar tu pedido. Intenta nuevamente.'
+            };
+          }
+      }
+    }
+
     switch (interpretation.intent) {
       case 'add_to_cart':
         for (const item of interpretation.items) {
@@ -311,7 +583,7 @@ export async function tryProcessWithAI(
 
         return {
           handled: true,
-          responseMessage: `✅ Agregado: ${addedItem.name} x${addedItem.quantity} a tu carrito\n\n${cartSummary.formattedSummary}\n\n${salesResponse}`,
+          responseMessage: `✅ Agregado: ${addedItem.productName} x${addedItem.quantity} a tu carrito\n\n${cartSummary.formattedSummary}\n\n${salesResponse}`,
           cart: currentCart
         };
 
@@ -343,35 +615,25 @@ export async function tryProcessWithAI(
         if (currentCart.length === 0) {
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
         } else {
-          const orderId = await createOrderFromAICart(currentCart, customerId, storeId, tenantStorage);
-          if (orderId) {
-            await AICreditsManager.consumeCredits(storeId, 'order', {
-              storeId,
-              conversationId,
-              customerId,
-              customerPhone: phoneNumber,
-              operationType: 'order_creation',
-              creditsCost: 5,
-              outputText: `Orden #${orderId} creada automáticamente desde WhatsApp`,
-              wasSuccessful: true
-            });
-            clearContext(phoneNumber);
-            return {
-              handled: true,
-              responseMessage: `✅ Tu pedido ha sido confirmado exitosamente. Número de orden: #${orderId}`,
-              shouldCreateOrder: true,
-              cart: []
-            };
-          } else {
-            return { handled: true, responseMessage: '❌ Hubo un problema creando tu orden. Intenta nuevamente.' };
-          }
-        }
+          // ✅ NUEVO: Iniciar flujo de recolección de datos en lugar de crear orden directamente
+          const context = conversationContexts.get(phoneNumber) || {};
+          conversationContexts.set(phoneNumber, {
+            ...context,
+            orderFlowStep: 'collect_address',
+            pendingOrder: {
+              cartItems: currentCart,
+              address: undefined,
+              paymentMethod: undefined,
+              notes: undefined
+            }
+          });
 
-      case 'view_cart':
-        return {
-          handled: true,
-          responseMessage: getCartSummary(currentCart).formattedSummary + '\n\n¿Deseas confirmar tu pedido? 😊'
-        };
+          console.log(`📍 [AI-SMART] Iniciando flujo de recolección para ${phoneNumber}`);
+          return {
+            handled: true,
+            responseMessage: getAddressCollectionPrompt()
+          };
+        }
 
       default:
         // ✨ Usar Sales Agent para preguntas y otras intenciones también
