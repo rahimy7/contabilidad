@@ -1942,10 +1942,61 @@ if (messageType === 'text') {
   // ✅ NUEVO: Permitir mensajes de ubicación
   console.log(`📍 LOCATION MESSAGE RECEIVED - From: ${customerPhone}`);
   console.log(`📍 Location data:`, JSON.stringify(message.location));
-  
+
   // No extraer texto, pero permitir que continúe el procesamiento
   // El mensaje completo (con location) se pasará a handleRegistrationFlow
   messageText = '[LOCATION]'; // Marcador para identificar que es ubicación
+} else if (messageType === 'audio') {
+  // ✅ NUEVO: Soporte para notas de voz
+  console.log(`🎙️ VOICE NOTE RECEIVED - From: ${customerPhone}`);
+
+  try {
+    // Obtener credenciales de WhatsApp y OpenAI
+    const { getMasterStorage } = await import('./storage/index.js');
+    const masterStorage = await getMasterStorage();
+    const whatsappConfig = await masterStorage.getWhatsAppConfig(safeStoreMapping.storeId);
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+
+    if (!whatsappConfig) {
+      console.error('❌ WhatsApp config not found for transcription');
+      messageText = '[VOICE_NOTE_ERROR]';
+    } else if (!openaiApiKey) {
+      console.error('❌ OpenAI API key not configured');
+      messageText = '[VOICE_NOTE_ERROR]';
+    } else {
+      // Crear transcriptor
+      const { createAudioTranscriber } = await import('./audio-transcriber.js');
+      const transcriber = createAudioTranscriber(whatsappConfig.accessToken, openaiApiKey);
+
+      // Obtener información del archivo de audio
+      const audioMediaId = message.audio?.id;
+      const audioMimeType = message.audio?.mime_type || 'audio/ogg';
+
+      if (!audioMediaId) {
+        console.error('❌ No audio media ID found in message');
+        messageText = '[VOICE_NOTE_ERROR]';
+      } else {
+        console.log(`📥 Downloading audio from WhatsApp (Media ID: ${audioMediaId})...`);
+
+        // Descargar y transcribir
+        const transcriptionResult = await transcriber.downloadAndTranscribe(
+          audioMediaId,
+          audioMimeType
+        );
+
+        if (transcriptionResult.success && transcriptionResult.transcription) {
+          messageText = transcriptionResult.transcription;
+          console.log(`✅ VOICE NOTE TRANSCRIBED: "${messageText}"`);
+        } else {
+          console.error(`❌ TRANSCRIPTION FAILED: ${transcriptionResult.error}`);
+          messageText = '[VOICE_NOTE_ERROR]';
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`❌ ERROR PROCESSING VOICE NOTE:`, error);
+    messageText = '[VOICE_NOTE_ERROR]';
+  }
 } else {
   console.log(`ℹ️ SKIPPING UNSUPPORTED MESSAGE - Type: ${messageType}, From: ${customerPhone}`);
   return;
@@ -1967,10 +2018,13 @@ if (messageType === 'text') {
     let conversationId, dbMessageId;
     try {
       console.log(`💾 GUARDANDO MENSAJE EN BASE DE DATOS...`);
+      // ✅ Pasar contenido procesado si fue transcrito (para audios)
+      const processedContent = messageType === 'audio' ? messageText : undefined;
       const saveResult = await ensureConversationAndSaveMessage(
         message,
         safeStoreMapping.storeId,
-        tenantStorage
+        tenantStorage,
+        processedContent
       );
       conversationId = saveResult.conversationId;
       dbMessageId = saveResult.messageId;
@@ -2254,11 +2308,13 @@ if (conversation) {
 async function ensureConversationAndSaveMessage(
   message: any,
   storeId: number,
-  tenantStorage: any
+  tenantStorage: any,
+  processedContent?: string // ✅ NUEVO: Contenido ya procesado (ej: transcripción de audio)
 ): Promise<{ conversationId: number; messageId: number }> {
   try {
     const phoneNumber = message.from;
-    const messageText = message.text?.body || message.text || '';
+    // ✅ USAR CONTENIDO PROCESADO SI ESTÁ DISPONIBLE (ej: transcripción de audio)
+    const messageText = processedContent || message.text?.body || message.text || '';
     const messageId = message.id;
     const messageType = message.type || 'text';
 
