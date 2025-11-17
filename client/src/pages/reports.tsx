@@ -785,6 +785,7 @@ export default function Reports() {
                 <div className="space-y-4">
                   {todaysSalesByProduct.map((sale) => {
                     const saleRevenue = Number(sale.revenue || 0);
+                    const displayRevenue = isNaN(saleRevenue) ? '0.00' : saleRevenue.toFixed(2);
                     return (
                       <div key={sale.productId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
@@ -797,7 +798,7 @@ export default function Reports() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-green-600">${saleRevenue.toFixed(2)}</div>
+                          <div className="font-semibold text-green-600">${displayRevenue}</div>
                         </div>
                       </div>
                     );
