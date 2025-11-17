@@ -2,10 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingCart, MessageCircle, Users, DollarSign, TrendingUp } from "lucide-react";
 
+interface DashboardMetrics {
+  ordersToday: number;
+  activeConversations: number;
+  activeTechnicians: number;
+  dailyRevenue: number;
+}
+
 export default function MetricsCards() {
-  const { data: metrics, isLoading } = useQuery({
+  const { data: metricsData, isLoading } = useQuery({
     queryKey: ["/api/dashboard/metrics"],
   });
+
+  const metrics = metricsData as DashboardMetrics | undefined;
 
   if (isLoading) {
     return (
@@ -21,18 +30,24 @@ export default function MetricsCards() {
     );
   }
 
+  const dailyRevenue = parseFloat(String(metrics?.dailyRevenue || 0));
+  const formattedRevenue = dailyRevenue.toLocaleString('es-MX', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
   const cards = [
     {
       title: "Pedidos Hoy",
-      value: metrics?.ordersToday || 0,
+      value: parseInt(String(metrics?.ordersToday || 0)),
       change: "+12% vs ayer",
       icon: ShoppingCart,
       iconBg: "bg-primary bg-opacity-10",
       iconColor: "text-primary",
     },
     {
-      title: "Conversaciones Activas", 
-      value: metrics?.activeConversations || 0,
+      title: "Conversaciones Activas",
+      value: parseInt(String(metrics?.activeConversations || 0)),
       change: "+3 nuevas",
       icon: MessageCircle,
       iconBg: "whatsapp-bg bg-opacity-10",
@@ -40,7 +55,7 @@ export default function MetricsCards() {
     },
     {
       title: "Técnicos Activos",
-      value: metrics?.activeTechnicians || 0,
+      value: parseInt(String(metrics?.activeTechnicians || 0)),
       change: "de 12 disponibles",
       icon: Users,
       iconBg: "success-bg bg-opacity-10",
@@ -48,10 +63,10 @@ export default function MetricsCards() {
     },
     {
       title: "Ingresos del Día",
-      value: `$${metrics?.dailyRevenue?.toLocaleString('es-MX') || "0"}`,
+      value: `$${formattedRevenue}`,
       change: "+8.5%",
       icon: DollarSign,
-      iconBg: "warning-bg bg-opacity-10", 
+      iconBg: "warning-bg bg-opacity-10",
       iconColor: "warning-text",
     },
   ];

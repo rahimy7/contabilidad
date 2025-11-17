@@ -1229,44 +1229,91 @@ export class MasterStorageService {
 
   async getDashboardMetrics(storeId?: number): Promise<any> {
   try {
+    console.log(`📊 [getDashboardMetrics] Starting for storeId: ${storeId}`);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    // Get today's orders count - CORREGIDO
-    const ordersQuery = this.db
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    console.log(`📅 Date range: ${today.toISOString()} to ${tomorrow.toISOString()}`);
+
+    // If no storeId provided, return empty metrics
+    if (!storeId) {
+      console.warn('⚠️ No storeId provided, returning empty metrics');
+      return {
+        ordersToday: 0,
+        activeConversations: 0,
+        activeTechnicians: 0,
+        dailyRevenue: 0
+      };
+    }
+
+    // Use multi-tenant database for orders and employees
+    const { getTenantDb } = await import('../multi-tenant-db');
+    const tenantDb = await getTenantDb(storeId);
+    console.log(`✅ Connected to tenant database for store ${storeId}`);
+
+    // First, check ALL orders for this store (for debugging)
+    const allOrdersDebug = await tenantDb
       .select({ count: count() })
+      .from(schema.orders);
+    console.log(`📦 Total orders in store ${storeId}:`, allOrdersDebug[0]);
+
+    // Get today's completed orders count and revenue
+    const ordersResult = await tenantDb
+      .select({
+        count: count(),
+        totalAmount: sql<number>`COALESCE(SUM(CAST(${schema.orders.totalAmount} AS NUMERIC)), 0)`
+      })
       .from(schema.orders)
       .where(
-        storeId 
-          ? and(gte(schema.orders.createdAt, today), eq(schema.orders.storeId, storeId))
-          : gte(schema.orders.createdAt, today)
+        and(
+          gte(schema.orders.createdAt, today),
+          eq(schema.orders.status, 'completed')
+        )
       );
-    
-    const [ordersResult] = await ordersQuery;
-    
-    // Get active conversations count - CORREGIDO
+
+    console.log(`📊 Orders result:`, ordersResult);
+    const ordersData = ordersResult[0] || { count: 0, totalAmount: 0 };
+    const dailyRevenue = parseFloat(String(ordersData.totalAmount || 0));
+
+    console.log(`💰 Orders today: ${ordersData.count}, Revenue: ${dailyRevenue}`);
+
+    // Get active conversations count from master storage
     const conversationsQuery = this.db
       .select({ count: count() })
       .from(schema.conversations)
       .where(
-        storeId 
-          ? and(eq(schema.conversations.status, 'active'), eq(schema.conversations.storeId, storeId))
-          : eq(schema.conversations.status, 'active')
+        and(eq(schema.conversations.status, 'active'), eq(schema.conversations.storeId, storeId))
       );
-    
+
     const [conversationsResult] = await conversationsQuery;
-      
+    console.log(`💬 Conversations result:`, conversationsResult);
+
+    // Get technicians count from tenant database
+    const techniciansResult = await tenantDb
+      .select({ count: count() })
+      .from(schema.employeeProfiles)
+      .where(
+        eq(schema.employeeProfiles.department, 'technical')
+      );
+
+    console.log(`👨‍🔧 Technicians result:`, techniciansResult);
+    const techniciansData = techniciansResult[0] || { count: 0 };
+
       const metrics = {
-        ordersToday: ordersResult.count || 0,
+        ordersToday: ordersData.count || 0,
         activeConversations: conversationsResult.count || 0,
-        activeTechnicians: 0,
-        dailyRevenue: 0
+        activeTechnicians: techniciansData.count || 0,
+        dailyRevenue: Math.round(dailyRevenue * 100) / 100
       };
-      
-      console.log(`✅ Retrieved dashboard metrics for store ${storeId || 'all'}`);
+
+      console.log(`✅ Retrieved dashboard metrics for store ${storeId}:`, metrics);
       return metrics;
     } catch (error) {
-      console.error('Error getting dashboard metrics:', error);
+      console.error('❌ Error getting dashboard metrics:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
       return {
         ordersToday: 0,
         activeConversations: 0,

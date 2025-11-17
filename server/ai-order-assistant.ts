@@ -6,6 +6,7 @@
  */
 import { searchProducts } from './ai-product-search';
 import { createOrderFromAI } from './ai-order-creator';
+import { interpretMessage } from './ai-service';
 
 interface Product {
   id: number;
@@ -54,20 +55,65 @@ interface AIContext {
   tenantStorage?: any; 
 }
 
-async function analyzeMessageWithAI(message: string): Promise<OrderInterpretation> {
-  // Simulación básica; reemplazar por tu modelo real
-  return {
-    intent: 'search_product',
-    items: [{ searchQuery: message, quantity: 1, confidence: 0.9 }],
-    message: `Buscando producto para: ${message}`,
-    confidence: 0.9 
-  };
+/**
+ * Analizar mensaje con IA real usando OpenAI GPT-4o-mini
+ * Extrae productos, cantidades e intención del mensaje
+ */
+async function analyzeMessageWithAI(message: string, context?: AIContext): Promise<OrderInterpretation> {
+  try {
+    console.log(`🤖 [AI-ASSISTANT] Analizando mensaje: "${message}"`);
+
+    // Usar interpretMessage real de ai-service
+    const interpretation = await interpretMessage(message, context ? {
+      customerId: context.customerId,
+      customerName: `Customer ${context.customerId}`,
+      recentMessages: []
+    } : undefined);
+
+    console.log(`✅ [AI-ASSISTANT] Interpretación obtenida:`, interpretation);
+
+    // Mapear categoría a intención
+    let intent: 'add_to_cart' | 'confirm_order' | 'ask_question' | 'search_product' | 'other' = 'search_product';
+
+    if (interpretation.category === 'order' && interpretation.entities.products?.length) {
+      intent = 'add_to_cart';
+    } else if (interpretation.category === 'question') {
+      intent = 'ask_question';
+    } else if (interpretation.category === 'greeting') {
+      intent = 'other';
+    }
+
+    // Construir items desde productos mencionados
+    const items = interpretation.entities.products?.map(product => ({
+      searchQuery: product,
+      quantity: interpretation.entities.quantity || 1,
+      confidence: interpretation.confidence
+    })) || [{ searchQuery: message, quantity: 1, confidence: interpretation.confidence }];
+
+    return {
+      intent,
+      items,
+      message: interpretation.suggestedResponse,
+      confidence: interpretation.confidence
+    };
+
+  } catch (error: any) {
+    console.error(`❌ [AI-ASSISTANT] Error analizando mensaje:`, error);
+
+    // Fallback: buscar producto por palabras clave
+    return {
+      intent: 'search_product',
+      items: [{ searchQuery: message, quantity: 1, confidence: 0.5 }],
+      message: `No pude analizar el mensaje correctamente. ¿Podrías especificar qué producto deseas?`,
+      confidence: 0.5
+    };
+  }
 }
 
 export async function interpretAIMessage(message: string, context: AIContext) {
   const { storeId, customerId, token, apiBaseUrl } = context;
 
-  const interpretation = await analyzeMessageWithAI(message);
+  const interpretation = await analyzeMessageWithAI(message, context);
 
   switch (interpretation.intent) {
     case 'search_product':

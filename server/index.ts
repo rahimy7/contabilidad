@@ -34,6 +34,7 @@ import { getDefaultTenantStorage } from './tenant-storage.ts';
 import { setupPrintRoutes } from './print-routes';
 import aiRoutes from './ai-routes';
 import storeSettingsRoutes from './store-settings.routes';
+import { validateAIConfiguration } from './ai-service';
 
 
 
@@ -759,6 +760,18 @@ console.log('✅ API Router mounted successfully');
 (async () => {
   try {
     console.log('🚀 Starting application with migrated storage...');
+
+    // ================================
+    // VALIDACIÓN DE CONFIGURACIÓN DE IA
+    // ================================
+    console.log('🔐 Validando configuración de IA...');
+    const isAIConfigValid = validateAIConfiguration();
+    if (!isAIConfigValid) {
+      console.warn('⚠️ ADVERTENCIA: Configuración de OpenAI incompleta. Las funciones de IA estarán deshabilitadas.');
+      console.warn('⚠️ Asegúrate de que OPENAI_API_KEY esté configurada en las variables de entorno.');
+    } else {
+      console.log('✅ Configuración de IA válida - Sistema listo para procesar mensajes con IA');
+    }
 
     // Register other routes
     await registerRoutes(app);
