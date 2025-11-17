@@ -23,7 +23,9 @@
       "Bash(Select-Object -Last 5 -ExpandProperty Name)",
       "Bash(npm run dev:*)",
       "Bash(server.log)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(npm run:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
