@@ -2,7 +2,7 @@ import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
 import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray, gte } from "drizzle-orm";
-import { getTenantDb } from "./multi-tenant-db.js";
+import { getTenantDb, masterDb } from "./multi-tenant-db.js";
 import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
 import { ProductBrand, InsertProductBrand } from "@shared/types.js";
 import { TenantStorage } from "./interfaces/storage.js";
@@ -4474,14 +4474,15 @@ async getUsersByRole(role: string) {
   },
 
   /**
-   * ✅ OBTENER CRÉDITOS DE IA - Consulta desde tenantDb (específico de la tienda)
+   * ✅ OBTENER CRÉDITOS DE IA - Consulta desde masterDb (schema público)
+   * Fixed: Now queries from public schema instead of tenant schema
    */
   async getAICredits() {
     try {
       console.log(`🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda ${storeId}...`);
 
-      // Consultar solo las columnas que sabemos que existen (sin columnas nuevas que podrían no existir)
-      const credits = await tenantDb.select({
+      // Consultar desde el schema público usando masterDb
+      const credits = await masterDb.select({
         id: schema.aiCredits.id,
         storeId: schema.aiCredits.storeId,
         totalCredits: schema.aiCredits.totalCredits,
@@ -4510,12 +4511,12 @@ async getUsersByRole(role: string) {
       return null;
     } catch (error) {
       console.error(`❌ [TENANT-STORAGE] Error obteniendo créditos para tienda ${storeId}:`, error);
-      // Try fallback with minimal columns
+      // Try fallback with minimal columns - using explicit public schema reference
       try {
-        console.log(`🔄 [TENANT-STORAGE] Intentando consulta fallback con columnas mínimas...`);
-        const result = await tenantDb.execute(`
+        console.log(`🔄 [TENANT-STORAGE] Intentando consulta fallback con schema público explícito...`);
+        const result = await masterDb.execute(`
           SELECT id, store_id, available_credits, is_enabled, total_credits
-          FROM ai_credits
+          FROM public.ai_credits
           WHERE store_id = ${storeId}
           LIMIT 1
         `);
