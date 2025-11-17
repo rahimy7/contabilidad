@@ -33,6 +33,7 @@ import { getTenantStorage, getTenantStorageBySlug } from './storage/index.js';
 import { getDefaultTenantStorage } from './tenant-storage.ts';
 import { setupPrintRoutes } from './print-routes';
 import aiRoutes from './ai-routes';
+import storeSettingsRoutes from './store-settings.routes';
 
 
 
@@ -162,6 +163,9 @@ app.use('/api/exchange-rates', exchangeRateRoutes);
 
 // ✅ REGISTRAR EL apiRouter PARA ENDPOINTS ADICIONALES
 app.use('/api', apiRouter);
+
+// 🧾 STORE SETTINGS ROUTES
+app.use('/api', storeSettingsRoutes);
 
 // ================================
 // HEALTH & DEBUG ENDPOINTS

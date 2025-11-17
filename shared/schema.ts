@@ -148,16 +148,26 @@ export const systemAuditLog = pgTable("system_audit_log", {
 // Store configuration table
 export const storeSettings = pgTable("store_settings", {
   id: serial("id").primaryKey(),
-  storeId: integer("store_id").references(() => virtualStores.id),
+  storeId: integer("store_id").notNull(),
   storeWhatsAppNumber: text("store_whatsapp_number").notNull(),
   storeName: text("store_name").notNull(),
   storeAddress: text("store_address"),
   storeEmail: text("store_email"),
+  storePhone: text("store_phone"),
+  // 🧾 FACTURA - Logo y campos para factura
+  logoUrl: text("logo_url"), // URL del logo en Supabase
+  logoStoragePath: text("logo_storage_path"), // Ruta en Supabase storage
+  invoiceFooter: text("invoice_footer"), // Texto personalizado para pie de factura
+  invoiceNumber: integer("invoice_number").default(1), // Número secuencial de facturas
+  // 🏪 Información de la tienda
   businessHours: text("business_hours").default("09:00-18:00"),
   deliveryRadius: text("delivery_radius").default("50"),
   baseSiteUrl: text("base_site_url"),
+  // ⚙️ Configuraciones generales
   enableNotifications: boolean("enable_notifications").default(true),
   autoAssignOrders: boolean("auto_assign_orders").default(true),
+  currency: text("currency").default("DOP"),
+  taxPercentage: decimal("tax_percentage", { precision: 5, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -277,6 +287,9 @@ export const products = pgTable("products", {
   salePrice: decimal("sale_price", { precision: 10, scale: 2 }), // Optional discounted price
   isPromoted: boolean("is_promoted").default(false),
   promotionText: text("promotion_text"),
+  // Fidelización - Plan de puntos
+  loyaltyPointsPropertyName: text("loyalty_points_property_name"), // 'LP', 'PUNTOS', 'REWARDS', etc. (OPCIONAL)
+  loyaltyPointsValue: decimal("loyalty_points_value", { precision: 10, scale: 2 }), // Valor numérico de puntos (OPCIONAL)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
    storeId: integer("store_id").notNull(),
@@ -290,7 +303,7 @@ export const orders = pgTable("orders", {
   orderNumber: text("order_number").notNull().unique(),
   customerId: integer("customer_id").references(() => customers.id),
   storeId: integer('store_id').notNull(),
-  
+
   // Información de ubicación del cliente
   customerProvince: text("customer_province"),
   customerMunicipality: text("customer_municipality"),
@@ -298,19 +311,22 @@ export const orders = pgTable("orders", {
   customerAddress: text("customer_address"),
   customerLatitude: decimal("customer_latitude", { precision: 10, scale: 8 }),
   customerLongitude: decimal("customer_longitude", { precision: 11, scale: 8 }),
-  
+
   // ... resto de campos existentes
   assignedUserId: integer("assigned_user_id").references(() => users.id),
   assignedRuleId: integer("assigned_rule_id").references(() => assignmentRules.id),
   autoAssigned: boolean("auto_assigned").default(false),
   assignmentAttempts: integer("assignment_attempts").default(0),
-  
+
   status: text("status").notNull().default("pending"),
   priority: text("priority").default("normal"),
   serviceType: text("service_type"),
   description: text("description"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
-  
+
+  // Fidelización - Puntos totales de lealtad para la orden
+  loyaltyPointsTotal: decimal("loyalty_points_total", { precision: 10, scale: 2 }).default("0"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   scheduledDate: timestamp("scheduled_date"),
@@ -707,7 +723,10 @@ export const insertProductBrandSchema = makeInsertSchema(productBrands, {
   website: z.string().url().optional(),
 }, ["id", "createdAt", "updatedAt"]);
 
-export const insertProductSchema = makeInsertSchema(products);
+export const insertProductSchema = makeInsertSchema(products, {
+  loyaltyPointsPropertyName: z.string().optional(),
+  loyaltyPointsValue: z.string().refine(val => val === undefined || !isNaN(parseFloat(val)), "Loyalty points value must be a valid number").optional(),
+});
 
 export const insertOrderSchema = makeInsertSchema(orders, {
   orderNumber: z.string().optional(),
