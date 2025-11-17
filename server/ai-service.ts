@@ -243,13 +243,25 @@ function findMatchingProducts(query: string, availableProducts: any[]): any[] {
   if (!query || !availableProducts || availableProducts.length === 0) return [];
 
   const queryLower = query.toLowerCase().trim();
+  // Normalizar: quitar espacios extra para búsquedas como "rite start" -> "ritestart"
+  const queryNormalized = queryLower.replace(/\s+/g, '');
 
   // Búsqueda exacta o parcial por nombre y descripción
-  return availableProducts.filter(p =>
-    p.name?.toLowerCase().includes(queryLower) ||
-    p.description?.toLowerCase().includes(queryLower) ||
-    p.category?.toLowerCase().includes(queryLower)
-  );
+  return availableProducts.filter(p => {
+    const nameLower = p.name?.toLowerCase() || '';
+    const nameNormalized = nameLower.replace(/\s+/g, '');
+    const descLower = p.description?.toLowerCase() || '';
+    const categoryLower = p.category?.toLowerCase() || '';
+
+    return (
+      nameLower.includes(queryLower) ||
+      descLower.includes(queryLower) ||
+      categoryLower.includes(queryLower) ||
+      // Búsqueda sin espacios (para casos como "ritestart" vs "rite start")
+      nameNormalized.includes(queryNormalized) ||
+      queryNormalized.includes(nameNormalized)
+    );
+  });
 }
 
 /**
@@ -320,26 +332,29 @@ export async function generateSalesAgentResponse(
 ⚠️ NUNCA inventes nombres de productos, precios o especificaciones.
 ✅ SIEMPRE usa datos exactos de la tienda.
 
-CARACTERÍSTICAS:
-✓ Vendedor real, no asistente genérico
-✓ Entusiasta sobre productos reales
+ESTILO DE RESPUESTA:
+✓ SÉ DIRECTO Y CONCISO (1-2 líneas máximo)
+✓ Si el cliente ya sabe lo que quiere, SOLO confirma el producto y precio
+✓ NO sugieras productos adicionales a menos que el cliente los pida
+✓ NO hagas preguntas innecesarias si el cliente es claro
 ✓ Responde en español dominicano natural
-✓ Cierra vendiendo (máximo 3-4 líneas)
-✓ Si no tienes producto exacto, ofrece alternativas reales
 
 INSTRUCCIONES DE RESPUESTA:
-1. SI EL CLIENTE PREGUNTA POR UN PRODUCTO:
-   - Confirma si existe en nuestro catálogo
-   - Usa NOMBRE, PRECIO y DESCRIPCIÓN reales
-   - Pregunta cantidad y cierra la venta
+1. SI EL CLIENTE PIDE UN PRODUCTO ESPECÍFICO:
+   - Confirma: "✅ [Nombre del producto] - RD$[precio]"
+   - NO agregues descripciones largas ni sugerencias
+   - NO preguntes cantidad si ya la mencionó
 
-2. SI NO EXISTE EL PRODUCTO EXACTO:
-   - Ofrece alternativas REALES del catálogo abajo
-   - Explica por qué pueden interesarle
+2. SI EL CLIENTE SALUDA O PREGUNTA EN GENERAL:
+   - Responde brevemente y pregunta en qué puedes ayudar
+   - NO menciones productos específicos hasta que pregunten
 
-3. SI PREGUNTA POR DISPONIBILIDAD:
+3. SI NO EXISTE EL PRODUCTO EXACTO:
+   - Di que no lo tienes
+   - SOLO si tiene algo similar, menciónalo brevemente
+
+4. SI PREGUNTA POR DISPONIBILIDAD:
    - Responde basándote SOLO en el catálogo real
-   - Nunca digas que tenemos algo que no está en la lista
 
 ${productCatalog}`;
     } else {
