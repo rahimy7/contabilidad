@@ -550,14 +550,47 @@ export default function SimpleCatalog() {
     staleTime: 30 * 1000, // Cache por 30 segundos
   });
 
-  // Filtrado de productos (usar resultados de búsqueda si están disponibles, sino usar todos)
-  const filteredProducts = (searchTerm || selectedCategory !== "all")
-    ? searchResults.map(convertProduct)
-    : convertedProducts.filter((product: any) => {
+  // Filtrado de productos
+  const filteredProducts = (() => {
+    // Si hay término de búsqueda o categoría seleccionada Y hay resultados de búsqueda, usarlos
+    if ((searchTerm || selectedCategory !== "all") && searchResults.length > 0) {
+      return searchResults.map(convertProduct);
+    }
+
+    // Si está cargando la búsqueda, mostrar productos actuales filtrados localmente
+    if (searchLoading) {
+      return convertedProducts.filter((product: any) => {
         if (!product) return false;
+
+        // Filtrar por término de búsqueda (nombre, descripción, SKU)
+        const matchesSearch = !searchTerm ||
+          product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Filtrar por categoría
         const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
-        return matchesCategory;
+
+        return matchesSearch && matchesCategory;
       });
+    }
+
+    // Filtrado local cuando no hay búsqueda del servidor
+    return convertedProducts.filter((product: any) => {
+      if (!product) return false;
+
+      // Filtrar por término de búsqueda (nombre, descripción, SKU)
+      const matchesSearch = !searchTerm ||
+        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Filtrar por categoría
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  })();
 
 const getProductImages = (product: any): string[] => {
   if (product.image_urls && Array.isArray(product.image_urls)) {

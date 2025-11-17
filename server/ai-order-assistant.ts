@@ -75,7 +75,13 @@ async function analyzeMessageWithAI(message: string, context?: AIContext, recent
     // Mapear categoría a intención
     let intent: 'add_to_cart' | 'confirm_order' | 'ask_question' | 'search_product' | 'other' = 'search_product';
 
-    if (interpretation.category === 'order' && interpretation.entities.products?.length) {
+    // ✅ DETECTAR CONFIRMACIONES: "Si", "Si procede", "Confirmar", etc.
+    const confirmationKeywords = ['si', 'sí', 'yes', 'confirmar', 'confirm', 'procede', 'proceder', 'ok', 'vale', 'adelante'];
+    const isConfirmation = confirmationKeywords.some(keyword => message.toLowerCase().includes(keyword));
+
+    if (interpretation.intent === 'confirm order' || (interpretation.category === 'order' && isConfirmation)) {
+      intent = 'confirm_order';
+    } else if (interpretation.category === 'order' && interpretation.entities.products?.length) {
       intent = 'add_to_cart';
     } else if (interpretation.category === 'question') {
       intent = 'ask_question';

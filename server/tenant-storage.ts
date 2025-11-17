@@ -4448,6 +4448,22 @@ async getUsersByRole(role: string) {
   },
 
   /**
+   * Obtener conversaciones AI activas (para limpieza)
+   */
+  async getActiveAIConversations(storeId: number) {
+    try {
+      const conversations = await tenantDb
+        .select()
+        .from(schema.aiConversations)
+        .where(eq(schema.aiConversations.storeId, storeId));
+      return conversations || [];
+    } catch (error) {
+      console.error('Error getting active AI conversations:', error);
+      return [];
+    }
+  },
+
+  /**
    * Registrar uso de IA
    */
   async logAIUsage(data: any) {

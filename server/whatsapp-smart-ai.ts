@@ -601,6 +601,7 @@ export async function tryProcessWithAI(
         if (customer?.address) {
           const orderFlowConversation = {
             ...aiConversation,
+            cartItems: currentCart, // ✅ Guardar también en cartItems
             orderFlowStep: 'collect_payment',
             pendingOrder: {
               cartItems: currentCart,
@@ -610,6 +611,8 @@ export async function tryProcessWithAI(
             }
           } as any;
           await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
+
+          console.log(`💾 [AI-SMART] Estado guardado - Carrito: ${currentCart.length} items, Step: collect_payment`);
 
           return {
             handled: true,
@@ -621,6 +624,7 @@ export async function tryProcessWithAI(
         // Si NO tiene dirección, solicitar dirección
         const orderFlowConversation = {
           ...aiConversation,
+          cartItems: currentCart, // ✅ Guardar también en cartItems para mantener estado
           orderFlowStep: 'collect_address',
           pendingOrder: {
             cartItems: currentCart,
@@ -630,6 +634,8 @@ export async function tryProcessWithAI(
           }
         } as any;
         await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
+
+        console.log(`💾 [AI-SMART] Estado guardado - Carrito: ${currentCart.length} items, Step: collect_address`);
 
         return {
           handled: true,
@@ -665,6 +671,12 @@ export async function tryProcessWithAI(
       }
 
       case 'confirm_order':
+        // ✅ Si el carrito está vacío pero hay pendingOrder, recuperarlo
+        if (currentCart.length === 0 && (aiConversation as any).pendingOrder?.cartItems?.length > 0) {
+          console.log(`🔄 [AI-SMART] Recuperando carrito de pendingOrder: ${(aiConversation as any).pendingOrder.cartItems.length} items`);
+          currentCart = (aiConversation as any).pendingOrder.cartItems;
+        }
+
         if (currentCart.length === 0) {
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
         } else {

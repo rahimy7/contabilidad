@@ -1,5 +1,6 @@
 import { getTenantStorage } from './storage/index.js';
 import { db } from './db.js';
+import { cleanupIncompleteAIConversations } from './ai-conversation-cleanup.js';
 
 /**
  * 🕐 Tareas programadas para limpieza automática
@@ -10,6 +11,7 @@ const CLEANUP_INTERVALS = {
   CONVERSATIONS: 24 * 60 * 60 * 1000, // 24 horas
   REGISTRATION_FLOWS: 6 * 60 * 60 * 1000, // 6 horas
   ORPHAN_DATA: 12 * 60 * 60 * 1000, // 12 horas
+  AI_CONVERSATIONS: 30 * 60 * 1000, // 30 minutos - Limpiar conversaciones AI inconclusas
 };
 
 // Configuración de retención
@@ -120,6 +122,70 @@ async function cleanupAllStoresRegistrationFlows() {
 }
 
 /**
+ * Limpiar conversaciones AI inconclusas (después de 30 minutos de inactividad)
+ */
+async function cleanupAllStoresAIConversations() {
+  try {
+    console.log('\n🧹 ===== STARTING SCHEDULED AI CONVERSATIONS CLEANUP =====');
+    console.log(`⏰ ${new Date().toISOString()}`);
+
+    const stores = await db.query.virtualStores.findMany({
+      where: (stores, { eq }) => eq(stores.isActive, true)
+    });
+
+    console.log(`🏪 Found ${stores.length} active stores`);
+
+    let totalConversationsCleaned = 0;
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const store of stores) {
+      try {
+        console.log(`\n🔄 Processing AI cleanup for store: ${store.name} (ID: ${store.id})`);
+
+        const tenantStorage = await getTenantStorage(store.id);
+        const cleaned = await cleanupIncompleteAIConversations(
+          store.id,
+          tenantStorage,
+          {
+            inactivityThresholdMinutes: 30, // Limpiar después de 30 min de inactividad
+            runIntervalMinutes: 30 // Se ejecutará cada 30 min automáticamente
+          }
+        );
+
+        totalConversationsCleaned += cleaned;
+        successCount++;
+
+        if (cleaned > 0) {
+          console.log(`✅ Store ${store.id}: ${cleaned} AI conversations cleaned`);
+        } else {
+          console.log(`✅ Store ${store.id}: No inactive AI conversations to clean`);
+        }
+
+      } catch (storeError) {
+        errorCount++;
+        console.error(`❌ Error processing AI cleanup for store ${store.id} (${store.name}):`, storeError.message);
+        // Continuar con la siguiente tienda
+      }
+    }
+
+    console.log('\n📊 ===== AI CLEANUP SUMMARY =====');
+    console.log(`✅ Stores processed successfully: ${successCount}/${stores.length}`);
+    if (errorCount > 0) {
+      console.log(`❌ Stores with errors: ${errorCount}`);
+    }
+    console.log(`🗑️ Total AI conversations cleaned: ${totalConversationsCleaned}`);
+    console.log(`✅ AI cleanup completed at: ${new Date().toISOString()}\n`);
+
+    return { totalConversationsCleaned, successCount, errorCount };
+
+  } catch (error) {
+    console.error('❌ Error in scheduled AI conversations cleanup:', error);
+    return { totalConversationsCleaned: 0, successCount: 0, errorCount: 0 };
+  }
+}
+
+/**
  * Limpiar datos huérfanos
  */
 async function cleanupAllStoresOrphanData() {
@@ -183,13 +249,18 @@ export function startScheduledTasks() {
   // 3️⃣ Limpiar datos huérfanos cada 12 horas
   console.log(`📅 Orphan data cleanup: Every ${CLEANUP_INTERVALS.ORPHAN_DATA / (60 * 60 * 1000)} hours`);
   setInterval(cleanupAllStoresOrphanData, CLEANUP_INTERVALS.ORPHAN_DATA);
-  
+
+  // 4️⃣ Limpiar conversaciones AI inconclusas cada 30 minutos
+  console.log(`📅 AI conversations cleanup: Every ${CLEANUP_INTERVALS.AI_CONVERSATIONS / (60 * 1000)} minutes`);
+  setInterval(cleanupAllStoresAIConversations, CLEANUP_INTERVALS.AI_CONVERSATIONS);
+
   // Ejecutar limpieza inicial después de 1 minuto
   console.log('⏳ Running initial cleanup in 1 minute...');
   setTimeout(() => {
     cleanupAllStoresConversations();
     cleanupAllStoresRegistrationFlows();
     cleanupAllStoresOrphanData();
+    cleanupAllStoresAIConversations(); // ✅ Agregar limpieza de AI
   }, 60 * 1000);
   
   console.log('✅ All scheduled tasks started successfully\n');
@@ -215,5 +286,6 @@ export async function runManualCleanup(daysOld: number = 7) {
 export {
   cleanupAllStoresConversations,
   cleanupAllStoresRegistrationFlows,
-  cleanupAllStoresOrphanData
+  cleanupAllStoresOrphanData,
+  cleanupAllStoresAIConversations
 };
