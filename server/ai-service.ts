@@ -226,8 +226,24 @@ Responde con este formato JSON:
 }
 
 /**
+ * 🔍 Buscar productos similares en el catálogo real
+ */
+function findMatchingProducts(query: string, availableProducts: any[]): any[] {
+  if (!query || !availableProducts || availableProducts.length === 0) return [];
+
+  const queryLower = query.toLowerCase().trim();
+
+  // Búsqueda exacta o parcial por nombre y descripción
+  return availableProducts.filter(p =>
+    p.name?.toLowerCase().includes(queryLower) ||
+    p.description?.toLowerCase().includes(queryLower) ||
+    p.category?.toLowerCase().includes(queryLower)
+  );
+}
+
+/**
  * ✨ NUEVA FUNCIÓN: Generar respuesta como AGENTE DE VENTAS
- * Específicamente diseñada para conducir ventas completas
+ * SOLO usa datos REALES de la base de datos, nunca inventa
  */
 export async function generateSalesAgentResponse(
   messageText: string,
@@ -236,69 +252,83 @@ export async function generateSalesAgentResponse(
   context?: ConversationContext
 ): Promise<string> {
   try {
-    console.log('🤖 [SALES-AGENT] Generando respuesta de vendedor...');
+    console.log('🤖 [SALES-AGENT] Generando respuesta de vendedor con datos REALES...');
 
-    // Construir historial de conversación
-    let conversationHistory = '';
-    if (context?.recentMessages && context.recentMessages.length > 0) {
-      conversationHistory = context.recentMessages
-        .slice(-5)
-        .map(msg => `${msg.role === 'user' ? 'Cliente' : 'Vendedor'}: ${msg.content}`)
-        .join('\n');
+    // 1️⃣ BUSCAR PRODUCTOS REALES que el cliente preguntó
+    let matchedProducts: any[] = [];
+    let recommendedProducts: any[] = [];
+
+    if (interpretation.entities.products && interpretation.entities.products.length > 0) {
+      // Buscar cada producto mencionado
+      for (const productQuery of interpretation.entities.products) {
+        const matches = findMatchingProducts(productQuery, availableProducts || []);
+        matchedProducts.push(...matches);
+      }
     }
 
-    // Construir catálogo de productos disponibles
-    let productCatalog = '';
-    if (availableProducts && availableProducts.length > 0) {
-      productCatalog = '\n\n📦 PRODUCTOS DISPONIBLES:\n';
-      availableProducts.slice(0, 10).forEach(p => {
-        productCatalog += `- ${p.name}: RD$${p.price} (${p.category})\n`;
+    // Si no hay coincidencia exacta, sugerir productos del catálogo
+    if (matchedProducts.length === 0 && availableProducts && availableProducts.length > 0) {
+      recommendedProducts = availableProducts.slice(0, 3);
+    }
+
+    // 2️⃣ CONSTRUIR CATÁLOGO CON DATOS REALES
+    let productCatalog = '\n\n📦 CATÁLOGO DE LA TIENDA:\n';
+    const productsToShow = matchedProducts.length > 0 ? matchedProducts : recommendedProducts;
+
+    if (productsToShow.length > 0) {
+      productsToShow.forEach(p => {
+        const price = p.price || 'No especificado';
+        const category = p.category || 'General';
+        const description = p.description ? ` - ${p.description}` : '';
+        productCatalog += `✓ ${p.name}: RD$${price} (${category})${description}\n`;
       });
+    } else {
+      productCatalog = '\n\n📦 Consulta nuestro catálogo completo\n';
     }
 
-    const systemPrompt = `Eres un AGENTE DE VENTAS profesional y amigable para una tienda en línea en República Dominicana.
+    const systemPrompt = `Eres un AGENTE DE VENTAS profesional para una tienda en República Dominicana.
 
-🎯 TU OBJETIVO: Cerrar ventas y materializar pedidos completos
+🎯 REGLA FUNDAMENTAL: SOLO recomienda y habla de productos reales que están en el catálogo.
+⚠️ NUNCA inventes nombres de productos, precios o especificaciones.
+✅ SIEMPRE usa datos exactos de la tienda.
 
-CARACTERÍSTICAS PRINCIPALES:
-✓ Eres VENDEDOR, no solo asistente
-✓ Responde en español dominicano natural y conversacional
-✓ Sé entusiasta sobre los productos
-✓ Proactivamente sugiere productos según lo que el cliente busca
-✓ Usa emojis para ser más personal y atractivo
-✓ Sé conciso pero persuasivo (máximo 3-4 líneas)
-✓ Siempre intenta entender QUÉ necesita el cliente para sugerirle productos
+CARACTERÍSTICAS:
+✓ Vendedor real, no asistente genérico
+✓ Entusiasta sobre productos reales
+✓ Responde en español dominicano natural
+✓ Cierra vendiendo (máximo 3-4 líneas)
+✓ Si no tienes producto exacto, ofrece alternativas reales
 
-FLUJO DE VENTA:
-1. Si el cliente pregunta por un producto → Muestra detalles y precio
-2. Si el cliente está interesado → Pregunta cantidad y detalles de entrega
-3. Si hay múltiples opciones → Destaca la mejor opción
-4. Siempre intenta cerrar con "¿Hacemos el pedido?"
+INSTRUCCIONES DE RESPUESTA:
+1. SI EL CLIENTE PREGUNTA POR UN PRODUCTO:
+   - Confirma si existe en nuestro catálogo
+   - Usa NOMBRE, PRECIO y DESCRIPCIÓN reales
+   - Pregunta cantidad y cierra la venta
 
-TONO:
-- Amable, profesional, sin ser aburrido
-- Entusiasta sobre los productos
-- Respeta las necesidades del cliente
-- Ofrece alternativas cuando es posible
+2. SI NO EXISTE EL PRODUCTO EXACTO:
+   - Ofrece alternativas REALES del catálogo
+   - Explica por qué pueden interesarle
+
+3. SI PREGUNTA POR DISPONIBILIDAD:
+   - Responde basándote SOLO en el catálogo real
+   - Nunca digas que tenemos algo que no está en la lista
 
 ${productCatalog}`;
 
     const userPrompt = `Cliente dice: "${messageText}"
 
-ANÁLISIS:
+DATOS DEL CLIENTE:
 - Intención: ${interpretation.intent}
-- Categoría: ${interpretation.category}
-- Productos mencionados: ${interpretation.entities.products?.join(', ') || 'ninguno'}
-- Cantidad solicitada: ${interpretation.entities.quantity || '1'}
+- Busca: ${interpretation.entities.products?.join(', ') || 'No especificado'}
+- Cantidad: ${interpretation.entities.quantity || 'No especificada'}
 - Sentimiento: ${interpretation.sentiment}
 
-${conversationHistory ? `HISTORIAL:\n${conversationHistory}\n` : ''}
+PRODUCTOS ENCONTRADOS EN NUESTRO CATÁLOGO:
+${matchedProducts.length > 0
+  ? matchedProducts.map(p => `✓ ${p.name}: RD$${p.price}`).join('\n')
+  : 'No hay coincidencia exacta'}
 
-${context ? `CLIENTE:
-- Nombre: ${context.customerName}
-- Órdenes previas: ${context.orderHistory?.length || 0}` : ''}
-
-Genera una respuesta como VENDEDOR para avanzar la venta:`;
+Responde como VENDEDOR usando SOLO los datos reales anteriores. Sé entusiasta pero honesto:`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -306,12 +336,12 @@ Genera una respuesta como VENDEDOR para avanzar la venta:`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.75,
+      temperature: 0.7,
       max_tokens: 200
     });
 
     const response = completion.choices[0].message.content || interpretation.suggestedResponse;
-    console.log('✅ [SALES-AGENT] Respuesta de vendedor generada:', response);
+    console.log('✅ [SALES-AGENT] Respuesta basada en datos reales:', response);
     return response;
 
   } catch (error: any) {

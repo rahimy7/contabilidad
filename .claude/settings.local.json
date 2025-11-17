@@ -18,7 +18,11 @@
       "Bash(node check-table-structure.js:*)",
       "Bash(node scripts/fix-store-settings-column.js:*)",
       "Bash(node check-orders-structure.js:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(Get-ChildItem \"d:\\Proyectos Programacion\\Delivery\\Delivery Web\\logs\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -Last 5 -ExpandProperty Name)",
+      "Bash(npm run dev:*)",
+      "Bash(server.log)"
     ],
     "deny": [],
     "ask": []
