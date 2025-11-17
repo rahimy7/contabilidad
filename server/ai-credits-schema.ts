@@ -190,6 +190,14 @@ export interface AIConversationState {
   mode: 'assistant' | 'order_taking' | 'product_search' | 'support';
   cartItems?: CartItem[];
   currentIntent?: string;
+  // ✅ NUEVO: Flujo de recolección de datos de orden
+  orderFlowStep?: 'collect_address' | 'collect_payment' | 'collect_notes' | 'confirm_order' | null;
+  pendingOrder?: {
+    cartItems: CartItem[];
+    address?: string;
+    paymentMethod?: string;
+    notes?: string;
+  };
 }
 
 export interface CartItem {

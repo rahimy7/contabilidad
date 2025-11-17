@@ -377,9 +377,9 @@ export async function tryProcessWithAI(
     let currentCart = aiConversation.cartItems || [];
 
     // ✅ NUEVO: Manejar flujo de recolección de datos del pedido
-    const orderFlowStep = context.orderFlowStep;
-    if (orderFlowStep && context.pendingOrder) {
-      const pendingOrder = context.pendingOrder;
+    const orderFlowStep = (aiConversation as any).orderFlowStep;
+    if (orderFlowStep && (aiConversation as any).pendingOrder) {
+      const pendingOrder = (aiConversation as any).pendingOrder;
 
       switch (orderFlowStep) {
         case 'collect_address':
@@ -392,16 +392,16 @@ export async function tryProcessWithAI(
             };
           }
 
-          // ✅ Dirección válida - pasar a pago
-          const updatedContext = conversationContexts.get(phoneNumber) || {};
-          conversationContexts.set(phoneNumber, {
-            ...updatedContext,
+          // ✅ Dirección válida - pasar a pago - GUARDAR EN DB
+          const updatedConversation1 = {
+            ...aiConversation,
             orderFlowStep: 'collect_payment',
             pendingOrder: {
               ...pendingOrder,
               address: addressValidation.address
             }
-          });
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, updatedConversation1);
 
           console.log(`📍 [AI-SMART] Dirección guardada: ${addressValidation.address}`);
           return {
@@ -419,17 +419,17 @@ export async function tryProcessWithAI(
             };
           }
 
-          // ✅ Pago válido - pasar a notas
-          const updatedContext2 = conversationContexts.get(phoneNumber) || {};
-          conversationContexts.set(phoneNumber, {
-            ...updatedContext2,
+          // ✅ Pago válido - pasar a notas - GUARDAR EN DB
+          const updatedConversation2 = {
+            ...aiConversation,
             orderFlowStep: 'collect_notes',
             pendingOrder: {
               ...pendingOrder,
               address: pendingOrder.address,
               paymentMethod: paymentValidation.method
             }
-          });
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, updatedConversation2);
 
           console.log(`💳 [AI-SMART] Método de pago guardado: ${paymentValidation.method}`);
           return {
@@ -445,10 +445,9 @@ export async function tryProcessWithAI(
 
           const notes = skipNotes ? '' : messageText;
 
-          // ✅ Pasar a confirmación final
-          const updatedContext3 = conversationContexts.get(phoneNumber) || {};
-          conversationContexts.set(phoneNumber, {
-            ...updatedContext3,
+          // ✅ Pasar a confirmación final - GUARDAR EN DB
+          const updatedConversation3 = {
+            ...aiConversation,
             orderFlowStep: 'confirm_order',
             pendingOrder: {
               ...pendingOrder,
@@ -456,7 +455,8 @@ export async function tryProcessWithAI(
               paymentMethod: pendingOrder.paymentMethod,
               notes: notes
             }
-          });
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, updatedConversation3);
 
           const confirmationMessage = generateOrderConfirmationMessage(
             {
@@ -486,8 +486,15 @@ export async function tryProcessWithAI(
           );
 
           if (isCancelled) {
-            // ✅ Limpiar contexto y volver al flujo normal
-            conversationContexts.delete(phoneNumber);
+            // ✅ Limpiar contexto - GUARDAR EN DB
+            const clearedConversation = {
+              ...aiConversation,
+              orderFlowStep: null,
+              pendingOrder: undefined,
+              cartItems: []
+            } as any;
+            await tenantStorage.updateAIConversation?.(storeId, conversationId, clearedConversation);
+
             return {
               handled: true,
               responseMessage: '❌ Pedido cancelado. ¿En qué más puedo ayudarte?'
@@ -516,9 +523,14 @@ export async function tryProcessWithAI(
               }
             );
 
-            // ✅ Limpiar contexto después de crear la orden
-            conversationContexts.delete(phoneNumber);
-            await AIConversationManager.updateCart(storeId, conversationId, []);
+            // ✅ Limpiar contexto después de crear la orden - GUARDAR EN DB
+            const clearedConversation = {
+              ...aiConversation,
+              orderFlowStep: null,
+              pendingOrder: undefined,
+              cartItems: []
+            } as any;
+            await tenantStorage.updateAIConversation?.(storeId, conversationId, clearedConversation);
 
             return {
               handled: true,
@@ -615,10 +627,9 @@ export async function tryProcessWithAI(
         if (currentCart.length === 0) {
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
         } else {
-          // ✅ NUEVO: Iniciar flujo de recolección de datos en lugar de crear orden directamente
-          const context = conversationContexts.get(phoneNumber) || {};
-          conversationContexts.set(phoneNumber, {
-            ...context,
+          // ✅ NUEVO: Iniciar flujo de recolección de datos en lugar de crear orden directamente - GUARDAR EN DB
+          const orderFlowConversation = {
+            ...aiConversation,
             orderFlowStep: 'collect_address',
             pendingOrder: {
               cartItems: currentCart,
@@ -626,7 +637,8 @@ export async function tryProcessWithAI(
               paymentMethod: undefined,
               notes: undefined
             }
-          });
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
 
           console.log(`📍 [AI-SMART] Iniciando flujo de recolección para ${phoneNumber}`);
           return {
