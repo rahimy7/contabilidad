@@ -12,7 +12,12 @@
       "Bash(findstr:*)",
       "Bash(npx tsx:*)",
       "Bash(npm run ai:test:*)",
-      "Bash(npm run ai:migrate:*)"
+      "Bash(npm run ai:migrate:*)",
+      "Bash(nul)",
+      "Bash(find \"d:\\Proyectos Programacion\\Delivery\\Delivery Web\" -type d ( -name \"models\" -o -name \"schemas\" -o -name \"database\" ) 2)",
+      "Bash(node check-table-structure.js:*)",
+      "Bash(node scripts/fix-store-settings-column.js:*)",
+      "Bash(node check-orders-structure.js:*)"
     ],
     "deny": [],
     "ask": []

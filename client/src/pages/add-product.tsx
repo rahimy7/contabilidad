@@ -48,7 +48,7 @@ const productFormBaseSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
   price: z.string().min(1, 'El precio es requerido'),
-  currency: z.enum(['DOP', 'USD'], { 
+  currency: z.enum(['DOP', 'USD'], {
     errorMap: () => ({ message: 'Selecciona una moneda válida (DOP o USD)' })
   }),
   // Categoría opcional en el esquema base; se obliga solo en creación
@@ -80,6 +80,9 @@ const productFormBaseSchema = z.object({
   maxQuantity: z.number().optional(),
   isPromoted: z.boolean().optional(),
   promotionText: z.string().optional(),
+  // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+  loyaltyPointsPropertyName: z.string().optional(), // 'LP', 'PUNTOS', 'REWARDS', etc.
+  loyaltyPointsValue: z.union([z.string(), z.null(), z.undefined()]).optional(), // Valor numérico de puntos
 });
 
 // Esquema para creación: exige categoría
@@ -119,8 +122,8 @@ interface Product {
   name: string;
   description?: string;
   price?: string;
-  currency?: string;        
-  baseCurrency?: string;    
+  currency?: string;
+  baseCurrency?: string;
   category?: string;
   type?: string;
   brand?: string;
@@ -145,6 +148,9 @@ interface Product {
   maxQuantity?: number;
   isPromoted?: boolean;
   promotionText?: string;
+  // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+  loyaltyPointsPropertyName?: string;
+  loyaltyPointsValue?: string;
 }
 
 const mockBrands = ["Hikvision", "Dahua", "DSC", "Honeywell", "Bosch", "Axis", "Pelco"];
@@ -332,6 +338,9 @@ export default function EnhancedAddProduct() {
         maxQuantity: productData.maxQuantity || undefined,
         isPromoted: productData.isPromoted ?? false,
         promotionText: productData.promotionText || "",
+        // 🎁 FIDELIZACIÓN - Campos de puntos de lealtad
+        loyaltyPointsPropertyName: productData.loyaltyPointsPropertyName || "",
+        loyaltyPointsValue: productData.loyaltyPointsValue || "",
       });
 
       console.log('💱 Loaded currency:', productData.baseCurrency || productData.currency || "DOP");
@@ -1051,6 +1060,45 @@ export default function EnhancedAddProduct() {
                       type="number"
                       step="0.01"
                     />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 🎁 FIDELIZACIÓN - Plan de Puntos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan de Fidelización</CardTitle>
+                <CardDescription>
+                  Configurar puntos de lealtad para este producto (OPCIONAL)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="loyaltyPointsPropertyName">Nombre de Propiedad de Puntos</Label>
+                    <Input
+                      id="loyaltyPointsPropertyName"
+                      {...register("loyaltyPointsPropertyName")}
+                      placeholder="Ej: LP, PUNTOS, REWARDS"
+                      type="text"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Nombre del tipo de puntos (LP, PUNTOS, REWARDS, etc.)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="loyaltyPointsValue">Valor de Puntos</Label>
+                    <Input
+                      id="loyaltyPointsValue"
+                      {...register("loyaltyPointsValue")}
+                      placeholder="0.00"
+                      type="number"
+                      step="0.01"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Cantidad de puntos a asignar por este producto
+                    </p>
                   </div>
                 </div>
               </CardContent>

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // import { DatePickerWithRange } from "@/components/ui/date-picker";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter, UserCheck } from "lucide-react";
+import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter, UserCheck, AlertTriangle, TrendingDown } from "lucide-react";
 import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 export default function Reports() {
@@ -176,14 +176,14 @@ export default function Reports() {
   // Product performance
   const productPerformance = React.useMemo(() => {
     if (!Array.isArray(products) || !Array.isArray(filteredOrders)) return [];
-    
+
     return products.map((product: any) => {
-      const productOrders = filteredOrders.filter((order: any) => 
+      const productOrders = filteredOrders.filter((order: any) =>
         order.items?.some((item: any) => item.productId === product.id)
       );
-      const revenue = productOrders.reduce((sum: number, order: any) => 
+      const revenue = productOrders.reduce((sum: number, order: any) =>
         order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
-      
+
       return {
         name: product.name,
         orders: productOrders.length,
@@ -192,6 +192,93 @@ export default function Reports() {
       };
     }).sort((a, b) => b.revenue - a.revenue);
   }, [products, filteredOrders]);
+
+  // Today's sales by product (vendido hoy)
+  const todaysSalesByProduct = React.useMemo(() => {
+    if (!Array.isArray(products) || !Array.isArray(orders)) return [];
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    const todayOrders = orders.filter((order: any) => {
+      const orderDate = new Date(order.createdAt);
+      return orderDate >= todayStart && orderDate < todayEnd && order.status === "completed";
+    });
+
+    const salesByProduct: Record<string, { name: string; quantity: number; revenue: number; productId: number }> = {};
+
+    todayOrders.forEach((order: any) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const product = products.find((p: any) => p.id === item.productId);
+          if (product) {
+            if (!salesByProduct[item.productId]) {
+              salesByProduct[item.productId] = {
+                name: product.name,
+                quantity: 0,
+                revenue: 0,
+                productId: product.id
+              };
+            }
+            salesByProduct[item.productId].quantity += parseInt(item.quantity) || 1;
+            salesByProduct[item.productId].revenue += parseFloat(item.totalPrice) || 0;
+          }
+        });
+      }
+    });
+
+    return Object.values(salesByProduct).sort((a, b) => b.quantity - a.quantity);
+  }, [products, orders]);
+
+  // Zero stock products (productos con stock en cero)
+  const zeroStockProducts = React.useMemo(() => {
+    if (!Array.isArray(products)) return [];
+
+    return products.filter((product: any) => {
+      const stock = parseInt(product.stock) || 0;
+      return stock === 0;
+    }).map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: parseFloat(product.price) || 0
+    }));
+  }, [products]);
+
+  // Inventory metrics
+  const inventoryMetrics = React.useMemo(() => {
+    if (!Array.isArray(products)) {
+      return {
+        totalProducts: 0,
+        totalStock: 0,
+        zeroStockCount: 0,
+        lowStockCount: 0,
+        totalInventoryValue: 0,
+        averageStockPerProduct: 0
+      };
+    }
+
+    const totalProducts = products.length;
+    const totalStock = products.reduce((sum: number, p: any) => sum + (parseInt(p.stock) || 0), 0);
+    const zeroStockCount = products.filter((p: any) => (parseInt(p.stock) || 0) === 0).length;
+    const lowStockCount = products.filter((p: any) => {
+      const stock = parseInt(p.stock) || 0;
+      return stock > 0 && stock <= 10;
+    }).length;
+    const totalInventoryValue = products.reduce((sum: number, p: any) =>
+      sum + ((parseInt(p.stock) || 0) * (parseFloat(p.price) || 0)), 0);
+    const averageStockPerProduct = totalProducts > 0 ? Math.round(totalStock / totalProducts) : 0;
+
+    return {
+      totalProducts,
+      totalStock,
+      zeroStockCount,
+      lowStockCount,
+      totalInventoryValue,
+      averageStockPerProduct
+    };
+  }, [products]);
 
   function getStatusColor(status: string) {
     const colors: Record<string, string> = {
@@ -207,15 +294,15 @@ export default function Reports() {
   function handlePeriodChange(period: string) {
     setSelectedPeriod(period);
     const now = new Date();
-    
+
     switch (period) {
       case "today":
         setDateRange({ from: now, to: now });
         break;
       case "thisWeek":
-        setDateRange({ 
-          from: addDays(now, -7), 
-          to: now 
+        setDateRange({
+          from: addDays(now, -7),
+          to: now
         });
         break;
       case "thisMonth":
@@ -232,6 +319,84 @@ export default function Reports() {
         });
         break;
     }
+  }
+
+  // Export inventory to CSV
+  const handleExportInventory = () => {
+    if (!Array.isArray(products)) return;
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Headers
+    const headers = ["Producto", "Stock", "Precio Unit.", "Valor Total", "Categoría"];
+    csvContent += headers.join(",") + "\n";
+
+    // Data rows
+    products.forEach((product: any) => {
+      const stock = parseInt(product.stock) || 0;
+      const price = parseFloat(product.price) || 0;
+      const totalValue = stock * price;
+      const row = [
+        `"${product.name}"`,
+        stock,
+        `$${price.toFixed(2)}`,
+        `$${totalValue.toFixed(2)}`,
+        product.category || "Sin categoría"
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+
+    // Summary row
+    csvContent += "\n,RESUMEN,,,\n";
+    csvContent += `Total Productos,${inventoryMetrics.totalProducts},,Total Valor,$${inventoryMetrics.totalInventoryValue.toFixed(2)}\n`;
+    csvContent += `Total Stock,${inventoryMetrics.totalStock},,Stock Promedio,${inventoryMetrics.averageStockPerProduct}\n`;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `inventario_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export today's sales to CSV
+  const handleExportTodaysSales = () => {
+    if (todaysSalesByProduct.length === 0) {
+      alert("No hay ventas de hoy para exportar");
+      return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Headers
+    const headers = ["Producto", "Cantidad Vendida", "Ingresos"];
+    csvContent += headers.join(",") + "\n";
+
+    // Data rows
+    todaysSalesByProduct.forEach((sale: any) => {
+      const revenue = parseFloat(sale.revenue) || 0;
+      const row = [
+        `"${sale.name}"`,
+        parseInt(sale.quantity) || 0,
+        `$${revenue.toFixed(2)}`
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+
+    // Summary row
+    const totalQty = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (parseInt(s.quantity) || 0), 0);
+    const totalRevenue = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (parseFloat(s.revenue) || 0), 0);
+    csvContent += "\nRESUMEN,,,\n";
+    csvContent += `Total Items Vendidos,${totalQty},$${totalRevenue.toFixed(2)}\n`;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ventas-hoy_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   return (
@@ -343,10 +508,11 @@ export default function Reports() {
 
       {/* Analytics Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
           <TabsTrigger value="overview" className="text-xs md:text-sm">Resumen</TabsTrigger>
           <TabsTrigger value="employees" className="text-xs md:text-sm">Empleados</TabsTrigger>
           <TabsTrigger value="products" className="text-xs md:text-sm">Productos</TabsTrigger>
+          <TabsTrigger value="inventory" className="text-xs md:text-sm">Inventario</TabsTrigger>
           <TabsTrigger value="trends" className="text-xs md:text-sm">Tendencias</TabsTrigger>
         </TabsList>
 
@@ -543,6 +709,174 @@ export default function Reports() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inventory" className="space-y-6">
+          {/* Inventory Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                  <Package className="h-4 w-4 mr-2" />
+                  Stock Total
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{inventoryMetrics.totalStock}</div>
+                <p className="text-sm text-gray-500 mt-1">{inventoryMetrics.totalProducts} productos</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Valor Total Inventario
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${inventoryMetrics.totalInventoryValue.toLocaleString('es-MX')}</div>
+                <p className="text-sm text-gray-500 mt-1">Valoración actual</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Stock Crítico
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{inventoryMetrics.zeroStockCount}</div>
+                <p className="text-sm text-gray-500 mt-1">{inventoryMetrics.lowStockCount} con stock bajo</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Today's Sales by Product */}
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle>Vendido Hoy (Por Producto)</CardTitle>
+              {todaysSalesByProduct.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleExportTodaysSales}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {todaysSalesByProduct.length > 0 ? (
+                <div className="space-y-4">
+                  {todaysSalesByProduct.map((sale) => {
+                    const saleRevenue = parseFloat(sale.revenue) || 0;
+                    return (
+                      <div key={sale.productId} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Package className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-900">{sale.name}</h3>
+                            <p className="text-sm text-gray-500">{sale.quantity} unidades</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-green-600">${saleRevenue.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No hay ventas registradas hoy
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Zero Stock Products Alert */}
+          {zeroStockProducts.length > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardHeader>
+                <CardTitle className="flex items-center text-red-700">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  Productos con Stock en Cero ({zeroStockProducts.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {zeroStockProducts.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-white rounded border border-red-200">
+                      <div>
+                        <h3 className="font-medium text-gray-900">{product.name}</h3>
+                        <p className="text-sm text-gray-500">Categoría: {product.category || "Sin categoría"}</p>
+                      </div>
+                      <Badge variant="destructive">Sin Stock</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* All Products Inventory */}
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle>Inventario Completo</CardTitle>
+              <Button variant="outline" size="sm" onClick={handleExportInventory}>
+                <Download className="h-4 w-4 mr-1" />
+                Exportar CSV
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="px-4 py-2 text-left font-semibold">Producto</th>
+                      <th className="px-4 py-2 text-center font-semibold">Stock</th>
+                      <th className="px-4 py-2 text-right font-semibold">Precio Unit.</th>
+                      <th className="px-4 py-2 text-right font-semibold">Valor Total</th>
+                      <th className="px-4 py-2 text-left font-semibold">Categoría</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(products) && products.length > 0 ? (
+                      products.map((product) => {
+                        const stock = parseInt(product.stock) || 0;
+                        const price = parseFloat(product.price) || 0;
+                        const totalValue = stock * price;
+                        const isLowStock = stock > 0 && stock <= 10;
+                        const isZeroStock = stock === 0;
+
+                        return (
+                          <tr key={product.id} className={`border-b ${isZeroStock ? "bg-red-50" : isLowStock ? "bg-yellow-50" : ""}`}>
+                            <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
+                            <td className="px-4 py-3 text-center">
+                              <Badge variant={isZeroStock ? "destructive" : isLowStock ? "secondary" : "default"}>
+                                {stock}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right">${price.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-semibold">${totalValue.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-gray-600">{product.category || "Sin categoría"}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                          No hay productos en el inventario
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

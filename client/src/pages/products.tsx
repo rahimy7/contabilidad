@@ -98,13 +98,19 @@ export default function Products() {
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900">{product.name}</h3>
                     <p className="text-sm text-gray-500 mt-1 max-w-md">{product.description}</p>
-                    <div className="flex items-center space-x-2 mt-2">
+                    <div className="flex items-center space-x-2 mt-2 flex-wrap">
                       <Badge variant={product.category === "service" ? "secondary" : "default"}>
                         {product.category === "service" ? "Servicio" : "Producto"}
                       </Badge>
                       <Badge variant={product.status === "active" ? "default" : "secondary"}>
                         {product.status === "active" ? "Activo" : "Inactivo"}
                       </Badge>
+                      {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
+                      {(product as any).loyaltyPointsPropertyName && (product as any).loyaltyPointsValue && (
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                          🎁 {(product as any).loyaltyPointsValue} {(product as any).loyaltyPointsPropertyName}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>

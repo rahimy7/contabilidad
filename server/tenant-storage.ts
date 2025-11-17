@@ -35,17 +35,29 @@ export function createTenantStorage(tenantDb: any, storeId: number, schemaType?:
 async getAllProducts() {
   try {
     console.log(`📦 Getting all products for store ${storeId} - tenantDb exists: ${!!tenantDb}`);
-    
-  
+
       // ✅ SOLUCIÓN: String interpolation directa
       const directQuery = `
-        SELECT * FROM "store_${storeId}".products 
+        SELECT * FROM "store_${storeId}".products
         WHERE store_id = ${storeId}
         ORDER BY created_at DESC
       `;
       console.log(`🚀 Executing direct query for store ${storeId}`);
       const result = await tenantDb.execute(directQuery);
-      return result.rows;
+      // 🎁 Transform snake_case to camelCase for loyalty points fields
+      return result.rows.map((row: any) => {
+        // Handle both snake_case and camelCase field names
+        const loyaltyPointsPropertyName = row.loyalty_points_property_name || row.loyaltyPointsPropertyName;
+        const loyaltyPointsValue = row.loyalty_points_value || row.loyaltyPointsValue;
+
+        return {
+          ...row,
+          loyalty_points_property_name: loyaltyPointsPropertyName, // Keep original snake_case
+          loyalty_points_value: loyaltyPointsValue, // Keep original snake_case
+          loyaltyPointsPropertyName: loyaltyPointsPropertyName, // Add camelCase
+          loyaltyPointsValue: loyaltyPointsValue, // Add camelCase
+        };
+      });
     } catch (error) {
     console.error(`❌ Error in getAllProducts for store ${storeId}:`, error);
     throw error;
@@ -60,7 +72,18 @@ async getAllProducts() {
           .from(schema.products)
           .where(eq(schema.products.id, id))
           .limit(1);
-        return product || null;
+        if (!product) return null;
+        // 🎁 Ensure both snake_case and camelCase fields are available
+        const result = {
+          ...product,
+          // Add camelCase versions if they don't exist
+          loyaltyPointsPropertyName: (product as any).loyaltyPointsPropertyName,
+          loyaltyPointsValue: (product as any).loyaltyPointsValue,
+          // Add snake_case versions for compatibility
+          loyalty_points_property_name: (product as any).loyaltyPointsPropertyName,
+          loyalty_points_value: (product as any).loyaltyPointsValue,
+        };
+        return result;
       } catch (error) {
         console.error('Error getting product by ID:', error);
         return null;
@@ -296,15 +319,64 @@ async getActiveCategories() {
   }
 },
 
+// 🎁 Helper function to calculate total loyalty points from order items
+async calculateOrderLoyaltyPointsTotal(items: any[] = []): Promise<number> {
+  try {
+    if (!items || items.length === 0) {
+      return 0;
+    }
+
+    let totalLoyaltyPoints = 0;
+
+    // For each item, get the product and add its loyalty points value
+    for (const item of items) {
+      if (item.productId) {
+        try {
+          // Get the product to access loyaltyPointsValue
+          const productQuery = `
+            SELECT loyalty_points_value
+            FROM "store_${storeId}".products
+            WHERE id = ${item.productId} AND store_id = ${storeId}
+          `;
+          const productResult = await tenantDb.execute(productQuery);
+
+          if (productResult.rows && productResult.rows.length > 0) {
+            const product = productResult.rows[0];
+            const loyaltyPointsValue = product.loyalty_points_value;
+
+            if (loyaltyPointsValue) {
+              // Multiply by quantity to get total for this line item
+              const quantity = item.quantity || 1;
+              const itemLoyaltyPoints = parseFloat(loyaltyPointsValue) * quantity;
+              totalLoyaltyPoints += itemLoyaltyPoints;
+            }
+          }
+        } catch (itemError) {
+          console.warn(`⚠️ Error getting loyalty points for product ${item.productId}:`, itemError);
+        }
+      }
+    }
+
+    return totalLoyaltyPoints;
+  } catch (error) {
+    console.error('Error calculating loyalty points total:', error);
+    return 0;
+  }
+},
+
 async createOrder(orderData: any, items: any[] = []) {
   try {
     // 🔥 GENERAR NÚMERO DE ORDEN ÚNICO
     const orderNumber = await this.generateOrderNumber();
-    
+
+    // 🎁 CALCULAR PUNTOS DE LEALTAD TOTAL
+    const loyaltyPointsTotal = await this.calculateOrderLoyaltyPointsTotal(items);
+
     const [order] = await tenantDb.insert(schema.orders)
       .values({
         ...orderData,
         orderNumber, // ✅ Agregar el número de orden generado
+        loyaltyPointsTotal: loyaltyPointsTotal, // ✅ Agregar puntos de lealtad calculados
         createdAt: new Date()
       })
       .returning();
@@ -366,16 +438,6 @@ async generateOrderNumber(): Promise<string> {
       try {
         console.log(`🔄 Updating order ${id} with items...`);
 
-        // 1️⃣ Actualizar la orden principal
-        const [order] = await tenantDb.update(schema.orders)
-          .set({ ...orderData, updatedAt: new Date() })
-          .where(eq(schema.orders.id, id))
-          .returning();
-
-        if (!order) {
-          throw new Error('Order not found');
-        }
-
         // 2️⃣ Si se proporcionan items, reemplazar todos los items existentes
         if (items !== undefined) {
           console.log(`🗑️ Deleting existing items for order ${id}...`);
@@ -398,6 +460,21 @@ async generateOrderNumber(): Promise<string> {
             await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
             console.log(`✅ New items inserted`);
           }
+
+          // 🎁 RECALCULAR PUNTOS DE LEALTAD DESPUÉS DE ACTUALIZAR ITEMS
+          const loyaltyPointsTotal = await this.calculateOrderLoyaltyPointsTotal(items);
+          console.log(`🎁 Recalculated loyalty points: ${loyaltyPointsTotal}`);
+          orderData.loyaltyPointsTotal = loyaltyPointsTotal;
+        }
+
+        // 1️⃣ Actualizar la orden principal (ahora con puntos de lealtad recalculados si hubiera items)
+        const [order] = await tenantDb.update(schema.orders)
+          .set({ ...orderData, updatedAt: new Date() })
+          .where(eq(schema.orders.id, id))
+          .returning();
+
+        if (!order) {
+          throw new Error('Order not found');
         }
 
         // 3️⃣ Retornar la orden actualizada con sus items
@@ -621,6 +698,9 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       salePrice: productData.salePrice || null,
       isPromoted: productData.isPromoted || false,
       promotionText: productData.promotionText || null,
+      // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+      loyaltyPointsPropertyName: productData.loyaltyPointsPropertyName || null,
+      loyaltyPointsValue: productData.loyaltyPointsValue || null,
       storeId: storeId,  // ← ¡Este campo falta!
       createdAt: new Date(),
       updatedAt: new Date()

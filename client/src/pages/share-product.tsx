@@ -17,6 +17,9 @@ interface Product {
   imageUrl?: string;
   category?: string;
   brand?: string;
+  // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+  loyaltyPointsPropertyName?: string;
+  loyaltyPointsValue?: string;
 }
 
 interface StoreInfo {
@@ -340,6 +343,21 @@ export default function ShareProduct() {
                   </span>
                 </div>
               </div>
+
+              {/* 🎁 FIDELIZACIÓN - Puntos de lealtad */}
+              {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
+                <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🎁</span>
+                    <div>
+                      <p className="text-sm text-amber-700 font-medium">Puntos de Lealtad</p>
+                      <p className="text-lg md:text-xl font-bold text-amber-600">
+                        {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Descripción */}
               {product.description && (

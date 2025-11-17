@@ -64,9 +64,17 @@
     @apply border-border;
   }
 
+  html {
+    /* 🎨 FIX: Quitar scrollbar horizontal y prevenir layout shift */
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+    /* 🎨 FIX: Asegurar que el body no tenga scroll horizontal */
+    overflow-x: hidden;
   }
 }
 
@@ -74,24 +82,34 @@
   .whatsapp-bg {
     background-color: hsl(var(--whatsapp));
   }
-  
+
   .whatsapp-text {
     color: hsl(var(--whatsapp));
   }
-  
+
   .warning-bg {
     background-color: hsl(var(--warning));
   }
-  
+
   .warning-text {
     color: hsl(var(--warning));
   }
-  
+
   .success-bg {
     background-color: hsl(var(--success));
   }
-  
+
   .success-text {
     color: hsl(var(--success));
+  }
+
+  /* 🎨 FIX: Mejorar comportamiento de diálogos con scroll */
+  [role="dialog"] {
+    position: fixed;
+  }
+
+  /* 🎨 FIX: Asegurar que el contenedor del diálogo mantenga márgenes consistentes */
+  .fixed {
+    scrollbar-gutter: stable;
   }
 }

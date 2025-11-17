@@ -632,6 +632,9 @@ const createProductHandler = async (req: any, res: any) => {
       salePrice: req.body.salePrice || null,
       isPromoted: Boolean(req.body.isPromoted),
       promotionText: req.body.promotionText || null,
+      // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+      loyaltyPointsPropertyName: req.body.loyaltyPointsPropertyName || null, // 'LP', 'PUNTOS', 'REWARDS', etc.
+      loyaltyPointsValue: req.body.loyaltyPointsValue ? parseFloat(req.body.loyaltyPointsValue) : null, // Valor numérico de puntos
       isActive: req.body.isActive !== undefined ? req.body.isActive : true
     };
 
@@ -754,6 +757,14 @@ const updateProductHandler = async (req: any, res: any) => {
     updateData.images = normalizedArrayFields.images;
     updateData.features = normalizedArrayFields.features;
     updateData.tags = normalizedArrayFields.tags;
+
+    // 🎁 FIDELIZACIÓN - Procesar campos opcionales de puntos de lealtad
+    if (updateData.loyaltyPointsValue !== undefined && updateData.loyaltyPointsValue !== null) {
+      updateData.loyaltyPointsValue = parseFloat(updateData.loyaltyPointsValue);
+    } else if (updateData.loyaltyPointsValue === undefined) {
+      // Si no se proporciona, no actualizar este campo
+      delete updateData.loyaltyPointsValue;
+    }
 
     console.log('📋 Normalized array fields:', {
       images: { original: req.body.images, normalized: normalizedArrayFields.images },

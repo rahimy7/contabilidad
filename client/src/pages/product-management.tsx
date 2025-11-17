@@ -52,6 +52,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  Check,
 } from 'lucide-react';
 import { useLocation } from 'wouter';
 
@@ -69,7 +70,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
   price: z.string().min(1, 'El precio es requerido'),
-  currency: z.enum(['DOP', 'USD'], { 
+  currency: z.enum(['DOP', 'USD'], {
     errorMap: () => ({ message: 'Selecciona una moneda válida (DOP o USD)' })
   }),
   category: z.string().min(1, 'La categoría es requerida'),
@@ -83,6 +84,9 @@ const productSchema = z.object({
   installationCost: z.string().optional(),
   warrantyMonths: z.number().min(0).default(0),
   images: z.array(z.string()).default([]),
+  // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+  loyaltyPointsPropertyName: z.string().optional(), // 'LP', 'PUNTOS', 'REWARDS', etc.
+  loyaltyPointsValue: z.string().optional(), // Valor numérico de puntos
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -106,6 +110,9 @@ interface Product {
   warrantyMonths?: number;
   images?: string[];
   imageUrl?: string;
+  // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
+  loyaltyPointsPropertyName?: string;
+  loyaltyPointsValue?: string;
 }
 
 interface Category {
@@ -136,6 +143,11 @@ export default function ImprovedProductManagement() {
   const [productImages, setProductImages] = useState<ImageData[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [, setLocation] = useLocation();
+
+  // 🎁 FIDELIZACIÓN - Estados para edición inline de puntos de lealtad
+  const [isEditingLoyalty, setIsEditingLoyalty] = useState(false);
+  const [tempLoyaltyPropertyName, setTempLoyaltyPropertyName] = useState("");
+  const [tempLoyaltyPointsValue, setTempLoyaltyPointsValue] = useState("");
 
   // Queries para obtener datos reales
   const { data: products = [], isLoading: loadingProducts, error: productsError } = useQuery<Product[]>({
@@ -360,7 +372,7 @@ const validateCurrency = (currency: string | undefined): "DOP" | "USD" => {
 useEffect(() => {
   if (selectedProduct && (dialogMode === 'edit' || dialogMode === 'view')) {
     console.log('📋 Loading existing product data:', selectedProduct);
-    
+
     reset({
       name: selectedProduct.name,
       description: selectedProduct.description || "",
@@ -379,6 +391,11 @@ useEffect(() => {
       warrantyMonths: selectedProduct.warrantyMonths || 0,
       images: selectedProduct.images || [],
     });
+
+    // 🎁 FIDELIZACIÓN - Cargar valores de lealtad
+    setTempLoyaltyPropertyName(selectedProduct.loyaltyPointsPropertyName || "");
+    setTempLoyaltyPointsValue(selectedProduct.loyaltyPointsValue || "");
+    setIsEditingLoyalty(false);
 
     console.log('💱 Loaded currency:', selectedProduct.baseCurrency || selectedProduct.currency || "DOP");
 
@@ -401,6 +418,9 @@ useEffect(() => {
       currency: "DOP", // ✅ VALOR POR DEFECTO DOP
     });
     setProductImages([]);
+    setTempLoyaltyPropertyName("");
+    setTempLoyaltyPointsValue("");
+    setIsEditingLoyalty(false);
   }
 }, [selectedProduct, dialogMode, reset]);
 
@@ -454,6 +474,51 @@ useEffect(() => {
   const handleDeleteProduct = (productId: number) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       deleteProductMutation.mutate(productId);
+    }
+  };
+
+  // 🎁 FIDELIZACIÓN - Función para guardar puntos de lealtad inline
+  const handleSaveLoyaltyPoints = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      const response = await fetch(`/api/products/${selectedProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          loyaltyPointsPropertyName: tempLoyaltyPropertyName || null,
+          loyaltyPointsValue: tempLoyaltyPointsValue ? parseFloat(tempLoyaltyPointsValue) : null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al guardar puntos de lealtad');
+      }
+
+      const updatedProduct = await response.json();
+
+      // Actualizar el producto seleccionado
+      setSelectedProduct(updatedProduct);
+
+      // Actualizar la lista de productos
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+
+      // Salir del modo edición
+      setIsEditingLoyalty(false);
+
+      toast({
+        title: "Puntos de lealtad actualizados",
+        description: "Los puntos de lealtad se han guardado correctamente",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al guardar puntos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -773,7 +838,16 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                     {product.category}
                   </Badge>
                 </div>
-                
+
+                {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
+                {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
+                  <div className="mb-3 p-2 bg-amber-50 rounded border border-amber-200">
+                    <span className="text-xs text-amber-700 font-medium">
+                      {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">
                     Stock: {product.stock || 0}
@@ -839,7 +913,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{product.name}</h3>
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description}</p>
-                      <div className="flex items-center space-x-2 mt-2">
+                      <div className="flex items-center space-x-2 mt-2 flex-wrap">
                         <Badge variant={product.type === "service" ? "secondary" : "default"}>
                           {product.type === "service" ? "Servicio" : "Producto"}
                         </Badge>
@@ -847,6 +921,12 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                         <span className="text-sm font-medium text-green-600">
                          {formatCurrency(product.price || "0", product.baseCurrency || product.currency || 'DOP')}
                         </span>
+                        {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
+                        {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                            {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
+                          </Badge>
+                        )}
                         {getProductImages(product).length > 1 && (
                           <Badge variant="outline" className="text-xs">
                             {getProductImages(product).length} imágenes
@@ -888,7 +968,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
 
       {/* Dialog solo para modo view - ACTUALIZADO con campo moneda */}
       <Dialog open={isDialogOpen && dialogMode === 'view'} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>Detalles del Producto</DialogTitle>
             <DialogDescription>
@@ -1146,6 +1226,72 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                           </span>
                         </div>
                       )}
+                      <div>
+                        <span className="text-gray-600">Puntos de Lealtad:</span>
+                        {!isEditingLoyalty ? (
+                          <div className="flex items-center justify-between mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <span className="font-medium text-amber-600">
+                              {selectedProduct?.loyaltyPointsPropertyName && selectedProduct?.loyaltyPointsValue
+                                ? `${selectedProduct.loyaltyPointsValue} ${selectedProduct.loyaltyPointsPropertyName}`
+                                : 'No configurado'}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setIsEditingLoyalty(true)}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <div>
+                              <Label htmlFor="loyaltyName" className="text-xs">Nombre de Propiedad</Label>
+                              <Input
+                                id="loyaltyName"
+                                placeholder="Ej: LP, PUNTOS, REWARDS"
+                                value={tempLoyaltyPropertyName}
+                                onChange={(e) => setTempLoyaltyPropertyName(e.target.value)}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="loyaltyValue" className="text-xs">Valor de Puntos</Label>
+                              <Input
+                                id="loyaltyValue"
+                                placeholder="0.00"
+                                type="number"
+                                step="0.01"
+                                value={tempLoyaltyPointsValue}
+                                onChange={(e) => setTempLoyaltyPointsValue(e.target.value)}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setIsEditingLoyalty(false);
+                                  setTempLoyaltyPropertyName(selectedProduct?.loyaltyPointsPropertyName || "");
+                                  setTempLoyaltyPointsValue(selectedProduct?.loyaltyPointsValue || "");
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-amber-600 hover:bg-amber-700"
+                                onClick={handleSaveLoyaltyPoints}
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                Guardar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

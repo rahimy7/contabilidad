@@ -61,6 +61,7 @@ import ExchangeRateManagement from '@/pages/exchange-rates';
 import CategoriesBrandsManagement from './pages/categories-brands-management';
 import TechnicianConversations from "./pages/technician-conversations";
 import BrandsManagement from "./pages/brands";
+import StoreSettingsPage from "@/pages/store-settings";
 
 // ✅ NUEVO: Importar componente de compartir producto y HelmetProvider
 import ShareProduct from '@/pages/share-product';
@@ -68,6 +69,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import DeliveryDashboardPage from "./pages/delivery-dashboard";
 import TripsPage from "./pages/trips";
 import PublicOrder from "./pages/public-order";
+import POSScreen from "./pages/pos-screen";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -201,6 +203,7 @@ function Router() {
       <Route path="/team" component={() => <ProtectedRoute component={Team} permission="manage_users" />} />
       <Route path="/products" component={() => <ProtectedRoute component={Products} permission="manage_orders" />} />
       <Route path="/exchange-rates" component={() => <ProtectedRoute component={ExchangeRateManagement} permission="manage_settings" />} />
+      <Route path="/store-settings" component={() => <ProtectedRoute component={StoreSettingsPage} permission="manage_settings" />} />
       <Route path="/product-management" component={() => <ProtectedRoute component={ProductManagement} permission="manage_products" />} />
       <Route path="/add-product" component={() => <ProtectedRoute component={AddProduct} permission="manage_products" />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} permission="view_reports" />} />
@@ -260,10 +263,13 @@ function AppWithAuth() {
       <Route path="/login" component={MultiTenantLogin} />
       <Route path="/multi-tenant-login" component={MultiTenantLogin} />
       <Route path="/orders/public/:storeId/:orderId" component={PublicOrder} />
-      
+
       {/* ✅ NUEVA RUTA: Página de compartir producto (pública, sin layout) */}
       <Route path="/share-product" component={ShareProduct} />
-      
+
+      {/* ✅ NUEVA RUTA: POS (protegido, sin layout - pantalla completa) */}
+      {user && <Route path="/pos" component={() => <ProtectedRoute component={POSScreen} permission="manage_orders" />} />}
+
       {/* Rutas que requieren autenticación con layout */}
       <Route>
         {!user ? (

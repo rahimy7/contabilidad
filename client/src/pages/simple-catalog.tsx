@@ -102,6 +102,16 @@ const useCurrencyConversion = (storeId: string | number | null) => {
     // ✅ SIEMPRE CONVERTIR A DOP PARA EL CATÁLOGO
     const convertedPrice = convertToTargetCurrency(originalPrice, baseCurrency, 'DOP');
 
+    // 🎁 Debug: Log loyalty points fields
+    if (product.loyaltyPointsPropertyName || product.loyaltyPointsValue || product.loyalty_points_property_name || product.loyalty_points_value) {
+      console.log(`🎁 Product "${product.name}" has loyalty points:`, {
+        loyaltyPointsPropertyName: product.loyaltyPointsPropertyName,
+        loyaltyPointsValue: product.loyaltyPointsValue,
+        loyalty_points_property_name: product.loyalty_points_property_name,
+        loyalty_points_value: product.loyalty_points_value,
+      });
+    }
+
     return {
       ...product,
       originalPrice,
@@ -322,6 +332,15 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
                     <span className="font-medium">Delivery disponible</span>
                   </div>
                 )}
+                {/* 🎁 FIDELIZACIÓN - Puntos de lealtad */}
+                {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
+                  <div className="flex justify-between p-3 bg-amber-50 rounded-lg border border-amber-200 mt-2">
+                    <span className="text-amber-700 font-medium">Puntos de Lealtad:</span>
+                    <span className="font-bold text-amber-600">
+                      {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Botones de acción */}
@@ -350,11 +369,11 @@ const ProductImage = ({ product, className = "", onClick }: { product: any; clas
   const { images, mainImage } = normalizeProductImages(product);
 
   return (
-    <div className={`relative overflow-hidden ${className}`} onClick={onClick}>
+    <div className={`relative overflow-hidden flex items-center justify-center bg-gray-50 ${className}`} onClick={onClick}>
       <img
         src={mainImage}
         alt={product.name}
-        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+        className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
         onError={(e) => {
           console.log('Error cargando imagen del producto:', mainImage);
           e.currentTarget.src = 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen';
@@ -618,6 +637,20 @@ const addToCart = (product: any) => {
 
   const getCartItemsCount = () => {
     return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  // 🎁 CÁLCULO DE PUNTOS DE LEALTAD TOTALES
+  const getCartTotalLoyaltyPoints = () => {
+    return cart.reduce((total, item) => {
+      const pointsValue = item.loyaltyPointsValue ? parseFloat(item.loyaltyPointsValue) : 0;
+      return total + (pointsValue * item.quantity);
+    }, 0);
+  };
+
+  const getCartLoyaltyPropertyName = () => {
+    // Obtener el nombre de la propiedad del primer item que lo tenga
+    const itemWithLoyalty = cart.find(item => item.loyaltyPointsPropertyName);
+    return itemWithLoyalty?.loyaltyPointsPropertyName || null;
   };
 
   // ✅ GENERAR PEDIDO PARA WHATSAPP (EN DOP)
@@ -915,7 +948,17 @@ ${orderItems}
             <span>Total:</span>
             <span>${formatCurrency(getCartTotal(), 'DOP')}</span>
           </div>
-          
+
+          {/* 🎁 Total de Puntos de Lealtad */}
+          {getCartTotalLoyaltyPoints() > 0 && (
+            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <span className="text-amber-700 font-medium">Puntos Acumulados:</span>
+              <span className="font-bold text-amber-600">
+                {getCartTotalLoyaltyPoints().toFixed(2)} {getCartLoyaltyPropertyName()}
+              </span>
+            </div>
+          )}
+
           {/* Botón WhatsApp existente */}
           <Button
             onClick={makeOrder}
@@ -977,46 +1020,39 @@ ${orderItems}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product: any) => (
-                <Card key={product.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm hover:bg-white/95">
-                  <CardContent className="p-0">
-                    <div className="aspect-square rounded-t-lg relative overflow-hidden">
-                      <ProductImage 
-                        product={product} 
-                        className="w-full h-full" 
+                <Card key={product.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm hover:bg-white/95 flex flex-col">
+                  <CardContent className="p-0 flex flex-col h-full">
+                    {/* Imagen reducida - aspect-video en lugar de aspect-square */}
+                    <div className="aspect-video rounded-t-lg relative overflow-hidden flex-shrink-0">
+                      <ProductImage
+                        product={product}
+                        className="w-full h-full"
                         onClick={() => openProductDetail(product)}
                       />
-                      <div className="absolute top-3 left-3 space-y-1">
-                        <Badge variant={product.is_service ? 'secondary' : 'default'} className="bg-white/90 text-emerald-700">
-                          {product.is_service ? '🔧 Servicio' : '📦 Producto'}
+                      <div className="absolute top-2 left-2 space-y-1">
+                        <Badge variant={product.is_service ? 'secondary' : 'default'} className="bg-white/90 text-emerald-700 text-xs">
+                          {product.is_service ? '🔧' : '📦'}
                         </Badge>
                         {product.conversionApplied && (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">
-                            <DollarSign className="w-3 h-3 mr-1" />
-                            Convertido
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs hidden sm:inline-block">
+                            <DollarSign className="w-2 h-2 mr-0.5" />
+                            USD
                           </Badge>
                         )}
                       </div>
                     </div>
-                    
-                    <div className="p-4">
-                      <h3 className="font-semibold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-emerald-600 transition-colors min-h-[3.5rem]">
+
+                    {/* Contenido compacto */}
+                    <div className="p-3 flex-1 flex flex-col">
+                      {/* Nombre reducido a una línea */}
+                      <h3 className="font-semibold text-sm text-gray-900 mb-2 line-clamp-1 group-hover:text-emerald-600 transition-colors">
                         {product.name}
                       </h3>
-                      
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2 min-h-[2.5rem]">
-                        {product.description}
-                      </p>
 
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-emerald-600">
-                            {product.formattedPrice}
-                          </div>
-                         {/*  {product.conversionApplied && (
-                            <div className="text-xs text-gray-500">
-                              Original: {product.originalFormattedPrice}
-                            </div>
-                          )} */}
+                      {/* Precio y marca juntos */}
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                        <div className="text-xl font-bold text-emerald-600">
+                          {product.formattedPrice}
                         </div>
                         {product.brand && (
                           <Badge variant="outline" className="text-xs">
@@ -1025,20 +1061,31 @@ ${orderItems}
                         )}
                       </div>
 
-                      <div className="flex gap-2">
-                        <Button 
+                      {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
+                      {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
+                        <div className="mb-2 p-1.5 bg-amber-50 rounded border border-amber-200 flex-shrink-0">
+                          <span className="text-xs text-amber-700 font-medium">
+                            🎁 {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 mt-auto">
+                        <Button
                           onClick={() => addToCart(product)}
-                          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs h-8"
+                          size="sm"
                         >
-                          <Plus className="w-4 h-4 mr-2" />
+                          <Plus className="w-3 h-3 mr-1" />
                           Agregar
                         </Button>
-                        <Button 
+                        <Button
                           variant="outline"
                           onClick={() => openProductDetail(product)}
-                          className="px-3"
+                          className="px-2 h-8"
+                          size="sm"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>

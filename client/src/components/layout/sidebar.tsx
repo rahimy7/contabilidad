@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck } from "lucide-react";
+import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@shared/auth";
-import { DollarSign } from "lucide-react";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -167,6 +166,23 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "manage_products",
       excludeRoles: ["super_admin", "technician"],
+    },
+    // === VENTAS Y PUNTO DE VENTA ===
+    {
+      href: "/pos",
+      icon: ShoppingBasket,
+      label: "Punto de Venta (POS)",
+      badge: null,
+      permission: "manage_orders",
+      roles: ["admin", "sales_rep"],
+    },
+    {
+      href: "/store-settings",
+      icon: Sliders,
+      label: "Configuración de Tienda",
+      badge: null,
+      permission: "manage_settings",
+      roles: ["admin"],
     },
     {
       href: "/exchange-rates",

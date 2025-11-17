@@ -251,6 +251,7 @@ export async function createWebOrder(req: Request, res: Response) {
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber || order.id,
+      loyaltyPointsTotal: order.loyaltyPointsTotal || 0,
       message: 'Pedido creado exitosamente'
     });
     
@@ -298,10 +299,15 @@ async function sendOrderNotificationToCustomer(
     }
     
     // Generar resumen de productos
-    const itemsSummary = orderData.items.map((item: any, index: number) => 
+    const itemsSummary = orderData.items.map((item: any, index: number) =>
       `${index + 1}. ${item.productName} x${item.quantity} - $${item.totalPrice.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`
     ).join('\n');
-    
+
+    // 🎁 Incluir información de puntos de lealtad si existen
+    const loyaltyPointsSection = order.loyaltyPointsTotal && order.loyaltyPointsTotal > 0
+      ? `\n🎁 *Puntos Acumulados:* ${order.loyaltyPointsTotal.toFixed(2)} puntos\n`
+      : '';
+
     // Mensaje de confirmación
     const confirmationMessage = `🎉 ¡Tu pedido ha sido recibido exitosamente!
 
@@ -310,8 +316,7 @@ async function sendOrderNotificationToCustomer(
 📦 *Productos:*
 ${itemsSummary}
 
-💰 *Total: $${parseFloat(orderData.totalAmount).toLocaleString('es-DO', { minimumFractionDigits: 2 })}*
-
+💰 *Total: $${parseFloat(orderData.totalAmount).toLocaleString('es-DO', { minimumFractionDigits: 2 })}*${loyaltyPointsSection}
 📍 *Dirección de entrega:*
 ${orderData.customerAddress}
 
