@@ -10,6 +10,18 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter, UserCheck, AlertTriangle, TrendingDown } from "lucide-react";
 import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
+const parseCurrency = (value: any): number => {
+  if (typeof value === 'number') {
+    return isNaN(value) ? 0 : value;
+  }
+  if (typeof value === 'string') {
+    const cleanedValue = value.replace(/[^0-9.-]+/g, "");
+    const parsed = parseFloat(cleanedValue);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
     from: startOfMonth(new Date()),
@@ -64,7 +76,7 @@ export default function Reports() {
   const totalOrders = filteredOrders.length;
   const completedOrders = filteredOrders.filter((order: any) => order.status === "completed").length;
   const totalRevenue = filteredOrders.reduce((sum: number, order: any) => 
-    order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
+    order.status === "completed" ? sum + parseCurrency(order.totalAmount) : sum, 0);
   const averageOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
   const completionRate = totalOrders > 0 ? (completedOrders / totalOrders * 100).toFixed(1) : "0";
 
@@ -89,7 +101,7 @@ export default function Reports() {
       );
       const completed = employeeOrders.filter((order: any) => order.status === "completed").length;
       const revenue = employeeOrders.reduce((sum: number, order: any) => 
-        order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
+        order.status === "completed" ? sum + parseCurrency(order.totalAmount) : sum, 0);
       
       return {
         id: employee.id,
@@ -161,7 +173,7 @@ export default function Reports() {
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
       const dayRevenue = dayOrders.reduce((sum: number, order: any) => 
-        order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
+        order.status === "completed" ? sum + parseCurrency(order.totalAmount) : sum, 0);
       
       return {
         date: format(date, 'MMM dd'),
@@ -182,7 +194,7 @@ export default function Reports() {
         order.items?.some((item: any) => item.productId === product.id)
       );
       const revenue = productOrders.reduce((sum: number, order: any) =>
-        order.status === "completed" ? sum + parseFloat(order.totalAmount || 0) : sum, 0);
+        order.status === "completed" ? sum + parseCurrency(order.totalAmount) : sum, 0);
 
       return {
         name: product.name,
@@ -221,8 +233,8 @@ export default function Reports() {
                 productId: product.id
               };
             }
-            salesByProduct[item.productId].quantity += parseInt(item.quantity) || 1;
-            salesByProduct[item.productId].revenue += parseFloat(item.totalPrice) || 0;
+            salesByProduct[item.productId].quantity += Number(item.quantity || 0);
+            salesByProduct[item.productId].revenue += parseCurrency(item.totalPrice);
           }
         });
       }
@@ -236,7 +248,7 @@ export default function Reports() {
     if (!Array.isArray(products)) return [];
 
     return products.filter((product: any) => {
-      const stock = parseInt(product.stock) || 0;
+      const stock = parseInt(product.stock_quantity) || 0;
       return stock === 0;
     }).map((product: any) => ({
       id: product.id,
@@ -260,14 +272,14 @@ export default function Reports() {
     }
 
     const totalProducts = products.length;
-    const totalStock = products.reduce((sum: number, p: any) => sum + (parseInt(p.stock) || 0), 0);
-    const zeroStockCount = products.filter((p: any) => (parseInt(p.stock) || 0) === 0).length;
+    const totalStock = products.reduce((sum: number, p: any) => sum + (parseInt(p.stock_quantity) || 0), 0);
+    const zeroStockCount = products.filter((p: any) => (parseInt(p.stock_quantity) || 0) === 0).length;
     const lowStockCount = products.filter((p: any) => {
-      const stock = parseInt(p.stock) || 0;
+      const stock = parseInt(p.stock_quantity) || 0;
       return stock > 0 && stock <= 10;
     }).length;
     const totalInventoryValue = products.reduce((sum: number, p: any) =>
-      sum + ((parseInt(p.stock) || 0) * (parseFloat(p.price) || 0)), 0);
+      sum + ((parseInt(p.stock_quantity) || 0) * (parseFloat(p.price) || 0)), 0);
     const averageStockPerProduct = totalProducts > 0 ? Math.round(totalStock / totalProducts) : 0;
 
     return {
@@ -333,7 +345,7 @@ export default function Reports() {
 
     // Data rows
     products.forEach((product: any) => {
-      const stock = parseInt(product.stock) || 0;
+      const stock = parseInt(product.stock_quantity) || 0;
       const price = parseFloat(product.price) || 0;
       const totalValue = stock * price;
       const row = [
@@ -375,18 +387,18 @@ export default function Reports() {
 
     // Data rows
     todaysSalesByProduct.forEach((sale: any) => {
-      const revenue = parseFloat(sale.revenue) || 0;
+      const revenue = sale.revenue || 0;
       const row = [
         `"${sale.name}"`,
-        parseInt(sale.quantity) || 0,
+        sale.quantity || 0,
         `$${revenue.toFixed(2)}`
       ];
       csvContent += row.join(",") + "\n";
     });
 
     // Summary row
-    const totalQty = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (parseInt(s.quantity) || 0), 0);
-    const totalRevenue = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (parseFloat(s.revenue) || 0), 0);
+    const totalQty = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
+    const totalRevenue = todaysSalesByProduct.reduce((sum: number, s: any) => sum + (s.revenue || 0), 0);
     csvContent += "\nRESUMEN,,,\n";
     csvContent += `Total Items Vendidos,${totalQty},$${totalRevenue.toFixed(2)}\n`;
 
@@ -772,7 +784,7 @@ export default function Reports() {
               {todaysSalesByProduct.length > 0 ? (
                 <div className="space-y-4">
                   {todaysSalesByProduct.map((sale) => {
-                    const saleRevenue = parseFloat(sale.revenue) || 0;
+                    const saleRevenue = Number(sale.revenue || 0);
                     return (
                       <div key={sale.productId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
@@ -848,7 +860,7 @@ export default function Reports() {
                   <tbody>
                     {Array.isArray(products) && products.length > 0 ? (
                       products.map((product) => {
-                        const stock = parseInt(product.stock) || 0;
+                        const stock = parseInt(product.stock_quantity) || 0;
                         const price = parseFloat(product.price) || 0;
                         const totalValue = stock * price;
                         const isLowStock = stock > 0 && stock <= 10;
