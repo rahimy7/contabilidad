@@ -226,6 +226,101 @@ Responde con este formato JSON:
 }
 
 /**
+ * ✨ NUEVA FUNCIÓN: Generar respuesta como AGENTE DE VENTAS
+ * Específicamente diseñada para conducir ventas completas
+ */
+export async function generateSalesAgentResponse(
+  messageText: string,
+  interpretation: MessageInterpretation,
+  availableProducts?: any[],
+  context?: ConversationContext
+): Promise<string> {
+  try {
+    console.log('🤖 [SALES-AGENT] Generando respuesta de vendedor...');
+
+    // Construir historial de conversación
+    let conversationHistory = '';
+    if (context?.recentMessages && context.recentMessages.length > 0) {
+      conversationHistory = context.recentMessages
+        .slice(-5)
+        .map(msg => `${msg.role === 'user' ? 'Cliente' : 'Vendedor'}: ${msg.content}`)
+        .join('\n');
+    }
+
+    // Construir catálogo de productos disponibles
+    let productCatalog = '';
+    if (availableProducts && availableProducts.length > 0) {
+      productCatalog = '\n\n📦 PRODUCTOS DISPONIBLES:\n';
+      availableProducts.slice(0, 10).forEach(p => {
+        productCatalog += `- ${p.name}: RD$${p.price} (${p.category})\n`;
+      });
+    }
+
+    const systemPrompt = `Eres un AGENTE DE VENTAS profesional y amigable para una tienda en línea en República Dominicana.
+
+🎯 TU OBJETIVO: Cerrar ventas y materializar pedidos completos
+
+CARACTERÍSTICAS PRINCIPALES:
+✓ Eres VENDEDOR, no solo asistente
+✓ Responde en español dominicano natural y conversacional
+✓ Sé entusiasta sobre los productos
+✓ Proactivamente sugiere productos según lo que el cliente busca
+✓ Usa emojis para ser más personal y atractivo
+✓ Sé conciso pero persuasivo (máximo 3-4 líneas)
+✓ Siempre intenta entender QUÉ necesita el cliente para sugerirle productos
+
+FLUJO DE VENTA:
+1. Si el cliente pregunta por un producto → Muestra detalles y precio
+2. Si el cliente está interesado → Pregunta cantidad y detalles de entrega
+3. Si hay múltiples opciones → Destaca la mejor opción
+4. Siempre intenta cerrar con "¿Hacemos el pedido?"
+
+TONO:
+- Amable, profesional, sin ser aburrido
+- Entusiasta sobre los productos
+- Respeta las necesidades del cliente
+- Ofrece alternativas cuando es posible
+
+${productCatalog}`;
+
+    const userPrompt = `Cliente dice: "${messageText}"
+
+ANÁLISIS:
+- Intención: ${interpretation.intent}
+- Categoría: ${interpretation.category}
+- Productos mencionados: ${interpretation.entities.products?.join(', ') || 'ninguno'}
+- Cantidad solicitada: ${interpretation.entities.quantity || '1'}
+- Sentimiento: ${interpretation.sentiment}
+
+${conversationHistory ? `HISTORIAL:\n${conversationHistory}\n` : ''}
+
+${context ? `CLIENTE:
+- Nombre: ${context.customerName}
+- Órdenes previas: ${context.orderHistory?.length || 0}` : ''}
+
+Genera una respuesta como VENDEDOR para avanzar la venta:`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.75,
+      max_tokens: 200
+    });
+
+    const response = completion.choices[0].message.content || interpretation.suggestedResponse;
+    console.log('✅ [SALES-AGENT] Respuesta de vendedor generada:', response);
+    return response;
+
+  } catch (error: any) {
+    console.error('❌ [SALES-AGENT] Error generando respuesta:', error);
+    return interpretation.suggestedResponse;
+  }
+}
+
+/**
  * Generar respuesta inteligente basada en contexto
  */
 export async function generateSmartResponse(
@@ -235,7 +330,7 @@ export async function generateSmartResponse(
 ): Promise<string> {
   try {
     console.log('🤖 Generando respuesta inteligente...');
-    
+
     // Construir historial de conversación
     let conversationHistory = '';
     if (context?.recentMessages && context.recentMessages.length > 0) {
@@ -244,7 +339,7 @@ export async function generateSmartResponse(
         .map(msg => `${msg.role === 'user' ? 'Cliente' : 'Asistente'}: ${msg.content}`)
         .join('\n');
     }
-    
+
     const systemPrompt = `Eres un asistente virtual amigable para un servicio de delivery en República Dominicana.
 Características:
 - Responde en español dominicano natural

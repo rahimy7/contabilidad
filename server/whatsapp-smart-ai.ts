@@ -6,6 +6,7 @@ import {
 } from './ai-credits-manager';
 import { interpretAIMessage } from './ai-order-assistant';
 import { CartItem } from './ai-credits-schema';
+import { generateSalesAgentResponse, interpretMessage } from './ai-service';
 
 interface MessageContext {
   isAfterWelcome?: boolean;
@@ -270,18 +271,70 @@ export async function tryProcessWithAI(
           }
         }
         await AIConversationManager.updateCart(storeId, conversationId, currentCart);
+
+        // ✨ Si no se agregó nada, buscar el producto y sugerir
+        if (currentCart.length === 0) {
+          const query = interpretation.items[0]?.searchQuery || messageText;
+          const matches = await searchProductsWithAI(query, activeProducts);
+          const searchResponse = await generateSalesAgentResponse(
+            messageText,
+            await interpretMessage(messageText),
+            matches,
+            {
+              customerId,
+              customerName: customerName,
+              recentMessages: [],
+              tenantStorage
+            }
+          );
+          return {
+            handled: true,
+            responseMessage: searchResponse,
+            needsConfirmation: true
+          };
+        }
+
+        // ✨ Usar Sales Agent para mensaje de carrito persuasivo
+        const addedItem = currentCart[currentCart.length - 1];
+        const cartSummary = getCartSummary(currentCart);
+        const salesResponse = await generateSalesAgentResponse(
+          messageText,
+          await interpretMessage(messageText),
+          activeProducts,
+          {
+            customerId,
+            customerName: customerName,
+            recentMessages: [],
+            tenantStorage
+          }
+        );
+
         return {
           handled: true,
-          responseMessage: generateAddedToCartMessage(currentCart[currentCart.length - 1], getCartSummary(currentCart)),
+          responseMessage: `✅ Agregado: ${addedItem.name} x${addedItem.quantity} a tu carrito\n\n${cartSummary.formattedSummary}\n\n${salesResponse}`,
           cart: currentCart
         };
 
       case 'search_product': {
         const query = interpretation.items[0]?.searchQuery || messageText;
         const matches = await searchProductsWithAI(query, activeProducts);
+
+        // ✨ Usar el nuevo Sales Agent para generar respuesta persuasiva
+        const searchResponse = await generateSalesAgentResponse(
+          messageText,
+          await interpretMessage(messageText),
+          matches,
+          {
+            customerId,
+            customerName: customerName,
+            recentMessages: [],
+            tenantStorage
+          }
+        );
+
         return {
           handled: true,
-          responseMessage: generateProductSuggestionMessage(query, matches),
+          responseMessage: searchResponse,
           needsConfirmation: true
         };
       }
@@ -321,7 +374,19 @@ export async function tryProcessWithAI(
         };
 
       default:
-        return { handled: true, responseMessage: interpretation.message };
+        // ✨ Usar Sales Agent para preguntas y otras intenciones también
+        const defaultResponse = await generateSalesAgentResponse(
+          messageText,
+          await interpretMessage(messageText),
+          activeProducts,
+          {
+            customerId,
+            customerName: customerName,
+            recentMessages: [],
+            tenantStorage
+          }
+        );
+        return { handled: true, responseMessage: defaultResponse };
     }
   } catch (error: any) {
     console.error('❌ [AI-SMART] Error procesando con IA:', error);
