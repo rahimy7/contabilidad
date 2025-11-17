@@ -39,7 +39,7 @@ async getAllProducts() {
       // ✅ SOLUCIÓN: String interpolation directa
       const directQuery = `
         SELECT * FROM "store_${storeId}".products
-        WHERE store_id = ${storeId}
+        WHERE store_id = ${storeId} AND "is_active" = true
         ORDER BY created_at DESC
       `;
       console.log(`🚀 Executing direct query for store ${storeId}`);
