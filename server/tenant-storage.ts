@@ -44,11 +44,12 @@ async getAllProducts() {
       `;
       console.log(`🚀 Executing direct query for store ${storeId}`);
       const result = await tenantDb.execute(directQuery);
-      // 🎁 Transform snake_case to camelCase for loyalty points fields
+      // 🎁 Transform snake_case to camelCase for all fields
       return result.rows.map((row: any) => {
         // Handle both snake_case and camelCase field names
         const loyaltyPointsPropertyName = row.loyalty_points_property_name || row.loyaltyPointsPropertyName;
         const loyaltyPointsValue = row.loyalty_points_value || row.loyaltyPointsValue;
+        const isActive = row.is_active !== undefined ? row.is_active : row.isActive;
 
         return {
           ...row,
@@ -56,6 +57,7 @@ async getAllProducts() {
           loyalty_points_value: loyaltyPointsValue, // Keep original snake_case
           loyaltyPointsPropertyName: loyaltyPointsPropertyName, // Add camelCase
           loyaltyPointsValue: loyaltyPointsValue, // Add camelCase
+          isActive: isActive, // Transform is_active to isActive for filtering
         };
       });
     } catch (error) {
