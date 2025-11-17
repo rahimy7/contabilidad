@@ -1522,18 +1522,30 @@ router.get('/auth/me', authenticateToken, async (req: any, res: any) => {
   });
 
   router.get('/webhook', (req: Request, res: Response) => {
-    const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'verifytoken12345';
+    // Support both VERIFY_TOKEN and WEBHOOK_VERIFY_TOKEN for backwards compatibility
+    const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || process.env.VERIFY_TOKEN || 'verifytoken12345';
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
+    console.log('🔍 Webhook verification request:', {
+      mode,
+      token: token ? '***' + String(token).slice(-4) : 'missing',
+      expectedToken: VERIFY_TOKEN ? '***' + VERIFY_TOKEN.slice(-4) : 'missing',
+      challenge: challenge ? 'present' : 'missing'
+    });
+
     if (mode && token) {
       if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-        console.log('WEBHOOK_VERIFIED');
+        console.log('✅ WEBHOOK_VERIFIED - Sending challenge');
         res.status(200).send(challenge);
       } else {
+        console.log('❌ WEBHOOK_VERIFICATION_FAILED - Invalid token');
         res.sendStatus(403);
       }
+    } else {
+      console.log('❌ WEBHOOK_VERIFICATION_FAILED - Missing parameters');
+      res.sendStatus(400);
     }
   });
 

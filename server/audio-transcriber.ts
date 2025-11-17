@@ -51,7 +51,7 @@ export class AudioTranscriber {
 
       // Paso 1: Obtener la URL del archivo de audio
       const mediaUrl = await this.getMediaUrl(audioMediaId);
-      console.log(`✅ Got media URL from WhatsApp`);
+      console.log(`✅ Got media URL from WhatsApp: ${mediaUrl.substring(0, 50)}...`);
 
       // Paso 2: Descargar el archivo
       const audioBuffer = await this.downloadFile(mediaUrl);
@@ -60,6 +60,10 @@ export class AudioTranscriber {
       return audioBuffer;
     } catch (error) {
       console.error(`❌ Error downloading audio from WhatsApp:`, error);
+      if (error instanceof Error) {
+        console.error(`❌ Error details: ${error.message}`);
+        console.error(`❌ Error stack: ${error.stack}`);
+      }
       throw error;
     }
   }
@@ -69,17 +73,21 @@ export class AudioTranscriber {
    */
   private async getMediaUrl(mediaId: string): Promise<string> {
     try {
-      const response = await fetch(
-        `https://graph.instagram.com/v18.0/${mediaId}/?access_token=${this.whatsappAccessToken}`
-      );
+      const url = `https://graph.facebook.com/v18.0/${mediaId}/?access_token=${this.whatsappAccessToken}`;
+      console.log(`🔍 Fetching media URL from: https://graph.facebook.com/v18.0/${mediaId}/`);
+
+      const response = await fetch(url);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ WhatsApp API error response: ${errorText}`);
         throw new Error(
-          `Failed to get media URL: ${response.status} ${response.statusText}`
+          `Failed to get media URL: ${response.status} ${response.statusText} - ${errorText}`
         );
       }
 
       const data: any = await response.json();
+      console.log(`📦 Media response data:`, JSON.stringify(data, null, 2));
 
       if (!data.url) {
         throw new Error('No URL in media response');
@@ -88,6 +96,9 @@ export class AudioTranscriber {
       return data.url;
     } catch (error) {
       console.error(`❌ Error getting media URL from WhatsApp:`, error);
+      if (error instanceof Error) {
+        console.error(`❌ Error message: ${error.message}`);
+      }
       throw error;
     }
   }
@@ -142,6 +153,7 @@ export class AudioTranscriber {
       formData.append('language', 'es'); // Idioma español
 
       // Enviar a Whisper API
+      console.log(`📤 Sending audio to Whisper API (${audioBuffer.length} bytes, format: ${ext})`);
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
@@ -150,11 +162,13 @@ export class AudioTranscriber {
         body: formData as any,
       });
 
+      console.log(`📥 Whisper API response status: ${response.status}`);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Whisper API error: ${response.status} - ${errorText}`);
         throw new Error(
-          `Whisper API failed: ${response.status} ${response.statusText}`
+          `Whisper API failed: ${response.status} ${response.statusText} - ${errorText}`
         );
       }
 
