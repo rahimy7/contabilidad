@@ -2948,7 +2948,7 @@ async updateConversation(id: number, updates: any) {
       .from(schema.messages)
       .where(eq(schema.messages.conversationId, conversationId))
       .orderBy(asc(schema.messages.sentAt));
-    
+
     // ✅ MAPEAR snake_case a camelCase
     return messages.map(msg => ({
       id: msg.id,
@@ -2968,6 +2968,37 @@ async updateConversation(id: number, updates: any) {
     }));
   } catch (error) {
     console.error('❌ Error getting messages by conversation:', error);
+    return [];
+  }
+},
+
+/**
+ * Obtiene los últimos N mensajes de una conversación (para contexto de IA)
+ */
+async getRecentMessages(conversationId: number, limit: number = 10) {
+  try {
+    console.log(`📜 Getting last ${limit} messages for conversation ${conversationId}`);
+
+    const messages = await tenantDb.select()
+      .from(schema.messages)
+      .where(eq(schema.messages.conversationId, conversationId))
+      .orderBy(desc(schema.messages.sentAt))
+      .limit(limit);
+
+    // Revertir orden para tener cronológico (más viejo primero)
+    const chronologicalMessages = messages.reverse();
+
+    // Mapear a formato simple para IA
+    const formattedMessages = chronologicalMessages.map(msg => ({
+      role: (msg.sender_type === 'customer' || msg.sender_type === 'user') ? 'user' : 'assistant',
+      content: msg.content || '',
+      timestamp: msg.sent_at || msg.created_at
+    }));
+
+    console.log(`✅ Retrieved ${formattedMessages.length} recent messages`);
+    return formattedMessages;
+  } catch (error) {
+    console.error('❌ Error getting recent messages:', error);
     return [];
   }
 },

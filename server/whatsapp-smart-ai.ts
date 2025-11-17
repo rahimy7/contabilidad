@@ -342,6 +342,10 @@ export async function tryProcessWithAI(
       return { handled: false };
     }
 
+    // ✨ OBTENER HISTORIAL DE MENSAJES PARA CONTEXTO
+    const recentMessages = await tenantStorage.getRecentMessages(conversationId, 10);
+    console.log(`📜 [AI-SMART] Historial de ${recentMessages.length} mensajes cargado para contexto`);
+
     const allProducts = await tenantStorage.getAllProducts();
     const activeProducts = allProducts.filter((p: any) => p.isActive);
     console.log(`📦 [AI-SMART] ${activeProducts.length} productos activos disponibles`);
@@ -566,7 +570,7 @@ export async function tryProcessWithAI(
             {
               customerId,
               customerName: customerName,
-              recentMessages: [],
+              recentMessages,
               tenantStorage
             }
           );
@@ -587,7 +591,7 @@ export async function tryProcessWithAI(
           {
             customerId,
             customerName: customerName,
-            recentMessages: [],
+            recentMessages,
             tenantStorage
           }
         );
@@ -608,7 +612,7 @@ export async function tryProcessWithAI(
           {
             customerId,
             customerName: customerName,
-            recentMessages: [],
+            recentMessages,
             tenantStorage
           }
         );
@@ -653,7 +657,7 @@ export async function tryProcessWithAI(
           {
             customerId,
             customerName: customerName,
-            recentMessages: [],
+            recentMessages,
             tenantStorage
           }
         );
