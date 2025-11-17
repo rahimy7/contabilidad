@@ -213,8 +213,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="flex items-center justify-between">
             <span>Factura - {data?.orderNumber}</span>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
@@ -226,13 +226,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
           </DialogDescription>
         </DialogHeader>
 
-        {/* Invoice Preview */}
-        <div className="bg-gray-50 rounded-lg overflow-auto max-h-[80vh] border">
-          {data && <InvoiceContent ref={invoiceRef} data={data} />}
+        {/* Invoice Preview - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="bg-gray-50 rounded-lg border">
+            {data && <InvoiceContent ref={invoiceRef} data={data} />}
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 justify-end pt-4 border-t">
+        {/* Actions - Fixed at bottom */}
+        <div className="flex gap-3 justify-end pt-4 px-6 pb-6 border-t flex-shrink-0 bg-white">
           <Button variant="outline" onClick={onClose}>
             Cerrar
           </Button>
