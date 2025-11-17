@@ -7,6 +7,15 @@ import {
 import { interpretAIMessage } from './ai-order-assistant';
 import { CartItem } from './ai-credits-schema';
 import { generateSalesAgentResponse, interpretMessage } from './ai-service';
+import {
+  getFlowContext,
+  isConfirmationForTransition,
+  transitionToAutomatic,
+  createOrUpdateAIFlow,
+  calculateCartTotal,
+  formatCartSummary,
+  logFlowState
+} from './hybrid-flow-manager';
 
 interface MessageContext {
   isAfterWelcome?: boolean;
@@ -314,17 +323,42 @@ export async function tryProcessWithAI(
     const context = getContext(phoneNumber);
     console.log('📋 [AI-SMART] Contexto actual:', context);
 
-    const should = await shouldUseAI(
-      storeId,
+    // ✅ HÍBRIDO: Verificar flow context primero
+    const flowContext = await getFlowContext(
+      phoneNumber,
       messageText,
-      context.isAfterWelcome,
-      context.isAfterCatalog,
-      context.isHelpMode,
-      tenantStorage
+      storeId,
+      tenantStorage,
+      context.isAfterWelcome
     );
-    if (!should) {
-      console.log('⚠️ [AI-SMART] Condiciones no cumplidas para usar IA');
+
+    console.log(`🔄 [HYBRID] Flow context - shouldUseAI: ${flowContext.shouldUseAI}, shouldUseAutomatic: ${flowContext.shouldUseAutomatic}`);
+
+    // Si flow dice usar automático, no procesar con IA
+    if (flowContext.shouldUseAutomatic && !flowContext.shouldUseAI) {
+      console.log('⚙️ [HYBRID] Flow indica usar automático - IA no procesa');
+      logFlowState(flowContext.flow, '📋 [HYBRID] ');
       return { handled: false };
+    }
+
+    // Si flow dice usar IA, proceder independiente de otros criterios
+    if (flowContext.shouldUseAI) {
+      console.log('🤖 [HYBRID] Flow indica usar IA - procediendo');
+      // Continuar con el flujo normal de IA
+    } else {
+      // Si no hay indicación de flow, usar criterios normales
+      const should = await shouldUseAI(
+        storeId,
+        messageText,
+        context.isAfterWelcome,
+        context.isAfterCatalog,
+        context.isHelpMode,
+        tenantStorage
+      );
+      if (!should) {
+        console.log('⚠️ [AI-SMART] Condiciones no cumplidas para usar IA');
+        return { handled: false };
+      }
     }
 
     const hasCredits = await AICreditsManager.hasCredits(storeId, 'message', tenantStorage);
@@ -587,59 +621,87 @@ export async function tryProcessWithAI(
         }
 
         // ✅ PASO 1 COMPLETADO: Producto agregado
-        // ✅ PASO 2: Automáticamente iniciar proceso de confirmación
-        const addedItem = currentCart[currentCart.length - 1];
-        const cartSummary = getCartSummary(currentCart);
+        // ✅ HÍBRIDO: Crear o actualizar orden y registration flow
+        console.log(`🔄 [HYBRID] Creando/actualizando orden y registration flow`);
 
-        console.log(`✅ [AI-SMART] Producto agregado, iniciando proceso de confirmación automático`);
-
-        // Verificar si el cliente ya tiene dirección
+        const cartTotal = calculateCartTotal(currentCart);
         const customer = await tenantStorage.getCustomerById(customerId);
-        console.log(`👤 [AI-SMART] Cliente ${customerId}: ${customer?.name}, Dirección: ${customer?.address ? 'SÍ' : 'NO'}`);
 
-        // Si tiene dirección, ir directo a método de pago
-        if (customer?.address) {
-          const orderFlowConversation = {
-            ...aiConversation,
-            cartItems: currentCart, // ✅ Guardar también en cartItems
-            orderFlowStep: 'collect_payment',
-            pendingOrder: {
-              cartItems: currentCart,
-              address: customer.address,
-              paymentMethod: undefined,
-              notes: undefined
-            }
-          } as any;
-          await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
+        // 1. Crear o actualizar orden en draft
+        let order: any;
+        let registrationFlow = await tenantStorage.getRegistrationFlow(phoneNumber);
 
-          console.log(`💾 [AI-SMART] Estado guardado - Carrito: ${currentCart.length} items, Step: collect_payment`);
-
-          return {
-            handled: true,
-            responseMessage: `✅ ${addedItem.productName} x${addedItem.quantity}\n\n${cartSummary.formattedSummary}\n\n📦 Enviando a: ${customer.address}\n\n${getPaymentCollectionPrompt()}`,
-            cart: currentCart
-          };
+        if (registrationFlow && registrationFlow.orderId) {
+          // Actualizar orden existente
+          console.log(`📝 [HYBRID] Actualizando orden existente: ${registrationFlow.orderId}`);
+          order = await tenantStorage.updateOrder(registrationFlow.orderId, {
+            items: currentCart.map((item: CartItem) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              price: item.unitPrice
+            })),
+            totalAmount: cartTotal,
+            updatedAt: new Date()
+          });
+          order = await tenantStorage.getOrderById(registrationFlow.orderId);
+        } else {
+          // Crear nueva orden
+          console.log(`✨ [HYBRID] Creando nueva orden`);
+          order = await tenantStorage.createOrder({
+            customerId,
+            storeId,
+            status: 'draft',
+            items: currentCart.map((item: CartItem) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              price: item.unitPrice
+            })),
+            totalAmount: cartTotal,
+            customerName: customer?.name || 'Cliente',
+            customerPhone: phoneNumber
+          });
         }
 
-        // Si NO tiene dirección, solicitar dirección
+        console.log(`✅ [HYBRID] Orden ${order.id} (${order.orderNumber}) - ${currentCart.length} items - RD$${cartTotal}`);
+
+        // 2. Crear o actualizar registration flow con tipo AI
+        registrationFlow = await createOrUpdateAIFlow(
+          customerId,
+          phoneNumber,
+          storeId,
+          order.id,
+          order.orderNumber,
+          currentCart,
+          conversationId,
+          tenantStorage
+        );
+
+        logFlowState(registrationFlow, '🔍 [HYBRID] ');
+
+        // 3. También actualizar AI conversation para compatibilidad
         const orderFlowConversation = {
           ...aiConversation,
-          cartItems: currentCart, // ✅ Guardar también en cartItems para mantener estado
-          orderFlowStep: 'collect_address',
+          cartItems: currentCart,
+          orderFlowStep: 'add_products',
           pendingOrder: {
             cartItems: currentCart,
-            address: undefined,
-            paymentMethod: undefined,
-            notes: undefined
+            orderId: order.id,
+            orderNumber: order.orderNumber
           }
         } as any;
         await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
 
-        console.log(`💾 [AI-SMART] Estado guardado - Carrito: ${currentCart.length} items, Step: collect_address`);
+        // 4. Generar respuesta
+        const addedItem = currentCart[currentCart.length - 1];
+        const responseMessage = `✅ ${addedItem.productName} x${addedItem.quantity} agregado\n\n${formatCartSummary(currentCart)}\n\n💡 Puedes:\n• Agregar más productos\n• Escribir "confirmar" para proceder con tu pedido`;
+
+        console.log(`💾 [HYBRID] Estado guardado - Orden: ${order.orderNumber}, Carrito: ${currentCart.length} items`);
 
         return {
           handled: true,
-          responseMessage: `✅ ${addedItem.productName} x${addedItem.quantity}\n\n${cartSummary.formattedSummary}\n\n${getAddressCollectionPrompt()}`,
+          responseMessage,
           cart: currentCart
         };
 
@@ -671,7 +733,10 @@ export async function tryProcessWithAI(
       }
 
       case 'confirm_order':
-        // ✅ Si el carrito está vacío pero hay pendingOrder, recuperarlo
+        // ✅ HÍBRIDO: Transición de IA a Automático
+        console.log(`🔄 [HYBRID] Detectada confirmación - iniciando transición a automático`);
+
+        // 1. Si el carrito está vacío pero hay pendingOrder, recuperarlo
         if (currentCart.length === 0 && (aiConversation as any).pendingOrder?.cartItems?.length > 0) {
           console.log(`🔄 [AI-SMART] Recuperando carrito de pendingOrder: ${(aiConversation as any).pendingOrder.cartItems.length} items`);
           currentCart = (aiConversation as any).pendingOrder.cartItems;
@@ -679,51 +744,40 @@ export async function tryProcessWithAI(
 
         if (currentCart.length === 0) {
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
-        } else {
-          // ✅ PASO 2: Verificar si el cliente ya está registrado con dirección
-          const customer = await tenantStorage.getCustomerById(customerId);
-          console.log(`👤 [AI-SMART] Cliente ${customerId}: ${customer?.name}, Dirección: ${customer?.address ? 'SÍ' : 'NO'}`);
+        }
 
-          // Si el cliente YA tiene dirección registrada, saltar a método de pago
-          if (customer?.address) {
-            console.log(`✅ [AI-SMART] Cliente registrado con dirección, saltando a pago`);
-            const orderFlowConversation = {
-              ...aiConversation,
-              orderFlowStep: 'collect_payment',
-              pendingOrder: {
-                cartItems: currentCart,
-                address: customer.address, // Usar dirección registrada
-                paymentMethod: undefined,
-                notes: undefined
-              }
-            } as any;
-            await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
-
-            return {
-              handled: true,
-              responseMessage: `📦 Enviando a: ${customer.address}\n\n${getPaymentCollectionPrompt()}`
-            };
-          }
-
-          // Si NO tiene dirección, solicitar dirección
-          console.log(`📍 [AI-SMART] Cliente sin dirección registrada, solicitando datos`);
-          const orderFlowConversation = {
-            ...aiConversation,
-            orderFlowStep: 'collect_address',
-            pendingOrder: {
-              cartItems: currentCart,
-              address: undefined,
-              paymentMethod: undefined,
-              notes: undefined
-            }
-          } as any;
-          await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
-
+        // 2. Verificar que existe registration flow
+        let confirmFlow = await tenantStorage.getRegistrationFlow(phoneNumber);
+        if (!confirmFlow) {
+          console.error(`❌ [HYBRID] No hay registration flow - no se puede confirmar`);
           return {
             handled: true,
-            responseMessage: getAddressCollectionPrompt()
+            responseMessage: '❌ No encontré tu pedido. Por favor, empieza de nuevo agregando productos.'
           };
         }
+
+        logFlowState(confirmFlow, '📋 [HYBRID] Flow antes de transición: ');
+
+        // 3. Realizar transición a automático
+        const transitioned = await transitionToAutomatic(confirmFlow, phoneNumber, storeId, tenantStorage);
+
+        if (!transitioned) {
+          console.error(`❌ [HYBRID] Falló la transición a automático`);
+          return {
+            handled: true,
+            responseMessage: '❌ Hubo un error procesando tu confirmación. Por favor intenta de nuevo.'
+          };
+        }
+
+        // 4. El flujo automático tomará el control ahora
+        // Enviar mensaje de confirmación usando el sistema automático
+        const { sendAutoResponseMessage } = await import('./whatsapp-simple.js');
+        await sendAutoResponseMessage(phoneNumber, 'confirm_order', storeId, tenantStorage);
+
+        console.log(`✅ [HYBRID] Transición completa - flujo automático ahora tiene el control`);
+
+        // Retornar handled=true para que no se procese más en IA
+        return { handled: true };
 
       default:
         // ✨ Usar Sales Agent para preguntas y otras intenciones también

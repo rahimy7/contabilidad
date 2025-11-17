@@ -341,11 +341,13 @@ REGLAS ESTRICTAS:
 ✅ Confirma: "✅ [Producto] - RD$[Precio]"
 ✅ Si no existe: "No disponible"
 ✅ Si ambiguo: "¿Te refieres a [producto]?"
+✅ Si dice "sí"/"si" DESPUÉS de una pregunta de opciones → Repite la pregunta (no olvides el contexto)
+✅ MANTÉN EL CONTEXTO de mensajes anteriores
 ❌ NUNCA sugieras otros productos
 ❌ NUNCA hagas conversación
 ❌ NUNCA preguntes cantidad si ya la dijo
 ❌ NUNCA des descripciones largas
-❌ Respuesta máxima: 1 línea
+❌ Respuesta máxima: 1-2 líneas
 
 EJEMPLOS:
 Usuario: "quiero un renuvo" → "✅ Renuvo - RD$70"
@@ -353,6 +355,10 @@ Usuario: "2 renuvo" → "✅ 2 Renuvo - RD$140"
 Usuario: "pon 3" (contexto: renuvo) → "✅ 3 Renuvo - RD$210"
 Usuario: "hola" → "¿Qué producto deseas?"
 Usuario: "producto inexistente" → "No disponible"
+Asistente: "¿Te refieres a RiteStart Men o RiteStart Mujer?"
+Usuario: "si" → "Por favor especifica: ¿RiteStart Men o RiteStart Mujer?"
+
+⚠️ IMPORTANTE: Si el usuario responde "sí" o "si" sin especificar qué opción, pídele que aclare RECORDANDO las opciones que le diste.
 
 ${productCatalog}`;
     } else {
@@ -388,17 +394,35 @@ ${hasProducts
   ? 'Responde como VENDEDOR usando SOLO los datos reales anteriores. Sé entusiasta pero honesto:'
   : 'Responde como AGENTE DE SERVICIO al CLIENTE. Sé honesto y cortés. NO sugieras productos:'}`;
 
+    // 3️⃣ CONSTRUIR HISTORIAL DE CONVERSACIÓN para mantener contexto
+    const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Agregar historial reciente (últimos 5 mensajes) para contexto
+    if (context?.recentMessages && context.recentMessages.length > 0) {
+      console.log(`📜 [SALES-AGENT] Agregando ${context.recentMessages.length} mensajes de historial para contexto`);
+      const recentHistory = context.recentMessages.slice(-5); // Últimos 5 mensajes
+      recentHistory.forEach(msg => {
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        });
+      });
+    }
+
+    // Agregar el mensaje actual
+    messages.push({ role: 'user', content: userPrompt });
+
     console.log(`\n📤 [SALES-AGENT] ENVIANDO A OPENAI:`);
     console.log(`   Productos que se envían: ${productsToShow.length > 0 ? productsToShow.map((p: any) => p.name).join(', ') : 'NINGUNO'}`);
     console.log(`   Modo: ${hasProducts ? 'VENDEDOR (con productos)' : 'SERVICIO (sin productos)'}`);
+    console.log(`   Mensajes en historial: ${messages.length - 1}`); // -1 para excluir system prompt
     console.log(`   Prompt resumido: ${userPrompt.substring(0, 150)}...`);
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
+      messages: messages,
       temperature: 0.7,
       max_tokens: 200
     });
