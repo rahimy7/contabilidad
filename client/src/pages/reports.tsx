@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChart, Filter, UserCheck, AlertTriangle, TrendingDown } from "lucide-react";
 import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const parseCurrency = (value: any): number => {
   if (typeof value === 'number') {
@@ -409,6 +411,96 @@ export default function Reports() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  // Export inventory with stock to PDF
+  const handleExportInventoryPDF = () => {
+    if (!Array.isArray(products)) return;
+
+    // Filter products with stock > 0
+    const productsWithStock = products.filter((product: any) => {
+      const stock = parseInt(product.stock_quantity) || 0;
+      return stock > 0;
+    });
+
+    if (productsWithStock.length === 0) {
+      alert("No hay productos con stock para exportar");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(18);
+    doc.text("Reporte de Inventario con Stock", 14, 20);
+
+    // Date
+    doc.setFontSize(11);
+    doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+
+    // Prepare table data
+    const tableData = productsWithStock.map((product: any) => {
+      const stock = parseInt(product.stock_quantity) || 0;
+      const price = parseFloat(product.price) || 0;
+      const totalValue = stock * price;
+
+      return [
+        product.id.toString(),
+        product.name,
+        stock.toString(),
+        `$${price.toFixed(2)}`,
+        `$${totalValue.toFixed(2)}`,
+        product.category || "Sin categoría"
+      ];
+    });
+
+    // Calculate totals
+    const totalStock = productsWithStock.reduce((sum: number, p: any) =>
+      sum + (parseInt(p.stock_quantity) || 0), 0);
+    const totalValue = productsWithStock.reduce((sum: number, p: any) => {
+      const stock = parseInt(p.stock_quantity) || 0;
+      const price = parseFloat(p.price) || 0;
+      return sum + (stock * price);
+    }, 0);
+
+    // Add table
+    autoTable(doc, {
+      head: [['ID', 'Producto', 'Stock', 'Precio Unit.', 'Valor Total', 'Categoría']],
+      body: tableData,
+      startY: 35,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 },
+        1: { halign: 'left', cellWidth: 60 },
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'right', cellWidth: 25 },
+        4: { halign: 'right', cellWidth: 28 },
+        5: { halign: 'left', cellWidth: 'auto' }
+      }
+    });
+
+    // Add summary
+    const finalY = (doc as any).lastAutoTable.finalY || 35;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("RESUMEN:", 14, finalY + 10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Total de Productos: ${productsWithStock.length}`, 14, finalY + 17);
+    doc.text(`Stock Total: ${totalStock} unidades`, 14, finalY + 24);
+    doc.text(`Valor Total del Inventario: $${totalValue.toFixed(2)}`, 14, finalY + 31);
+
+    // Save PDF
+    doc.save(`inventario-con-stock_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   }
 
   return (
@@ -841,10 +933,16 @@ export default function Reports() {
           <Card>
             <CardHeader className="flex items-center justify-between">
               <CardTitle>Inventario Completo</CardTitle>
-              <Button variant="outline" size="sm" onClick={handleExportInventory}>
-                <Download className="h-4 w-4 mr-1" />
-                Exportar CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleExportInventoryPDF}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportInventory}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

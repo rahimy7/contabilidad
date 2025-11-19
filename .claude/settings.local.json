@@ -25,7 +25,10 @@
       "Bash(server.log)",
       "Bash(lsof:*)",
       "Bash(npm run:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm install:*)",
+      "Bash(yarn add:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
