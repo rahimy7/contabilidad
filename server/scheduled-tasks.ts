@@ -254,6 +254,9 @@ export function startScheduledTasks() {
   console.log(`📅 AI conversations cleanup: Every ${CLEANUP_INTERVALS.AI_CONVERSATIONS / (60 * 1000)} minutes`);
   setInterval(cleanupAllStoresAIConversations, CLEANUP_INTERVALS.AI_CONVERSATIONS);
 
+  // 5️⃣ Iniciar cron jobs de facturación
+  startBillingCronJobs();
+
   // Ejecutar limpieza inicial después de 1 minuto
   console.log('⏳ Running initial cleanup in 1 minute...');
   setTimeout(() => {
@@ -262,7 +265,7 @@ export function startScheduledTasks() {
     cleanupAllStoresOrphanData();
     cleanupAllStoresAIConversations(); // ✅ Agregar limpieza de AI
   }, 60 * 1000);
-  
+
   console.log('✅ All scheduled tasks started successfully\n');
 }
 
@@ -281,6 +284,14 @@ export async function runManualCleanup(daysOld: number = 7) {
     flows,
     orphans
   };
+}
+
+/**
+ * Placeholder para cron jobs de facturación
+ * Estos serán restaurados cuando los servicios de billing estén disponibles
+ */
+export function startBillingCronJobs() {
+  console.log('🚀 Billing cron jobs placeholder - services not available');
 }
 
 export {
