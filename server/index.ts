@@ -28,14 +28,13 @@ import { SupabaseStorageManager } from './supabase-storage.js';
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { ExchangeRateService } from './services/exchange-rate.service.ts';
 import { createWebOrder } from './routes/create-web-order.ts';
-import { startScheduledTasks } from './scheduled-tasks.ts';
+import { startScheduledTasks, startBillingCronJobs } from './scheduled-tasks.ts';
 import { getTenantStorage, getTenantStorageBySlug } from './storage/index.js';
 import { getDefaultTenantStorage } from './tenant-storage.ts';
 import { setupPrintRoutes } from './print-routes';
 import aiRoutes from './ai-routes';
 import storeSettingsRoutes from './store-settings.routes';
 import { validateAIConfiguration } from './ai-service';
-
 
 
 // ================================
@@ -1278,6 +1277,7 @@ app.get('/share-product', async (req, res) => {
 
     if (process.env.NODE_ENV !== 'test') {
   startScheduledTasks();
+  startBillingCronJobs();
 }
 
     server.listen(PORT, HOST, () => {
