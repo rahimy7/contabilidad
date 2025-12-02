@@ -55,8 +55,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useLocation } from 'wouter';
-
-
+import { useAuth } from '@/contexts/AuthContext';
 
 
 // Monedas soportadas
@@ -134,6 +133,7 @@ interface ImageData {
 export default function ImprovedProductManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -149,13 +149,18 @@ export default function ImprovedProductManagement() {
   const [tempLoyaltyPropertyName, setTempLoyaltyPropertyName] = useState("");
   const [tempLoyaltyPointsValue, setTempLoyaltyPointsValue] = useState("");
 
+  // ✅ Only fetch store data if user has a storeId (not super_admin)
+  const hasStoreContext = !!user?.storeId;
+
   // Queries para obtener datos reales
   const { data: products = [], isLoading: loadingProducts, error: productsError } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+    enabled: hasStoreContext,
   });
 
   const { data: categories = [], isLoading: loadingCategories, error: categoriesError } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+    enabled: hasStoreContext,
   });
 
   // Mutations para crear/actualizar productos - ACTUALIZADO

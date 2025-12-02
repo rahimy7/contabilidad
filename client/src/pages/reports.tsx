@@ -11,6 +11,7 @@ import { Download, TrendingUp, Calendar, DollarSign, Users, Package, FileBarChar
 import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useAuth } from "@/contexts/AuthContext";
 
 const parseCurrency = (value: any): number => {
   if (typeof value === 'number') {
@@ -25,6 +26,7 @@ const parseCurrency = (value: any): number => {
 };
 
 export default function Reports() {
+  const { user } = useAuth();
   const [dateRange, setDateRange] = useState({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date())
@@ -32,20 +34,27 @@ export default function Reports() {
   const [selectedPeriod, setSelectedPeriod] = useState("thisMonth");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
+  // ✅ Only fetch store data if user has a storeId (not super_admin)
+  const hasStoreContext = !!user?.storeId;
+
   const { data: orders } = useQuery({
     queryKey: ["/api/orders"],
+    enabled: hasStoreContext,
   });
 
   const { data: employees } = useQuery({
     queryKey: ["/api/employees"],
+    enabled: hasStoreContext,
   });
 
   const { data: customers } = useQuery({
     queryKey: ["/api/customers"],
+    enabled: hasStoreContext,
   });
 
   const { data: products } = useQuery({
     queryKey: ["/api/products"],
+    enabled: hasStoreContext,
   });
 
   const { data: metrics } = useQuery({
