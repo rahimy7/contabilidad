@@ -509,7 +509,13 @@ const requireTenantStorage = async (req: any, res: any, next: any) => {
 const getProductsHandler = async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
-    
+
+    if (user.role === 'super_admin') {
+      return res.status(403).json({
+        error: "Super admin debe usar /api/super-admin/stores/:storeId/products"
+      });
+    }
+
     if (!user.storeId) {
       return res.status(403).json({
         error: "Store ID es requerido"
@@ -521,10 +527,10 @@ const getProductsHandler = async (req: any, res: any) => {
     // ✅ CORRECCIÓN: Asignar el resultado a la variable products
     const tenantStorage = await getTenantStorageWithSchema(user); // ✅ Usar la función corregida
     const products = await tenantStorage.getAllProducts(); // ✅ Asignar resultado
-    
+
     console.log(`✅ Retrieved ${products.length} products from tenant schema`);
     res.json(products);
-    
+
   } catch (error) {
     console.error('❌ Error fetching products:', {
       message: error instanceof Error ? error.message : String(error),
@@ -2773,6 +2779,12 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
     console.log('👥 [GET /customers] Getting all customers for store:', user.storeId);
+
+    if (user.role === 'super_admin') {
+      return res.status(403).json({
+        error: "Super admin debe usar /api/super-admin/stores/:storeId/customers"
+      });
+    }
 
     if (!user.storeId) {
       return res.status(403).json({

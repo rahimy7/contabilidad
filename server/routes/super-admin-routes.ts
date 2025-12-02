@@ -1455,34 +1455,32 @@ router.get('/subscription-plans',
   cacheMiddleware(metricsCache, () => 'subscription-plans', 600),
   async (req: any, res: any) => {
     try {
-      res.json({
-        plans: [
-          {
-            id: 1,
-            name: 'Basic',
-            price: 29.99,
-            billingCycle: 'monthly',
-            features: ['Up to 100 orders', 'Basic analytics', 'Email support'],
-            activeSubscriptions: 150
-          },
-          {
-            id: 2,
-            name: 'Professional',
-            price: 99.99,
-            billingCycle: 'monthly',
-            features: ['Up to 1000 orders', 'Advanced analytics', 'Priority support', 'API access'],
-            activeSubscriptions: 320
-          },
-          {
-            id: 3,
-            name: 'Enterprise',
-            price: 299.99,
-            billingCycle: 'monthly',
-            features: ['Unlimited orders', 'Custom analytics', '24/7 support', 'Dedicated account manager'],
-            activeSubscriptions: 45
-          }
-        ]
-      });
+      res.json([
+        {
+          id: 1,
+          name: 'Basic',
+          price: 29.99,
+          billingCycle: 'monthly',
+          features: ['Up to 100 orders', 'Basic analytics', 'Email support'],
+          activeSubscriptions: 150
+        },
+        {
+          id: 2,
+          name: 'Professional',
+          price: 99.99,
+          billingCycle: 'monthly',
+          features: ['Up to 1000 orders', 'Advanced analytics', 'Priority support', 'API access'],
+          activeSubscriptions: 320
+        },
+        {
+          id: 3,
+          name: 'Enterprise',
+          price: 299.99,
+          billingCycle: 'monthly',
+          features: ['Unlimited orders', 'Custom analytics', '24/7 support', 'Dedicated account manager'],
+          activeSubscriptions: 45
+        }
+      ]);
     } catch (error) {
       console.error('[Subscription Plans] Error:', error);
       res.status(500).json({ error: 'Failed to fetch subscription plans' });
