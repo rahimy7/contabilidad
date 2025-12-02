@@ -526,9 +526,14 @@ const getProductsHandler = async (req: any, res: any) => {
     res.json(products);
     
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('❌ Error fetching products:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      user: user?.storeId
+    });
     res.status(500).json({
-      error: "Error interno del servidor"
+      error: "Error al obtener productos",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 };
@@ -551,9 +556,15 @@ const getProductByIdHandler = async (req: any, res: any) => {
     console.log('✅ Product found in tenant schema');
     res.json(product);
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('❌ Error fetching product:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      productId,
+      user: user?.storeId
+    });
     res.status(500).json({
-      error: "Error interno del servidor"
+      error: "Error al obtener producto",
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 };
@@ -2762,17 +2773,27 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
     console.log('👥 [GET /customers] Getting all customers for store:', user.storeId);
-    
+
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID is required"
+      });
+    }
+
     const tenantStorage = await getTenantStorageWithSchema(user);
     const customers = await tenantStorage.getAllCustomers();
-    
+
     console.log('✅ [GET /customers] Found customers:', customers.length);
     res.json(customers);
   } catch (error) {
-    console.error('❌ [GET /customers] Error:', error);
-    res.status(500).json({ 
+    console.error('❌ [GET /customers] Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      user: (req.user as AuthUser)?.storeId
+    });
+    res.status(500).json({
       error: "Failed to fetch customers",
-      details: error.message 
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
@@ -2782,24 +2803,35 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
   try {
     const customerId = parseInt(req.params.id);
     const user = req.user as AuthUser;
-    
+
     console.log('👤 [GET /customers/:id] Getting customer:', customerId);
-    
+
+    if (!user.storeId) {
+      return res.status(403).json({
+        error: "Store ID is required"
+      });
+    }
+
     const tenantStorage = await getTenantStorageWithSchema(user);
     const customer = await tenantStorage.getCustomerById(customerId);
-    
+
     if (!customer) {
       console.log('⚠️ [GET /customers/:id] Customer not found:', customerId);
       return res.status(404).json({ error: 'Customer not found' });
     }
-    
+
     console.log('✅ [GET /customers/:id] Customer retrieved:', customerId);
     res.json(customer);
   } catch (error) {
-    console.error('❌ [GET /customers/:id] Error:', error);
-    res.status(500).json({ 
+    console.error('❌ [GET /customers/:id] Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      customerId: req.params.id,
+      user: (req.user as AuthUser)?.storeId
+    });
+    res.status(500).json({
       error: "Failed to fetch customer",
-      details: error.message 
+      details: error instanceof Error ? error.message : "Unknown error"
     });
   }
 });
