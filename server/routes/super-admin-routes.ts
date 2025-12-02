@@ -1490,4 +1490,190 @@ router.get('/subscription-plans',
   }
 );
 
+/* -------------------------------------------------------------------------- */
+/* STORE PRODUCTS - Super Admin Management                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * GET /api/super-admin/stores/:storeId/products
+ * Obtener todos los productos de una tienda
+ */
+router.get('/stores/:storeId/products',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+
+      if (isNaN(storeId)) {
+        return res.status(400).json({ error: 'Invalid store ID' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+
+      const products = await tenantStorage.getAllProducts();
+      res.json(products || []);
+    } catch (error) {
+      console.error('[Store Products] Error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch products',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/super-admin/stores/:storeId/categories
+ * Obtener todas las categorías de una tienda
+ */
+router.get('/stores/:storeId/categories',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+
+      if (isNaN(storeId)) {
+        return res.status(400).json({ error: 'Invalid store ID' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+
+      const categories = await tenantStorage.getAllCategories();
+      res.json(categories || []);
+    } catch (error) {
+      console.error('[Store Categories] Error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch categories',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/super-admin/stores/:storeId/products
+ * Crear un nuevo producto en una tienda
+ */
+router.post('/stores/:storeId/products',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+      const { name, description, price, categoryId, sku, brand, model, isActive } = req.body;
+
+      if (isNaN(storeId)) {
+        return res.status(400).json({ error: 'Invalid store ID' });
+      }
+
+      if (!name || !price) {
+        return res.status(400).json({ error: 'Name and price are required' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+
+      const product = await tenantStorage.createProduct({
+        name,
+        description,
+        price: parseFloat(price),
+        categoryId: categoryId ? parseInt(categoryId) : undefined,
+        sku,
+        brand,
+        model,
+        isActive: isActive !== false
+      });
+
+      res.status(201).json(product);
+    } catch (error) {
+      console.error('[Create Product] Error:', error);
+      res.status(500).json({
+        error: 'Failed to create product',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/super-admin/stores/:storeId/products/:productId
+ * Actualizar un producto en una tienda
+ */
+router.put('/stores/:storeId/products/:productId',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+      const productId = parseInt(req.params.productId);
+      const { name, description, price, categoryId, sku, brand, model, isActive } = req.body;
+
+      if (isNaN(storeId) || isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid store ID or product ID' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+
+      const product = await tenantStorage.updateProduct(productId, {
+        name,
+        description,
+        price: price ? parseFloat(price) : undefined,
+        categoryId: categoryId ? parseInt(categoryId) : undefined,
+        sku,
+        brand,
+        model,
+        isActive
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error('[Update Product] Error:', error);
+      res.status(500).json({
+        error: 'Failed to update product',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/super-admin/stores/:storeId/products/:productId
+ * Eliminar un producto de una tienda
+ */
+router.delete('/stores/:storeId/products/:productId',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+      const productId = parseInt(req.params.productId);
+
+      if (isNaN(storeId) || isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid store ID or product ID' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+
+      const success = await tenantStorage.deleteProduct(productId);
+
+      if (!success) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      res.json({ success: true, message: 'Product deleted successfully' });
+    } catch (error) {
+      console.error('[Delete Product] Error:', error);
+      res.status(500).json({
+        error: 'Failed to delete product',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
 export default router;
