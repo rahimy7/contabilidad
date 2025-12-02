@@ -54,6 +54,12 @@ export default function StoreProducts() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
+  // Helper function to format price (handles string or number)
+  const formatPrice = (price: any): string => {
+    const num = typeof price === 'string' ? parseFloat(price) : price;
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
   // Get store ID from URL params
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -513,7 +519,7 @@ export default function StoreProducts() {
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <span className="flex items-center gap-1">
                         <DollarSign className="h-4 w-4" />
-                        ${product.price.toFixed(2)}
+                        ${formatPrice(product.price)}
                       </span>
                       {product.brand && (
                         <span className="flex items-center gap-1">
