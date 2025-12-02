@@ -1427,21 +1427,22 @@ router.get('/subscriptions',
       const offset = (page - 1) * limit;
 
       const db = masterStorage.db;
-      const subscriptions = await db.select()
-        .from(storeSubscriptions)
-        .limit(limit)
-        .offset(offset);
 
-      const total = await db.select({ count: count() })
+      // ✅ Obtener todas las suscripciones para contar
+      const allSubscriptions = await db.select()
         .from(storeSubscriptions);
+
+      // ✅ Paginar en memoria
+      const subscriptions = allSubscriptions.slice(offset, offset + limit);
+      const total = allSubscriptions.length;
 
       res.json({
         subscriptions,
         pagination: {
           page,
           limit,
-          total: total[0]?.count || 0,
-          totalPages: Math.ceil((total[0]?.count || 0) / limit)
+          total,
+          totalPages: Math.ceil(total / limit)
         }
       });
     } catch (error) {
