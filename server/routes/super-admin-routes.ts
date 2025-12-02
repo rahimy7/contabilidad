@@ -6,9 +6,6 @@ import NodeCache from 'node-cache';
 import { getTenantStorage } from '../storage';
 import { StorageFactory } from '../storage/storage-factory.js';
 import { invoices, payments, creditTransactions, paypalIntegration, virtualStores, storeSubscriptions } from '@shared/schema';
-import { BillingService } from '../services/billing-service';
-import { CreditService } from '../services/credit-service';
-import { PayPalService } from '../services/paypal-service';
 import { eq, desc, gte, lte, and, asc, count } from 'drizzle-orm';
 
 const storageFactory = StorageFactory.getInstance();
