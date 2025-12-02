@@ -28,7 +28,18 @@
       "Bash(cat:*)",
       "Bash(npm install:*)",
       "Bash(yarn add:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(dir:*)",
+      "Bash(psql:*)",
+      "Bash(xargs kill:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 20472 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(yarn dev)",
+      "Bash(yarn install:*)"
     ],
     "deny": [],
     "ask": []

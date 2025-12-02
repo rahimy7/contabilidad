@@ -42,6 +42,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Controller } from 'react-hook-form';
+import ProductUnitConversions from '@/components/product-unit-conversions';
 
 // Esquema base del formulario (categoría opcional por defecto)
 const productFormBaseSchema = z.object({
@@ -151,6 +152,9 @@ interface Product {
   // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
   loyaltyPointsPropertyName?: string;
   loyaltyPointsValue?: string;
+  // ⚖️ CONVERSIÓN DE UNIDADES - Campos para sistema de conversión
+  unitConversionEnabled?: boolean;
+  baseUnitId?: number;
 }
 
 const mockBrands = ["Hikvision", "Dahua", "DSC", "Honeywell", "Bosch", "Axis", "Pelco"];
@@ -194,6 +198,7 @@ export default function EnhancedAddProduct() {
   const urlParams = new URLSearchParams(window.location.search);
   const initialIsEditMode = urlParams.get('mode') === 'edit' && !!urlParams.get('id');
   const initialProductId = initialIsEditMode ? parseInt(urlParams.get('id') as string) : null;
+  const initialStoreId = urlParams.get('storeId') ? parseInt(urlParams.get('storeId') as string) : null;
 
   // Estados para determinar el modo (crear/editar)
   const [isEditMode, setIsEditMode] = useState(initialIsEditMode);
@@ -235,20 +240,25 @@ export default function EnhancedAddProduct() {
   });
 
   const { data: productData, isLoading: loadingProductData, error: productError } = useQuery<Product>({
-    queryKey: ["/api/products", productId],
+    queryKey: ["/api/products", productId, initialStoreId],
     queryFn: async () => {
       const token = getAuthToken();
-      
-      const response = await fetch(`/api/products/${productId}`, {
+
+      // ✅ Si hay storeId en URL (super_admin), incluirlo en la query
+      const url = initialStoreId
+        ? `/api/products/${productId}?storeId=${initialStoreId}`
+        : `/api/products/${productId}`;
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Producto no encontrado');
       }
-      
+
       return response.json();
     },
     enabled: isEditMode && productId !== null,
@@ -1714,6 +1724,23 @@ export default function EnhancedAddProduct() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Unit Conversions - Only in edit mode */}
+            {isEditMode && productId && (
+              <ProductUnitConversions
+                productId={productId}
+                product={{
+                  id: productId,
+                  name: watch('name') || '',
+                  unitConversionEnabled: productData?.unitConversionEnabled,
+                  baseUnitId: productData?.baseUnitId,
+                  stockQuantity: watch('stockQuantity'),
+                }}
+                onUpdateProduct={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/products", productId] });
+                }}
+              />
             )}
           </div>
         </div>

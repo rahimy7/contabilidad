@@ -10,6 +10,7 @@ import { exchangeRateRoutes } from './exchange-rate.routes';
 import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 import employeeRouter from './routes/employee-routes.js';
 import tripRoutes from './routes/trip-routes';
+import unitConversionRoutes from './routes/unit-conversion-routes';
 
 // Schema and Types
 import {
@@ -549,14 +550,29 @@ const getProductByIdHandler = async (req: any, res: any) => {
     const user = req.user as AuthUser;
     const productId = parseInt(req.params.id);
 
-    console.log('🔍 Getting product', productId, 'for store:', user.storeId);
+    // ✅ Super admin puede especificar storeId vía query parameter
+    const storeId = req.query.storeId
+      ? parseInt(req.query.storeId as string)
+      : user.storeId;
 
-    const tenantStorage = await getTenantStorageWithSchema(user);
+    if (!storeId) {
+      return res.status(400).json({
+        error: "Store ID is required. Super admins must provide storeId query parameter."
+      });
+    }
+
+    console.log('🔍 Getting product', productId, 'for store:', storeId);
+
+    // ✅ Obtener storage para la tienda específica
+    const tenantStorage = user.role === 'super_admin'
+      ? await storageFactory.getTenantStorage(storeId)
+      : await getTenantStorageWithSchema(user);
+
     const product = await tenantStorage.getProductById(productId);
 
     if (!product) {
-      console.log('❌ Product not found in store:', user.storeId);
-      return res.status(404).json({ error: "Producto no encontrado" });
+      console.log('❌ Product not found in store:', storeId);
+      return res.status(404).json({ error: "Product not found" });
     }
 
     console.log('✅ Product found in tenant schema');
@@ -565,8 +581,8 @@ const getProductByIdHandler = async (req: any, res: any) => {
     console.error('❌ Error fetching product:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      productId,
-      user: user?.storeId
+      productId: req.params.id,
+      storeId: req.query.storeId || req.user?.storeId
     });
     res.status(500).json({
       error: "Error al obtener producto",
@@ -2915,6 +2931,9 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
           priority: order.priority || 'normal',
           totalAmount: order.totalAmount,
           deliveryCost: order.deliveryCost || '0.00',
+          loyaltyPointsTotal: (order as any).loyaltyPointsTotal ?? (order as any).loyalty_points_total ?? 0,
+          loyaltyPointsPropertyName: (order as any).loyaltyPointsPropertyName ?? (order as any).loyalty_points_property_name ?? null,
+          loyaltyPointsValue: (order as any).loyaltyPointsValue ?? (order as any).loyalty_points_value ?? null,
           // Dirección completa combinada
 deliveryAddress: order.customerAddress || order.deliveryAddress,
 customerLocation: {
@@ -5951,7 +5970,8 @@ router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any,
   app.use('/api/exchange-rates', exchangeRateRoutes);
   app.use('/api/super-admin', superAdminRoutes);
   app.use('/api', tripRoutes);
-  
+  app.use('/api', unitConversionRoutes);
+
   console.log("✅ Routes registered successfully with migrated storage");
 }
 

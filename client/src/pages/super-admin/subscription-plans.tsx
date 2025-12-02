@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, DollarSign, Users, MessageSquare, Package, Server } from 'lucide-react';
+import { Plus, Edit, Trash2, DollarSign, Users, MessageSquare, Package, Server, Zap } from 'lucide-react';
 import type { SubscriptionPlan, InsertSubscriptionPlan } from '@shared/schema';
 
 export default function SubscriptionPlansPage() {
@@ -192,6 +192,20 @@ export default function SubscriptionPlansPage() {
                 </div>
               </div>
 
+              {/* AI Credits */}
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex items-center text-sm font-medium text-blue-600">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Créditos de IA
+                </div>
+                <div className="text-xs space-y-1 pl-6">
+                  <div>Incluidos: {plan.aiCreditsIncluded || 0} créditos/mes</div>
+                  <div>Costo: {plan.aiCostPerMessage || 1} crédito/mensaje</div>
+                  <div>Costo: {plan.aiCostPerOrder || 5} créditos/orden</div>
+                  <div>Auto-recargar: {plan.aiAutoRecharge ? 'Sí' : 'No'}</div>
+                </div>
+              </div>
+
               {/* Pricing per unit (for usage-based) */}
               {(plan.type === 'usage_based' || plan.type === 'hybrid') && (
                 <div className="border-t pt-3 space-y-1">
@@ -296,6 +310,12 @@ function PlanForm({
     pricePerMessage: plan?.pricePerMessage?.toString() || null,
     pricePerGbStorage: plan?.pricePerGbStorage?.toString() || null,
     pricePerOrder: plan?.pricePerOrder?.toString() || null,
+    aiCreditsIncluded: plan?.aiCreditsIncluded || 0,
+    aiCostPerMessage: plan?.aiCostPerMessage || 1,
+    aiCostPerOrder: plan?.aiCostPerOrder || 5,
+    aiCostPerVoiceNote: plan?.aiCostPerVoiceNote || 10,
+    aiAutoRecharge: plan?.aiAutoRecharge ?? false,
+    aiRechargeAmount: plan?.aiRechargeAmount || 1000,
     isActive: plan?.isActive ?? true,
   });
 
@@ -465,6 +485,89 @@ function PlanForm({
           </div>
         </div>
       )}
+
+      {/* AI Credits Configuration */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium flex items-center gap-2">
+          <Zap className="h-5 w-5 text-blue-600" />
+          Configuración de Créditos de IA
+        </h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="aiCreditsIncluded">Créditos Incluidos (Mensual)</Label>
+            <Input
+              id="aiCreditsIncluded"
+              type="number"
+              value={formData.aiCreditsIncluded || 0}
+              onChange={(e) => setFormData({ ...formData, aiCreditsIncluded: parseInt(e.target.value) || 0 })}
+              placeholder="0"
+              min="0"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="aiCostPerMessage">Costo por Mensaje (créditos)</Label>
+            <Input
+              id="aiCostPerMessage"
+              type="number"
+              value={formData.aiCostPerMessage || 1}
+              onChange={(e) => setFormData({ ...formData, aiCostPerMessage: parseInt(e.target.value) || 1 })}
+              placeholder="1"
+              min="1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="aiCostPerOrder">Costo por Orden (créditos)</Label>
+            <Input
+              id="aiCostPerOrder"
+              type="number"
+              value={formData.aiCostPerOrder || 5}
+              onChange={(e) => setFormData({ ...formData, aiCostPerOrder: parseInt(e.target.value) || 5 })}
+              placeholder="5"
+              min="1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="aiCostPerVoiceNote">Costo por Nota de Voz (créditos)</Label>
+            <Input
+              id="aiCostPerVoiceNote"
+              type="number"
+              value={formData.aiCostPerVoiceNote || 10}
+              onChange={(e) => setFormData({ ...formData, aiCostPerVoiceNote: parseInt(e.target.value) || 10 })}
+              placeholder="10"
+              min="1"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="aiAutoRecharge"
+              checked={formData.aiAutoRecharge}
+              onCheckedChange={(checked) => setFormData({ ...formData, aiAutoRecharge: checked })}
+            />
+            <Label htmlFor="aiAutoRecharge">Auto-recargar créditos al terminarse</Label>
+          </div>
+
+          {formData.aiAutoRecharge && (
+            <div>
+              <Label htmlFor="aiRechargeAmount">Cantidad a Recargar (créditos)</Label>
+              <Input
+                id="aiRechargeAmount"
+                type="number"
+                value={formData.aiRechargeAmount || 1000}
+                onChange={(e) => setFormData({ ...formData, aiRechargeAmount: parseInt(e.target.value) || 1000 })}
+                placeholder="1000"
+                min="1"
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Active Status */}
       <div className="flex items-center space-x-2">

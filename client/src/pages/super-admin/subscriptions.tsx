@@ -51,9 +51,14 @@ export default function Subscriptions() {
     queryKey: ["/api/super-admin/subscription-metrics"],
   });
 
-  const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery<Subscription[]>({
+  const { data: subscriptionsResponse, isLoading: subscriptionsLoading } = useQuery<{
+    subscriptions: Subscription[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>({
     queryKey: ["/api/super-admin/subscriptions"],
   });
+
+  const subscriptions = subscriptionsResponse?.subscriptions || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {

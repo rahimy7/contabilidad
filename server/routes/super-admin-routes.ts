@@ -1494,6 +1494,140 @@ router.get('/subscription-plans',
   }
 );
 
+/**
+ * ✅ STORAGE USAGE - Obtener uso de almacenamiento de una tienda
+ */
+router.get('/subscriptions/:storeId/storage',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const { storeId } = req.params;
+      const storageCalc = require('../storage-calculator');
+
+      const storageUsage = await storageCalc.getStorageUsageWithLimits(parseInt(storeId));
+      res.json(storageUsage);
+    } catch (error) {
+      console.error('[Storage Usage] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch storage usage' });
+    }
+  }
+);
+
+/**
+ * ✅ STORAGE DETAILS - Obtener detalles detallados de almacenamiento (tablas)
+ */
+router.get('/subscriptions/:storeId/storage/details',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const { storeId } = req.params;
+      const storageCalc = require('../storage-calculator');
+
+      const stats = await storageCalc.calculateStoreStorageSize(parseInt(storeId));
+      res.json(stats);
+    } catch (error) {
+      console.error('[Storage Details] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch storage details' });
+    }
+  }
+);
+
+/**
+ * ✅ STORAGE RECALCULATE - Recalcular almacenamiento de una tienda
+ */
+router.post('/subscriptions/:storeId/storage/recalculate',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const { storeId } = req.params;
+      const storageCalc = require('../storage-calculator');
+
+      await storageCalc.updateSubscriptionStorageUsage(parseInt(storeId));
+      const storageUsage = await storageCalc.getStorageUsageWithLimits(parseInt(storeId));
+
+      res.json({
+        message: 'Storage recalculated successfully',
+        storageUsage
+      });
+    } catch (error) {
+      console.error('[Storage Recalculate] Error:', error);
+      res.status(500).json({ error: 'Failed to recalculate storage' });
+    }
+  }
+);
+
+/**
+ * ✅ STORAGE RECALCULATE ALL - Recalcular almacenamiento de todas las tiendas
+ */
+router.post('/subscriptions/storage/recalculate-all',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storageCalc = require('../storage-calculator');
+
+      // Ejecutar en background
+      storageCalc.updateAllSubscriptionsStorageUsage().catch((error: any) => {
+        console.error('Background storage recalculation error:', error);
+      });
+
+      res.json({
+        message: 'Storage recalculation started for all subscriptions',
+        status: 'processing'
+      });
+    } catch (error) {
+      console.error('[Storage Recalculate All] Error:', error);
+      res.status(500).json({ error: 'Failed to start storage recalculation' });
+    }
+  }
+);
+
+/**
+ * ✅ STORAGE JOBS STATUS - Obtener estado de los jobs de almacenamiento
+ */
+router.get('/storage/jobs/status',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storageJobs = require('../jobs/storage-jobs');
+
+      const status = storageJobs.getJobsStatus();
+      res.json(status);
+    } catch (error) {
+      console.error('[Storage Jobs Status] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch job status' });
+    }
+  }
+);
+
+/**
+ * ✅ STORAGE JOBS TRIGGER - Disparar manualmente el job de almacenamiento
+ */
+router.post('/storage/jobs/trigger',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storageJobs = require('../jobs/storage-jobs');
+
+      await storageJobs.triggerStorageUpdate();
+      const status = storageJobs.getJobsStatus();
+
+      res.json({
+        message: 'Storage update job triggered successfully',
+        status
+      });
+    } catch (error) {
+      console.error('[Storage Jobs Trigger] Error:', error);
+      res.status(500).json({ error: 'Failed to trigger storage update job' });
+    }
+  }
+);
+
 /* -------------------------------------------------------------------------- */
 /* STORE PRODUCTS - Super Admin Management                                   */
 /* -------------------------------------------------------------------------- */
@@ -1521,6 +1655,44 @@ router.get('/stores/:storeId/products',
       console.error('[Store Products] Error:', error);
       res.status(500).json({
         error: 'Failed to fetch products',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/super-admin/stores/:storeId/products/:productId
+ * Obtener un producto específico de una tienda
+ */
+router.get('/stores/:storeId/products/:productId',
+  authenticateToken,
+  requireSuperAdmin,
+  async (req: any, res: any) => {
+    try {
+      const storeId = parseInt(req.params.storeId);
+      const productId = parseInt(req.params.productId);
+
+      if (isNaN(storeId)) {
+        return res.status(400).json({ error: 'Invalid store ID' });
+      }
+
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
+      }
+
+      const tenantStorage = await storageFactory.getTenantStorage(storeId);
+      const product = await tenantStorage.getProductById(productId);
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error('[Store Product By ID] Error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch product',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }

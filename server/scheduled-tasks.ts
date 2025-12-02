@@ -1,6 +1,7 @@
 import { getTenantStorage } from './storage/index.js';
 import { db } from './db.js';
 import { cleanupIncompleteAIConversations } from './ai-conversation-cleanup.js';
+import { startStorageUpdateJob, startStorageLimitCheckJob } from './jobs/storage-jobs.js';
 
 /**
  * 🕐 Tareas programadas para limpieza automática
@@ -256,6 +257,13 @@ export function startScheduledTasks() {
 
   // 5️⃣ Iniciar cron jobs de facturación
   startBillingCronJobs();
+
+  // 6️⃣ Iniciar cron jobs de cálculo de almacenamiento
+  console.log('📅 Storage update job: Daily at 3:00 AM');
+  startStorageUpdateJob();
+
+  console.log('📅 Storage limit check job: Every hour');
+  startStorageLimitCheckJob();
 
   // Ejecutar limpieza inicial después de 1 minuto
   console.log('⏳ Running initial cleanup in 1 minute...');

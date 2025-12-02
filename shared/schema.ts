@@ -2,7 +2,6 @@ import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } fr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { makeInsertSchema } from "./schema.utils";
-import e from "express";
 
 // ================================
 // SISTEMA MULTI-TENANT - TIENDAS VIRTUALES
@@ -73,7 +72,15 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   pricePerMessage: decimal("price_per_message", { precision: 10, scale: 4 }).default("0.00"),
   pricePerGbStorage: decimal("price_per_gb_storage", { precision: 10, scale: 2 }).default("0.00"),
   pricePerOrder: decimal("price_per_order", { precision: 10, scale: 4 }).default("0.00"),
-  
+
+  // Créditos de IA incluidos en el plan
+  aiCreditsIncluded: integer("ai_credits_included").default(0), // Créditos mensuales incluidos
+  aiCostPerMessage: integer("ai_cost_per_message").default(1), // Costo en créditos por mensaje procesado
+  aiCostPerOrder: integer("ai_cost_per_order").default(5), // Costo en créditos por orden creada
+  aiCostPerVoiceNote: integer("ai_cost_per_voice_note").default(10), // Costo en créditos por nota de voz
+  aiAutoRecharge: boolean("ai_auto_recharge").default(false), // Auto-recargar créditos al terminar
+  aiRechargeAmount: integer("ai_recharge_amount").default(1000), // Cantidad a recargar automáticamente
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -101,7 +108,13 @@ export const storeSubscriptions = pgTable("store_subscriptions", {
   lastBillingDate: timestamp("last_billing_date"),
   nextBillingDate: timestamp("next_billing_date"),
   billingCycle: text("billing_cycle").default("monthly"), // 'monthly', 'yearly'
-  
+
+  // Estados de pago
+  paymentStatus: text("payment_status").default("pending"), // 'pending', 'paid', 'overdue', 'failed'
+  lastPaymentDate: timestamp("last_payment_date"),
+  totalPaid: decimal("total_paid", { precision: 12, scale: 2 }).default("0.00"),
+  totalDue: decimal("total_due", { precision: 12, scale: 2 }).default("0.00"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -290,6 +303,9 @@ export const products = pgTable("products", {
   // Fidelización - Plan de puntos
   loyaltyPointsPropertyName: text("loyalty_points_property_name"), // 'LP', 'PUNTOS', 'REWARDS', etc. (OPCIONAL)
   loyaltyPointsValue: decimal("loyalty_points_value", { precision: 10, scale: 2 }), // Valor numérico de puntos (OPCIONAL)
+  // Sistema de conversión de unidades
+  unitConversionEnabled: boolean("unit_conversion_enabled").default(false), // Activar conversión de unidades
+  baseUnitId: integer("base_unit_id"), // Unidad base del producto (referencia a measurementUnits)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
    storeId: integer("store_id").notNull(),
@@ -323,6 +339,10 @@ export const orders = pgTable("orders", {
   serviceType: text("service_type"),
   description: text("description"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
+  // Fidelización - datos de puntos asociados a la orden
+  loyaltyPointsPropertyName: text("loyalty_points_property_name"),
+  loyaltyPointsValue: decimal("loyalty_points_value", { precision: 10, scale: 2 }),
+  loyaltyPointsTotal: decimal("loyalty_points_total", { precision: 12, scale: 2 }).default("0"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -347,6 +367,9 @@ export const orderItems = pgTable("order_items", {
   // Delivery/shipping cost (for products and services)
   deliveryCost: decimal("delivery_cost", { precision: 10, scale: 2 }).default("0"),
   deliveryDistance: decimal("delivery_distance", { precision: 8, scale: 2 }), // km
+  // Sistema de conversión de unidades
+  unitId: integer("unit_id"), // Unidad en la que se realizó el pedido (referencia a measurementUnits)
+  quantityInBaseUnit: decimal("quantity_in_base_unit", { precision: 12, scale: 4 }), // Cantidad normalizada a unidad base
   notes: text("notes"),
   storeId: integer("store_id"),
 });
@@ -713,11 +736,70 @@ export const productBrands = pgTable("product_brands", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ================================
+// SISTEMA DE CONVERSIÓN DE UNIDADES
+// ================================
+
+// Catálogo de unidades de medida por tienda
+export const measurementUnits = pgTable("measurement_units", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(), // "Kilogramo", "Gramo", "Litro", "Mililitro", "Unidad"
+  symbol: text("symbol").notNull(), // "kg", "g", "L", "ml", "unid"
+  type: text("type").notNull(), // "weight", "volume", "unit", "length"
+  abbreviation: text("abbreviation"), // Abreviación alternativa
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0), // Para ordenar en select
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Factores de conversión entre unidades por producto
+export const productUnitConversions = pgTable("product_unit_conversions", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  sourceUnitId: integer("source_unit_id").references(() => measurementUnits.id).notNull(), // Unidad origen
+  targetUnitId: integer("target_unit_id").references(() => measurementUnits.id).notNull(), // Unidad destino (base)
+  conversionFactor: decimal("conversion_factor", { precision: 15, scale: 6 }).notNull(), // Factor de conversión
+  // Ejemplo: sourceUnit=kg, targetUnit=g, factor=1000 → 1kg = 1000g
+  // Ejemplo: sourceUnit=g, targetUnit=kg, factor=0.001 → 1g = 0.001kg
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"), // Notas sobre la conversión
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertProductBrandSchema = makeInsertSchema(productBrands, {
   storeId: z.number(),
   name: z.string().min(1, "Nombre es requerido"),
   description: z.string().optional(),
   website: z.string().url().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
+export const insertMeasurementUnitSchema = makeInsertSchema(measurementUnits, {
+  storeId: z.number(),
+  name: z.string().min(1, "Nombre es requerido"),
+  symbol: z.string().min(1, "Símbolo es requerido"),
+  type: z.enum(["weight", "volume", "unit", "length"], {
+    errorMap: () => ({ message: "Tipo debe ser: weight, volume, unit o length" })
+  }),
+  abbreviation: z.string().optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
+export const insertProductUnitConversionSchema = makeInsertSchema(productUnitConversions, {
+  productId: z.number().int().positive(),
+  storeId: z.number().int().positive(),
+  sourceUnitId: z.number().int().positive(),
+  targetUnitId: z.number().int().positive(),
+  conversionFactor: z.string().refine(
+    val => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    "Factor de conversión debe ser un número positivo"
+  ),
+  isActive: z.boolean().optional(),
+  notes: z.string().optional(),
 }, ["id", "createdAt", "updatedAt"]);
 
 export const insertProductSchema = makeInsertSchema(products, {
@@ -727,6 +809,9 @@ export const insertProductSchema = makeInsertSchema(products, {
 
 export const insertOrderSchema = makeInsertSchema(orders, {
   orderNumber: z.string().optional(),
+  loyaltyPointsPropertyName: z.string().optional(),
+  loyaltyPointsValue: z.string().optional(),
+  loyaltyPointsTotal: z.string().optional(),
 });
 
 export const insertOrderItemSchema = makeInsertSchema(orderItems);
@@ -765,6 +850,12 @@ export const insertSubscriptionPlanSchema = makeInsertSchema(subscriptionPlans, 
   pricePerMessage: z.string().nullable().optional(),
   pricePerGbStorage: z.string().nullable().optional(),
   pricePerOrder: z.string().nullable().optional(),
+  aiCreditsIncluded: z.number().int().nonnegative().optional(),
+  aiCostPerMessage: z.number().int().nonnegative().optional(),
+  aiCostPerOrder: z.number().int().nonnegative().optional(),
+  aiCostPerVoiceNote: z.number().int().nonnegative().optional(),
+  aiAutoRecharge: z.boolean().optional(),
+  aiRechargeAmount: z.number().int().positive().optional(),
 });
 
 export const insertStoreSubscriptionSchema = makeInsertSchema(storeSubscriptions);
@@ -835,6 +926,13 @@ export type InsertShoppingCart = z.infer<typeof insertShoppingCartSchema>;
 
 export type ProductCategory = typeof productCategories.$inferSelect;
 export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
+
+// Unit conversion types
+export type MeasurementUnit = typeof measurementUnits.$inferSelect;
+export type InsertMeasurementUnit = z.infer<typeof insertMeasurementUnitSchema>;
+
+export type ProductUnitConversion = typeof productUnitConversions.$inferSelect;
+export type InsertProductUnitConversion = z.infer<typeof insertProductUnitConversionSchema>;
 
 // Subscription types
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
@@ -1014,6 +1112,9 @@ export const schema = {
   notifications,
   products,
   productCategories,
+  productBrands,
+  measurementUnits,
+  productUnitConversions,
   orders,
   orderItems,
   orderHistory,
@@ -1163,3 +1264,210 @@ export const aiProductMatches = pgTable("ai_product_matches", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at"),
 });
+
+// ================================
+// SISTEMA DE FACTURACIÓN Y PAGOS
+// ================================
+
+// Tabla de facturas (Base de datos maestra)
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  invoiceNumber: text("invoice_number").notNull().unique(), // Ej: INV-2025-001
+  storeId: integer("store_id").references(() => virtualStores.id).notNull(),
+  subscriptionId: integer("subscription_id").references(() => storeSubscriptions.id),
+
+  // Período de la factura
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+
+  // Montos
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull().default("0.00"),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default("0.00"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull().default("0.00"),
+  currency: text("currency").default("MXN"),
+
+  // Estado
+  status: text("status").notNull().default("draft"), // 'draft', 'issued', 'sent', 'paid', 'partially_paid', 'overdue', 'cancelled'
+  paymentMethod: text("payment_method"), // 'paypal', 'bank_transfer', 'other'
+
+  // Fechas
+  issuedDate: timestamp("issued_date"),
+  dueDate: timestamp("due_date"),
+  paidDate: timestamp("paid_date"),
+
+  // Documentos
+  pdfUrl: text("pdf_url"), // URL en Supabase
+  fileStoragePath: text("file_storage_path"), // Ruta en storage
+
+  // Notas
+  notes: text("notes"),
+  internalNotes: text("internal_notes"),
+
+  // Auditoría
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => systemUsers.id),
+});
+
+// Tabla de pagos (Base de datos maestra)
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  storeId: integer("store_id").references(() => virtualStores.id).notNull(),
+
+  // ID de transacción de PayPal
+  paypalOrderId: text("paypal_order_id"),
+  paypalTransactionId: text("paypal_transaction_id").unique(),
+
+  // Montos
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").default("MXN"),
+
+  // Estado
+  status: text("status").notNull().default("pending"), // 'pending', 'completed', 'failed', 'refunded', 'cancelled'
+  paymentMethod: text("payment_method").default("paypal_checkout"), // 'paypal_checkout', 'paypal_recurring', 'bank_transfer'
+
+  // Información del pagador
+  payerEmail: text("payer_email"),
+
+  // Metadatos
+  metadata: jsonb("metadata"), // Respuesta completa de PayPal
+
+  // Reintentos
+  retryCount: integer("retry_count").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  failureReason: text("failure_reason"),
+
+  // Fechas
+  processedAt: timestamp("processed_at"),
+  confirmedAt: timestamp("confirmed_at"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Tabla de transacciones de créditos de IA (Base de datos maestra)
+export const creditTransactions = pgTable("credit_transactions", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => virtualStores.id).notNull(),
+
+  // Tipo de transacción
+  type: text("type").notNull(), // 'purchase', 'usage', 'refund', 'admin_adjustment'
+
+  // Créditos
+  creditsBefore: decimal("credits_before", { precision: 12, scale: 2 }).notNull(),
+  creditsAmount: decimal("credits_amount", { precision: 12, scale: 2 }).notNull(),
+  creditsAfter: decimal("credits_after", { precision: 12, scale: 2 }).notNull(),
+
+  // Relaciones
+  relatedInvoiceId: integer("related_invoice_id").references(() => invoices.id),
+  relatedPaymentId: integer("related_payment_id").references(() => payments.id),
+  relatedAiUsageId: integer("related_ai_usage_id"), // ID de aiUsageLog (en BD de tienda)
+
+  // Razón y descripción
+  reason: text("reason").notNull(),
+  description: text("description"),
+
+  // Metadatos
+  metadata: jsonb("metadata"),
+
+  // Auditoría
+  createdBy: integer("created_by").references(() => systemUsers.id),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Tabla de configuración de PayPal (Base de datos maestra)
+export const paypalIntegration = pgTable("paypal_integration", {
+  id: serial("id").primaryKey(),
+
+  // Credenciales
+  clientId: text("client_id").notNull().unique(),
+  clientSecret: text("client_secret").notNull(), // Encriptado
+
+  // Modo
+  mode: text("mode").notNull().default("live"), // 'sandbox', 'live'
+  isActive: boolean("is_active").default(true),
+
+  // Webhooks
+  webhookUrl: text("webhook_url"),
+  webhookId: text("webhook_id"), // ID de webhook en PayPal
+
+  // Configuración
+  apiVersion: text("api_version").default("v2"),
+
+  // Auditoría
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => systemUsers.id),
+});
+
+// ================================
+// VALIDACIÓN ZOD PARA NUEVAS TABLAS
+// ================================
+
+// Validaciones para invoices
+export const createInvoiceSchema = z.object({
+  invoiceNumber: z.string().min(1, "Invoice number is required"),
+  storeId: z.number().int().positive(),
+  subscriptionId: z.number().int().positive().optional(),
+  periodStart: z.date(),
+  periodEnd: z.date(),
+  subtotal: z.number().nonnegative(),
+  taxAmount: z.number().nonnegative().optional(),
+  totalAmount: z.number().positive(),
+  currency: z.string().default("MXN"),
+  status: z.enum(["draft", "issued", "sent", "paid", "partially_paid", "overdue", "cancelled"]).default("draft"),
+  paymentMethod: z.string().optional(),
+  issuedDate: z.date().optional(),
+  dueDate: z.date().optional(),
+  paidDate: z.date().optional(),
+  notes: z.string().optional(),
+  internalNotes: z.string().optional(),
+});
+
+export const updateInvoiceSchema = createInvoiceSchema.partial();
+
+// Validaciones para payments
+export const createPaymentSchema = z.object({
+  invoiceId: z.number().int().positive(),
+  storeId: z.number().int().positive(),
+  amount: z.number().positive(),
+  currency: z.string().default("MXN"),
+  paypalOrderId: z.string().optional(),
+  paypalTransactionId: z.string().optional(),
+  status: z.enum(["pending", "completed", "failed", "refunded", "cancelled"]).default("pending"),
+  paymentMethod: z.string().default("paypal_checkout"),
+  payerEmail: z.string().email().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+export const updatePaymentSchema = createPaymentSchema.partial();
+
+// Validaciones para creditTransactions
+export const createCreditTransactionSchema = z.object({
+  storeId: z.number().int().positive(),
+  type: z.enum(["purchase", "usage", "refund", "admin_adjustment"]),
+  creditsBefore: z.number().nonnegative(),
+  creditsAmount: z.number(),
+  creditsAfter: z.number().nonnegative(),
+  relatedInvoiceId: z.number().int().positive().optional(),
+  relatedPaymentId: z.number().int().positive().optional(),
+  relatedAiUsageId: z.number().int().positive().optional(),
+  reason: z.string().min(1, "Reason is required"),
+  description: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+// Validaciones para PayPal integration
+export const createPayPalIntegrationSchema = z.object({
+  clientId: z.string().min(1, "Client ID is required"),
+  clientSecret: z.string().min(1, "Client Secret is required"),
+  mode: z.enum(["sandbox", "live"]).default("live"),
+  isActive: z.boolean().default(true),
+  webhookUrl: z.string().url().optional(),
+  webhookId: z.string().optional(),
+  apiVersion: z.string().default("v2"),
+});
+
+export const updatePayPalIntegrationSchema = createPayPalIntegrationSchema.partial();

@@ -1,6 +1,6 @@
 // client/src/pages/pos-screen.tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,11 +29,36 @@ type Product = {
   originalPrice?: number;
   displayCurrency?: string;
   conversionApplied?: boolean;
+  unitConversionEnabled?: boolean;
+  baseUnitId?: number;
+  base_unit_id?: number;
+  baseUnitSymbol?: string;
 };
 
 type CartItem = {
   product: Product;
   quantity: number;
+  selectedUnitId?: number;
+  selectedUnit?: MeasurementUnit;
+  conversionFactor?: number;
+  unitPrice?: number;
+};
+
+type MeasurementUnit = {
+  id: number;
+  name: string;
+  symbol: string;
+  type: 'weight' | 'volume' | 'unit' | 'length';
+  abbreviation?: string;
+};
+
+type ConversionResult = {
+  success: boolean;
+  convertedValue: number;
+  conversionFactor: number;
+  sourceUnit?: MeasurementUnit | null;
+  targetUnit?: MeasurementUnit | null;
+  error?: string;
 };
 
 interface CurrencyData {
@@ -57,8 +82,13 @@ interface Order {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    unitId?: number;
+    quantityInBaseUnit?: number;
   }>;
   totalAmount?: number;
+  loyaltyPointsPropertyName?: string | null;
+  loyaltyPointsValue?: number | null;
+  loyaltyPointsTotal?: number | null;
 }
 
 const getAuthToken = () => {
@@ -166,6 +196,121 @@ export default function POSScreen() {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('DOP');
+  const [productUnits, setProductUnits] = useState<Record<number, MeasurementUnit[]>>({});
+  const [loadingUnits, setLoadingUnits] = useState<Record<number, boolean>>({});
+
+  const getBaseUnitId = (product: Product) => {
+    return product.baseUnitId ?? (product as any).base_unit_id ?? undefined;
+  };
+
+  const isUnitConversionEnabled = (product: Product) => {
+    return Boolean(product.unitConversionEnabled ?? (product as any).unit_conversion_enabled);
+  };
+
+  const getBasePrice = (product: Product) => {
+    return product.convertedPrice || parseFloat(product.price || '0');
+  };
+
+  const getItemUnitPrice = (item: CartItem) => {
+    const basePrice = getBasePrice(item.product);
+    const factor = item.conversionFactor || 1;
+    return (item.unitPrice ?? basePrice * factor);
+  };
+
+  const getUnitSymbol = (productId: number, unitId?: number) => {
+    const units = productUnits[productId] || [];
+    const unit = units.find(u => u.id === unitId);
+    return unit?.symbol;
+  };
+
+  const fetchUnitsForProduct = async (productId: number) => {
+    if (productUnits[productId] || loadingUnits[productId]) return;
+
+    setLoadingUnits(prev => ({ ...prev, [productId]: true }));
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`/api/products/${productId}/available-units`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('No se pudieron obtener las unidades disponibles');
+      const units = await response.json();
+      if (Array.isArray(units)) {
+        setProductUnits(prev => ({ ...prev, [productId]: units }));
+      }
+    } catch (error) {
+      console.error('Error fetching available units:', error);
+    } finally {
+      setLoadingUnits(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleUnitChange = async (product: Product, unitId?: number) => {
+    const baseUnitId = getBaseUnitId(product);
+    const targetUnitId = unitId || baseUnitId;
+    const basePrice = getBasePrice(product);
+    const units = productUnits[product.id] || [];
+    const selectedUnit = units.find(u => u.id === targetUnitId);
+
+    let conversionFactor = 1;
+
+    if (targetUnitId && baseUnitId && targetUnitId !== baseUnitId && isUnitConversionEnabled(product)) {
+      try {
+        const token = getAuthToken();
+        const response = await fetch('/api/unit-conversion/convert-to-base', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            productId: product.id,
+            quantity: 1,
+            unitId: targetUnitId
+          })
+        });
+
+        if (!response.ok) throw new Error('No se pudo convertir la unidad seleccionada');
+
+        const result: ConversionResult = await response.json();
+        if (result.success) {
+          conversionFactor = result.conversionFactor || result.convertedValue || 1;
+        } else if (result.convertedValue) {
+          conversionFactor = result.convertedValue;
+        } else {
+          alert(result.error || 'No se pudo convertir la unidad');
+        }
+      } catch (error) {
+        console.error('Error converting units:', error);
+        alert('No se pudo convertir la unidad seleccionada, usando precio base');
+      }
+    }
+
+    const priceForUnit = basePrice * conversionFactor;
+
+    setCart(prev =>
+      prev.map(item =>
+        item.product.id === product.id
+          ? {
+            ...item,
+            selectedUnitId: targetUnitId,
+            selectedUnit,
+            conversionFactor,
+            unitPrice: priceForUnit
+          }
+          : item
+      )
+    );
+  };
+
+  useEffect(() => {
+    cart.forEach(item => {
+      if (isUnitConversionEnabled(item.product)) {
+        fetchUnitsForProduct(item.product.id);
+      }
+    });
+  }, [cart]);
 
   // Fetch exchange rates
   const { data: exchangeRates = [] } = useQuery<any[]>({
@@ -251,7 +396,7 @@ export default function POSScreen() {
         time: now.toLocaleTimeString('es-DO'),
         paymentMethod,
         items: cart.map(item => {
-          const unitPrice = item.product.convertedPrice || parseFloat(item.product.price || '0');
+          const unitPrice = getItemUnitPrice(item);
           return {
             productId: item.product.id,
             productName: item.product.name,
@@ -319,23 +464,41 @@ export default function POSScreen() {
 
   // Cart operations
   const addToCart = (product: Product) => {
-    const existingItem = cart.find(item => item.product.id === product.id);
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, { product, quantity: 1 }]);
+    const baseUnitId = getBaseUnitId(product);
+    const basePrice = getBasePrice(product);
+
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.product.id === product.id);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...prevCart,
+        {
+          product,
+          quantity: 1,
+          selectedUnitId: baseUnitId,
+          conversionFactor: 1,
+          unitPrice: basePrice,
+        }
+      ];
+    });
+
+    if (isUnitConversionEnabled(product)) {
+      fetchUnitsForProduct(product.id);
     }
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
     if (quantity <= 0) {
-      setCart(cart.filter(item => item.product.id !== productId));
+      setCart(prev => prev.filter(item => item.product.id !== productId));
     } else {
-      setCart(cart.map(item =>
+      setCart(prev => prev.map(item =>
         item.product.id === productId
           ? { ...item, quantity }
           : item
@@ -356,8 +519,7 @@ export default function POSScreen() {
   // Calculations
   const calculateSubtotal = () => {
     return cart.reduce((sum, item) => {
-      // Use convertedPrice if available, otherwise use price
-      const price = item.product.convertedPrice || parseFloat(item.product.price || '0');
+      const price = getItemUnitPrice(item);
       return sum + (price * item.quantity);
     }, 0);
   };
@@ -427,12 +589,23 @@ export default function POSScreen() {
       receivedAmount: paymentMethod === 'cash' ? Number(receivedAmount || 0) : Number(calculateTotal().toFixed(2)),
       changeAmount: paymentMethod === 'cash' ? Number(calculateChange().toFixed(2)) : 0,
       totalAmount: calculateTotal(),
+      loyaltyPointsPropertyName: getLoyaltyPropertyName() || undefined as any,
+      loyaltyPointsValue: (() => {
+        const itemWithLoyalty = cart.find(item => item.product.loyaltyPointsValue);
+        return itemWithLoyalty?.product.loyaltyPointsValue
+          ? Number(itemWithLoyalty.product.loyaltyPointsValue)
+          : undefined as any;
+      })(),
+      loyaltyPointsTotal: calculateTotalLoyaltyPoints(),
       items: cart.map(item => {
-        // Use converted price if available
-        const unitPrice = item.product.convertedPrice || parseFloat(item.product.price || '0');
+        const unitPrice = getItemUnitPrice(item);
+        const baseUnitId = getBaseUnitId(item.product);
+        const conversionFactor = item.conversionFactor || 1;
         return {
           productId: item.product.id,
           quantity: item.quantity,
+          unitId: item.selectedUnitId || baseUnitId,
+          quantityInBaseUnit: Number((conversionFactor * item.quantity).toFixed(4)),
           unitPrice: Number(unitPrice.toFixed(2)),
           totalPrice: Number((unitPrice * item.quantity).toFixed(2)),
         };
@@ -620,7 +793,7 @@ export default function POSScreen() {
                         </div>
                         <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">{product.name}</h3>
                         <p className="text-xs text-emerald-600 my-1">{product.category}</p>
-                        <p className="text-lg font-bold text-emerald-600">{formatCurrency(product.convertedPrice || parseFloat(product.price))}</p>
+                        <p className="text-lg font-bold text-emerald-600">{formatCurrency(getBasePrice(product))}</p>
 
                         {/* 🎁 Loyalty Points */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
@@ -671,14 +844,42 @@ export default function POSScreen() {
               {/* Cart Items */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {cart.map((item) => {
-                  const itemPrice = item.product.convertedPrice || parseFloat(item.product.price || '0');
+                  const itemPrice = getItemUnitPrice(item);
+                  const units = productUnits[item.product.id] || [];
+                  const baseUnitId = getBaseUnitId(item.product);
+                  const currentUnitId = item.selectedUnitId || baseUnitId;
+                  const showUnitSelector = units.length > 0 && isUnitConversionEnabled(item.product);
                   return (
                     <div key={item.product.id} className="flex items-center gap-1 p-2 bg-gray-50 rounded-lg border border-gray-200 min-h-[50px]">
                       {/* Nombre del producto */}
                       <div className="flex-1 min-w-0 max-w-[45%]">
                         <p className="text-xs font-semibold text-gray-900 truncate">{item.product.name}</p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-600 flex items-center gap-2">
                           {formatCurrency(itemPrice)}
+                          {showUnitSelector && (
+                            <select
+                              className="text-[10px] border border-emerald-200 rounded px-1 py-0.5 bg-white text-emerald-700"
+                              value={currentUnitId || ''}
+                              onChange={(e) => {
+                                const selectedId = Number(e.target.value);
+                                handleUnitChange(
+                                  item.product,
+                                  Number.isNaN(selectedId) ? undefined : selectedId
+                                );
+                              }}
+                            >
+                              {units.map(unit => (
+                                <option key={unit.id} value={unit.id}>
+                                  {unit.symbol}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {!showUnitSelector && getUnitSymbol(item.product.id, currentUnitId) && (
+                            <span className="text-[10px] text-emerald-700 uppercase">
+                              {getUnitSymbol(item.product.id, currentUnitId)}
+                            </span>
+                          )}
                         </p>
                       </div>
 
@@ -940,7 +1141,7 @@ export default function POSScreen() {
                           <div className="flex-1">
                             <p className="font-semibold text-gray-900">{product.name}</p>
                             <p className="text-sm text-emerald-600 font-bold">
-                              {formatCurrency(parseFloat(product.price))}
+                              {formatCurrency(getBasePrice(product))}
                             </p>
                           </div>
                           <Plus className="w-6 h-6 text-emerald-600" />

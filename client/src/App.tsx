@@ -61,6 +61,7 @@ import ExchangeRateManagement from '@/pages/exchange-rates';
 import CategoriesBrandsManagement from './pages/categories-brands-management';
 import TechnicianConversations from "./pages/technician-conversations";
 import BrandsManagement from "./pages/brands";
+import MeasurementUnitsManagement from "./pages/measurement-units";
 import StoreSettingsPage from "@/pages/store-settings";
 
 // ✅ NUEVO: Importar componente de compartir producto y HelmetProvider
@@ -220,6 +221,7 @@ function Router() {
       <Route path="/super-admin/dashboard" component={() => <ProtectedRoute component={GlobalDashboard} permission="super_admin" />} />
       <Route path="/admin/categories-brands" component={() => <ProtectedRoute component={CategoriesBrandsManagement} permission="manage_products" />} />
       <Route path="/admin/brands" component={() => <ProtectedRoute component={BrandsManagement} permission="manage_products" />} />
+      <Route path="/admin/measurement-units" component={() => <ProtectedRoute component={MeasurementUnitsManagement} permission="manage_products" />} />
       <Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
       <Route path="/super-admin/subscriptions" component={() => <ProtectedRoute component={Subscriptions} permission="super_admin" />} />
       <Route path="/super-admin/global-orders" component={() => <ProtectedRoute component={GlobalOrders} permission="super_admin" />} />

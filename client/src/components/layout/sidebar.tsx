@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout } from "lucide-react";
+import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout, Scale } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -169,6 +169,14 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       href: "/product-management",
       icon: Package,
       label: "Gestión de Productos",
+      badge: null,
+      permission: "manage_products",
+      excludeRoles: ["super_admin", "technician"],
+    },
+    {
+      href: "/admin/measurement-units",
+      icon: Scale,
+      label: "Unidades de Medida",
       badge: null,
       permission: "manage_products",
       excludeRoles: ["super_admin", "technician"],

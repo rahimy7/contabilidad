@@ -380,6 +380,20 @@ const handlePrintOrder = () => {
                   </div>
                 ))}
               </div>
+
+              {(order as any).loyaltyPointsTotal && Number((order as any).loyaltyPointsTotal) > 0 && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center justify-between text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-amber-800">Puntos acumulados</span>
+                    <span className="text-amber-700">
+                      {(order as any).loyaltyPointsPropertyName || 'Puntos'}
+                    </span>
+                  </div>
+                  <span className="text-lg font-bold text-amber-700">
+                    {Number((order as any).loyaltyPointsTotal).toFixed(2)}
+                  </span>
+                </div>
+              )}
               
               <div className="border-t pt-3 mt-3 flex justify-between items-center">
                 <span className="font-bold">Total</span>

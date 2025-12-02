@@ -366,19 +366,66 @@ async calculateOrderLoyaltyPointsTotal(items: any[] = []): Promise<number> {
   }
 },
 
+// dYZ? Helper extendido: total de puntos + metadatos
+async calculateOrderLoyaltyPointsData(items: any[] = []): Promise<{
+  totalLoyaltyPoints: number;
+  loyaltyPointsPropertyName: string | null;
+  loyaltyPointsValue: number | null;
+}> {
+  const totalLoyaltyPoints = await this.calculateOrderLoyaltyPointsTotal(items);
+  let loyaltyPointsPropertyName: string | null = null;
+  let loyaltyPointsValue: number | null = null;
+
+  if (!items || items.length === 0) {
+    return { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue };
+  }
+
+  for (const item of items) {
+    if (!item?.productId) continue;
+
+    try {
+      const productQuery = `
+        SELECT loyalty_points_value, loyalty_points_property_name
+        FROM "store_${storeId}".products
+        WHERE id = ${item.productId} AND store_id = ${storeId}
+        LIMIT 1
+      `;
+      const productResult = await tenantDb.execute(productQuery);
+      const product = productResult?.rows?.[0];
+
+      if (product) {
+        if (!loyaltyPointsPropertyName && product.loyalty_points_property_name) {
+          loyaltyPointsPropertyName = product.loyalty_points_property_name;
+        }
+
+        const rawValue = product.loyalty_points_value;
+        if (rawValue !== null && rawValue !== undefined && !Number.isNaN(Number(rawValue))) {
+          loyaltyPointsValue = loyaltyPointsValue ?? Number(rawValue);
+        }
+      }
+    } catch (err) {
+      console.warn(`No se pudieron obtener puntos de lealtad para el producto ${item.productId}:`, err);
+    }
+  }
+
+  return { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue };
+},
+
 async createOrder(orderData: any, items: any[] = []) {
   try {
     // 🔥 GENERAR NÚMERO DE ORDEN ÚNICO
     const orderNumber = await this.generateOrderNumber();
 
     // 🎁 CALCULAR PUNTOS DE LEALTAD TOTAL
-    const loyaltyPointsTotal = await this.calculateOrderLoyaltyPointsTotal(items);
+    const { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue } = await this.calculateOrderLoyaltyPointsData(items);
 
     const [order] = await tenantDb.insert(schema.orders)
       .values({
         ...orderData,
         orderNumber, // ✅ Agregar el número de orden generado
-        loyaltyPointsTotal: loyaltyPointsTotal, // ✅ Agregar puntos de lealtad calculados
+        loyaltyPointsTotal: totalLoyaltyPoints, // �o. Agregar puntos de lealtad calculados
+        loyaltyPointsPropertyName: loyaltyPointsPropertyName,
+        loyaltyPointsValue: loyaltyPointsValue,
         createdAt: new Date()
       })
       .returning();
@@ -464,9 +511,11 @@ async generateOrderNumber(): Promise<string> {
           }
 
           // 🎁 RECALCULAR PUNTOS DE LEALTAD DESPUÉS DE ACTUALIZAR ITEMS
-          const loyaltyPointsTotal = await this.calculateOrderLoyaltyPointsTotal(items);
-          console.log(`🎁 Recalculated loyalty points: ${loyaltyPointsTotal}`);
-          orderData.loyaltyPointsTotal = loyaltyPointsTotal;
+          const { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue } = await this.calculateOrderLoyaltyPointsData(items);
+          console.log(`🎁 Recalculated loyalty points: ${totalLoyaltyPoints}`);
+          orderData.loyaltyPointsTotal = totalLoyaltyPoints;
+          orderData.loyaltyPointsPropertyName = loyaltyPointsPropertyName;
+          orderData.loyaltyPointsValue = loyaltyPointsValue;
         }
 
         // 1️⃣ Actualizar la orden principal (ahora con puntos de lealtad recalculados si hubiera items)
@@ -4585,6 +4634,590 @@ async getUsersByRole(role: string) {
       }
       return null;
     }
+  },
+
+  // ================================
+  // MÉTODOS PARA SISTEMA DE CONVERSIÓN DE UNIDADES
+  // ================================
+
+  /**
+   * Obtener todas las unidades de medida de la tienda
+   */
+  async getAllMeasurementUnits() {
+    try {
+      const units = await tenantDb.select()
+        .from(schema.measurementUnits)
+        .where(eq(schema.measurementUnits.storeId, storeId))
+        .orderBy(asc(schema.measurementUnits.sortOrder));
+      return units;
+    } catch (error) {
+      console.error(`Error getting measurement units for store ${storeId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener unidades activas de la tienda
+   */
+  async getActiveMeasurementUnits() {
+    try {
+      const units = await tenantDb.select()
+        .from(schema.measurementUnits)
+        .where(
+          and(
+            eq(schema.measurementUnits.storeId, storeId),
+            eq(schema.measurementUnits.isActive, true)
+          )
+        )
+        .orderBy(asc(schema.measurementUnits.sortOrder));
+      return units;
+    } catch (error) {
+      console.error(`Error getting active measurement units for store ${storeId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener unidad por ID
+   */
+  async getMeasurementUnitById(unitId: number) {
+    try {
+      const [unit] = await tenantDb.select()
+        .from(schema.measurementUnits)
+        .where(
+          and(
+            eq(schema.measurementUnits.id, unitId),
+            eq(schema.measurementUnits.storeId, storeId)
+          )
+        )
+        .limit(1);
+      return unit || null;
+    } catch (error) {
+      console.error(`Error getting measurement unit ${unitId}:`, error);
+      return null;
+    }
+  },
+
+  /**
+   * Crear nueva unidad de medida
+   */
+  async createMeasurementUnit(data: schema.InsertMeasurementUnit) {
+    try {
+      const [unit] = await tenantDb.insert(schema.measurementUnits)
+        .values({ ...data, storeId })
+        .returning();
+      return unit;
+    } catch (error) {
+      console.error('Error creating measurement unit:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Actualizar unidad de medida
+   */
+  async updateMeasurementUnit(unitId: number, data: Partial<schema.InsertMeasurementUnit>) {
+    try {
+      const [unit] = await tenantDb.update(schema.measurementUnits)
+        .set({ ...data, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.measurementUnits.id, unitId),
+            eq(schema.measurementUnits.storeId, storeId)
+          )
+        )
+        .returning();
+      return unit;
+    } catch (error) {
+      console.error(`Error updating measurement unit ${unitId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Eliminar unidad de medida (soft delete - marca como inactiva)
+   */
+  async deleteMeasurementUnit(unitId: number) {
+    try {
+      await tenantDb.update(schema.measurementUnits)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.measurementUnits.id, unitId),
+            eq(schema.measurementUnits.storeId, storeId)
+          )
+        );
+      return true;
+    } catch (error) {
+      console.error(`Error deleting measurement unit ${unitId}:`, error);
+      return false;
+    }
+  },
+
+  /**
+   * Obtener todas las conversiones de un producto
+   */
+  async getProductUnitConversions(productId: number) {
+    try {
+      const conversions = await tenantDb.select({
+        id: schema.productUnitConversions.id,
+        productId: schema.productUnitConversions.productId,
+        sourceUnitId: schema.productUnitConversions.sourceUnitId,
+        targetUnitId: schema.productUnitConversions.targetUnitId,
+        conversionFactor: schema.productUnitConversions.conversionFactor,
+        isActive: schema.productUnitConversions.isActive,
+        notes: schema.productUnitConversions.notes,
+        sourceUnit: schema.measurementUnits,
+      })
+        .from(schema.productUnitConversions)
+        .leftJoin(
+          schema.measurementUnits,
+          eq(schema.productUnitConversions.sourceUnitId, schema.measurementUnits.id)
+        )
+        .where(
+          and(
+            eq(schema.productUnitConversions.productId, productId),
+            eq(schema.productUnitConversions.storeId, storeId)
+          )
+        );
+      return conversions;
+    } catch (error) {
+      console.error(`Error getting product unit conversions for product ${productId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Crear conversión de unidad para un producto
+   */
+  async createProductUnitConversion(data: schema.InsertProductUnitConversion) {
+    try {
+      const [conversion] = await tenantDb.insert(schema.productUnitConversions)
+        .values({ ...data, storeId })
+        .returning();
+      return conversion;
+    } catch (error) {
+      console.error('Error creating product unit conversion:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Actualizar conversión de unidad
+   */
+  async updateProductUnitConversion(
+    conversionId: number,
+    data: Partial<schema.InsertProductUnitConversion>
+  ) {
+    try {
+      const [conversion] = await tenantDb.update(schema.productUnitConversions)
+        .set({ ...data, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.productUnitConversions.id, conversionId),
+            eq(schema.productUnitConversions.storeId, storeId)
+          )
+        )
+        .returning();
+      return conversion;
+    } catch (error) {
+      console.error(`Error updating product unit conversion ${conversionId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Eliminar conversión de unidad
+   */
+  async deleteProductUnitConversion(conversionId: number) {
+    try {
+      await tenantDb.delete(schema.productUnitConversions)
+        .where(
+          and(
+            eq(schema.productUnitConversions.id, conversionId),
+            eq(schema.productUnitConversions.storeId, storeId)
+          )
+        );
+      return true;
+    } catch (error) {
+      console.error(`Error deleting product unit conversion ${conversionId}:`, error);
+      return false;
+    }
+  },
+
+  /**
+   * Obtener unidades disponibles para un producto (con conversiones configuradas)
+   */
+  async getAvailableUnitsForProduct(productId: number) {
+    try {
+      // Obtener el producto para verificar si tiene conversión habilitada
+      const [product] = await tenantDb.select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1);
+
+      if (!product || !product.unitConversionEnabled || !product.baseUnitId) {
+        return [];
+      }
+
+      // Obtener todas las conversiones configuradas
+      const conversions = await tenantDb.select()
+        .from(schema.productUnitConversions)
+        .where(
+          and(
+            eq(schema.productUnitConversions.productId, productId),
+            eq(schema.productUnitConversions.isActive, true)
+          )
+        );
+
+      // Recopilar todos los IDs de unidades
+      const unitIds = new Set<number>();
+      unitIds.add(product.baseUnitId); // Siempre incluir unidad base
+
+      conversions.forEach((conv) => {
+        unitIds.add(conv.sourceUnitId);
+        unitIds.add(conv.targetUnitId);
+      });
+
+      // Obtener detalles de las unidades
+      const units = await tenantDb.select()
+        .from(schema.measurementUnits)
+        .where(
+          and(
+            eq(schema.measurementUnits.storeId, storeId),
+            eq(schema.measurementUnits.isActive, true),
+            inArray(schema.measurementUnits.id, Array.from(unitIds))
+          )
+        )
+        .orderBy(asc(schema.measurementUnits.sortOrder));
+
+      return units;
+    } catch (error) {
+      console.error(`Error getting available units for product ${productId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Crear orden con validación de stock y conversión de unidades
+   * Este método reemplaza createOrder cuando se necesita control de inventario
+   */
+  async createOrderWithStockValidation(orderData: any, items: any[] = []) {
+    try {
+      console.log(`📦 Creating order with stock validation for store ${storeId}`);
+
+      // Validar que haya items
+      if (!items || items.length === 0) {
+        throw new Error('No se pueden crear órdenes sin items');
+      }
+
+      // Paso 1: Validar stock y procesar conversiones
+      const processedItems = [];
+      const stockUpdates = [];
+
+      for (const item of items) {
+        const { productId, quantity, unitId } = item;
+
+        if (!productId || !quantity) {
+          throw new Error('Cada item debe tener productId y quantity');
+        }
+
+        // Obtener producto
+        const [product] = await tenantDb.select()
+          .from(schema.products)
+          .where(eq(schema.products.id, productId))
+          .limit(1);
+
+        if (!product) {
+          throw new Error(`Producto con ID ${productId} no encontrado`);
+        }
+
+        // Verificar si el producto está activo
+        if (product.status !== 'active') {
+          throw new Error(`Producto "${product.name}" no está disponible`);
+        }
+
+        let quantityInBaseUnit = quantity;
+        let finalUnitId = unitId;
+
+        // Si el producto tiene conversión de unidades habilitada
+        if (product.unitConversionEnabled && product.baseUnitId) {
+          if (!unitId) {
+            // Si no se especifica unidad, usar la unidad base
+            finalUnitId = product.baseUnitId;
+            quantityInBaseUnit = quantity;
+          } else {
+            // Convertir a unidad base
+            const conversion = await this.convertToBaseUnit(productId, quantity, unitId);
+
+            if (!conversion.success) {
+              throw new Error(
+                `Error al convertir unidades para producto "${product.name}": ${conversion.error}`
+              );
+            }
+
+            quantityInBaseUnit = conversion.convertedValue;
+          }
+        }
+
+        // Validar stock disponible (en unidad base)
+        const availableStock = product.stockQuantity || 0;
+        if (availableStock < quantityInBaseUnit) {
+          throw new Error(
+            `Stock insuficiente para producto "${product.name}". ` +
+            `Disponible: ${availableStock}, Requerido: ${quantityInBaseUnit}`
+          );
+        }
+
+        // Guardar para actualizar stock después
+        stockUpdates.push({
+          productId: product.id,
+          quantityToReduce: quantityInBaseUnit,
+        });
+
+        // Preparar item procesado
+        processedItems.push({
+          productId: product.id,
+          quantity: quantity,
+          unitId: finalUnitId,
+          quantityInBaseUnit: quantityInBaseUnit,
+          unitPrice: item.unitPrice || product.price,
+          totalPrice: item.totalPrice || (parseFloat(product.price) * quantity),
+          installationCost: item.installationCost,
+          partsCost: item.partsCost,
+          laborHours: item.laborHours,
+          laborRate: item.laborRate,
+          deliveryCost: item.deliveryCost || '0',
+          deliveryDistance: item.deliveryDistance,
+          notes: item.notes,
+        });
+      }
+
+      // Paso 2: Generar número de orden
+      const orderNumber = await this.generateOrderNumber();
+
+      // Paso 3: Calcular puntos de lealtad
+      const { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue } = await this.calculateOrderLoyaltyPointsData(items);
+
+      // Paso 4: Crear la orden
+      const [order] = await tenantDb.insert(schema.orders)
+        .values({
+          ...orderData,
+          orderNumber,
+          loyaltyPointsTotal: totalLoyaltyPoints,
+          loyaltyPointsPropertyName: loyaltyPointsPropertyName,
+          loyaltyPointsValue: loyaltyPointsValue,
+          storeId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      console.log(`✅ Order created with number: ${orderNumber}`);
+
+      // Paso 5: Insertar items con conversiones
+      const itemsWithOrderId = processedItems.map(item => ({
+        ...item,
+        orderId: order.id,
+        storeId,
+      }));
+
+      await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
+      console.log(`✅ ${itemsWithOrderId.length} items inserted`);
+
+      // Paso 6: Reducir stock de productos
+      for (const update of stockUpdates) {
+        await tenantDb.update(schema.products)
+          .set({
+            stockQuantity: sql`stock_quantity - ${update.quantityToReduce}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.products.id, update.productId));
+
+        console.log(`📉 Stock reduced for product ${update.productId}: -${update.quantityToReduce}`);
+      }
+
+      console.log(`✅ Order ${orderNumber} created successfully with stock control`);
+
+      return order;
+    } catch (error) {
+      console.error('❌ Error creating order with stock validation:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Helper: Convertir cantidad a unidad base del producto
+   * Wrapper del método de unit-conversion.ts para uso interno
+   */
+  async convertToBaseUnit(productId: number, quantity: number, unitId: number) {
+    try {
+      // Obtener producto
+      const [product] = await tenantDb.select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1);
+
+      if (!product) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: null,
+          targetUnit: null,
+          conversionFactor: 0,
+          error: `Producto ${productId} no encontrado`,
+        };
+      }
+
+      if (!product.unitConversionEnabled) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: null,
+          targetUnit: null,
+          conversionFactor: 0,
+          error: `Conversión de unidades no habilitada para producto ${productId}`,
+        };
+      }
+
+      if (!product.baseUnitId) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: null,
+          targetUnit: null,
+          conversionFactor: 0,
+          error: `Producto ${productId} no tiene unidad base configurada`,
+        };
+      }
+
+      // Si la unidad es la misma que la base, no hace falta conversión
+      if (unitId === product.baseUnitId) {
+        const [unit] = await tenantDb.select()
+          .from(schema.measurementUnits)
+          .where(eq(schema.measurementUnits.id, unitId))
+          .limit(1);
+
+        return {
+          success: true,
+          convertedValue: quantity,
+          sourceUnit: unit || null,
+          targetUnit: unit || null,
+          conversionFactor: 1,
+        };
+      }
+
+      // Obtener unidades
+      const [sourceUnit, targetUnit] = await Promise.all([
+        tenantDb.select().from(schema.measurementUnits)
+          .where(eq(schema.measurementUnits.id, unitId)).limit(1),
+        tenantDb.select().from(schema.measurementUnits)
+          .where(eq(schema.measurementUnits.id, product.baseUnitId)).limit(1),
+      ]);
+
+      if (!sourceUnit[0]) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: null,
+          targetUnit: targetUnit[0] || null,
+          conversionFactor: 0,
+          error: `Unidad origen ${unitId} no encontrada`,
+        };
+      }
+
+      if (!targetUnit[0]) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: sourceUnit[0],
+          targetUnit: null,
+          conversionFactor: 0,
+          error: `Unidad base ${product.baseUnitId} no encontrada`,
+        };
+      }
+
+      // Verificar que las unidades sean del mismo tipo
+      if (sourceUnit[0].type !== targetUnit[0].type) {
+        return {
+          success: false,
+          convertedValue: 0,
+          sourceUnit: sourceUnit[0],
+          targetUnit: targetUnit[0],
+          conversionFactor: 0,
+          error: `No se puede convertir entre tipos diferentes: ${sourceUnit[0].type} y ${targetUnit[0].type}`,
+        };
+      }
+
+      // Buscar factor de conversión
+      const [conversion] = await tenantDb.select()
+        .from(schema.productUnitConversions)
+        .where(
+          and(
+            eq(schema.productUnitConversions.productId, productId),
+            eq(schema.productUnitConversions.sourceUnitId, unitId),
+            eq(schema.productUnitConversions.targetUnitId, product.baseUnitId),
+            eq(schema.productUnitConversions.isActive, true)
+          )
+        )
+        .limit(1);
+
+      if (!conversion) {
+        // Intentar conversión inversa
+        const [reverseConversion] = await tenantDb.select()
+          .from(schema.productUnitConversions)
+          .where(
+            and(
+              eq(schema.productUnitConversions.productId, productId),
+              eq(schema.productUnitConversions.sourceUnitId, product.baseUnitId),
+              eq(schema.productUnitConversions.targetUnitId, unitId),
+              eq(schema.productUnitConversions.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (!reverseConversion) {
+          return {
+            success: false,
+            convertedValue: 0,
+            sourceUnit: sourceUnit[0],
+            targetUnit: targetUnit[0],
+            conversionFactor: 0,
+            error: `No se encontró factor de conversión entre ${sourceUnit[0].symbol} y ${targetUnit[0].symbol}`,
+          };
+        }
+
+        // Usar factor inverso
+        const factor = 1 / parseFloat(reverseConversion.conversionFactor);
+        return {
+          success: true,
+          convertedValue: quantity * factor,
+          sourceUnit: sourceUnit[0],
+          targetUnit: targetUnit[0],
+          conversionFactor: factor,
+        };
+      }
+
+      // Usar factor directo
+      const factor = parseFloat(conversion.conversionFactor);
+      return {
+        success: true,
+        convertedValue: quantity * factor,
+        sourceUnit: sourceUnit[0],
+        targetUnit: targetUnit[0],
+        conversionFactor: factor,
+      };
+    } catch (error) {
+      console.error('Error in convertToBaseUnit:', error);
+      return {
+        success: false,
+        convertedValue: 0,
+        sourceUnit: null,
+        targetUnit: null,
+        conversionFactor: 0,
+        error: `Error interno: ${error.message}`,
+      };
+    }
   }
 
   }; // Fin del return del createTenantStorage
@@ -4611,3 +5244,4 @@ export async function createTenantStorageForStore(storeId: number) {
   
   return createTenantStorage(tenantDb, storeId);
 }
+
