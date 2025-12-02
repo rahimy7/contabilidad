@@ -96,11 +96,16 @@ router.use(logRequest);
 // Helper functions to safely call storage methods
 const safeGetAllStores = async () => {
   try {
+    // ✅ Use getAllVirtualStores which is the correct method
+    if (typeof (masterStorage as any).getAllVirtualStores === 'function') {
+      return await (masterStorage as any).getAllVirtualStores();
+    }
+    // Fallback: try old method name
     if (typeof (masterStorage as any).getAllStores === 'function') {
       return await (masterStorage as any).getAllStores();
     }
     // Fallback: try to get stores from a different method or return empty array
-    console.warn('[Storage] getAllStores method not available, using fallback');
+    console.warn('[Storage] getAllVirtualStores/getAllStores method not available, using fallback');
     return [];
   } catch (error) {
     console.error('[Storage] Error getting stores:', error);
