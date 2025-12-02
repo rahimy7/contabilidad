@@ -91,15 +91,15 @@ const byCustomerOrderSchema = z.object({
 }).passthrough();
 
 export async function getTenantStorageWithSchema(user: any) {
-  // ✅ Super admins no usan tenant storage
+  // ✅ Super admins deben usar endpoints de /api/super-admin/
   if (user.role === 'super_admin') {
     throw new Error('Super admin should use /api/super-admin/ endpoints');
   }
-  
+
   if (!user.storeId) {
     throw new Error('Store ID required for tenant operations');
   }
-  
+
   return storageFactory.getTenantStorage(user.storeId);
 }
 
