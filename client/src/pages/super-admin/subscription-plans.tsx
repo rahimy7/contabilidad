@@ -22,7 +22,7 @@ export default function SubscriptionPlansPage() {
   const queryClient = useQueryClient();
 
   // Fetch subscription plans
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading } = useQuery<SubscriptionPlan[]>({
     queryKey: ['/api/super-admin/subscription-plans'],
   });
 
