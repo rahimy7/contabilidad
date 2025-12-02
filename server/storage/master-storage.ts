@@ -82,16 +82,22 @@ export class MasterStorageService {
 
   async getAllVirtualStores(): Promise<VirtualStore[]> {
     try {
+      console.log('📊 [MasterStorage] Querying all virtual stores...');
+
       const stores = await this.db
         .select()
         .from(schema.virtualStores)
         .orderBy(desc(schema.virtualStores.createdAt));
 
-      console.log(`✅ Retrieved ${stores.length} virtual stores`);
+      console.log(`✅ [MasterStorage] Retrieved ${stores.length} virtual stores`);
       return stores;
     } catch (error) {
-      console.error('Error getting virtual stores:', error);
-      return [];
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ [MasterStorage] Error getting virtual stores:', {
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error; // Re-throw so endpoint can handle properly
     }
   }
 

@@ -5163,11 +5163,32 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
 
   router.get('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
+      console.log('🏪 [GET /super-admin/stores] Fetching all stores...');
+
       const stores = await masterStorage.getAllVirtualStores();
-      res.json(stores);
+
+      console.log(`✅ [GET /super-admin/stores] Found ${stores.length} stores`);
+
+      res.json({
+        stores: stores,
+        count: stores.length,
+        pagination: {
+          page: 1,
+          limit: stores.length,
+          totalPages: 1
+        }
+      });
     } catch (error) {
-      console.error('Error fetching stores:', error);
-      res.status(500).json({ error: 'Failed to fetch stores' });
+      console.error('❌ [GET /super-admin/stores] Error:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        type: error instanceof Error ? error.constructor.name : typeof error
+      });
+
+      res.status(500).json({
+        error: 'Failed to fetch stores',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
