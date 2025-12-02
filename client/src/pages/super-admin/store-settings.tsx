@@ -29,9 +29,9 @@ export default function StoreSettings() {
 
   // Fetch store info
   const { data: store, isLoading } = useQuery({
-    queryKey: [`/api/super-admin/stores`],
+    queryKey: [`/api/super-admin/stores/${storeId}`],
+    queryFn: () => apiRequest("GET", `/api/super-admin/stores/${storeId}`),
     enabled: !!storeId,
-    select: (data: any[]) => data?.find((s: any) => s.id === storeId)
   });
 
   // ✅ CORREGIDO: Fetch subscription plans con tipado correcto

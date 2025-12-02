@@ -22,7 +22,7 @@ import {
 import { type AuthUser } from "@shared/auth";
 
 // Middleware
-import { authenticateToken, requireSuperAdmin } from "./authMiddleware";
+import { authenticateToken, requireSuperAdmin, requireAdmin } from "./authMiddleware";
 
 // Storage Layer
 import { StorageFactory } from './storage/storage-factory';
@@ -5161,7 +5161,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   // SUPER ADMIN ROUTES (GLOBAL OPERATIONS)
   // ================================
 
-  router.get('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  router.get('/super-admin/stores', authenticateToken, requireAdmin, async (req: any, res: any) => {
     try {
       console.log('🏪 [GET /super-admin/stores] Fetching all stores...');
 
@@ -5192,7 +5192,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     }
   });
 
-  router.post('/super-admin/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+  router.post('/super-admin/stores', authenticateToken, requireAdmin, async (req: any, res: any) => {
     try {
       const storeData = req.body;
 

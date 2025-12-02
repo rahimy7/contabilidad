@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders } from "lucide-react";
+import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -29,6 +29,12 @@ interface NavItem {
   permission: string;
   roles?: string[];
   excludeRoles?: string[];
+  section?: string;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
 }
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
@@ -273,7 +279,9 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Dashboard",
     },
+    // --- GESTIÓN DE TIENDAS ---
     {
       href: "/super-admin/stores",
       icon: Store,
@@ -281,7 +289,27 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Tiendas",
     },
+    {
+      href: "/super-admin/subscriptions",
+      icon: Receipt,
+      label: "Suscripciones",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Tiendas",
+    },
+    {
+      href: "/super-admin/subscription-plans",
+      icon: Layout,
+      label: "Planes de Suscripción",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Tiendas",
+    },
+    // --- USUARIOS Y ACCESO ---
     {
       href: "/super-admin/global-users",
       icon: Users,
@@ -289,7 +317,9 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Usuarios",
     },
+    // --- CONFIGURACIÓN Y DATOS ---
     {
       href: "/super-admin/store-settings",
       icon: Database,
@@ -297,6 +327,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Configuración",
     },
     {
       href: "/super-admin/store-products",
@@ -305,6 +336,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Configuración",
     },
     {
       href: "/super-admin/store-themes",
@@ -313,6 +345,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Configuración",
     },
     {
       href: "/super-admin/whatsapp-management",
@@ -321,6 +354,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Configuración",
     },
     {
       href: "/super-admin/settings",
@@ -329,22 +363,74 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       badge: null,
       permission: "super_admin",
       roles: ["super_admin"],
+      section: "Configuración",
+    },
+    // --- FACTURACIÓN Y CRÉDITOS ---
+    {
+      href: "/super-admin/billing",
+      icon: DollarSign,
+      label: "Facturación",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Facturación",
+    },
+    {
+      href: "/super-admin/credits",
+      icon: Coins,
+      label: "Gestión de Créditos",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Facturación",
+    },
+    // --- ÓRDENES Y REPORTES ---
+    {
+      href: "/super-admin/global-orders",
+      icon: ShoppingCart,
+      label: "Órdenes Globales",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Operaciones",
+    },
+    {
+      href: "/super-admin/reports",
+      icon: TrendingUp,
+      label: "Reportes",
+      badge: null,
+      permission: "super_admin",
+      roles: ["super_admin"],
+      section: "Operaciones",
     },
   ];
 
   const navItems = allNavItems.filter(item => {
     if (!user) return false;
-    
+
     if (item.roles && !item.roles.includes(user.role)) {
       return false;
     }
-    
+
     if (item.excludeRoles && item.excludeRoles.includes(user.role)) {
       return false;
     }
-    
+
     return hasPermission(user.role, item.permission);
   });
+
+  // Agrupar items por sección para super admin
+  const groupedNavItems = isSuperAdmin ? navItems.reduce((acc, item) => {
+    const section = item.section || 'Otro';
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>) : {};
+
+  const sectionOrder = ['Dashboard', 'Tiendas', 'Usuarios', 'Configuración', 'Facturación', 'Operaciones'];
+  const orderedSections = sectionOrder.filter(section => groupedNavItems[section]);
 
   if (isMobile && !isOpen) return null;
 
@@ -410,39 +496,87 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
         </div>
 
         {/* Navigation Menu - CON SCROLL */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-            const Icon = item.icon;
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleMenuItemClick}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                  isActive
-                    ? "bg-white/25 backdrop-blur text-white shadow-lg"
-                    : "text-emerald-100 hover:bg-white/15 hover:text-white"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
-                {item.badge && (
-                  <Badge 
-                    variant={item.href === "/conversations" ? "default" : "destructive"}
-                    className={`ml-auto text-xs px-2 py-1 ${
-                      item.href === "/conversations" ? "whatsapp-bg text-white" : ""
-                    } ${
-                      item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
+        <nav className="flex-1 overflow-y-auto px-3 py-2">
+          {isSuperAdmin ? (
+            // Vista agrupada por secciones para Super Admin
+            <div className="space-y-4">
+              {orderedSections.map((section) => (
+                <div key={section}>
+                  {/* Encabezado de sección */}
+                  <div className="px-3 py-2 text-xs font-semibold text-emerald-100 uppercase tracking-wider opacity-75">
+                    {section}
+                  </div>
+                  {/* Items de la sección */}
+                  <div className="space-y-1">
+                    {groupedNavItems[section]?.map((item) => {
+                      const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={handleMenuItemClick}
+                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+                            isActive
+                              ? "bg-white/25 backdrop-blur text-white shadow-lg"
+                              : "text-emerald-100 hover:bg-white/15 hover:text-white"
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                          <span className="flex-1">{item.label}</span>
+                          {item.badge && (
+                            <Badge
+                              variant="destructive"
+                              className="text-xs px-2 py-1"
+                            >
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Vista normal para otros usuarios
+            <div className="space-y-1">
+              {navItems.map((item) => {
+                const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={handleMenuItemClick}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+                      isActive
+                        ? "bg-white/25 backdrop-blur text-white shadow-lg"
+                        : "text-emerald-100 hover:bg-white/15 hover:text-white"
                     }`}
                   >
-                    {item.badge}
-                  </Badge>
-                )}
-              </Link>
-            );
-          })}
+                    <Icon className="h-5 w-5" />
+                    <span>{item.label}</span>
+                    {item.badge && (
+                      <Badge
+                        variant={item.href === "/conversations" ? "default" : "destructive"}
+                        className={`ml-auto text-xs px-2 py-1 ${
+                          item.href === "/conversations" ? "whatsapp-bg text-white" : ""
+                        } ${
+                          item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
+                        }`}
+                      >
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
