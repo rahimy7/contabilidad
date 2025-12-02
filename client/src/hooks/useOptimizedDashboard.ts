@@ -100,21 +100,10 @@ export function useOptimizedDashboard() {
     }
   }, [config.debugMode]);
 
-  // ✅ 4. CONTROL DE RATE LIMITING (más permisivo para inicial load)
+  // ✅ 4. CONTROL DE RATE LIMITING (deshabilitado para initial load)
   const canMakeRequest = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime.current;
-
-    // Permitir initial burst de requests (primeros 5 segundos)
-    const isInitialLoad = lastRequestTime.current === 0;
-
-    // Solo aplicar rate limit después de inicial load
-    if (!isInitialLoad && timeSinceLastRequest < 200) {  // 200ms entre requests
-      logDebug('Request bloqueado por rate limiting');
-      return false;
-    }
-
-    lastRequestTime.current = now;
+    // Rate limiting deshabilitado - permitir todos los requests
+    // El servidor maneja la concurrencia correctamente
     requestCountRef.current += 1;
 
     setState(prev => ({
@@ -123,7 +112,7 @@ export function useOptimizedDashboard() {
     }));
 
     return true;
-  }, [logDebug]);
+  }, []);
 
   // ✅ 5. MÉTRICAS GLOBALES CON LAZY LOADING
   const metricsQuery = useQuery({
