@@ -66,16 +66,24 @@ export default function StoresManagement() {
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
 
-  // ✅ CORREGIDO: apiRequest ya devuelve JSON directamente
-  const { data: stores = [], isLoading, error } = useQuery<VirtualStore[]>({
+  // ✅ CORREGIDO: Endpoint retorna { stores: [...], pagination: {...} }
+  const { data: responseData = { stores: [], pagination: {} }, isLoading, error } = useQuery<{
+    stores: VirtualStore[];
+    pagination?: any;
+    lastUpdated?: string;
+  }>({
     queryKey: ['/api/super-admin/stores'],
-    queryFn: () => apiRequest<VirtualStore[]>('GET', '/api/super-admin/stores'),
+    queryFn: () => apiRequest('GET', '/api/super-admin/stores'),
     staleTime: 30_000,
   });
 
+  // Extract stores array safely
+  const stores = Array.isArray(responseData?.stores) ? responseData.stores : [];
+
   // Debug log para verificar datos
   console.log('=== DEBUG STORES CORREGIDO ===');
-  console.log('Stores data received:', stores);
+  console.log('Response data received:', responseData);
+  console.log('Stores data extracted:', stores);
   console.log('Array length:', stores?.length);
   console.log('Query error:', error);
   console.log('Is loading:', isLoading);
