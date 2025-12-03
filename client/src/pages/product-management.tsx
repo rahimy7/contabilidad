@@ -587,6 +587,55 @@ useEffect(() => {
     }
   };
 
+  // Función para manejar el registro de movimientos de inventario
+  const handleInventoryMovementSubmit = () => {
+    if (!selectedProduct) {
+      toast({
+        title: "Error",
+        description: "No hay producto seleccionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const qty = parseFloat(movementQty);
+    if (isNaN(qty) || qty <= 0) {
+      toast({
+        title: "Error",
+        description: "Ingresa una cantidad válida mayor a 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload: {
+      productId: number;
+      type: 'purchase' | 'sale' | 'adjustment' | 'return';
+      quantity: number;
+      notes?: string;
+      lotNumber?: string;
+      expirationDate?: string;
+    } = {
+      productId: selectedProduct.id,
+      type: movementType,
+      quantity: qty,
+    };
+
+    if (movementNotes.trim()) {
+      payload.notes = movementNotes.trim();
+    }
+
+    if (movementLot.trim()) {
+      payload.lotNumber = movementLot.trim();
+    }
+
+    if (movementExpiration) {
+      payload.expirationDate = movementExpiration;
+    }
+
+    createInventoryMovementMutation.mutate(payload);
+  };
+
   // Gestión de imágenes (sin cambios)
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
