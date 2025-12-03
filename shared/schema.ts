@@ -294,6 +294,8 @@ export const products = pgTable("products", {
   stockQuantity: integer("stock_quantity").default(0),
   minQuantity: integer("min_quantity").default(1),
   maxQuantity: integer("max_quantity"),
+  lotNumber: text("lot_number"),
+  expirationDate: timestamp("expiration_date"),
   weight: decimal("weight", { precision: 8, scale: 2 }), // kg
   dimensions: text("dimensions"), // JSON string: {"length": 100, "width": 50, "height": 30}
   tags: text("tags").array(), // Array of search tags
@@ -372,6 +374,23 @@ export const orderItems = pgTable("order_items", {
   quantityInBaseUnit: decimal("quantity_in_base_unit", { precision: 12, scale: 4 }), // Cantidad normalizada a unidad base
   notes: text("notes"),
   storeId: integer("store_id"),
+});
+
+// Movimientos de inventario
+export const inventoryMovements = pgTable("inventory_movements", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  type: text("type").notNull(), // purchase, sale, adjustment, return
+  quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+  unitId: integer("unit_id"),
+  lotNumber: text("lot_number"),
+  expirationDate: timestamp("expiration_date"),
+  referenceType: text("reference_type"),
+  referenceId: integer("reference_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: integer("created_by"),
 });
 
 // Order workflow tracking
@@ -805,6 +824,8 @@ export const insertProductUnitConversionSchema = makeInsertSchema(productUnitCon
 export const insertProductSchema = makeInsertSchema(products, {
   loyaltyPointsPropertyName: z.string().optional(),
   loyaltyPointsValue: z.string().refine(val => val === undefined || !isNaN(parseFloat(val)), "Loyalty points value must be a valid number").optional(),
+  lotNumber: z.string().optional(),
+  expirationDate: z.string().optional(),
 });
 
 export const insertOrderSchema = makeInsertSchema(orders, {
@@ -815,6 +836,7 @@ export const insertOrderSchema = makeInsertSchema(orders, {
 });
 
 export const insertOrderItemSchema = makeInsertSchema(orderItems);
+export const insertInventoryMovementSchema = makeInsertSchema(inventoryMovements, {}, ["id", "createdAt"]);
 
 export const insertOrderHistorySchema = makeInsertSchema(orderHistory, {
   statusFrom: z.string().nullable().optional()
@@ -893,6 +915,9 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 
 export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+
+export type InventoryMovement = typeof inventoryMovements.$inferSelect;
+export type InsertInventoryMovement = z.infer<typeof insertInventoryMovementSchema>;
 
 export type OrderHistory = typeof orderHistory.$inferSelect;
 export type InsertOrderHistory = z.infer<typeof insertOrderHistorySchema>;

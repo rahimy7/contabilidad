@@ -749,6 +749,8 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       salePrice: productData.salePrice || null,
       isPromoted: productData.isPromoted || false,
       promotionText: productData.promotionText || null,
+      lotNumber: productData.lotNumber || null,
+      expirationDate: productData.expirationDate || null,
       // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
       loyaltyPointsPropertyName: productData.loyaltyPointsPropertyName || null,
       loyaltyPointsValue: productData.loyaltyPointsValue || null,
@@ -792,6 +794,77 @@ async getStoreLocation(storeId: number): Promise<any | null> {
   }
 },
 
+
+    // MOVIMIENTOS DE INVENTARIO
+    async createInventoryMovement(data: {
+      productId: number;
+      type: "purchase" | "sale" | "adjustment" | "return";
+      quantity: number;
+      unitId?: number;
+      notes?: string;
+      referenceType?: string;
+      referenceId?: number;
+      lotNumber?: string | null;
+      expirationDate?: Date | null;
+    }) {
+      const { productId, type, quantity } = data;
+      if (!productId || !quantity || !type) {
+        throw new Error('productId, type y quantity son requeridos');
+      }
+
+      const [product] = await tenantDb.select().from(schema.products).where(eq(schema.products.id, productId)).limit(1);
+      if (!product) {
+        throw new Error(`Producto ${productId} no encontrado`);
+      }
+
+      const currentStock = product.stockQuantity || 0;
+
+      let delta = quantity;
+      if (type === 'sale') {
+        delta = -Math.abs(quantity);
+      } else if (type === 'purchase' || type === 'return') {
+        delta = Math.abs(quantity);
+      }
+
+      const newStock = currentStock + delta;
+      if (newStock < 0) {
+        throw new Error(`Stock insuficiente para movimiento. Actual: ${currentStock}, delta: ${delta}`);
+      }
+
+      const [movement] = await tenantDb.insert(schema.inventoryMovements).values({
+        storeId,
+        productId,
+        type,
+        quantity: delta,
+        unitId: data.unitId || null,
+        notes: data.notes || null,
+        referenceType: data.referenceType || null,
+        referenceId: data.referenceId || null,
+        lotNumber: data.lotNumber ?? product.lotNumber ?? null,
+        expirationDate: data.expirationDate ?? product.expirationDate ?? null,
+        createdAt: new Date(),
+        createdBy: null,
+      }).returning();
+
+      await tenantDb.update(schema.products)
+        .set({
+          stockQuantity: newStock,
+          lotNumber: data.lotNumber !== undefined ? data.lotNumber : product.lotNumber,
+          expirationDate: data.expirationDate !== undefined ? data.expirationDate : product.expirationDate,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.products.id, productId));
+
+      return movement;
+    },
+
+    async getInventoryMovementsByProduct(productId: number) {
+      return tenantDb.select()
+        .from(schema.inventoryMovements)
+        .where(eq(schema.inventoryMovements.productId, productId))
+        .orderBy(desc(schema.inventoryMovements.createdAt))
+        .limit(50);
+    },
     // CUSTOMERS
 async getAllCustomers() {
   if (usePublicSchema) {
@@ -5025,6 +5098,25 @@ async getUsersByRole(role: string) {
       await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
       console.log(`✅ ${itemsWithOrderId.length} items inserted`);
 
+      // Paso 5.5: Registrar movimientos de inventario (salidas por venta)
+      for (const item of itemsWithOrderId) {
+        try {
+          await tenantDb.insert(schema.inventoryMovements).values({
+            storeId,
+            productId: item.productId,
+            type: 'sale',
+            quantity: -(Number(item.quantityInBaseUnit || item.quantity || 0)),
+            unitId: item.unitId || null,
+            referenceType: 'order',
+            referenceId: order.id,
+            notes: 'Salida por venta POS/orden',
+            createdAt: new Date(),
+            createdBy: null,
+          });
+        } catch (movementError) {
+          console.warn('No se pudo registrar movimiento de inventario para la venta:', movementError);
+        }
+      }
       // Paso 6: Reducir stock de productos
       for (const update of stockUpdates) {
         await tenantDb.update(schema.products)
@@ -5244,4 +5336,6 @@ export async function createTenantStorageForStore(storeId: number) {
   
   return createTenantStorage(tenantDb, storeId);
 }
+
+
 

@@ -1602,6 +1602,42 @@ router.post('/products', authenticateToken, createProductHandler);
   router.put('/products/:id', authenticateToken, updateProductHandler);
   router.delete('/products/:id', authenticateToken, deleteProductHandler);
 
+  // Inventory movements
+  router.get('/api/products/:id/inventory-movements', authenticateToken, async (req: any, res: any) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const user = req.user as AuthUser;
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const movements = await tenantStorage.getInventoryMovementsByProduct(productId);
+      res.json(movements);
+    } catch (error) {
+      console.error('Error fetching inventory movements:', error);
+      res.status(500).json({ error: 'No se pudieron obtener los movimientos de inventario' });
+    }
+  });
+
+  router.post('/api/inventory-movements', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = req.user as AuthUser;
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const movement = await tenantStorage.createInventoryMovement({
+        productId: req.body.productId,
+        type: req.body.type,
+        quantity: Number(req.body.quantity || 0),
+        unitId: req.body.unitId,
+        notes: req.body.notes,
+        referenceType: req.body.referenceType,
+        referenceId: req.body.referenceId,
+        lotNumber: req.body.lotNumber,
+        expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
+      });
+      res.status(201).json(movement);
+    } catch (error: any) {
+      console.error('Error creating inventory movement:', error);
+      res.status(400).json({ error: error.message || 'No se pudo registrar el movimiento' });
+    }
+  });
+
   // ================================
   // CATEGORY ROUTES
   // ================================
@@ -6141,3 +6177,4 @@ app.get('/auth/me', authenticateToken, async (req: any, res: any) => {
 // ================================
 
 export default registerRoutes;
+

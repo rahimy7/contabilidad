@@ -57,6 +57,8 @@ import {
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 
+const getAuthToken = () => localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+
 
 // Monedas soportadas
 const SUPPORTED_CURRENCIES = [
@@ -79,6 +81,8 @@ const productSchema = z.object({
   sku: z.string().optional(),
   isActive: z.boolean().default(true),
   stock_quantity: z.number().min(0).default(0),
+  lotNumber: z.string().optional(),
+  expirationDate: z.string().optional(),
   specifications: z.string().optional(),
   installationCost: z.string().optional(),
   warrantyMonths: z.number().min(0).default(0),
@@ -104,6 +108,8 @@ interface Product {
   sku?: string;
   isActive?: boolean;
   stock_quantity?: number;
+  lotNumber?: string;
+  expirationDate?: string;
   specifications?: string;
   installationCost?: string;
   warrantyMonths?: number;
@@ -148,6 +154,11 @@ export default function ImprovedProductManagement() {
   const [isEditingLoyalty, setIsEditingLoyalty] = useState(false);
   const [tempLoyaltyPropertyName, setTempLoyaltyPropertyName] = useState("");
   const [tempLoyaltyPointsValue, setTempLoyaltyPointsValue] = useState("");
+  const [movementType, setMovementType] = useState<'purchase' | 'sale' | 'adjustment' | 'return'>('purchase');
+  const [movementQty, setMovementQty] = useState('');
+  const [movementNotes, setMovementNotes] = useState('');
+  const [movementLot, setMovementLot] = useState('');
+  const [movementExpiration, setMovementExpiration] = useState('');
 
   // ✅ Only fetch store data if user has a storeId (not super_admin)
   const hasStoreContext = !!user?.storeId;
@@ -156,6 +167,19 @@ export default function ImprovedProductManagement() {
   const { data: products = [], isLoading: loadingProducts, error: productsError } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: hasStoreContext,
+  });
+
+  const movementsQuery = useQuery<any[]>({
+    queryKey: ['/api/products', selectedProduct?.id, 'inventory-movements'],
+    enabled: isDialogOpen && dialogMode === 'view' && !!selectedProduct?.id,
+    queryFn: async () => {
+      const token = getAuthToken();
+      const res = await fetch(`/api/products/${selectedProduct?.id}/inventory-movements`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error('No se pudieron obtener los movimientos de inventario');
+      return res.json();
+    },
   });
 
   const { data: categories = [], isLoading: loadingCategories, error: categoriesError } = useQuery<Category[]>({
@@ -364,8 +388,44 @@ const updateProductMutation = useMutation({
       warrantyMonths: 0,
       images: [],
       currency: "DOP", // Moneda por defecto
-    },
-  });
+  },
+});
+
+const createInventoryMovementMutation = useMutation({
+  mutationFn: async (payload: {
+    productId: number;
+    type: 'purchase' | 'sale' | 'adjustment' | 'return';
+    quantity: number;
+    notes?: string;
+    lotNumber?: string;
+    expirationDate?: string;
+  }) => {
+    const token = getAuthToken();
+    const res = await fetch('/api/inventory-movements', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'No se pudo registrar el movimiento');
+    }
+    return res.json();
+  },
+  onSuccess: () => {
+    toast({ title: 'Movimiento registrado', description: 'El inventario fue actualizado' });
+    queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/products', selectedProduct?.id, 'inventory-movements'] });
+    setMovementQty('');
+    setMovementNotes('');
+  },
+  onError: (error: any) => {
+    toast({ title: 'Error', description: error.message || 'No se pudo registrar el movimiento', variant: 'destructive' });
+  },
+});
 const validateCurrency = (currency: string | undefined): "DOP" | "USD" => {
   if (currency === "DOP" || currency === "USD") {
     return currency;
@@ -1297,6 +1357,113 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                             </div>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-green-900">Inventario</h4>
+                      <Badge variant="outline" className="text-green-700 border-green-300">
+                        Stock: {selectedProduct?.stock_quantity || 0}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">Lote:</span>
+                        <span className="ml-2 font-medium">{selectedProduct?.lotNumber || 'No especificado'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Vence:</span>
+                        <span className="ml-2 font-medium">
+                          {selectedProduct?.expirationDate
+                            ? new Date(selectedProduct.expirationDate).toLocaleDateString('es-DO')
+                            : 'No especificado'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Tipo de movimiento</Label>
+                        <Select value={movementType} onValueChange={(v: any) => setMovementType(v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="purchase">Compra (entrada)</SelectItem>
+                            <SelectItem value="sale">Venta (salida)</SelectItem>
+                            <SelectItem value="adjustment">Ajuste</SelectItem>
+                            <SelectItem value="return">DevoluciA3n</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Cantidad</Label>
+                        <Input
+                          type="number"
+                          value={movementQty}
+                          onChange={(e) => setMovementQty(e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">No. de lote (opcional)</Label>
+                        <Input value={movementLot} onChange={(e) => setMovementLot(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Fecha de vencimiento</Label>
+                        <Input
+                          type="date"
+                          value={movementExpiration}
+                          onChange={(e) => setMovementExpiration(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Notas</Label>
+                      <Textarea
+                        rows={2}
+                        value={movementNotes}
+                        onChange={(e) => setMovementNotes(e.target.value)}
+                        placeholder="Observaciones del movimiento"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleInventoryMovementSubmit}
+                      disabled={createInventoryMovementMutation.isPending}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                    >
+                      {createInventoryMovementMutation.isPending ? 'Registrando...' : 'Registrar movimiento'}
+                    </Button>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-800">Movimientos recientes</p>
+                      {movementsQuery.isLoading && <p className="text-xs text-gray-500">Cargando movimientos...</p>}
+                      {movementsQuery.error && (
+                        <p className="text-xs text-red-600">No se pudieron cargar los movimientos</p>
+                      )}
+                      {!movementsQuery.isLoading && movementsQuery.data?.length === 0 && (
+                        <p className="text-xs text-gray-500">Sin movimientos registrados</p>
+                      )}
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {movementsQuery.data?.slice(0, 5).map((mov) => (
+                          <div key={mov.id} className="p-2 bg-white border rounded text-xs flex justify-between">
+                            <div>
+                              <p className="font-semibold capitalize">{mov.type}</p>
+                              <p className="text-gray-600">Cant: {mov.quantity}</p>
+                            </div>
+                            <div className="text-right text-gray-600">
+                              <p>{new Date(mov.createdAt || mov.created_at).toLocaleDateString('es-DO')}</p>
+                              {mov.lotNumber && <p>Lote: {mov.lotNumber}</p>}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
