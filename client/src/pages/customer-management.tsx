@@ -175,9 +175,9 @@ export default function CustomerManagement() {
   // Filter customers
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch =
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone.includes(searchQuery) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+      (customer.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (customer.phone || '').includes(searchQuery) ||
+      (customer.email?.toLowerCase() || '').includes(searchQuery.toLowerCase());
 
     const matchesCategory = selectedCategory === 'all' || customer.category === selectedCategory;
 
@@ -368,10 +368,10 @@ export default function CustomerManagement() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold">
-                              {customer.name.charAt(0).toUpperCase()}
+                              {(customer.name || 'S').charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">{customer.name}</p>
+                              <p className="font-medium text-gray-900">{customer.name || 'Sin nombre'}</p>
                               {customer.isVip && (
                                 <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
                                   <Star className="w-3 h-3 mr-1" />
@@ -385,21 +385,21 @@ export default function CustomerManagement() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                               <Phone className="w-4 h-4" />
-                              {customer.phone}
+                              {customer.phone || 'N/A'}
                             </div>
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                               <Mail className="w-4 h-4" />
-                              {customer.email}
+                              {customer.email || 'N/A'}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {customer.customerType ? (
+                          {customer.customerType && customer.customerType.name ? (
                             <Badge
-                              style={{ backgroundColor: customer.customerType.color + '20', color: customer.customerType.color }}
+                              style={{ backgroundColor: (customer.customerType.color || '#3b82f6') + '20', color: customer.customerType.color || '#3b82f6' }}
                             >
                               {customer.customerType.name}
-                              {parseFloat(customer.customerType.discountPercentage) > 0 && (
+                              {customer.customerType.discountPercentage && parseFloat(customer.customerType.discountPercentage) > 0 && (
                                 <span className="ml-1 font-bold">
                                   (-{customer.customerType.discountPercentage}%)
                                 </span>
@@ -414,12 +414,12 @@ export default function CustomerManagement() {
                             {customer.category}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{customer.totalOrders}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{customer.totalOrders || 0}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                          {formatCurrency(customer.totalSpent)}
+                          {formatCurrency(customer.totalSpent || '0')}
                         </td>
                         <td className="px-4 py-3">
-                          {customer.loyaltyBalance && parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? (
+                          {customer.loyaltyBalance && customer.loyaltyBalance.currentBalance && parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? (
                             <div className="flex items-center gap-1 text-sm">
                               <Award className="w-4 h-4 text-amber-500" />
                               <span className="font-semibold text-amber-700">
