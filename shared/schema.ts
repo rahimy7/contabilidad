@@ -226,25 +226,60 @@ export const users = pgTable('users', {
   skillLevel: integer('skill_level').default(1),
 });
 
+// ================================
+// TIPOS DE CLIENTES Y CATEGORIZACIÓN
+// ================================
+
+// Tabla de tipos de clientes (Minorista, Mayorista, Revendedor, etc.)
+export const customerTypes = pgTable("customer_types", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(), // "Minorista", "Mayorista", "Revendedor"
+  description: text("description"),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0.00"), // % de descuento
+  isActive: boolean("is_active").default(true),
+  color: text("color").default("#3b82f6"), // Color para identificación visual
+  icon: text("icon"), // Icono opcional
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   phone: text("phone").notNull().unique(),
-  storeId: integer("store_id").notNull().references(() => virtualStores.id), // <--- 🔥 AÑADIDO
+  storeId: integer("store_id").notNull().references(() => virtualStores.id),
   whatsappId: text("whatsapp_id"),
+  email: text("email").unique().notNull(),
+
+  // Categorización
+  customerTypeId: integer("customer_type_id").references(() => customerTypes.id), // Tipo de cliente
+  category: text("category").default("regular"), // "regular", "vip", "wholesale", "reseller"
+
+  // Ubicación
   address: text("address"),
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   mapLink: text("map_link"),
+
+  // Contacto
   lastContact: timestamp("last_contact"),
   registrationDate: timestamp("registration_date").defaultNow(),
+
+  // Estadísticas
   totalOrders: integer("total_orders").default(0),
   totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default("0.00"),
+
+  // Estado
   isVip: boolean("is_vip").default(false),
+  isActive: boolean("is_active").default(true),
+
+  // Notas
   notes: text("notes"),
+
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  email: text("email").unique().notNull(),
 });
 
 
@@ -255,6 +290,57 @@ export const customerHistory = pgTable("customer_history", {
   description: text("description").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }),
   metadata: text("metadata"), // JSON string for additional data
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ================================
+// SISTEMA DE PUNTOS DE LEALTAD
+// ================================
+
+// Balance de puntos de lealtad por cliente
+export const customerLoyaltyBalance = pgTable("customer_loyalty_balance", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull().unique(), // Un balance por cliente
+  storeId: integer("store_id").notNull(),
+
+  // Balance de puntos
+  totalPointsEarned: decimal("total_points_earned", { precision: 12, scale: 2 }).default("0.00"), // Total ganado histórico
+  totalPointsRedeemed: decimal("total_points_redeemed", { precision: 12, scale: 2 }).default("0.00"), // Total canjeado
+  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).default("0.00"), // Balance actual
+
+  // Información del programa de puntos
+  loyaltyProgramName: text("loyalty_program_name"), // Nombre del programa (ej: "Puntos VIP", "Rewards")
+  pointsPropertyName: text("points_property_name"), // Nombre de la unidad (ej: "LP", "PUNTOS", "REWARDS")
+
+  // Fechas
+  lastEarnedAt: timestamp("last_earned_at"), // Última vez que ganó puntos
+  lastRedeemedAt: timestamp("last_redeemed_at"), // Última vez que canjeó puntos
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Transacciones de puntos de lealtad
+export const loyaltyPointsTransactions = pgTable("loyalty_points_transactions", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  storeId: integer("store_id").notNull(),
+
+  // Tipo de transacción
+  type: text("type").notNull(), // "earned" (ganado), "redeemed" (canjeado), "expired" (expirado), "adjusted" (ajuste manual)
+
+  // Puntos
+  points: decimal("points", { precision: 12, scale: 2 }).notNull(), // Positivo para earned, negativo para redeemed
+  balanceBefore: decimal("balance_before", { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 12, scale: 2 }).notNull(),
+
+  // Referencia
+  orderId: integer("order_id").references(() => orders.id), // Orden relacionada (si aplica)
+  description: text("description").notNull(), // Descripción de la transacción
+
+  // Metadata
+  metadata: text("metadata"), // JSON con información adicional
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -285,6 +371,7 @@ export const products = pgTable("products", {
   imageUrl: text("image_url"),
   images: text("images").array(), // Array of image URLs for gallery
   sku: text("sku").unique(), // Product SKU/code
+  barcode: text("barcode"), // Código de barras del producto
   brand: text("brand"),
   model: text("model"),
   specifications: text("specifications"), // JSON string for technical specs
@@ -376,19 +463,132 @@ export const orderItems = pgTable("order_items", {
   storeId: integer("store_id"),
 });
 
-// Movimientos de inventario
+// ================================
+// SISTEMA DE COMPRAS Y TRAZABILIDAD
+// ================================
+
+// Proveedores
+export const suppliers = pgTable("suppliers", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  taxId: text("tax_id"), // RNC o cédula
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Órdenes de compra
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  purchaseNumber: text("purchase_number").notNull().unique(), // PO-001, PO-002, etc.
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+  supplierName: text("supplier_name"), // Cache del nombre del proveedor
+
+  // Fechas
+  orderDate: timestamp("order_date").notNull().defaultNow(),
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  receivedDate: timestamp("received_date"),
+
+  // Estado
+  status: text("status").notNull().default("pending"), // pending, received, partial, cancelled
+
+  // Montos
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).default("0.00"),
+  tax: decimal("tax", { precision: 12, scale: 2 }).default("0.00"),
+  discount: decimal("discount", { precision: 12, scale: 2 }).default("0.00"),
+  shippingCost: decimal("shipping_cost", { precision: 12, scale: 2 }).default("0.00"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").default("DOP"), // DOP, USD
+
+  // Referencias
+  invoiceNumber: text("invoice_number"), // Número de factura del proveedor
+  referenceNumber: text("reference_number"), // Número de referencia adicional
+
+  // Detalles
+  notes: text("notes"),
+  paymentTerms: text("payment_terms"), // Términos de pago
+  paymentStatus: text("payment_status").default("unpaid"), // unpaid, partial, paid
+
+  // Auditoría
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Items de la orden de compra
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: serial("id").primaryKey(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id, { onDelete: "cascade" }).notNull(),
+  storeId: integer("store_id").notNull(),
+
+  // Producto
+  productId: integer("product_id").references(() => products.id),
+  productName: text("product_name").notNull(), // Cache
+  sku: text("sku"), // Cache
+  barcode: text("barcode"), // Cache
+
+  // Cantidad y unidades
+  quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+  quantityReceived: decimal("quantity_received", { precision: 12, scale: 2 }).default("0.00"),
+  unitId: integer("unit_id"), // Unidad de medida
+
+  // Trazabilidad
+  lotNumber: text("lot_number"),
+  expirationDate: timestamp("expiration_date"),
+  manufacturingDate: timestamp("manufacturing_date"),
+
+  // Precios
+  unitCost: decimal("unit_cost", { precision: 12, scale: 2 }).notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0.00"), // Porcentaje de impuesto
+  discountRate: decimal("discount_rate", { precision: 5, scale: 2 }).default("0.00"),
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }).notNull(),
+
+  // Notas
+  notes: text("notes"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Movimientos de inventario (actualizado con más campos)
 export const inventoryMovements = pgTable("inventory_movements", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").notNull(),
   productId: integer("product_id").references(() => products.id).notNull(),
-  type: text("type").notNull(), // purchase, sale, adjustment, return
+
+  // Tipo de movimiento
+  type: text("type").notNull(), // purchase, sale, adjustment, return, transfer, damage, expired
+
+  // Cantidad
   quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+  quantityBefore: decimal("quantity_before", { precision: 12, scale: 2 }), // Stock anterior
+  quantityAfter: decimal("quantity_after", { precision: 12, scale: 2 }), // Stock resultante
   unitId: integer("unit_id"),
+
+  // Trazabilidad
   lotNumber: text("lot_number"),
   expirationDate: timestamp("expiration_date"),
-  referenceType: text("reference_type"),
+
+  // Costos (para compras)
+  unitCost: decimal("unit_cost", { precision: 12, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }),
+
+  // Referencias
+  referenceType: text("reference_type"), // order, purchase_order, adjustment, return
   referenceId: integer("reference_id"),
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+
+  // Detalles
   notes: text("notes"),
+  reason: text("reason"), // Para ajustes, daños, etc.
+
+  // Auditoría
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: integer("created_by"),
 });
@@ -669,13 +869,52 @@ export const insertUserSchema = makeInsertSchema(users, {
 }, ["id", "createdAt", "updatedAt", "lastLogin"]);
 
 
+export const insertCustomerTypeSchema = makeInsertSchema(customerTypes, {
+  storeId: z.number(),
+  name: z.string().min(1, "Nombre es requerido"),
+  description: z.string().optional(),
+  discountPercentage: z.string().refine(
+    val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 100,
+    "El descuento debe estar entre 0 y 100"
+  ).optional(),
+  isActive: z.boolean().optional(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  sortOrder: z.number().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
 export const insertCustomerSchema = makeInsertSchema(customers, {
   storeId: z.number(),
+  customerTypeId: z.number().optional(),
+  category: z.enum(["regular", "vip", "wholesale", "reseller"]).optional(),
   lastContact: z.date().optional(),
- totalOrders: z.number().optional(),
- totalSpent: z.string().optional(),
-isVip: z.boolean().optional(),
+  totalOrders: z.number().optional(),
+  totalSpent: z.string().optional(),
+  isVip: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 }, ["id", "createdAt", "updatedAt"]);
+
+export const insertCustomerLoyaltyBalanceSchema = makeInsertSchema(customerLoyaltyBalance, {
+  customerId: z.number(),
+  storeId: z.number(),
+  totalPointsEarned: z.string().optional(),
+  totalPointsRedeemed: z.string().optional(),
+  currentBalance: z.string().optional(),
+  loyaltyProgramName: z.string().optional(),
+  pointsPropertyName: z.string().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
+export const insertLoyaltyPointsTransactionSchema = makeInsertSchema(loyaltyPointsTransactions, {
+  customerId: z.number(),
+  storeId: z.number(),
+  type: z.enum(["earned", "redeemed", "expired", "adjusted"]),
+  points: z.string().refine(val => !isNaN(parseFloat(val)), "Puntos deben ser un número válido"),
+  balanceBefore: z.string(),
+  balanceAfter: z.string(),
+  orderId: z.number().optional(),
+  description: z.string().min(1, "Descripción es requerida"),
+  metadata: z.string().optional(),
+}, ["id", "createdAt"]);
 
 export const exchangeRates = pgTable("exchange_rates", {
   id: serial("id").primaryKey(),
@@ -836,7 +1075,41 @@ export const insertOrderSchema = makeInsertSchema(orders, {
 });
 
 export const insertOrderItemSchema = makeInsertSchema(orderItems);
-export const insertInventoryMovementSchema = makeInsertSchema(inventoryMovements, {}, ["id", "createdAt"]);
+
+export const insertSupplierSchema = makeInsertSchema(suppliers, {
+  storeId: z.number(),
+  name: z.string().min(1, "Nombre del proveedor es requerido"),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  isActive: z.boolean().optional(),
+}, ["id", "createdAt", "updatedAt"]);
+
+export const insertPurchaseOrderSchema = makeInsertSchema(purchaseOrders, {
+  storeId: z.number(),
+  purchaseNumber: z.string(),
+  supplierId: z.number().optional(),
+  totalAmount: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "Monto total debe ser válido"),
+  status: z.enum(["pending", "received", "partial", "cancelled"]).optional(),
+  paymentStatus: z.enum(["unpaid", "partial", "paid"]).optional(),
+  currency: z.enum(["DOP", "USD"]).optional(),
+  createdBy: z.number(),
+}, ["id", "createdAt", "updatedAt"]);
+
+export const insertPurchaseOrderItemSchema = makeInsertSchema(purchaseOrderItems, {
+  purchaseOrderId: z.number(),
+  storeId: z.number(),
+  productName: z.string().min(1, "Nombre del producto es requerido"),
+  quantity: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Cantidad debe ser mayor a 0"),
+  unitCost: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "Costo unitario debe ser válido"),
+  totalCost: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "Costo total debe ser válido"),
+}, ["id", "createdAt"]);
+
+export const insertInventoryMovementSchema = makeInsertSchema(inventoryMovements, {
+  storeId: z.number(),
+  productId: z.number(),
+  type: z.enum(["purchase", "sale", "adjustment", "return", "transfer", "damage", "expired"]),
+  quantity: z.string().refine(val => !isNaN(parseFloat(val)), "Cantidad debe ser un número válido"),
+}, ["id", "createdAt"]);
 
 export const insertOrderHistorySchema = makeInsertSchema(orderHistory, {
   statusFrom: z.string().nullable().optional()
@@ -904,8 +1177,17 @@ export const insertCustomerHistorySchema = makeInsertSchema(customerHistory);
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+export type CustomerType = typeof customerTypes.$inferSelect;
+export type InsertCustomerType = z.infer<typeof insertCustomerTypeSchema>;
+
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
+export type CustomerLoyaltyBalance = typeof customerLoyaltyBalance.$inferSelect;
+export type InsertCustomerLoyaltyBalance = z.infer<typeof insertCustomerLoyaltyBalanceSchema>;
+
+export type LoyaltyPointsTransaction = typeof loyaltyPointsTransactions.$inferSelect;
+export type InsertLoyaltyPointsTransaction = z.infer<typeof insertLoyaltyPointsTransactionSchema>;
 
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -915,6 +1197,15 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 
 export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+
+export type Supplier = typeof suppliers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
 
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type InsertInventoryMovement = z.infer<typeof insertInventoryMovementSchema>;
@@ -1133,13 +1424,20 @@ export const schema = {
   // Esquemas de tienda virtual
   users,
   customers,
+  customerTypes,
   customerHistory,
+  customerLoyaltyBalance,
+  loyaltyPointsTransactions,
   notifications,
   products,
   productCategories,
   productBrands,
   measurementUnits,
   productUnitConversions,
+  suppliers,
+  purchaseOrders,
+  purchaseOrderItems,
+  inventoryMovements,
   orders,
   orderItems,
   orderHistory,

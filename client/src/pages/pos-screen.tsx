@@ -21,6 +21,9 @@ type Product = {
   imageUrl?: string;
   images?: string | string[];
   sku?: string;
+  barcode?: string;
+  lotNumber?: string;
+  expirationDate?: string | Date;
   brand?: string;
   model?: string;
   baseCurrency?: string;
@@ -33,6 +36,8 @@ type Product = {
   baseUnitId?: number;
   base_unit_id?: number;
   baseUnitSymbol?: string;
+  loyaltyPointsPropertyName?: string;
+  loyaltyPointsValue?: string | number;
 };
 
 type CartItem = {
@@ -42,6 +47,7 @@ type CartItem = {
   selectedUnit?: MeasurementUnit;
   conversionFactor?: number;
   unitPrice?: number;
+  loyaltyPointsPerUnit?: number; // Puntos de lealtad prorrateados por unidad
 };
 
 type MeasurementUnit = {
@@ -289,6 +295,10 @@ export default function POSScreen() {
 
     const priceForUnit = basePrice * conversionFactor;
 
+    // 🎁 Prorratear loyalty points según el factor de conversión
+    const baseLoyaltyPoints = product.loyaltyPointsValue ? parseFloat(product.loyaltyPointsValue.toString()) : 0;
+    const loyaltyPointsForUnit = baseLoyaltyPoints * conversionFactor;
+
     setCart(prev =>
       prev.map(item =>
         item.product.id === product.id
@@ -297,7 +307,8 @@ export default function POSScreen() {
             selectedUnitId: targetUnitId,
             selectedUnit,
             conversionFactor,
-            unitPrice: priceForUnit
+            unitPrice: priceForUnit,
+            loyaltyPointsPerUnit: loyaltyPointsForUnit
           }
           : item
       )
@@ -397,13 +408,16 @@ export default function POSScreen() {
         paymentMethod,
         items: cart.map(item => {
           const unitPrice = getItemUnitPrice(item);
+          // Usar los loyalty points prorrateados por unidad
+          const loyaltyPointsPerUnit = item.loyaltyPointsPerUnit ??
+            (item.product.loyaltyPointsValue ? parseFloat(item.product.loyaltyPointsValue.toString()) : 0);
           return {
             productId: item.product.id,
             productName: item.product.name,
             quantity: item.quantity,
             unitPrice: unitPrice,
             totalPrice: unitPrice * item.quantity,
-            loyaltyPointsValue: item.product.loyaltyPointsValue ? parseFloat(item.product.loyaltyPointsValue.toString()) : 0
+            loyaltyPointsValue: loyaltyPointsPerUnit
           };
         }),
         subtotal: calculateSubtotal(),
@@ -449,13 +463,16 @@ export default function POSScreen() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query)
+        p.category.toLowerCase().includes(query) ||
+        (p.sku && p.sku.toLowerCase().includes(query)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query))
       );
     }
 
     if (skuQuery.trim()) {
       filtered = filtered.filter(p =>
-        p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase())
+        (p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase())) ||
+        (p.barcode && p.barcode.toLowerCase().includes(skuQuery.toLowerCase()))
       );
     }
 
@@ -466,6 +483,7 @@ export default function POSScreen() {
   const addToCart = (product: Product) => {
     const baseUnitId = getBaseUnitId(product);
     const basePrice = getBasePrice(product);
+    const baseLoyaltyPoints = product.loyaltyPointsValue ? parseFloat(product.loyaltyPointsValue.toString()) : 0;
 
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
@@ -485,6 +503,7 @@ export default function POSScreen() {
           selectedUnitId: baseUnitId,
           conversionFactor: 1,
           unitPrice: basePrice,
+          loyaltyPointsPerUnit: baseLoyaltyPoints,
         }
       ];
     });
@@ -533,11 +552,13 @@ export default function POSScreen() {
     return calculateSubtotal() + calculateTax();
   };
 
-  // 🎁 Calculate total loyalty points
+  // 🎁 Calculate total loyalty points - Considera el factor de conversión
   const calculateTotalLoyaltyPoints = () => {
     return cart.reduce((total, item) => {
-      const pointsValue = item.product.loyaltyPointsValue ? parseFloat(item.product.loyaltyPointsValue.toString()) : 0;
-      return total + (pointsValue * item.quantity);
+      // Usar los loyalty points prorrateados por unidad si están disponibles
+      const pointsPerUnit = item.loyaltyPointsPerUnit ??
+        (item.product.loyaltyPointsValue ? parseFloat(item.product.loyaltyPointsValue.toString()) : 0);
+      return total + (pointsPerUnit * item.quantity);
     }, 0);
   };
 
@@ -896,7 +917,19 @@ export default function POSScreen() {
                         >
                           −
                         </button>
-                        <span className="text-white text-xs font-semibold px-1 w-6 text-center">{item.quantity}</span>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            if (!isNaN(value) && value >= 0) {
+                              updateQuantity(item.product.id, value);
+                            }
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          className="text-white text-xs font-semibold w-10 text-center bg-emerald-600 border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          min="1"
+                        />
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           className="text-white p-0.5 hover:bg-emerald-700 h-6 w-6 flex items-center justify-center text-sm"
@@ -1062,25 +1095,35 @@ export default function POSScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* SKU Search Modal */}
+      {/* SKU/Barcode Search Modal */}
       <Dialog open={showSkuModal} onOpenChange={setShowSkuModal}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Buscar por SKU</DialogTitle>
+            <DialogTitle>Buscar por SKU o Código de Barras</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* SKU Display */}
-            <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border-2 border-teal-700">
-              <p className="text-3xl font-bold text-emerald-600 tracking-widest">{skuQuery || '---'}</p>
-              {skuQuery.length > 0 && (
-                <button
-                  onClick={() => setSkuQuery('')}
-                  className="text-gray-600 hover:text-gray-800"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              )}
+            {/* SKU/Barcode Input Field */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Ingresa SKU o Código de Barras</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  placeholder="Escribe o usa el teclado numérico"
+                  value={skuQuery}
+                  onChange={(e) => setSkuQuery(e.target.value)}
+                  autoFocus
+                  className="text-2xl font-bold text-emerald-600 tracking-widest"
+                />
+                {skuQuery.length > 0 && (
+                  <button
+                    onClick={() => setSkuQuery('')}
+                    className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Numeric Keyboard */}
@@ -1111,9 +1154,15 @@ export default function POSScreen() {
             {/* Product Results */}
             {skuQuery.trim().length > 0 && (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredProducts.filter(p => p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase())).length > 0 ? (
+                {filteredProducts.filter(p =>
+                  (p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase())) ||
+                  (p.barcode && p.barcode.toLowerCase().includes(skuQuery.toLowerCase()))
+                ).length > 0 ? (
                   filteredProducts
-                    .filter(p => p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase()))
+                    .filter(p =>
+                      (p.sku && p.sku.toLowerCase().includes(skuQuery.toLowerCase())) ||
+                      (p.barcode && p.barcode.toLowerCase().includes(skuQuery.toLowerCase()))
+                    )
                     .map((product) => {
                       const imageUrl = getProductImageUrl(product);
                       return (
@@ -1140,7 +1189,19 @@ export default function POSScreen() {
                           </div>
                           <div className="flex-1">
                             <p className="font-semibold text-gray-900">{product.name}</p>
-                            <p className="text-sm text-emerald-600 font-bold">
+                            <div className="flex gap-2 items-center mt-1">
+                              {product.sku && (
+                                <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                  SKU: {product.sku}
+                                </span>
+                              )}
+                              {product.barcode && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                  📊 {product.barcode}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-emerald-600 font-bold mt-1">
                               {formatCurrency(getBasePrice(product))}
                             </p>
                           </div>

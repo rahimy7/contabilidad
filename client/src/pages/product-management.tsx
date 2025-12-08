@@ -79,10 +79,9 @@ const productSchema = z.object({
   brand: z.string().optional(),
   model: z.string().optional(),
   sku: z.string().optional(),
+  barcode: z.string().optional(),
   isActive: z.boolean().default(true),
   stock_quantity: z.number().min(0).default(0),
-  lotNumber: z.string().optional(),
-  expirationDate: z.string().optional(),
   specifications: z.string().optional(),
   installationCost: z.string().optional(),
   warrantyMonths: z.number().min(0).default(0),
@@ -106,6 +105,7 @@ interface Product {
   brand?: string;
   model?: string;
   sku?: string;
+  barcode?: string;         // ✅ AGREGADO: Código de barras
   isActive?: boolean;
   stock_quantity?: number;
   lotNumber?: string;
@@ -1027,7 +1027,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{product.name}</h3>
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description}</p>
-                      <div className="flex items-center space-x-2 mt-2 flex-wrap">
+                      <div className="flex items-center space-x-2 mt-2 flex-wrap gap-1">
                         <Badge variant={product.type === "service" ? "secondary" : "default"}>
                           {product.type === "service" ? "Servicio" : "Producto"}
                         </Badge>
@@ -1036,6 +1036,16 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                          {formatCurrency(product.price || "0", product.baseCurrency || product.currency || 'DOP')}
                         </span>
                         <Badge variant="outline">Stock: {product.stock_quantity || 0}</Badge>
+                        {product.sku && (
+                          <Badge variant="outline" className="font-mono text-xs">
+                            SKU: {product.sku}
+                          </Badge>
+                        )}
+                        {product.barcode && (
+                          <Badge variant="outline" className="font-mono text-xs bg-blue-50">
+                            📊 {product.barcode}
+                          </Badge>
+                        )}
                         {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
@@ -1166,9 +1176,28 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                     />
                   </div>
                   <div>
+                    <Label>Modelo</Label>
+                    <Input
+                      value={selectedProduct?.model || 'No especificado'}
+                      disabled
+                      className="bg-gray-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <Label>SKU</Label>
                     <Input
                       value={selectedProduct?.sku || 'No especificado'}
+                      disabled
+                      className="bg-gray-50 font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label>Código de Barras</Label>
+                    <Input
+                      value={selectedProduct?.barcode || 'No especificado'}
                       disabled
                       className="bg-gray-50 font-mono text-xs"
                     />
@@ -1323,6 +1352,14 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                           </span>
                         </div>
                       )}
+                      {selectedProduct?.barcode && (
+                        <div>
+                          <span className="text-gray-600">Código de Barras:</span>
+                          <span className="ml-2 font-mono text-xs bg-gray-200 px-2 py-1 rounded">
+                            {selectedProduct.barcode}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <span className="text-gray-600">Stock:</span>
                         <span className="ml-2 font-medium">{selectedProduct?.stock_quantity || 0}</span>
@@ -1416,20 +1453,6 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                       <Badge variant="outline" className="text-green-700 border-green-300">
                         Stock: {selectedProduct?.stock_quantity || 0}
                       </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-600">Lote:</span>
-                        <span className="ml-2 font-medium">{selectedProduct?.lotNumber || 'No especificado'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Vence:</span>
-                        <span className="ml-2 font-medium">
-                          {selectedProduct?.expirationDate
-                            ? new Date(selectedProduct.expirationDate).toLocaleDateString('es-DO')
-                            : 'No especificado'}
-                        </span>
-                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

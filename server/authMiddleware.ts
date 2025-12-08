@@ -8,15 +8,23 @@ export interface AuthenticatedRequest extends Request {
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
+  const cookieToken = req.cookies?.token;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ 
-      success: false, 
+  // Intentar obtener token de header o cookie
+  let token: string | null = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else if (cookieToken) {
+    token = cookieToken;
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
       message: 'Token inválido o expirado' // ✅ Mensaje consistente
     });
   }
-
-  const token = authHeader.substring(7);
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
@@ -26,7 +34,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     }
 
     const user = decoded as any;
-    
+
     // ✅ Solo verificar storeId para usuarios que no son super_admin
     if (user.role !== 'super_admin' && user.level !== 'global') {
       if (!user.storeId) {

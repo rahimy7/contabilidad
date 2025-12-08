@@ -173,28 +173,7 @@ export default function MultiTenantLogin() {
               </form>
             </Form>
 
-            {/* Información de ejemplo */}
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Cuentas de ejemplo:
-              </h4>
-              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                {loginMode === "super_admin" ? (
-                  <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                    <strong>Super Admin:</strong> superadmin / password
-                  </div>
-                ) : (
-                  <>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                      <strong>Admin:</strong> admin / password (Empresa: 1)
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                      <strong>Técnico:</strong> tech1 / password (Empresa: 1)
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+         
           </CardContent>
         </Card>
       </div>

@@ -416,14 +416,31 @@ async createOrder(orderData: any, items: any[] = []) {
     // 🔥 GENERAR NÚMERO DE ORDEN ÚNICO
     const orderNumber = await this.generateOrderNumber();
 
-    // 🎁 CALCULAR PUNTOS DE LEALTAD TOTAL
-    const { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue } = await this.calculateOrderLoyaltyPointsData(items);
+    // 🎁 CALCULAR PUNTOS DE LEALTAD - Respetar valor del frontend si existe
+    let totalLoyaltyPoints: number;
+    let loyaltyPointsPropertyName: string | null;
+    let loyaltyPointsValue: number | null;
+
+    // Si el frontend ya envió loyaltyPointsTotal (con prorrateo de unidades), usarlo
+    if (orderData.loyaltyPointsTotal !== undefined && orderData.loyaltyPointsTotal !== null) {
+      totalLoyaltyPoints = Number(orderData.loyaltyPointsTotal);
+      loyaltyPointsPropertyName = orderData.loyaltyPointsPropertyName || null;
+      loyaltyPointsValue = orderData.loyaltyPointsValue !== undefined ? Number(orderData.loyaltyPointsValue) : null;
+      console.log(`🎁 Using loyalty points from frontend: ${totalLoyaltyPoints}`);
+    } else {
+      // Si no viene del frontend, calcularlo
+      const calculated = await this.calculateOrderLoyaltyPointsData(items);
+      totalLoyaltyPoints = calculated.totalLoyaltyPoints;
+      loyaltyPointsPropertyName = calculated.loyaltyPointsPropertyName;
+      loyaltyPointsValue = calculated.loyaltyPointsValue;
+      console.log(`🎁 Calculated loyalty points in backend: ${totalLoyaltyPoints}`);
+    }
 
     const [order] = await tenantDb.insert(schema.orders)
       .values({
         ...orderData,
         orderNumber, // ✅ Agregar el número de orden generado
-        loyaltyPointsTotal: totalLoyaltyPoints, // �o. Agregar puntos de lealtad calculados
+        loyaltyPointsTotal: totalLoyaltyPoints, // �o. Agregar puntos de lealtad calculados
         loyaltyPointsPropertyName: loyaltyPointsPropertyName,
         loyaltyPointsValue: loyaltyPointsValue,
         createdAt: new Date()
@@ -729,11 +746,13 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       name: productData.name,
       description: productData.description || '',
       price: productData.price || '0.00',
+      baseCurrency: productData.baseCurrency || 'DOP', // ✅ Campo de moneda
       category: productData.category || 'general',
       status: productData.status || 'active',
       imageUrl: productData.imageUrl || null,
       images: productData.images || null,
       sku: productData.sku || null,
+      barcode: productData.barcode || null, // ✅ Código de barras
       brand: productData.brand || null,
       model: productData.model || null,
       specifications: productData.specifications || null,
@@ -743,14 +762,14 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       stockQuantity: productData.stockQuantity || 0,
       minQuantity: productData.minQuantity || 1,
       maxQuantity: productData.maxQuantity || null,
+      lotNumber: productData.lotNumber || null, // ✅ Número de lote
+      expirationDate: productData.expirationDate || null, // ✅ Fecha de vencimiento
       weight: productData.weight || null,
       dimensions: productData.dimensions || null,
       tags: productData.tags || null,
       salePrice: productData.salePrice || null,
       isPromoted: productData.isPromoted || false,
       promotionText: productData.promotionText || null,
-      lotNumber: productData.lotNumber || null,
-      expirationDate: productData.expirationDate || null,
       // 🎁 FIDELIZACIÓN - Campos opcionales para plan de puntos
       loyaltyPointsPropertyName: productData.loyaltyPointsPropertyName || null,
       loyaltyPointsValue: productData.loyaltyPointsValue || null,
@@ -5069,8 +5088,23 @@ async getUsersByRole(role: string) {
       // Paso 2: Generar número de orden
       const orderNumber = await this.generateOrderNumber();
 
-      // Paso 3: Calcular puntos de lealtad
-      const { totalLoyaltyPoints, loyaltyPointsPropertyName, loyaltyPointsValue } = await this.calculateOrderLoyaltyPointsData(items);
+      // Paso 3: Calcular puntos de lealtad - Respetar valor del frontend si existe
+      let totalLoyaltyPoints: number;
+      let loyaltyPointsPropertyName: string | null;
+      let loyaltyPointsValue: number | null;
+
+      if (orderData.loyaltyPointsTotal !== undefined && orderData.loyaltyPointsTotal !== null) {
+        totalLoyaltyPoints = Number(orderData.loyaltyPointsTotal);
+        loyaltyPointsPropertyName = orderData.loyaltyPointsPropertyName || null;
+        loyaltyPointsValue = orderData.loyaltyPointsValue !== undefined ? Number(orderData.loyaltyPointsValue) : null;
+        console.log(`🎁 Using loyalty points from frontend: ${totalLoyaltyPoints}`);
+      } else {
+        const calculated = await this.calculateOrderLoyaltyPointsData(items);
+        totalLoyaltyPoints = calculated.totalLoyaltyPoints;
+        loyaltyPointsPropertyName = calculated.loyaltyPointsPropertyName;
+        loyaltyPointsValue = calculated.loyaltyPointsValue;
+        console.log(`🎁 Calculated loyalty points in backend: ${totalLoyaltyPoints}`);
+      }
 
       // Paso 4: Crear la orden
       const [order] = await tenantDb.insert(schema.orders)

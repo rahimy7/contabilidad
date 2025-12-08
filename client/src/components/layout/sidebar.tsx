@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout, Scale } from "lucide-react";
+import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout, Scale, FileText, PackageSearch } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -179,6 +179,30 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Unidades de Medida",
       badge: null,
       permission: "manage_products",
+      excludeRoles: ["super_admin", "technician"],
+    },
+    {
+      href: "/purchase-management",
+      icon: FileText,
+      label: "Gestión de Compras",
+      badge: null,
+      permission: "manage_products",
+      excludeRoles: ["super_admin", "technician"],
+    },
+    {
+      href: "/inventory-traceability",
+      icon: PackageSearch,
+      label: "Trazabilidad de Inventario",
+      badge: null,
+      permission: "manage_products",
+      excludeRoles: ["super_admin", "technician"],
+    },
+    {
+      href: "/customer-management",
+      icon: Users,
+      label: "Gestión de Clientes",
+      badge: null,
+      permission: "manage_customers",
       excludeRoles: ["super_admin", "technician"],
     },
     // === VENTAS Y PUNTO DE VENTA ===

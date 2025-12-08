@@ -6,6 +6,7 @@ import { StorageFactory } from './storage/storage-factory.js';
 import { MasterStorageService } from './storage/master-storage.js';
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from 'cookie-parser';
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { registerRoutes } from "./routes";
 import { registerUserManagementRoutes } from "./user-management-routes";
@@ -147,6 +148,7 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Middleware para parsear cookies
 app.use('/api', aiRoutes);
 
 app.post('/api/orders/create-web-order', createWebOrder);

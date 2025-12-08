@@ -11,6 +11,8 @@ import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 import employeeRouter from './routes/employee-routes.js';
 import tripRoutes from './routes/trip-routes';
 import unitConversionRoutes from './routes/unit-conversion-routes';
+import customerManagementRoutes from './routes/customer-management-routes';
+import purchaseManagementRoutes from './routes/purchase-management-routes';
 
 // Schema and Types
 import {
@@ -650,6 +652,7 @@ const createProductHandler = async (req: any, res: any) => {
       imageUrl: req.body.imageUrl || null,
       images: normalizeArrayField(req.body.images),    // ✅ NORMALIZADO
       sku: req.body.sku || null,
+      barcode: req.body.barcode || null, // ✅ Código de barras
       brand: req.body.brand || null,
       model: req.body.model || null,
       specifications: req.body.specifications || null,
@@ -659,6 +662,8 @@ const createProductHandler = async (req: any, res: any) => {
       stockQuantity: parseInt(req.body.stockQuantity) || 0,
       minQuantity: parseInt(req.body.minQuantity) || 1,
       maxQuantity: req.body.maxQuantity ? parseInt(req.body.maxQuantity) : null,
+      lotNumber: req.body.lotNumber || null, // ✅ Número de lote
+      expirationDate: req.body.expirationDate || null, // ✅ Fecha de vencimiento
       weight: req.body.weight || null,
       dimensions: req.body.dimensions || null,
       tags: normalizeArrayField(req.body.tags),        // ✅ NORMALIZADO - CRÍTICO
@@ -1479,7 +1484,7 @@ app.use('/api', employeeRouter);
 
       // Usar master storage para autenticación
       const user = await masterStorage.authenticateUser(username, password, storeId);
-      
+
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -1489,6 +1494,14 @@ app.use('/api', employeeRouter);
         JWT_SECRET,
         { expiresIn: '24h' }
       );
+
+      // Guardar token en cookie httpOnly
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 horas
+      });
 
       res.json({ token, user });
     } catch (error) {
@@ -6007,6 +6020,8 @@ router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any,
   app.use('/api/super-admin', superAdminRoutes);
   app.use('/api', tripRoutes);
   app.use('/api', unitConversionRoutes);
+  app.use('/api', customerManagementRoutes);
+  app.use('/api', purchaseManagementRoutes);
 
   console.log("✅ Routes registered successfully with migrated storage");
 }

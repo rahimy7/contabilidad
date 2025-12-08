@@ -71,6 +71,10 @@ import DeliveryDashboardPage from "./pages/delivery-dashboard";
 import TripsPage from "./pages/trips";
 import PublicOrder from "./pages/public-order";
 import POSScreen from "./pages/pos-screen";
+import CustomerManagement from "./pages/customer-management";
+import PurchaseManagement from "./pages/purchase-management";
+import InventoryTraceability from "./pages/inventory-traceability";
+import ReceivePurchaseOrder from "./pages/receive-purchase-order";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -242,6 +246,10 @@ function Router() {
       <Route path="/simple-catalog" component={SimpleCatalog} />
      <Route path="/trips" component={TripsPage} />
       <Route path="/delivery-dashboard" component={() => <ProtectedRoute component={DeliveryDashboardPage} permission="view_dashboard_delivery" />} />
+      <Route path="/customer-management" component={() => <ProtectedRoute component={CustomerManagement} permission="manage_customers" />} />
+      <Route path="/purchase-management" component={() => <ProtectedRoute component={PurchaseManagement} permission="manage_products" />} />
+      <Route path="/receive-purchase-order/:id" component={() => <ProtectedRoute component={ReceivePurchaseOrder} permission="manage_products" />} />
+      <Route path="/inventory-traceability" component={() => <ProtectedRoute component={InventoryTraceability} permission="manage_products" />} />
     </Switch>
   );
 }

@@ -58,6 +58,7 @@ const productFormBaseSchema = z.object({
   brand: z.string().optional(),
   model: z.string().optional(),
   sku: z.string().optional(),
+  barcode: z.string().optional(),
   isActive: z.boolean().default(true),
   stock: z.number().min(0).default(0),
   specifications: z.string().optional(),
@@ -1238,6 +1239,15 @@ export default function EnhancedAddProduct() {
                         El SKU no se puede modificar en modo edición
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="barcode">Código de Barras</Label>
+                    <Input
+                      id="barcode"
+                      {...register("barcode")}
+                      placeholder="Ej: 7501234567890"
+                    />
                   </div>
 
                   <div>
