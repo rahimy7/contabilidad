@@ -33,27 +33,14 @@ export async function getFlowContext(
     // 1. Verificar si existe registration flow
     const flow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
 
-    // 2. Si no hay flow, usar criterios normales de IA
+    // 2. Si no hay flow, SIEMPRE usar IA (MODO TEMPORAL: Solo IA hasta confirmación)
     if (!flow || flow.isCompleted) {
       console.log(`📭 [HYBRID] No hay flow activo`);
-      
-      // Si ya recibió bienvenida, permitir que IA procese
-      if (hasWelcome) {
-        console.log(`✅ [HYBRID] Usuario después de bienvenida - usar IA`);
-        return {
-          flow: null,
-          shouldUseAI: true,
-          shouldUseAutomatic: false,
-          isTransitioning: false
-        };
-      }
-      
-      // Si es primera interacción, usar automático
-      console.log(`📋 [HYBRID] Primera interacción - usar automático`);
+      console.log(`🤖 [HYBRID] MODO IA ACTIVO - Solo IA hasta confirmación de pedido`);
       return {
         flow: null,
-        shouldUseAI: false,
-        shouldUseAutomatic: true,
+        shouldUseAI: true,
+        shouldUseAutomatic: false,
         isTransitioning: false
       };
     }

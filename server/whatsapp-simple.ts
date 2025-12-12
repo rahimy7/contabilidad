@@ -2261,6 +2261,12 @@ if (conversation) {
 
     console.log(`❌ NOT HANDLED BY ORDER VALIDATION - Continuing with normal flow`);
 
+    // ⚠️ TEMPORAL: AUTO-RESPUESTAS DESACTIVADAS - Solo trabaja IA
+    console.log(`⚠️ [TEMPORAL] AUTO-RESPUESTAS DESACTIVADAS - Solo IA activa`);
+    console.log(`🤖 [TEMPORAL] Mensaje no manejado por IA ni validación - sin respuesta automática`);
+    
+    // TODO: Descomentar cuando se reactive el flujo automático
+    /*
     // ✅ PROCESAR AUTO-RESPUESTAS (Solo si NO es un pedido) (TU FLUJO ORIGINAL)
     console.log(`🤖 PROCESSING AUTO-RESPONSES`);
 
@@ -2282,6 +2288,7 @@ if (conversation) {
       },
       `process auto-response ${customerPhone}`
     );
+    */
 
   } catch (error: any) {
     console.error('❌ ERROR in processIncomingUserMessage:', error);
