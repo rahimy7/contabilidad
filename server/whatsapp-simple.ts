@@ -2265,8 +2265,9 @@ if (conversation) {
     console.log(`🤖 PROCESSING AUTO-RESPONSES`);
 
     // Obtener contexto de IA para saber si ya se envió una respuesta automática
-    const { getContext } = await import('./whatsapp-smart-ai.js');
-    const aiContext = getContext(customerPhone);
+    // Sincronizar desde BD si no existe en memoria (ej: después de reinicio)
+    const { syncContextFromDB } = await import('./whatsapp-smart-ai.js');
+    const aiContext = await syncContextFromDB(customerPhone, conversationId, tenantStorage);
     const lastAutoResponseTrigger = aiContext?.lastAutoResponse;
 
     await resilientDb.executeWithRetry(

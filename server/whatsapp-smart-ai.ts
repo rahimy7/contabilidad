@@ -69,6 +69,67 @@ export function getContext(phoneNumber: string): MessageContext {
   return conversationContexts.get(phoneNumber) || {};
 }
 
+/**
+ * Sincroniza el contexto desde la base de datos cuando no existe en memoria
+ * Útil después de un reinicio del servidor
+ */
+export async function syncContextFromDB(
+  phoneNumber: string,
+  conversationId: number,
+  tenantStorage: any
+): Promise<MessageContext> {
+  // Si ya existe en memoria, retornar
+  const existing = conversationContexts.get(phoneNumber);
+  if (existing && existing.lastAutoResponse) {
+    return existing;
+  }
+
+  // Consultar mensajes recientes para detectar si ya se envió bienvenida
+  try {
+    const recentMessages = await tenantStorage.getRecentMessages(conversationId, 20);
+    
+    let isAfterWelcome = false;
+    let isAfterCatalog = false;
+    let lastAutoResponse: string | undefined;
+
+    // Buscar mensajes del asistente que indiquen respuestas automáticas
+    for (const msg of recentMessages) {
+      if (msg.role === 'assistant') {
+        const content = msg.content.toLowerCase();
+        
+        // Detectar bienvenida
+        if (content.includes('bienvenid') || content.includes('hola') && content.includes('en qué puedo ayudarte')) {
+          isAfterWelcome = true;
+          lastAutoResponse = 'welcome';
+        }
+        
+        // Detectar catálogo
+        if (content.includes('catálogo') || content.includes('productos disponibles') || content.includes('nuestros productos')) {
+          isAfterCatalog = true;
+          lastAutoResponse = 'catalog';
+        }
+      }
+    }
+
+    const context: MessageContext = {
+      isAfterWelcome,
+      isAfterCatalog,
+      lastAutoResponse
+    };
+
+    // Guardar en memoria para próximas consultas
+    if (isAfterWelcome || isAfterCatalog) {
+      conversationContexts.set(phoneNumber, context);
+      console.log(`✅ [AI-SMART] Contexto sincronizado desde BD para ${phoneNumber}:`, context);
+    }
+
+    return context;
+  } catch (error) {
+    console.error('❌ [AI-SMART] Error sincronizando contexto desde BD:', error);
+    return {};
+  }
+}
+
 export function clearContext(phoneNumber: string) {
   conversationContexts.delete(phoneNumber);
   console.log(`🧹 [AI-SMART] Contexto limpiado para ${phoneNumber}`);
@@ -320,7 +381,9 @@ export async function tryProcessWithAI(
 ): Promise<AIProcessResult> {
   try {
     console.log('🤖 [AI-SMART] Intentando procesar con IA...');
-    const context = getContext(phoneNumber);
+    
+    // Sincronizar contexto desde BD si no existe en memoria
+    const context = await syncContextFromDB(phoneNumber, conversationId, tenantStorage);
     console.log('📋 [AI-SMART] Contexto actual:', context);
 
     // ✅ HÍBRIDO: Verificar flow context primero
