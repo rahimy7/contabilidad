@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
@@ -19,7 +19,8 @@ import {
   Edit,
   Trash2,
   Plus,
-  ChevronRight,
+  Link2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@ type Customer = {
   address?: string;
   category: string;
   customerTypeId?: number;
+  parentCustomerId?: number;
   totalOrders: number;
   totalSpent: string;
   isVip: boolean;
@@ -60,6 +62,10 @@ type Customer = {
     name: string;
     discountPercentage: string;
     color: string;
+  };
+  parentCustomer?: {
+    id: number;
+    name: string;
   };
   loyaltyBalance?: {
     currentBalance: string;
@@ -90,6 +96,24 @@ export default function CustomerManagement() {
     color: '#3b82f6',
   });
 
+  const [customerFormData, setCustomerFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    category: 'regular',
+    customerTypeId: undefined as number | undefined,
+    parentCustomerId: undefined as number | undefined,
+    isVip: false,
+    isActive: true,
+  });
+
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
+  const [parentSearchResults, setParentSearchResults] = useState<Customer[]>([]);
+  const [selectedParent, setSelectedParent] = useState<{ id: number; name: string } | null>(null);
+  const [showParentDropdown, setShowParentDropdown] = useState(false);
+  const parentSearchRef = useRef<HTMLDivElement>(null);
+
   // Fetch customer stats
   const { data: stats } = useQuery<CustomerStats>({
     queryKey: ['customer-stats'],
@@ -112,7 +136,10 @@ export default function CustomerManagement() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch customers');
-      return response.json();
+      const data = await response.json();
+      console.log('🔍 Customers data received:', data);
+      console.log('🔍 First customer loyaltyBalance:', data[0]?.loyaltyBalance);
+      return data;
     },
   });
 
@@ -151,6 +178,29 @@ export default function CustomerManagement() {
     },
   });
 
+  // Create customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async (data: typeof customerFormData) => {
+      const token = getAuthToken();
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to create customer');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-stats'] });
+      setShowCustomerDialog(false);
+      resetCustomerForm();
+    },
+  });
+
   // Update customer mutation
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Customer> }) => {
@@ -164,6 +214,27 @@ export default function CustomerManagement() {
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error('Failed to update customer');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-stats'] });
+      setShowCustomerDialog(false);
+      resetCustomerForm();
+    },
+  });
+
+  // Delete customer mutation
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const token = getAuthToken();
+      const response = await fetch(`/api/customers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to delete customer');
       return response.json();
     },
     onSuccess: () => {
@@ -186,6 +257,124 @@ export default function CustomerManagement() {
 
   const handleCreateCustomerType = () => {
     createCustomerTypeMutation.mutate(newCustomerType);
+  };
+
+  const resetCustomerForm = () => {
+    setCustomerFormData({
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      category: 'regular',
+      customerTypeId: undefined,
+      parentCustomerId: undefined,
+      isVip: false,
+      isActive: true,
+    });
+    setSelectedCustomer(null);
+    setSelectedParent(null);
+    setParentSearchQuery('');
+    setParentSearchResults([]);
+    setShowParentDropdown(false);
+  };
+
+  const handleOpenNewCustomer = () => {
+    resetCustomerForm();
+    setShowCustomerDialog(true);
+  };
+
+  const handleOpenEditCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setCustomerFormData({
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email || '',
+      address: customer.address || '',
+      category: customer.category,
+      customerTypeId: customer.customerTypeId,
+      parentCustomerId: customer.parentCustomerId,
+      isVip: customer.isVip,
+      isActive: customer.isActive,
+    });
+
+    // Si tiene padre, configurar el padre seleccionado
+    if (customer.parentCustomerId && customer.parentCustomer) {
+      setSelectedParent(customer.parentCustomer);
+    } else {
+      setSelectedParent(null);
+    }
+
+    setShowCustomerDialog(true);
+  };
+
+  const handleSaveCustomer = () => {
+    if (selectedCustomer) {
+      updateCustomerMutation.mutate({ id: selectedCustomer.id, data: customerFormData });
+    } else {
+      createCustomerMutation.mutate(customerFormData);
+    }
+  };
+
+  const handleDeleteCustomer = (id: number) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este cliente?')) {
+      deleteCustomerMutation.mutate(id);
+    }
+  };
+
+  // Búsqueda de cliente padre con debounce
+  useEffect(() => {
+    const searchParentCustomer = async () => {
+      if (parentSearchQuery.trim().length < 2) {
+        setParentSearchResults([]);
+        return;
+      }
+
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`/api/customers/search?q=${encodeURIComponent(parentSearchQuery)}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const results = await response.json();
+          // Filtrar el cliente actual si estamos editando
+          const filteredResults = selectedCustomer
+            ? results.filter((c: Customer) => c.id !== selectedCustomer.id)
+            : results;
+          setParentSearchResults(filteredResults);
+        }
+      } catch (error) {
+        console.error('Error searching customers:', error);
+      }
+    };
+
+    const timeoutId = setTimeout(searchParentCustomer, 300);
+    return () => clearTimeout(timeoutId);
+  }, [parentSearchQuery, selectedCustomer]);
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (parentSearchRef.current && !parentSearchRef.current.contains(event.target as Node)) {
+        setShowParentDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectParent = (customer: Customer) => {
+    setSelectedParent(customer);
+    setCustomerFormData({ ...customerFormData, parentCustomerId: customer.id });
+    setParentSearchQuery('');
+    setShowParentDropdown(false);
+  };
+
+  const handleClearParent = () => {
+    setSelectedParent(null);
+    setCustomerFormData({ ...customerFormData, parentCustomerId: undefined });
+    setParentSearchQuery('');
   };
 
   const formatCurrency = (amount: string | number) => {
@@ -220,7 +409,7 @@ export default function CustomerManagement() {
               <Settings className="w-4 h-4" />
               Tipos de Clientes
             </Button>
-            <Button className="flex items-center gap-2">
+            <Button className="flex items-center gap-2" onClick={handleOpenNewCustomer}>
               <UserPlus className="w-4 h-4" />
               Nuevo Cliente
             </Button>
@@ -372,12 +561,20 @@ export default function CustomerManagement() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">{customer.name || 'Sin nombre'}</p>
-                              {customer.isVip && (
-                                <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
-                                  <Star className="w-3 h-3 mr-1" />
-                                  VIP
-                                </Badge>
-                              )}
+                              <div className="flex gap-1 mt-1">
+                                {customer.isVip && (
+                                  <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                    <Star className="w-3 h-3 mr-1" />
+                                    VIP
+                                  </Badge>
+                                )}
+                                {customer.parentCustomerId && customer.parentCustomer && (
+                                  <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                    <Link2 className="w-3 h-3 mr-1" />
+                                    Vinculado a: {customer.parentCustomer.name}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -419,15 +616,15 @@ export default function CustomerManagement() {
                           {formatCurrency(customer.totalSpent || '0')}
                         </td>
                         <td className="px-4 py-3">
-                          {customer.loyaltyBalance && customer.loyaltyBalance.currentBalance && parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? (
+                          {customer.loyaltyBalance && customer.loyaltyBalance.currentBalance !== null && customer.loyaltyBalance.currentBalance !== undefined ? (
                             <div className="flex items-center gap-1 text-sm">
-                              <Award className="w-4 h-4 text-amber-500" />
-                              <span className="font-semibold text-amber-700">
-                                {customer.loyaltyBalance.currentBalance} {customer.loyaltyBalance.pointsPropertyName || 'pts'}
+                              <Award className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "w-4 h-4 text-amber-500" : "w-4 h-4 text-gray-400"} />
+                              <span className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "font-semibold text-amber-700" : "text-gray-600"}>
+                                {parseFloat(customer.loyaltyBalance.currentBalance).toFixed(2)} {customer.loyaltyBalance.pointsPropertyName || 'pts'}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-gray-400 text-sm">Sin puntos</span>
+                            <span className="text-gray-400 text-sm">Sin datos</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -440,15 +637,19 @@ export default function CustomerManagement() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setSelectedCustomer(customer);
-                                setShowCustomerDialog(true);
-                              }}
+                              onClick={() => handleOpenEditCustomer(customer)}
+                              title="Editar cliente"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
-                              <ChevronRight className="w-4 h-4" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCustomer(customer.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Eliminar cliente"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </td>
@@ -521,6 +722,213 @@ export default function CustomerManagement() {
               className="w-full"
             >
               {createCustomerTypeMutation.isPending ? 'Creando...' : 'Crear Tipo de Cliente'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/Edit Customer Dialog */}
+      <Dialog open={showCustomerDialog} onOpenChange={(open) => {
+        setShowCustomerDialog(open);
+        if (!open) resetCustomerForm();
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedCustomer ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
+            <DialogDescription>
+              {selectedCustomer ? 'Actualiza la información del cliente' : 'Registra un nuevo cliente en el sistema'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Nombre completo *</label>
+              <Input
+                placeholder="Ej: Juan Pérez"
+                value={customerFormData.name}
+                onChange={(e) => setCustomerFormData({ ...customerFormData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Teléfono *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="(809) 123-4567"
+                  value={customerFormData.phone}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, phone: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="cliente@ejemplo.com"
+                  value={customerFormData.email}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, email: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Dirección</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Calle, número, sector"
+                  value={customerFormData.address}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, address: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Categoría</label>
+              <select
+                value={customerFormData.category}
+                onChange={(e) => setCustomerFormData({ ...customerFormData, category: e.target.value })}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="regular">Regular</option>
+                <option value="vip">VIP</option>
+                <option value="wholesale">Mayorista</option>
+                <option value="reseller">Revendedor</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tipo de Cliente</label>
+              <select
+                value={customerFormData.customerTypeId || ''}
+                onChange={(e) => setCustomerFormData({
+                  ...customerFormData,
+                  customerTypeId: e.target.value ? parseInt(e.target.value) : undefined
+                })}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="">Sin tipo específico</option>
+                {customerTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name} {type.discountPercentage && parseFloat(type.discountPercentage) > 0 ? `(-${type.discountPercentage}%)` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Cliente Padre (Opcional)</label>
+
+              {selectedParent ? (
+                <div className="flex items-center gap-2 p-3 border rounded-md bg-blue-50">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium text-blue-900">{selectedParent.name}</span>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">Cliente padre seleccionado</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearParent}
+                    className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+                    title="Eliminar cliente padre"
+                  >
+                    <X className="w-4 h-4 text-blue-600" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative" ref={parentSearchRef}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Buscar por nombre o teléfono..."
+                      value={parentSearchQuery}
+                      onChange={(e) => {
+                        setParentSearchQuery(e.target.value);
+                        setShowParentDropdown(true);
+                      }}
+                      onFocus={() => setShowParentDropdown(true)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {showParentDropdown && parentSearchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {parentSearchResults.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => handleSelectParent(customer)}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 border-b last:border-b-0"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                            {customer.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{customer.name}</p>
+                            <p className="text-xs text-gray-500">{customer.phone}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {showParentDropdown && parentSearchQuery.length >= 2 && parentSearchResults.length === 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg p-4 text-center text-gray-500 text-sm">
+                      No se encontraron clientes
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 mt-1">
+                Los puntos de lealtad ganados por este cliente se acumularán al cliente padre seleccionado
+              </p>
+            </div>
+            <div className="col-span-2 flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customerFormData.isVip}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, isVip: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Star className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-medium">Cliente VIP</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customerFormData.isActive}
+                  onChange={(e) => setCustomerFormData({ ...customerFormData, isActive: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium">Cliente Activo</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCustomerDialog(false);
+                resetCustomerForm();
+              }}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveCustomer}
+              disabled={!customerFormData.name || !customerFormData.phone || createCustomerMutation.isPending || updateCustomerMutation.isPending}
+              className="flex-1"
+            >
+              {createCustomerMutation.isPending || updateCustomerMutation.isPending
+                ? 'Guardando...'
+                : selectedCustomer
+                ? 'Actualizar Cliente'
+                : 'Crear Cliente'}
             </Button>
           </div>
         </DialogContent>

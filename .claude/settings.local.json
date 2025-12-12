@@ -39,7 +39,10 @@
       "Bash(powershell -Command \"Stop-Process -Name node -Force\")",
       "Bash(powershell -Command:*)",
       "Bash(yarn dev)",
-      "Bash(yarn install:*)"
+      "Bash(yarn install:*)",
+      "Bash(Select-String -Pattern \"PATCH.*orders|PUT.*orders|completed|LOYALTY\")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(timeout /t 2 /nobreak)"
     ],
     "deny": [],
     "ask": []

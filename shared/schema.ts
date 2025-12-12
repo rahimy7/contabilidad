@@ -256,6 +256,7 @@ export const customers = pgTable("customers", {
   // Categorización
   customerTypeId: integer("customer_type_id").references(() => customerTypes.id), // Tipo de cliente
   category: text("category").default("regular"), // "regular", "vip", "wholesale", "reseller"
+  parentCustomerId: integer("parent_customer_id").references(() => customers.id), // Cliente padre (los puntos se acumulan al padre)
 
   // Ubicación
   address: text("address"),
@@ -432,6 +433,8 @@ export const orders = pgTable("orders", {
   loyaltyPointsPropertyName: text("loyalty_points_property_name"),
   loyaltyPointsValue: decimal("loyalty_points_value", { precision: 10, scale: 2 }),
   loyaltyPointsTotal: decimal("loyalty_points_total", { precision: 12, scale: 2 }).default("0"),
+  loyaltyPointsCredited: boolean("loyalty_points_credited").default(false), // ✅ NUEVO: Indica si los puntos ya fueron acreditados
+  loyaltyPointsCreditedAt: timestamp("loyalty_points_credited_at"), // ✅ NUEVO: Fecha de acreditación
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -2655,66 +2655,17 @@ apiRouter.get('/debug/supabase-storage', async (req, res) => {
 });
 
 // ================================
-// CUSTOMERS ENDPOINTS (MASTER STORAGE - TRANSITIONAL)
+// CUSTOMERS ENDPOINTS - MOVED TO customer-management-routes.ts
 // ================================
 
-apiRouter.get('/customers', authenticateToken, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    const customers = await masterStorage.getAllCustomers(user.storeId);
-    res.json(customers);
-  } catch (error) {
-    console.error('Error fetching customers:', error);
-    res.status(500).json({ error: 'Failed to fetch customers' });
-  }
-});
+// ⚠️ DEPRECATED: Estos endpoints se han movido a server/routes/customer-management-routes.ts
+// Los endpoints de clientes ahora incluyen loyalty balance, customer types y parent customers
+// NO re-habilitar estos endpoints duplicados
 
-apiRouter.post('/customers', authenticateToken, async (req, res) => {
-  try {
-    const user = (req as any).user;
-    const customerData = { ...req.body, storeId: user.storeId };
-    
-    const customer = await masterStorage.createCustomer(customerData);
-    res.status(201).json(customer);
-  } catch (error) {
-    console.error('Error creating customer:', error);
-    res.status(500).json({ error: 'Failed to create customer' });
-  }
-});
-
-apiRouter.put('/customers/:id', authenticateToken, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const user = (req as any).user;
-    
-    const customer = await masterStorage.updateCustomer(id, req.body, user.storeId);
-    if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-    
-    res.json(customer);
-  } catch (error) {
-    console.error('Error updating customer:', error);
-    res.status(500).json({ error: 'Failed to update customer' });
-  }
-});
-
-apiRouter.delete('/customers/:id', authenticateToken, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const user = (req as any).user;
-    
-    const success = await masterStorage.deleteCustomer(id, user.storeId);
-    if (!success) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting customer:', error);
-    res.status(500).json({ error: 'Failed to delete customer' });
-  }
-});
+// apiRouter.get('/customers') - Ver customer-management-routes.ts
+// apiRouter.post('/customers') - Ver customer-management-routes.ts
+// apiRouter.put('/customers/:id') - Ver customer-management-routes.ts
+// apiRouter.delete('/customers/:id') - Ver customer-management-routes.ts
 
 // ================================
 // METRICS & DASHBOARD (MASTER STORAGE)

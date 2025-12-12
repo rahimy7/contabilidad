@@ -887,27 +887,135 @@ async getStoreLocation(storeId: number): Promise<any | null> {
     // CUSTOMERS
 async getAllCustomers() {
   if (usePublicSchema) {
-    return await tenantDb.select()
-      .from(schema.customers)
-      .orderBy(desc(schema.customers.createdAt));
+    const result = await tenantDb.execute(sql`
+      SELECT
+        c.*,
+        pc.id as "parentCustomer_id",
+        pc.name as "parentCustomer_name"
+      FROM ${schema.customers} c
+      LEFT JOIN ${schema.customers} pc ON c.parent_customer_id = pc.id
+      ORDER BY c.created_at DESC
+    `);
+
+    // Transform the flat result into nested structure and convert snake_case to camelCase
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      storeId: row.store_id,
+      whatsappId: row.whatsapp_id,
+      customerTypeId: row.customer_type_id,
+      parentCustomerId: row.parent_customer_id,
+      category: row.category,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      mapLink: row.map_link,
+      lastContact: row.last_contact,
+      registrationDate: row.registration_date,
+      totalOrders: row.total_orders,
+      totalSpent: row.total_spent,
+      isVip: row.is_vip,
+      isActive: row.is_active,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      parentCustomer: row.parentCustomer_id ? {
+        id: row.parentCustomer_id,
+        name: row.parentCustomer_name
+      } : undefined
+    }));
   } else {
-    const schemaName = `store_${storeId}`;
- const directQuery = `
-  SELECT * FROM "store_${storeId}".customers 
-  WHERE store_id = ${storeId}
-  ORDER BY created_at DESC
-`;
-const result = await tenantDb.execute(directQuery);
-    return result.rows;
+    const directQuery = `
+      SELECT
+        c.*,
+        pc.id as "parentCustomer_id",
+        pc.name as "parentCustomer_name"
+      FROM "store_${storeId}".customers c
+      LEFT JOIN "store_${storeId}".customers pc ON c.parent_customer_id = pc.id
+      WHERE c.store_id = ${storeId}
+      ORDER BY c.created_at DESC
+    `;
+    const result = await tenantDb.execute(sql.raw(directQuery));
+
+    // Transform the flat result into nested structure and convert snake_case to camelCase
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      storeId: row.store_id,
+      whatsappId: row.whatsapp_id,
+      customerTypeId: row.customer_type_id,
+      parentCustomerId: row.parent_customer_id,
+      category: row.category,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      mapLink: row.map_link,
+      lastContact: row.last_contact,
+      registrationDate: row.registration_date,
+      totalOrders: row.total_orders,
+      totalSpent: row.total_spent,
+      isVip: row.is_vip,
+      isActive: row.is_active,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      parentCustomer: row.parentCustomer_id ? {
+        id: row.parentCustomer_id,
+        name: row.parentCustomer_name
+      } : undefined
+    }));
   }
 },
     async getCustomerById(id: number) {
       try {
-        const [customer] = await tenantDb.select()
-          .from(schema.customers)
-          .where(eq(schema.customers.id, id))
-          .limit(1);
-        return customer || null;
+        const result = await tenantDb.execute(sql`
+          SELECT
+            c.*,
+            pc.id as "parentCustomer_id",
+            pc.name as "parentCustomer_name"
+          FROM ${schema.customers} c
+          LEFT JOIN ${schema.customers} pc ON c.parent_customer_id = pc.id
+          WHERE c.id = ${id}
+          LIMIT 1
+        `);
+
+        if (!result.rows || result.rows.length === 0) {
+          return null;
+        }
+
+        const row = result.rows[0];
+        return {
+          id: row.id,
+          name: row.name,
+          phone: row.phone,
+          email: row.email,
+          address: row.address,
+          storeId: row.store_id,
+          whatsappId: row.whatsapp_id,
+          customerTypeId: row.customer_type_id,
+          parentCustomerId: row.parent_customer_id,
+          category: row.category,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          mapLink: row.map_link,
+          lastContact: row.last_contact,
+          registrationDate: row.registration_date,
+          totalOrders: row.total_orders,
+          totalSpent: row.total_spent,
+          isVip: row.is_vip,
+          isActive: row.is_active,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          parentCustomer: row.parentCustomer_id ? {
+            id: row.parentCustomer_id,
+            name: row.parentCustomer_name
+          } : undefined
+        };
       } catch (error) {
         console.error('Error getting customer by ID:', error);
         return null;
@@ -5344,7 +5452,47 @@ async getUsersByRole(role: string) {
         error: `Error interno: ${error.message}`,
       };
     }
-  }
+  },
+
+  // ================================
+  // 🎁 LOYALTY POINTS - MÉTODOS
+  // ================================
+
+  /**
+   * Acredita los puntos de lealtad de una orden cuando se completa
+   */
+  async creditLoyaltyPointsFromOrder(orderId: number) {
+    const { LoyaltyPointsService } = await import('./services/loyalty-points-service.js');
+    const loyaltyService = new LoyaltyPointsService(storeId);
+    return await loyaltyService.creditLoyaltyPointsFromOrder(orderId);
+  },
+
+  /**
+   * Revierte los puntos de lealtad de una orden
+   */
+  async revertLoyaltyPointsFromOrder(orderId: number) {
+    const { LoyaltyPointsService } = await import('./services/loyalty-points-service.js');
+    const loyaltyService = new LoyaltyPointsService(storeId);
+    return await loyaltyService.revertLoyaltyPointsFromOrder(orderId);
+  },
+
+  /**
+   * Obtiene el balance de puntos de un cliente
+   */
+  async getCustomerLoyaltyBalance(customerId: number) {
+    try {
+      const [balance] = await tenantDb
+        .select()
+        .from(schema.customerLoyaltyBalance)
+        .where(eq(schema.customerLoyaltyBalance.customerId, customerId))
+        .limit(1);
+
+      return balance || null;
+    } catch (error) {
+      console.error('Error getting customer loyalty balance:', error);
+      return null;
+    }
+  },
 
   }; // Fin del return del createTenantStorage
 

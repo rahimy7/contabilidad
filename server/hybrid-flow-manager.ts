@@ -31,15 +31,29 @@ export async function getFlowContext(
     console.log(`🔄 [HYBRID] Analizando contexto de flujo para ${phoneNumber}`);
 
     // 1. Verificar si existe registration flow
-    const flow = await tenantStorage.getRegistrationFlow(phoneNumber);
+    const flow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
 
     // 2. Si no hay flow, usar criterios normales de IA
     if (!flow || flow.isCompleted) {
-      console.log(`📭 [HYBRID] No hay flow activo - usar criterios normales`);
+      console.log(`📭 [HYBRID] No hay flow activo`);
+      
+      // Si ya recibió bienvenida, permitir que IA procese
+      if (hasWelcome) {
+        console.log(`✅ [HYBRID] Usuario después de bienvenida - usar IA`);
+        return {
+          flow: null,
+          shouldUseAI: true,
+          shouldUseAutomatic: false,
+          isTransitioning: false
+        };
+      }
+      
+      // Si es primera interacción, usar automático
+      console.log(`📋 [HYBRID] Primera interacción - usar automático`);
       return {
         flow: null,
-        shouldUseAI: hasWelcome, // Solo IA si ya pasó bienvenida
-        shouldUseAutomatic: !hasWelcome,
+        shouldUseAI: false,
+        shouldUseAutomatic: true,
         isTransitioning: false
       };
     }
@@ -48,12 +62,24 @@ export async function getFlowContext(
     const now = new Date();
     const expiresAt = new Date(flow.expiresAt);
     if (now > expiresAt) {
-      console.log(`⏰ [HYBRID] Flow expirado - limpiar y usar criterios normales`);
+      console.log(`⏰ [HYBRID] Flow expirado - limpiar y continuar con IA`);
       await tenantStorage.deleteRegistrationFlow(flow.customerId);
+      
+      // Después de flow expirado, si ya pasó bienvenida usar IA
+      if (hasWelcome) {
+        console.log(`✅ [HYBRID] Post-flow expirado con bienvenida - usar IA`);
+        return {
+          flow: null,
+          shouldUseAI: true,
+          shouldUseAutomatic: false,
+          isTransitioning: false
+        };
+      }
+      
       return {
         flow: null,
-        shouldUseAI: hasWelcome,
-        shouldUseAutomatic: !hasWelcome,
+        shouldUseAI: false,
+        shouldUseAutomatic: true,
         isTransitioning: false
       };
     }
@@ -92,6 +118,19 @@ export async function getFlowContext(
 
   } catch (error) {
     console.error('❌ [HYBRID] Error obteniendo contexto:', error);
+    
+    // En caso de error, si ya recibió bienvenida permitir que IA intente procesar
+    if (hasWelcome) {
+      console.log(`⚠️ [HYBRID] Error pero usuario tiene bienvenida - intentar con IA`);
+      return {
+        flow: null,
+        shouldUseAI: true,
+        shouldUseAutomatic: false,
+        isTransitioning: false
+      };
+    }
+    
+    // Sin bienvenida, usar automático
     return {
       flow: null,
       shouldUseAI: false,
@@ -182,7 +221,7 @@ export async function createOrUpdateAIFlow(
     console.log(`🤖 [HYBRID] Creando/actualizando flow AI`);
 
     // 1. Verificar si ya existe flow
-    let flow = await tenantStorage.getRegistrationFlow(phoneNumber);
+    let flow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
 
     const collectedData = {
       cartItems,

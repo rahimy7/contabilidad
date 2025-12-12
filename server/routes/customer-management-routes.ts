@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '@shared/schema';
@@ -153,8 +154,11 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
 
     const db = await getTenantDb(user.storeId);
 
+    // Crear alias para la tabla de clientes padre
+    const parentCustomer = alias(schema.customers, 'parentCustomer');
+
     // Query con JOIN para incluir tipo de cliente y balance de puntos
-    const customers = await db
+    const customersRaw = await db
       .select({
         // Campos del cliente
         id: schema.customers.id,
@@ -164,6 +168,7 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
         address: schema.customers.address,
         category: schema.customers.category,
         customerTypeId: schema.customers.customerTypeId,
+        parentCustomerId: schema.customers.parentCustomerId,
         totalOrders: schema.customers.totalOrders,
         totalSpent: schema.customers.totalSpent,
         isVip: schema.customers.isVip,
@@ -173,20 +178,21 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
         notes: schema.customers.notes,
         createdAt: schema.customers.createdAt,
 
-        // Tipo de cliente
-        customerType: {
-          id: schema.customerTypes.id,
-          name: schema.customerTypes.name,
-          discountPercentage: schema.customerTypes.discountPercentage,
-          color: schema.customerTypes.color,
-        },
+        // Campos del tipo de cliente
+        customerTypeId_ct: schema.customerTypes.id,
+        customerTypeName: schema.customerTypes.name,
+        customerTypeDiscount: schema.customerTypes.discountPercentage,
+        customerTypeColor: schema.customerTypes.color,
 
-        // Balance de puntos
-        loyaltyBalance: {
-          currentBalance: schema.customerLoyaltyBalance.currentBalance,
-          totalPointsEarned: schema.customerLoyaltyBalance.totalPointsEarned,
-          pointsPropertyName: schema.customerLoyaltyBalance.pointsPropertyName,
-        },
+        // Campos del balance de puntos
+        loyaltyBalanceId: schema.customerLoyaltyBalance.id,
+        loyaltyCurrentBalance: schema.customerLoyaltyBalance.currentBalance,
+        loyaltyTotalEarned: schema.customerLoyaltyBalance.totalPointsEarned,
+        loyaltyPointsName: schema.customerLoyaltyBalance.pointsPropertyName,
+
+        // Campos del cliente padre
+        parentCustomerId_pc: parentCustomer.id,
+        parentCustomerName: parentCustomer.name,
       })
       .from(schema.customers)
       .leftJoin(
@@ -197,13 +203,95 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
         schema.customerLoyaltyBalance,
         eq(schema.customers.id, schema.customerLoyaltyBalance.customerId)
       )
+      .leftJoin(
+        parentCustomer,
+        eq(schema.customers.parentCustomerId, parentCustomer.id)
+      )
       .where(eq(schema.customers.storeId, user.storeId))
       .orderBy(desc(schema.customers.createdAt));
+
+    // Transformar los datos al formato esperado
+    const customers = customersRaw.map(row => ({
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      category: row.category,
+      customerTypeId: row.customerTypeId,
+      parentCustomerId: row.parentCustomerId,
+      totalOrders: row.totalOrders,
+      totalSpent: row.totalSpent,
+      isVip: row.isVip,
+      isActive: row.isActive,
+      registrationDate: row.registrationDate,
+      lastContact: row.lastContact,
+      notes: row.notes,
+      createdAt: row.createdAt,
+      
+      // Construir objeto customerType solo si existe
+      customerType: row.customerTypeId_ct ? {
+        id: row.customerTypeId_ct,
+        name: row.customerTypeName,
+        discountPercentage: row.customerTypeDiscount,
+        color: row.customerTypeColor,
+      } : null,
+      
+      // Construir objeto loyaltyBalance solo si existe
+      loyaltyBalance: row.loyaltyBalanceId ? {
+        currentBalance: row.loyaltyCurrentBalance,
+        totalPointsEarned: row.loyaltyTotalEarned,
+        pointsPropertyName: row.loyaltyPointsName,
+      } : null,
+      
+      // Construir objeto parentCustomer solo si existe
+      parentCustomer: row.parentCustomerId_pc ? {
+        id: row.parentCustomerId_pc,
+        name: row.parentCustomerName,
+      } : null,
+    }));
 
     res.json(customers);
   } catch (error) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: 'Error al obtener clientes' });
+  }
+});
+
+// POST - Crear nuevo cliente
+router.post('/customers', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) {
+      return res.status(403).json({ error: 'Store ID requerido' });
+    }
+
+    const db = await getTenantDb(user.storeId);
+
+    // Crear cliente
+    const [customer] = await db
+      .insert(schema.customers)
+      .values({
+        ...req.body,
+        storeId: user.storeId,
+      })
+      .returning();
+
+    // Crear balance de puntos inicial para el cliente
+    await db
+      .insert(schema.customerLoyaltyBalance)
+      .values({
+        customerId: customer.id,
+        storeId: user.storeId,
+        currentBalance: '0',
+        totalPointsEarned: '0',
+        totalPointsRedeemed: '0',
+      });
+
+    res.status(201).json(customer);
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    res.status(500).json({ error: 'Error al crear cliente' });
   }
 });
 
@@ -292,6 +380,61 @@ router.put('/customers/:id', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// DELETE - Eliminar cliente
+router.delete('/customers/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) {
+      return res.status(403).json({ error: 'Store ID requerido' });
+    }
+
+    const id = parseInt(req.params.id);
+    const db = await getTenantDb(user.storeId);
+
+    // Verificar si hay clientes hijos
+    const [childrenCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.customers)
+      .where(eq(schema.customers.parentCustomerId, id));
+
+    if (childrenCount.count > 0) {
+      return res.status(400).json({
+        error: `No se puede eliminar: ${childrenCount.count} cliente(s) están asociados como hijos`,
+      });
+    }
+
+    // Eliminar balance de puntos
+    await db
+      .delete(schema.customerLoyaltyBalance)
+      .where(eq(schema.customerLoyaltyBalance.customerId, id));
+
+    // Eliminar transacciones de puntos
+    await db
+      .delete(schema.loyaltyPointsTransactions)
+      .where(eq(schema.loyaltyPointsTransactions.customerId, id));
+
+    // Eliminar historial del cliente
+    await db
+      .delete(schema.customerHistory)
+      .where(eq(schema.customerHistory.customerId, id));
+
+    // Eliminar cliente
+    await db
+      .delete(schema.customers)
+      .where(
+        and(
+          eq(schema.customers.id, id),
+          eq(schema.customers.storeId, user.storeId)
+        )
+      );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    res.status(500).json({ error: 'Error al eliminar cliente' });
+  }
+});
+
 // ================================
 // SISTEMA DE PUNTOS DE LEALTAD
 // ================================
@@ -312,6 +455,17 @@ router.post('/customers/:id/loyalty/adjust', authenticateToken, async (req: any,
     }
 
     const db = await getTenantDb(user.storeId);
+
+    // Obtener información del cliente para verificar si tiene padre
+    const [customer] = await db
+      .select()
+      .from(schema.customers)
+      .where(eq(schema.customers.id, customerId))
+      .limit(1);
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
 
     // Obtener o crear balance de puntos
     let [balance] = await db
@@ -337,7 +491,7 @@ router.post('/customers/:id/loyalty/adjust', authenticateToken, async (req: any,
     const currentBalance = parseFloat(balance.currentBalance || '0');
     const newBalance = currentBalance + pointsNum;
 
-    // Actualizar balance
+    // Actualizar balance del cliente
     await db
       .update(schema.customerLoyaltyBalance)
       .set({
@@ -354,7 +508,7 @@ router.post('/customers/:id/loyalty/adjust', authenticateToken, async (req: any,
       })
       .where(eq(schema.customerLoyaltyBalance.customerId, customerId));
 
-    // Crear transacción
+    // Crear transacción para el cliente
     const [transaction] = await db
       .insert(schema.loyaltyPointsTransactions)
       .values({
@@ -367,6 +521,55 @@ router.post('/customers/:id/loyalty/adjust', authenticateToken, async (req: any,
         description,
       })
       .returning();
+
+    // Si el cliente tiene un padre, agregar los puntos también al padre
+    if (customer.parentCustomerId && pointsNum > 0) {
+      // Obtener o crear balance del padre
+      let [parentBalance] = await db
+        .select()
+        .from(schema.customerLoyaltyBalance)
+        .where(eq(schema.customerLoyaltyBalance.customerId, customer.parentCustomerId))
+        .limit(1);
+
+      if (!parentBalance) {
+        [parentBalance] = await db
+          .insert(schema.customerLoyaltyBalance)
+          .values({
+            customerId: customer.parentCustomerId,
+            storeId: user.storeId,
+            currentBalance: '0',
+            totalPointsEarned: '0',
+            totalPointsRedeemed: '0',
+          })
+          .returning();
+      }
+
+      const parentCurrentBalance = parseFloat(parentBalance.currentBalance || '0');
+      const parentNewBalance = parentCurrentBalance + pointsNum;
+
+      // Actualizar balance del padre
+      await db
+        .update(schema.customerLoyaltyBalance)
+        .set({
+          currentBalance: parentNewBalance.toString(),
+          totalPointsEarned: (parseFloat(parentBalance.totalPointsEarned || '0') + pointsNum).toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.customerLoyaltyBalance.customerId, customer.parentCustomerId));
+
+      // Crear transacción para el padre
+      await db
+        .insert(schema.loyaltyPointsTransactions)
+        .values({
+          customerId: customer.parentCustomerId,
+          storeId: user.storeId,
+          type: 'earned',
+          points: pointsNum.toString(),
+          balanceBefore: parentCurrentBalance.toString(),
+          balanceAfter: parentNewBalance.toString(),
+          description: `Puntos acumulados de cliente hijo: ${customer.name}`,
+        });
+    }
 
     res.json({
       success: true,

@@ -629,7 +629,7 @@ export async function tryProcessWithAI(
 
         // 1. Crear o actualizar orden en draft
         let order: any;
-        let registrationFlow = await tenantStorage.getRegistrationFlow(phoneNumber);
+        let registrationFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
 
         if (registrationFlow && registrationFlow.orderId) {
           // Actualizar orden existente
@@ -747,7 +747,7 @@ export async function tryProcessWithAI(
         }
 
         // 2. Verificar que existe registration flow
-        let confirmFlow = await tenantStorage.getRegistrationFlow(phoneNumber);
+        let confirmFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
         if (!confirmFlow) {
           console.error(`❌ [HYBRID] No hay registration flow - no se puede confirmar`);
           return {

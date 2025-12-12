@@ -2839,8 +2839,42 @@ router.get('/customers/:id/details', authenticateToken, async (req: any, res: an
 });
 
 
-// Obtener todos los clientes
-router.get('/customers', authenticateToken, async (req: any, res: any) => {
+// Buscar clientes por nombre o teléfono
+router.get('/customers/search', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    const query = req.query.q as string;
+
+    if (!query || query.trim().length < 2) {
+      return res.json([]);
+    }
+
+    console.log('🔍 [GET /customers/search] Searching customers:', query);
+
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const allCustomers = await tenantStorage.getAllCustomers();
+
+    // Filtrar clientes por nombre o teléfono
+    const searchTerm = query.toLowerCase().trim();
+    const results = allCustomers.filter((customer: any) =>
+      customer.name?.toLowerCase().includes(searchTerm) ||
+      customer.phone?.includes(searchTerm)
+    ).slice(0, 10); // Limitar a 10 resultados
+
+    console.log('✅ [GET /customers/search] Found results:', results.length);
+    res.json(results);
+  } catch (error) {
+    console.error('❌ [GET /customers/search] Error:', error);
+    res.status(500).json({ error: "Failed to search customers" });
+  }
+});
+
+// ⚠️ DEPRECATED: Endpoint movido a customer-management-routes.ts
+// Este endpoint ahora incluye loyalty balance, customer types y parent customers
+// NO re-habilitar este endpoint duplicado
+
+// Obtener todos los clientes - MOVED TO customer-management-routes.ts
+/* router.get('/customers', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
     console.log('👥 [GET /customers] Getting all customers for store:', user.storeId);
@@ -2873,10 +2907,10 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }
-});
+}); */
 
-// Obtener un cliente específico
-router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
+// Obtener un cliente específico - MOVED TO customer-management-routes.ts
+/* router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
   try {
     const customerId = parseInt(req.params.id);
     const user = req.user as AuthUser;
@@ -2911,7 +2945,7 @@ router.get('/customers/:id', authenticateToken, async (req: any, res: any) => {
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }
-});
+}); */
 
 // ORDER ROUTES
   // ================================
@@ -3468,6 +3502,38 @@ router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
     if (orderData.status && previousOrder?.status !== orderData.status) {
       console.log(`🔄 [PATCH /orders/:id] Estado cambió de ${previousOrder?.status} a ${orderData.status}`);
       await syncOrderStatusWithTrip(storeId, id, orderData.status);
+
+      // 🎁 NUEVO: Acreditar loyalty points si la orden se completó
+      if (orderData.status === 'completed' && previousOrder?.status !== 'completed') {
+        try {
+          console.log(`🎁 [LOYALTY] Orden ${id} completada, acreditando puntos...`);
+          const result = await tenantStorage.creditLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error acreditando puntos:`, loyaltyError);
+        }
+      }
+
+      // 🔄 NUEVO: Revertir loyalty points si se cancela después de completada
+      if (orderData.status === 'cancelled' && previousOrder?.status === 'completed') {
+        try {
+          console.log(`↩️ [LOYALTY] Orden ${id} cancelada después de completarse, revirtiendo puntos...`);
+          const result = await tenantStorage.revertLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error revirtiendo puntos:`, loyaltyError);
+        }
+      }
     }
 
     res.json(order);
@@ -3513,8 +3579,42 @@ router.put('/orders/:id/status', authenticateToken, async (req: any, res: any) =
     if (previousOrder?.status !== status) {
       console.log(`🔄 [PUT /orders/:id/status] Estado cambió de ${previousOrder?.status} a ${status}`);
       await syncOrderStatusWithTrip(storeId, id, status);
+
+      // 🎁 NUEVO: Acreditar loyalty points si la orden se completó
+      if (status === 'completed' && previousOrder?.status !== 'completed') {
+        try {
+          console.log(`🎁 [LOYALTY] Orden ${id} completada, acreditando puntos...`);
+          const result = await tenantStorage.creditLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error acreditando puntos:`, loyaltyError);
+          // No fallar la actualización de la orden si falla la acreditación de puntos
+        }
+      }
+
+      // 🔄 NUEVO: Revertir loyalty points si se cancela una orden que estaba completada
+      if (status === 'cancelled' && previousOrder?.status === 'completed') {
+        try {
+          console.log(`↩️ [LOYALTY] Orden ${id} cancelada después de completarse, revirtiendo puntos...`);
+          const result = await tenantStorage.revertLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error revirtiendo puntos:`, loyaltyError);
+          // No fallar la actualización de la orden
+        }
+      }
     }
-    
+
     res.json(order);
   } catch (error) {
     console.error('❌ Error updating order status:', error);
@@ -3591,6 +3691,38 @@ router.put('/orders/:id', authenticateToken, async (req: any, res: any) => {
     if (orderData.status && previousOrder?.status !== orderData.status) {
       console.log(`🔄 [PUT /orders/:id] Estado cambió de ${previousOrder?.status} a ${orderData.status}`);
       await syncOrderStatusWithTrip(storeId, id, orderData.status);
+
+      // 🎁 NUEVO: Acreditar loyalty points si la orden se completó
+      if (orderData.status === 'completed' && previousOrder?.status !== 'completed') {
+        try {
+          console.log(`🎁 [LOYALTY] Orden ${id} completada, acreditando puntos...`);
+          const result = await tenantStorage.creditLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error acreditando puntos:`, loyaltyError);
+        }
+      }
+
+      // 🔄 NUEVO: Revertir loyalty points si se cancela después de completada
+      if (orderData.status === 'cancelled' && previousOrder?.status === 'completed') {
+        try {
+          console.log(`↩️ [LOYALTY] Orden ${id} cancelada después de completarse, revirtiendo puntos...`);
+          const result = await tenantStorage.revertLoyaltyPointsFromOrder(id);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error revirtiendo puntos:`, loyaltyError);
+        }
+      }
     }
 
     // ✅ SI CAMBIÓ LA ASIGNACIÓN, INTEGRAR CON VIAJES (código existente)
@@ -3832,6 +3964,40 @@ router.patch('/orders/:id/status', authenticateToken, async (req: any, res: any)
     if (order.status !== status) {
       console.log(`🔄 [PATCH /orders/:id/status] Sincronizando estado con viaje...`);
       await syncOrderStatusWithTrip(storeId, orderId, status);
+
+      // 🎁 NUEVO: Acreditar loyalty points si la orden se completó
+      if (status === 'completed' && order.status !== 'completed') {
+        try {
+          console.log(`🎁 [LOYALTY] Orden ${orderId} completada, acreditando puntos...`);
+          const result = await tenantStorage.creditLoyaltyPointsFromOrder(orderId);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error acreditando puntos:`, loyaltyError);
+          // No fallar la actualización de la orden si falla la acreditación de puntos
+        }
+      }
+
+      // 🔄 NUEVO: Revertir loyalty points si se cancela una orden que estaba completada
+      if (status === 'cancelled' && order.status === 'completed') {
+        try {
+          console.log(`↩️ [LOYALTY] Orden ${orderId} cancelada después de completarse, revirtiendo puntos...`);
+          const result = await tenantStorage.revertLoyaltyPointsFromOrder(orderId);
+
+          if (result.success) {
+            console.log(`✅ [LOYALTY] ${result.message}`);
+          } else {
+            console.warn(`⚠️ [LOYALTY] ${result.message}`);
+          }
+        } catch (loyaltyError) {
+          console.error(`❌ [LOYALTY] Error revirtiendo puntos:`, loyaltyError);
+          // No fallar la actualización de la orden
+        }
+      }
     }
 
     console.log(`✅ Updated successfully`);
