@@ -368,6 +368,15 @@ export interface AIProcessResult {
   shouldCreateOrder?: boolean;
   cart?: CartItem[];
   needsConfirmation?: boolean;
+  useButtons?: boolean;
+  buttons?: Array<{
+    id: string;
+    title: string;
+    productId?: number;
+    productName?: string;
+    productPrice?: number;
+  }>;
+  productData?: Record<number, any>;
 }
 
 export async function tryProcessWithAI(
@@ -475,7 +484,24 @@ export async function tryProcessWithAI(
       modelUsed: 'gpt-4o-mini'
     });
 
+    // ✅ OBTENER CARRITO ACTUAL - Nunca limpiarlo automáticamente, solo cuando el cliente confirme
     let currentCart = aiConversation.cartItems || [];
+    
+    // Log del estado del carrito
+    if (currentCart.length > 0) {
+      console.log(`🛒 [AI-SMART] Carrito existente con ${currentCart.length} items - Manteniendo`);
+    } else {
+      console.log(`🛒 [AI-SMART] Carrito vacío - Empezando nuevo`);
+    }
+    
+    // Solo limpiar carrito si flow existe y está completado (orden ya finalizada)
+    const existingFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
+    if (existingFlow && existingFlow.isCompleted) {
+      console.log(`🧹 [AI-SMART] Limpiando carrito - pedido anterior completado`);
+      currentCart = [];
+      aiConversation.cartItems = [];
+      await tenantStorage.updateAIConversation?.(storeId, conversationId, aiConversation);
+    }
 
     // ✅ NUEVO: Manejar flujo de recolección de datos del pedido
     const orderFlowStep = (aiConversation as any).orderFlowStep;
@@ -648,18 +674,142 @@ export async function tryProcessWithAI(
     }
 
     switch (interpretation.intent) {
+      case 'search_product':
+        // 🔍 MODO CONVERSACIONAL: Mostrar información del producto
+        console.log(`🔍 [AI-SMART] Cliente buscando producto - modo conversacional`);
+        console.log(`📝 [AI-SMART] Mensaje actual:`, interpretation.message?.substring(0, 100));
+        
+        // Si ya tenemos el mensaje con opciones formateado, enviarlo directamente con botones si están disponibles
+        if (interpretation.message && interpretation.message.includes('🔍 Encontré')) {
+          console.log(`✅ [AI-SMART] Enviando opciones de búsqueda directamente (${interpretation.message.length} chars)`);
+          
+          const useButtons = (interpretation as any).useButtons || false;
+          const productOptions = (interpretation as any).productOptions || [];
+          const productData = (interpretation as any).productData || {};
+          
+          // ✅ Si tiene opciones Y useButtons está activo, preparar botones interactivos
+          if (useButtons && productOptions.length > 0) {
+            console.log(`🔘 [AI-SMART] Enviando ${productOptions.length} botones interactivos de WhatsApp`);
+            
+            // Guardar productData en la conversación para procesar clicks
+            if (Object.keys(productData).length > 0) {
+              aiConversation.pendingProductSelection = productData;
+              await tenantStorage.updateAIConversation?.(storeId, conversationId, aiConversation);
+              console.log(`💾 [AI-SMART] Guardados ${Object.keys(productData).length} productos pendientes de selección`);
+            }
+            
+            return {
+              handled: true,
+              responseMessage: interpretation.message,
+              useButtons: true,
+              buttons: productOptions,
+              productData: productData
+            };
+          }
+          
+          // Sin opciones o sin botones, retorno normal
+          return {
+            handled: true,
+            responseMessage: interpretation.message
+          };
+        }
+        
+        console.log(`⚠️ [AI-SMART] Mensaje NO contiene opciones formateadas, llamando Sales Agent`);
+        
+        // Si no, usar agente de ventas inteligente para conversar
+        const searchResponse = await generateSalesAgentResponse(
+          messageText,
+          await interpretMessage(messageText, {
+            customerId,
+            customerName: customerName,
+            recentMessages,
+            tenantStorage
+          }),
+          activeProducts,
+          {
+            customerId,
+            customerName: customerName,
+            recentMessages,
+            tenantStorage
+          }
+        );
+        
+        return {
+          handled: true,
+          responseMessage: searchResponse
+        };
+      
       case 'add_to_cart':
-        for (const item of interpretation.items) {
+        // ✅ AGREGAR AL CARRITO: Solo cuando hay confirmación explícita
+        console.log(`✅ [AI-SMART] Cliente confirmó agregar al carrito`);
+        
+        // 🔍 BUSCAR PRODUCTO DEL CONTEXTO si no viene en interpretation
+        let itemsToAdd = interpretation.items.filter(i => i.suggestedProduct);
+        
+        if (itemsToAdd.length === 0) {
+          console.log(`🔍 [AI-SMART] No hay producto en interpretation, buscando en contexto...`);
+          
+          // Buscar en mensajes recientes qué producto se mencionó
+          for (let i = recentMessages.length - 1; i >= 0; i--) {
+            const msg = recentMessages[i];
+            if (msg.role === 'assistant') {
+              // Buscar patrón: "Tenemos *PRODUCTO* a *RD$PRECIO*"
+              const productMatch = msg.content.match(/Tenemos \*([^*]+)\* a \*RD\$([0-9.]+)\*/);
+              if (productMatch) {
+                const productName = productMatch[1];
+                const productPrice = parseFloat(productMatch[2]);
+                console.log(`✅ [AI-SMART] Producto encontrado en contexto: ${productName} - RD$${productPrice}`);
+                
+                // Buscar el producto en el catálogo
+                const foundProduct = activeProducts.find(p => 
+                  p.name.toLowerCase().includes(productName.toLowerCase()) || 
+                  productName.toLowerCase().includes(p.name.toLowerCase())
+                );
+                
+                if (foundProduct) {
+                  // Buscar cantidad en mensajes del usuario
+                  let quantity = 1;
+                  for (let j = recentMessages.length - 1; j >= 0; j--) {
+                    const userMsg = recentMessages[j];
+                    if (userMsg.role === 'user') {
+                      const qtyMatch = userMsg.content.match(/\b(\d+)\b/);
+                      if (qtyMatch) {
+                        quantity = parseInt(qtyMatch[1]);
+                        console.log(`✅ [AI-SMART] Cantidad encontrada en contexto: ${quantity}`);
+                        break;
+                      }
+                    }
+                  }
+                  
+                  itemsToAdd = [{
+                    suggestedProduct: foundProduct,
+                    quantity,
+                    searchQuery: productName,
+                    confidence: 0.9
+                  }];
+                  console.log(`✅ [AI-SMART] Producto reconstruido desde contexto:`, itemsToAdd[0]);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        
+        // Agregar items al carrito
+        console.log(`🔍 [AI-SMART] Carrito ANTES de agregar:`, currentCart);
+        for (const item of itemsToAdd) {
           if (item.suggestedProduct) {
+            console.log(`🔍 [AI-SMART] Agregando: ${item.suggestedProduct.name} x${item.quantity} (precio: RD$${item.suggestedProduct.price})`);
             currentCart = addToCart(currentCart, item.suggestedProduct, item.quantity);
             console.log(`✅ [AI-SMART] Agregado: ${item.suggestedProduct.name} x${item.quantity}`);
+            console.log(`🔍 [AI-SMART] Carrito DESPUÉS:`, currentCart);
           }
         }
         await AIConversationManager.updateCart(storeId, conversationId, currentCart);
 
-        // ✨ Si no se agregó nada, buscar el producto y sugerir
+        // ✨ Si no se agregó nada, buscar y mostrar primero
         if (currentCart.length === 0) {
-          const query = interpretation.items[0]?.searchQuery || messageText;
+          console.log(`⚠️ [AI-SMART] No se pudo agregar nada al carrito - carrito vacío`);
           const searchResponse = await generateSalesAgentResponse(
             messageText,
             await interpretMessage(messageText, {
@@ -678,89 +828,32 @@ export async function tryProcessWithAI(
           );
           return {
             handled: true,
-            responseMessage: searchResponse,
-            needsConfirmation: true
+            responseMessage: searchResponse
           };
         }
 
         // ✅ PASO 1 COMPLETADO: Producto agregado
-        // ✅ HÍBRIDO: Crear o actualizar orden y registration flow
-        console.log(`🔄 [HYBRID] Creando/actualizando orden y registration flow`);
+        // ✅ SOLO GUARDAR EN CONVERSACIÓN - NO crear registration flow aún
+        console.log(`💾 [AI-SMART] Guardando carrito en conversación (sin flow todavía)`);
 
         const cartTotal = calculateCartTotal(currentCart);
-        const customer = await tenantStorage.getCustomerById(customerId);
 
-        // 1. Crear o actualizar orden en draft
-        let order: any;
-        let registrationFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
-
-        if (registrationFlow && registrationFlow.orderId) {
-          // Actualizar orden existente
-          console.log(`📝 [HYBRID] Actualizando orden existente: ${registrationFlow.orderId}`);
-          order = await tenantStorage.updateOrder(registrationFlow.orderId, {
-            items: currentCart.map((item: CartItem) => ({
-              productId: item.productId,
-              productName: item.productName,
-              quantity: item.quantity,
-              price: item.unitPrice
-            })),
-            totalAmount: cartTotal,
-            updatedAt: new Date()
-          });
-          order = await tenantStorage.getOrderById(registrationFlow.orderId);
-        } else {
-          // Crear nueva orden
-          console.log(`✨ [HYBRID] Creando nueva orden`);
-          order = await tenantStorage.createOrder({
-            customerId,
-            storeId,
-            status: 'draft',
-            items: currentCart.map((item: CartItem) => ({
-              productId: item.productId,
-              productName: item.productName,
-              quantity: item.quantity,
-              price: item.unitPrice
-            })),
-            totalAmount: cartTotal,
-            customerName: customer?.name || 'Cliente',
-            customerPhone: phoneNumber
-          });
-        }
-
-        console.log(`✅ [HYBRID] Orden ${order.id} (${order.orderNumber}) - ${currentCart.length} items - RD$${cartTotal}`);
-
-        // 2. Crear o actualizar registration flow con tipo AI
-        registrationFlow = await createOrUpdateAIFlow(
-          customerId,
-          phoneNumber,
-          storeId,
-          order.id,
-          order.orderNumber,
-          currentCart,
-          conversationId,
-          tenantStorage
-        );
-
-        logFlowState(registrationFlow, '🔍 [HYBRID] ');
-
-        // 3. También actualizar AI conversation para compatibilidad
+        // Actualizar AI conversation con carrito
         const orderFlowConversation = {
           ...aiConversation,
           cartItems: currentCart,
           orderFlowStep: 'add_products',
           pendingOrder: {
-            cartItems: currentCart,
-            orderId: order.id,
-            orderNumber: order.orderNumber
+            cartItems: currentCart
           }
         } as any;
         await tenantStorage.updateAIConversation?.(storeId, conversationId, orderFlowConversation);
 
-        // 4. Generar respuesta
+        // Generar respuesta
         const addedItem = currentCart[currentCart.length - 1];
-        const responseMessage = `✅ ${addedItem.productName} x${addedItem.quantity} agregado\n\n${formatCartSummary(currentCart)}\n\n💡 Puedes:\n• Agregar más productos\n• Escribir "confirmar" para proceder con tu pedido`;
+        const responseMessage = `✅ ${addedItem.productName} x${addedItem.quantity} agregado\n\n${formatCartSummary(currentCart)}\n\n💬 Puedes:\n• Agregar más productos (ej: "dame un rite start")\n• Escribir *"confirmar pedido"* cuando termines`;
 
-        console.log(`💾 [HYBRID] Estado guardado - Orden: ${order.orderNumber}, Carrito: ${currentCart.length} items`);
+        console.log(`💾 [AI-SMART] Carrito guardado - ${currentCart.length} items - RD$${cartTotal}`);
 
         return {
           handled: true,
@@ -796,8 +889,8 @@ export async function tryProcessWithAI(
       }
 
       case 'confirm_order':
-        // ✅ HÍBRIDO: Transición de IA a Automático
-        console.log(`🔄 [HYBRID] Detectada confirmación - iniciando transición a automático`);
+        // ✅ CONFIRMACIÓN DE PEDIDO - Verificar registro del cliente primero
+        console.log(`🔄 [AI-SMART] Detectada confirmación de pedido`);
 
         // 1. Si el carrito está vacío pero hay pendingOrder, recuperarlo
         if (currentCart.length === 0 && (aiConversation as any).pendingOrder?.cartItems?.length > 0) {
@@ -809,38 +902,111 @@ export async function tryProcessWithAI(
           return { handled: true, responseMessage: '🛒 Tu carrito está vacío. ¿Qué te gustaría pedir?' };
         }
 
-        // 2. Verificar que existe registration flow
-        let confirmFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
-        if (!confirmFlow) {
-          console.error(`❌ [HYBRID] No hay registration flow - no se puede confirmar`);
+        // 2. Verificar si el cliente ya está registrado con dirección
+        const customerInfo = await tenantStorage.getCustomerById(customerId);
+        const hasCompleteInfo = customerInfo && customerInfo.address && customerInfo.address.trim() !== '';
+        
+        console.log(`👤 [AI-SMART] Cliente ${customerId} - Registrado: ${hasCompleteInfo ? 'SÍ' : 'NO'}`);
+
+        if (hasCompleteInfo) {
+          // ✅ Cliente registrado - crear orden final
+          console.log(`✅ [AI-SMART] Cliente registrado - creando orden final`);
+          
+          const cartTotal = calculateCartTotal(currentCart);
+          const finalOrder = await tenantStorage.createOrder({
+            customerId,
+            storeId,
+            status: 'pending',
+            items: currentCart.map((item: CartItem) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              price: item.unitPrice
+            })),
+            totalAmount: cartTotal,
+            customerName: customerInfo.name || 'Cliente',
+            customerPhone: phoneNumber,
+            address: customerInfo.address,
+            paymentMethod: 'cash'
+          });
+
+          console.log(`✅ [AI-SMART] Orden creada: ${finalOrder.orderNumber} (ID: ${finalOrder.id})`);
+
+          // Limpiar carrito, contexto y flow
+          await AIConversationManager.updateCart(storeId, conversationId, []);
+          const clearedConversation = {
+            ...aiConversation,
+            orderFlowStep: null,
+            pendingOrder: undefined,
+            cartItems: []
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, clearedConversation);
+
+          // Limpiar registration flow si existe
+          const existingFlow = await tenantStorage.getRegistrationFlowByPhoneNumber(phoneNumber);
+          if (existingFlow) {
+            await tenantStorage.updateRegistrationFlow(phoneNumber, {
+              isCompleted: true,
+              updatedAt: new Date()
+            });
+          }
+
           return {
             handled: true,
-            responseMessage: '❌ No encontré tu pedido. Por favor, empieza de nuevo agregando productos.'
+            responseMessage: `✅ *¡Pedido confirmado!*\n\n📦 Orden: ${finalOrder.orderNumber}\n💰 Total: RD$${cartTotal}\n📍 Dirección: ${customerInfo.address}\n💳 Pago: Efectivo\n\n¡Gracias por tu compra! Te contactaremos pronto.`
           };
-        }
+        } else {
+          // ❌ Cliente NO registrado - crear orden draft y recolectar datos
+          console.log(`📝 [AI-SMART] Cliente sin dirección - creando orden draft y recolectando datos`);
+          
+          const cartTotal = calculateCartTotal(currentCart);
+          const draftOrder = await tenantStorage.createOrder({
+            customerId,
+            storeId,
+            status: 'draft',
+            items: currentCart.map((item: CartItem) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              price: item.unitPrice
+            })),
+            totalAmount: cartTotal,
+            customerName: customerInfo?.name || 'Cliente',
+            customerPhone: phoneNumber
+          });
 
-        logFlowState(confirmFlow, '📋 [HYBRID] Flow antes de transición: ');
+          console.log(`📦 [AI-SMART] Orden draft creada: ${draftOrder.orderNumber} (ID: ${draftOrder.id})`);
 
-        // 3. Realizar transición a automático
-        const transitioned = await transitionToAutomatic(confirmFlow, phoneNumber, storeId, tenantStorage);
+          // Crear registration flow para recolectar datos
+          await tenantStorage.createOrUpdateRegistrationFlow({
+            customerId,
+            phoneNumber,
+            currentStep: 'collect_address',
+            flowType: 'ai_assisted',
+            orderId: draftOrder.id,
+            orderNumber: draftOrder.orderNumber,
+            collectedData: JSON.stringify({ cartItems: currentCart }),
+            isCompleted: false,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+          });
 
-        if (!transitioned) {
-          console.error(`❌ [HYBRID] Falló la transición a automático`);
+          // Actualizar conversación
+          const updatedConversation = {
+            ...aiConversation,
+            orderFlowStep: 'collect_address',
+            pendingOrder: {
+              cartItems: currentCart,
+              orderId: draftOrder.id,
+              orderNumber: draftOrder.orderNumber
+            }
+          } as any;
+          await tenantStorage.updateAIConversation?.(storeId, conversationId, updatedConversation);
+
           return {
             handled: true,
-            responseMessage: '❌ Hubo un error procesando tu confirmación. Por favor intenta de nuevo.'
+            responseMessage: `✅ *Pedido listo:*\n\n${formatCartSummary(currentCart)}\n\n📍 Para confirmar, necesito tu *dirección de entrega completa*.\n\n¿Cuál es tu dirección?`
           };
         }
-
-        // 4. El flujo automático tomará el control ahora
-        // Enviar mensaje de confirmación usando el sistema automático
-        const { sendAutoResponseMessage } = await import('./whatsapp-simple.js');
-        await sendAutoResponseMessage(phoneNumber, 'confirm_order', storeId, tenantStorage);
-
-        console.log(`✅ [HYBRID] Transición completa - flujo automático ahora tiene el control`);
-
-        // Retornar handled=true para que no se procese más en IA
-        return { handled: true };
 
       default:
         // ✨ Usar Sales Agent para preguntas y otras intenciones también

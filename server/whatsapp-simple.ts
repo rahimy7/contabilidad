@@ -2185,6 +2185,79 @@ if (conversation) {
       return; // Esperar a que el usuario escriba su pregunta
     }
 
+    // 🔘 DETECTAR CLICKS EN BOTONES DE PRODUCTOS
+    if (messageText.startsWith('product_')) {
+      console.log(`🔘 [BUTTON-CLICK] Click en botón de producto detectado: ${messageText}`);
+      
+      try {
+        // Obtener producto ID del botón
+        const productId = parseInt(messageText.replace('product_', ''));
+        
+        if (isNaN(productId)) {
+          console.error(`❌ [BUTTON-CLICK] ID de producto inválido: ${messageText}`);
+        } else {
+          // Obtener AI conversation directamente de la DB
+          const aiConversationRaw = await tenantStorage.getAIConversation(conversationId);
+          
+          if (aiConversationRaw && aiConversationRaw.pendingProductSelection) {
+            const pendingSelection = typeof aiConversationRaw.pendingProductSelection === 'string' 
+              ? JSON.parse(aiConversationRaw.pendingProductSelection)
+              : aiConversationRaw.pendingProductSelection;
+            
+            const productData = pendingSelection[productId];
+            
+            if (productData) {
+              console.log(`✅ [BUTTON-CLICK] Producto encontrado: ${productData.name} - RD$${productData.price}`);
+              
+              // Obtener carrito actual
+              const currentCartRaw = aiConversationRaw.cartItems || '[]';
+              const currentCart = typeof currentCartRaw === 'string' 
+                ? JSON.parse(currentCartRaw) 
+                : currentCartRaw;
+              
+              // Agregar producto al carrito
+              currentCart.push({
+                productId: productData.id,
+                productName: productData.name,
+                quantity: 1,
+                price: Number(productData.price),
+                totalPrice: Number(productData.price)
+              });
+              
+              // Actualizar conversación en BD (firma correcta: 2 parámetros)
+              await tenantStorage.updateAIConversation(conversationId, {
+                cartItems: JSON.stringify(currentCart),
+                pendingProductSelection: null, // Limpiar selección pendiente
+                updatedAt: new Date()
+              });
+              
+              // Enviar confirmación
+              const cartSummary = currentCart.map((item: any, idx: number) => 
+                `${idx + 1}. ${item.productName} x${item.quantity} - RD$${item.totalPrice}`
+              ).join('\\n');
+              
+              const totalCart = currentCart.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
+              
+              await sendWhatsAppMessageDirect(
+                customerPhone,
+                `✅ *${productData.name}* agregado al carrito.\\n\\n🛒 *Tu carrito:*\\n${cartSummary}\\n\\n💰 *Total: RD$${totalCart}*\\n\\n¿Deseas agregar algo más o confirmar el pedido?`,
+                safeStoreMapping.storeId
+              );
+              
+              console.log(`✅ [BUTTON-CLICK] Producto agregado al carrito exitosamente`);
+              return; // Salir, ya procesamos el click
+            } else {
+              console.error(`❌ [BUTTON-CLICK] Producto ${productId} no encontrado en pendingProductSelection`);
+            }
+          } else {
+            console.error(`❌ [BUTTON-CLICK] No hay pendingProductSelection en la conversación`);
+          }
+        }
+      } catch (buttonError) {
+        console.error(`❌ [BUTTON-CLICK] Error procesando click de botón:`, buttonError);
+      }
+    }
+
     // 🤖 INTENTAR PROCESAR CON IA (NUEVO - ANTES DE ÓRDENES PENDIENTES)
     console.log(`🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...`);
 
@@ -2201,13 +2274,46 @@ if (conversation) {
     if (aiResult.handled) {
       console.log(`✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected`);
 
-      // Enviar respuesta de IA
+      // ✅ Enviar respuesta de IA - con botones si están disponibles
       if (aiResult.responseMessage) {
-        await sendWhatsAppMessageDirect(
-          customerPhone,
-          aiResult.responseMessage,
-          safeStoreMapping.storeId
-        );
+        // Verificar si debe enviar con botones interactivos
+        if (aiResult.useButtons && aiResult.buttons && aiResult.buttons.length > 0) {
+          console.log(`🔘 [AI-SMART] Enviando mensaje con ${aiResult.buttons.length} botones interactivos`);
+          
+          // Formatear botones para WhatsApp
+          const whatsappButtons = aiResult.buttons.map((btn: any) => ({
+            type: 'reply',
+            reply: {
+              id: btn.id,
+              title: btn.title
+            }
+          }));
+          
+          try {
+            await sendInteractiveMessage(
+              customerPhone,
+              aiResult.responseMessage,
+              whatsappButtons,
+              { storeId: safeStoreMapping.storeId, phoneNumberId: safeStoreMapping.phoneNumberId }
+            );
+            console.log(`✅ [AI-SMART] Botones interactivos enviados exitosamente`);
+          } catch (buttonError) {
+            console.error(`❌ [AI-SMART] Error enviando botones, fallback a mensaje simple:`, buttonError);
+            // Fallback: enviar mensaje de texto simple
+            await sendWhatsAppMessageDirect(
+              customerPhone,
+              aiResult.responseMessage,
+              safeStoreMapping.storeId
+            );
+          }
+        } else {
+          // Mensaje simple sin botones
+          await sendWhatsAppMessageDirect(
+            customerPhone,
+            aiResult.responseMessage,
+            safeStoreMapping.storeId
+          );
+        }
       }
 
       // Si debe crear orden, crearla

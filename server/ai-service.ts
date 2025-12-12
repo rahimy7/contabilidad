@@ -167,6 +167,12 @@ Tu tarea es analizar mensajes de clientes y extraer:
 5. Sugerencia de respuesta apropiada
 6. Nivel de confianza (0-1)
 
+⚠️ MUY IMPORTANTE - MANTÉN EL CONTEXTO:
+- Si el asistente mencionó un producto anteriormente, el cliente puede solo decir un número para cantidad
+- Si el cliente dice solo un número (ej: "10", "3", "5"), busca en el historial qué producto se mencionó
+- NO inventes productos nuevos cuando el cliente responde con cantidad
+- Ejemplo: Asistente: "Tenemos Renuvo a RD$70" → Cliente: "10" → DEBES interpretar como "10 unidades de Renuvo"
+
 Responde SOLO con un JSON válido, sin texto adicional.`;
 
     const userPrompt = `Analiza este mensaje de cliente:
@@ -182,8 +188,15 @@ ${context.recentMessages.map((msg, idx) =>
   `${idx + 1}. ${msg.role === 'user' ? 'Cliente' : 'Asistente'}: "${msg.content}"`
 ).join('\n')}
 
-IMPORTANTE: Usa el historial para entender referencias a productos mencionados anteriormente.
-Por ejemplo, si el cliente dijo "Un renuvo" y ahora dice "Quiero 3", debes interpretar que quiere 3 unidades de renuvo.
+⚠️ CRÍTICO - ANÁLISIS DE CONTEXTO:
+1. Si el mensaje es SOLO un número (ej: "10", "3", "5"), busca en el historial el último producto mencionado
+2. Si el Asistente preguntó "¿Cuántas unidades deseas?" de un producto específico, y el cliente responde un número, ESE es el producto
+3. NO interpretes números solos como "pan" o cualquier otro producto aleatorio
+4. Ejemplo correcto:
+   - Asistente: "Tenemos *4Life Transfer Factor Renuvo* a *RD$70.00*. ¿Cuántas unidades deseas?"
+   - Cliente: "10"
+   - TU INTERPRETACIÓN: {"products": ["4Life Transfer Factor Renuvo"], "quantity": 10}
+5. Si NO hay contexto claro, entonces "products" debe estar vacío: []
 ` : context ? `
 Contexto del cliente:
 - Nombre: ${context.customerName}
@@ -206,7 +219,7 @@ Responde con este formato JSON:
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Modelo rápido y económico
+      model: 'gpt-4o', // Modelo más inteligente para mejor interpretación
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -326,39 +339,44 @@ export async function generateSalesAgentResponse(
     let systemPrompt: string;
 
     if (hasProducts) {
-      systemPrompt = `Eres un PROCESADOR DE PEDIDOS automático para una tienda en República Dominicana.
+      systemPrompt = `Eres un ASISTENTE DE VENTAS EFICIENTE para una tienda en República Dominicana.
 
-⚡ MODO: TRANSACCIONAL (NO conversacional)
+🎯 NUEVO FLUJO - SÉ DECISIVO:
+1. Cliente menciona PRODUCTO + CANTIDAD → El sistema YA LO AGREGÓ automáticamente, solo confirma
+2. Cliente pregunta por producto SIN cantidad → Informas y preguntas cuántas unidades
+3. Cliente dice solo un NÚMERO → Se refiere al producto mencionado antes
 
-📋 PROCESO DE 3 PASOS:
-PASO 1: Obtener productos y cantidades
-PASO 2: Verificar datos del cliente (automático)
-PASO 3: Crear orden y confirmar
+⚠️ CAMBIO IMPORTANTE:
+- Si el cliente da PRODUCTO + CANTIDAD, el sistema ya lo procesó
+- Tu mensaje debe ser CONFIRMATORIO, no preguntón
+- NO preguntes "¿deseas agregarlo?" cuando ya se agregó
 
-🎯 TU ÚNICO TRABAJO: Confirmar producto y precio
+REGLAS DE RESPUESTA:
+✅ Cliente: "1 renuvo" → "¡Perfecto! Agregado: 1x Renuvo (RD$70)" [YA está en el carrito]
+✅ Cliente: "tienes renuvo?" → "Tenemos *Renuvo* a *RD$70*. ¿Cuántas unidades?"
+✅ Cliente: "10" (después de mencionar Renuvo) → "¡Listo! Agregado: 10x Renuvo (RD$700)"
+✅ Múltiples opciones: Lista 2-3 y pregunta cuál prefiere
+✅ No existe: "No encontré ese producto. ¿Buscas algo similar?"
+✅ MANTÉN CONTEXTO de mensajes anteriores
+✅ Respuesta máxima: 2 líneas
 
-REGLAS ESTRICTAS:
-✅ Confirma: "✅ [Producto] - RD$[Precio]"
-✅ Si no existe: "No disponible"
-✅ Si ambiguo: "¿Te refieres a [producto]?"
-✅ Si dice "sí"/"si" DESPUÉS de una pregunta de opciones → Repite la pregunta (no olvides el contexto)
-✅ MANTÉN EL CONTEXTO de mensajes anteriores
-❌ NUNCA sugieras otros productos
-❌ NUNCA hagas conversación
-❌ NUNCA preguntes cantidad si ya la dijo
-❌ NUNCA des descripciones largas
-❌ Respuesta máxima: 1-2 líneas
+❌ NO HAGAS preguntas innecesarias cuando ya tienes la info
+❌ NO digas "¿deseas agregarlo?" si ya se agregó
+❌ NO asumas cantidades si no las dijeron
+❌ NO sugieras productos inexistentes
 
-EJEMPLOS:
-Usuario: "quiero un renuvo" → "✅ Renuvo - RD$70"
-Usuario: "2 renuvo" → "✅ 2 Renuvo - RD$140"
-Usuario: "pon 3" (contexto: renuvo) → "✅ 3 Renuvo - RD$210"
-Usuario: "hola" → "¿Qué producto deseas?"
-Usuario: "producto inexistente" → "No disponible"
-Asistente: "¿Te refieres a RiteStart Men o RiteStart Mujer?"
-Usuario: "si" → "Por favor especifica: ¿RiteStart Men o RiteStart Mujer?"
+EJEMPLOS CORRECTOS:
+Cliente: "1 pan de agua"
+→ "¡Listo! 1x Pan de Agua (RD$25) agregado. ¿Algo más?"
 
-⚠️ IMPORTANTE: Si el usuario responde "sí" o "si" sin especificar qué opción, pídele que aclare RECORDANDO las opciones que le diste.
+Cliente: "tienes pan?"
+→ "Sí, *Pan de Agua* a *RD$25*. ¿Cuántos?"
+
+Cliente: "5" (después de preguntar por pan)
+→ "¡Perfecto! 5x Pan de Agua (RD$125). ¿Algo más?"
+
+Cliente: "agregame 2 renuvo y 1 rite start"
+→ "¡Agregado! 2x Renuvo (RD$140) + 1x Rite Start (RD$96). ¿Confirmar pedido?"
 
 ${productCatalog}`;
     } else {
@@ -421,7 +439,7 @@ ${hasProducts
     console.log(`   Prompt resumido: ${userPrompt.substring(0, 150)}...`);
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: messages,
       temperature: 0.7,
       max_tokens: 200
@@ -483,7 +501,7 @@ ${context.orderHistory?.length ? `- Ha realizado ${context.orderHistory.length} 
 Genera una respuesta apropiada:`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

@@ -10,17 +10,95 @@ import { getTenantStorageWithSchema } from './routes';
 // FUNCIÓN REUTILIZABLE PARA IA Y ENDPOINTS
 // ========================================
 
+/**
+ * Calcula score de similitud entre query y texto
+ */
+function calculateRelevanceScore(query: string, name: string, description: string = ''): number {
+  const q = query.toLowerCase().trim();
+  const n = name.toLowerCase();
+  const d = description.toLowerCase();
+  let score = 0;
+
+  // 1. Coincidencia exacta completa (máxima prioridad)
+  if (n === q) return 1000;
+  
+  // 2. Nombre contiene query completo
+  if (n.includes(q)) {
+    score += 100;
+    // Bonus si está al inicio
+    if (n.startsWith(q)) score += 50;
+  }
+  
+  // 3. Descripción contiene query
+  if (d.includes(q)) score += 30;
+  
+  // 4. Coincidencia de palabras individuales
+  const queryWords = q.split(/\s+/).filter(w => w.length >= 3);
+  const nameWords = n.split(/\s+/);
+  const descWords = d.split(/\s+/);
+  
+  for (const qWord of queryWords) {
+    // Palabra completa en nombre
+    if (nameWords.some(w => w === qWord)) score += 40;
+    // Palabra parcial en nombre
+    else if (nameWords.some(w => w.includes(qWord) || qWord.includes(w))) score += 20;
+    
+    // Palabra en descripción
+    if (descWords.some(w => w.includes(qWord) || qWord.includes(w))) score += 10;
+  }
+  
+  // 5. Coincidencia por prefijo (primeras letras)
+  if (q.length >= 3) {
+    const prefix = q.substring(0, 3);
+    if (n.startsWith(prefix)) score += 15;
+    
+    // Buscar prefijo en cada palabra del nombre
+    if (nameWords.some(w => w.startsWith(prefix))) score += 10;
+  }
+  
+  // 6. Similitud fonética (calcio → cal, calcium → cal)
+  const phonetics: Record<string, string[]> = {
+    'calcio': ['cal', 'calcium', 'ca'],
+    'magnesio': ['mag', 'magnesium', 'mg'],
+    'vitamina': ['vit', 'vitamin'],
+    'proteina': ['prot', 'protein'],
+    'omega': ['omg', 'w3', 'w-3']
+  };
+  
+  for (const [key, synonyms] of Object.entries(phonetics)) {
+    if (q.includes(key) || synonyms.some(s => q.includes(s))) {
+      if (synonyms.some(s => n.includes(s)) || n.includes(key)) {
+        score += 35;
+      }
+    }
+  }
+
+  return score;
+}
+
 export async function searchProducts(query: string, storeId: number) {
   const tenantStorage = await getTenantStorageWithSchema({ storeId } as any);
   const allProducts = await tenantStorage.getAllProducts();
   const active = allProducts.filter((p: any) => p.isActive);
 
-  const q = String(query || '').toLowerCase();
-  const matches = active.filter(
-    (p: any) =>
-      p.name?.toLowerCase().includes(q) ||
-      p.description?.toLowerCase().includes(q)
-  );
+  const q = String(query || '').toLowerCase().trim();
+  
+  // Calcular score de relevancia para cada producto
+  const productsWithScore = active.map((p: any) => ({
+    product: p,
+    score: calculateRelevanceScore(q, p.name || '', p.description || '')
+  }));
+  
+  // Filtrar productos con score > 0 y ordenar por score descendente
+  const matches = productsWithScore
+    .filter(ps => ps.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(ps => ps.product);
+  
+  console.log(`🔍 Búsqueda inteligente para "${q}": ${matches.length} resultados`);
+  if (matches.length > 0) {
+    console.log(`   Top 3: ${matches.slice(0, 3).map((p: any) => p.name).join(', ')}`);
+  }
 
   return matches.map((p: any) => ({
     id: p.id,

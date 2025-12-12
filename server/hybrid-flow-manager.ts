@@ -221,7 +221,7 @@ export async function createOrUpdateAIFlow(
     if (!flow) {
       // 2. Crear nuevo flow
       console.log(`✨ [HYBRID] Creando nuevo flow AI`);
-      flow = await tenantStorage.createRegistrationFlow({
+      flow = await tenantStorage.createOrUpdateRegistrationFlow({
         customerId,
         phoneNumber,
         currentStep: 'add_products',
