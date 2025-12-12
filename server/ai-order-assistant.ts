@@ -27,6 +27,7 @@ interface OrderInterpretationItem {
 export interface OrderInterpretation {
   intent:
     | "add_to_cart"
+    | "remove_from_cart"
     | "confirm_order"
     | "ask_question"
     | "search_product"
@@ -52,7 +53,8 @@ interface AIContext {
   customerId: number;
   token: string;
   apiBaseUrl: string;
-  tenantStorage?: any; 
+  tenantStorage?: any;
+  pendingProducts?: any[]; // Productos pendientes de selección
 }
 
 /**
@@ -63,29 +65,104 @@ async function analyzeMessageWithAI(message: string, context?: AIContext, recent
   try {
     console.log(`🤖 [AI-ASSISTANT] Analizando mensaje: "${message}"`);
 
+    // 🔍 DETECTAR PREGUNTAS SOBRE PRODUCTOS PENDIENTES
+    if (context?.pendingProducts && context.pendingProducts.length > 0) {
+      const questionKeywords = ['qué', 'que', 'cuál', 'cual', 'cómo', 'como', 'diferencia', 'mejor', 'recomiendas', 'contiene', 'ingredientes', 'precio', 'cuesta'];
+      const isQuestion = questionKeywords.some(kw => message.toLowerCase().includes(kw));
+      
+      if (isQuestion) {
+        console.log(`❓ [AI-ASSISTANT] Pregunta detectada sobre productos pendientes`);
+        // Analizar si pregunta sobre algún producto específico
+        for (const product of context.pendingProducts) {
+          const productWords = product.name.toLowerCase().split(/\s+/);
+          const messageWords = message.toLowerCase().split(/\s+/);
+          
+          // Ver si menciona alguna palabra del producto
+          const hasProductMention = productWords.some((pw: string) => 
+            pw.length >= 3 && messageWords.some((mw: string) => mw.includes(pw) || pw.includes(mw))
+          );
+          
+          if (hasProductMention) {
+            console.log(`✅ [AI-ASSISTANT] Pregunta sobre producto: ${product.name}`);
+            // Retornar como pregunta con el producto específico
+            return {
+              intent: 'ask_question',
+              items: [{
+                searchQuery: product.name,
+                suggestedProduct: product,
+                quantity: 1,
+                confidence: 0.9
+              }],
+              message: `Claro, te hablo sobre *${product.name}*: ${product.description || 'Este producto está disponible a RD$' + product.price}`,
+              confidence: 0.9
+            };
+          }
+        }
+        
+        // Pregunta general sobre las opciones
+        console.log(`❓ [AI-ASSISTANT] Pregunta general sobre opciones`);
+        const productsInfo = context.pendingProducts.map((p: any) => 
+          `${p.name} (RD$${p.price})`
+        ).join(', ');
+        
+        return {
+          intent: 'ask_question',
+          items: [],
+          message: `Actualmente tengo estas opciones disponibles: ${productsInfo}. ¿Sobre cuál te gustaría saber más?`,
+          confidence: 0.8
+        };
+      }
+    }
+
     // Usar interpretMessage real de ai-service
     const interpretation = await interpretMessage(message, context ? {
       customerId: context.customerId,
       customerName: `Customer ${context.customerId}`,
-      recentMessages: recentMessages
+      recentMessages: recentMessages,
+      pendingProducts: context.pendingProducts // Pasar productos pendientes
     } : undefined);
 
     console.log(`✅ [AI-ASSISTANT] Interpretación obtenida:`, interpretation);
 
     // Mapear categoría a intención
-    let intent: 'add_to_cart' | 'confirm_order' | 'ask_question' | 'search_product' | 'other' = 'search_product';
+    let intent: 'add_to_cart' | 'remove_from_cart' | 'confirm_order' | 'ask_question' | 'search_product' | 'other' = 'search_product';
 
-    // ✅ DETECTAR CONFIRMACIONES PARA AGREGAR AL CARRITO
+    // ✅ DETECTAR ACCIONES DE CARRITO
     const addToCartKeywords = ['agregar', 'añadir', 'agrégalo', 'añádelo', 'agrega', 'añade', 'agregame', 'añádeme', 'pon', 'ponme'];
+    const removeFromCartKeywords = ['eliminar', 'elimina', 'quitar', 'quita', 'borrar', 'borra', 'sacar', 'saca', 'remover', 'remueve'];
     const confirmKeywords = ['si', 'sí', 'yes', 'ok', 'vale', 'adelante', 'claro', 'perfecto', 'exacto'];
-    const confirmOrderKeywords = ['confirmar pedido', 'confirmar orden', 'confirmar todo', 'proceder con el pedido', 'finalizar'];
+    const confirmOrderKeywords = [
+      'confirmar pedido', 'confirmar orden', 'confirmar todo', 'proceder con el pedido', 'finalizar',
+      'confirmación de pedido', 'confirmación de orden', 'listo', 'ya está', 'ya esta', 'listo ya',
+      'proceder', 'enviar pedido', 'enviar orden', 'hacer pedido', 'hacer orden', 'está listo'
+    ];
     
     const hasAddAction = addToCartKeywords.some(keyword => message.toLowerCase().includes(keyword));
+    const hasRemoveAction = removeFromCartKeywords.some(keyword => message.toLowerCase().includes(keyword));
     const hasConfirmation = confirmKeywords.some(keyword => message.toLowerCase().includes(keyword));
     const isConfirmOrder = confirmOrderKeywords.some(keyword => message.toLowerCase().includes(keyword));
+    
+    // Detectar si el intent de la IA contiene "confirmación" o "eliminación"
+    const intentHasConfirmation = interpretation.intent && 
+      (interpretation.intent.toLowerCase().includes('confirmación') || 
+       interpretation.intent.toLowerCase().includes('confirmation') ||
+       interpretation.intent === 'confirm order');
+    
+    const intentHasRemoval = interpretation.intent &&
+      (interpretation.intent.toLowerCase().includes('eliminar') ||
+       interpretation.intent.toLowerCase().includes('quitar') ||
+       interpretation.intent.toLowerCase().includes('remove') ||
+       interpretation.intent.toLowerCase().includes('borrar'));
 
-    if (interpretation.intent === 'confirm order' || isConfirmOrder) {
+    // ✅ PRIORIDAD 1: Detectar eliminación de productos
+    if (intentHasRemoval || (hasRemoveAction && interpretation.entities.products?.length)) {
+      console.log(`🗑️ [AI-ASSISTANT] Eliminación de producto detectada - Intent: ${interpretation.intent}`);
+      intent = 'remove_from_cart';
+    }
+    // ✅ PRIORIDAD 2: Detectar confirmación de pedido
+    else if (intentHasConfirmation || isConfirmOrder) {
       // Confirmar orden completa (enviar pedido)
+      console.log(`✅ [AI-ASSISTANT] Confirmación de pedido detectada - Intent: ${interpretation.intent}`);
       intent = 'confirm_order';
     } else if (interpretation.intent === 'add_to_cart') {
       // ✅ El modelo GPT-4o ya decidió que debe agregar al carrito
@@ -112,12 +189,43 @@ async function analyzeMessageWithAI(message: string, context?: AIContext, recent
       intent = 'other';
     }
 
-    // Construir items desde productos mencionados
-    const items = interpretation.entities.products?.map(product => ({
-      searchQuery: product,
-      quantity: interpretation.entities.quantity || 1,
-      confidence: interpretation.confidence
-    })) || [{ searchQuery: message, quantity: 1, confidence: interpretation.confidence }];
+    // Construir items desde productos mencionados (EXCEPTO para confirm_order y remove_from_cart)
+    let items: any[];
+    
+    if (intent === 'confirm_order') {
+      // Para confirmación de pedido, NO buscar productos mencionados
+      // El carrito ya tiene los productos, solo confirmar
+      console.log(`📋 [AI-ASSISTANT] Confirmación de orden - No se buscarán productos, se usará carrito existente`);
+      items = [];
+    } else if (intent === 'remove_from_cart') {
+      // Para eliminación, identificar qué eliminar (por índice o nombre)
+      // Detectar si es un número ("elimina el 1", "quita el 2")
+      const numberMatch = message.match(/(?:elimina|quita|borra|saca)\s+(?:el|la)?\s*(\d+)/i);
+      if (numberMatch) {
+        const itemIndex = parseInt(numberMatch[1]);
+        console.log(`🔢 [AI-ASSISTANT] Eliminación por índice: ${itemIndex}`);
+        items = [{ removeByIndex: itemIndex, quantity: 1, confidence: interpretation.confidence }];
+      } else if (interpretation.entities.products?.length) {
+        // Eliminar por nombre de producto
+        console.log(`🏷️ [AI-ASSISTANT] Eliminación por nombre: ${interpretation.entities.products.join(', ')}`);
+        items = interpretation.entities.products.map(product => ({
+          searchQuery: product,
+          removeByName: true,
+          quantity: 1,
+          confidence: interpretation.confidence
+        }));
+      } else {
+        console.log(`⚠️ [AI-ASSISTANT] Eliminación sin especificar producto`);
+        items = [];
+      }
+    } else {
+      // Para otros intents, construir items desde productos mencionados
+      items = interpretation.entities.products?.map(product => ({
+        searchQuery: product,
+        quantity: interpretation.entities.quantity || 1,
+        confidence: interpretation.confidence
+      })) || [{ searchQuery: message, quantity: 1, confidence: interpretation.confidence }];
+    }
 
     return {
       intent,
@@ -198,10 +306,34 @@ export async function interpretAIMessage(message: string, context: AIContext, re
           
           // 📊 Mostrar múltiples opciones si hay más resultados
           if (found.length > 1) {
-            const options = found.slice(0, 5).map((p, idx) => 
+            const productsToShow = found.slice(0, 5);
+            const options = productsToShow.map((p, idx) => 
               `${idx + 1}. *${p.name}* - RD$${p.price}`
             ).join('\n');
             interpretation.message = `🔍 Encontré ${found.length} opciones:\n\n${options}\n\n💬 Dime el número o nombre del producto que deseas.`;
+            
+            // ✅ ACTIVAR BOTONES Y GUARDAR DATOS PARA PROCESAMIENTO
+            const productsForButtons = productsToShow.slice(0, 3); // Máximo 3 botones WhatsApp
+            (interpretation as any).useButtons = true;
+            (interpretation as any).productOptions = productsForButtons.map((p, idx) => ({
+              id: `product_${p.id}`,
+              title: p.name.length > 20 ? p.name.substring(0, 17) + '...' : p.name,
+              productId: p.id,
+              productName: p.name,
+              productPrice: p.price
+            }));
+            
+            // Guardar TODOS los productos mostrados (hasta 5) indexados por ID
+            (interpretation as any).productData = productsToShow.reduce((acc, p) => {
+              acc[p.id] = p;
+              return acc;
+            }, {} as Record<number, Product>);
+            
+            // También guardar por índice (1-5) para selección numérica
+            (interpretation as any).productsByIndex = productsToShow.reduce((acc, p, idx) => {
+              acc[idx + 1] = p; // Índice 1-based
+              return acc;
+            }, {} as Record<number, Product>);
           } else {
             interpretation.message = `✅ Tenemos *${product.name}* a *RD$${product.price}*.\n\n¿Cuántas unidades deseas?`;
           }
@@ -253,8 +385,11 @@ export async function interpretAIMessage(message: string, context: AIContext, re
         interpretation.intent = 'search_product';
         interpretation.message = `🔍 Encontré estas opciones para "${needsConfirmation[0].query}":`;
         
+        // Preparar productos (hasta 5 para texto, hasta 3 para botones)
+        const allProductsToShow = needsConfirmation[0].options.slice(0, 5);
+        const productsForButtons = allProductsToShow.slice(0, 3);
+        
         // ✅ ACTIVAR BOTONES: Agregar datos para botones interactivos (máximo 3 por WhatsApp)
-        const productsForButtons = needsConfirmation[0].options.slice(0, 3);
         (interpretation as any).useButtons = true;
         (interpretation as any).productOptions = productsForButtons.map((p, idx) => ({
           id: `product_${p.id}`,
@@ -264,15 +399,21 @@ export async function interpretAIMessage(message: string, context: AIContext, re
           productPrice: p.price
         }));
         
-        // Guardar data completa de productos para procesar clicks
-        (interpretation as any).productData = productsForButtons.reduce((acc, p) => {
+        // Guardar TODOS los productos por ID (hasta 5)
+        (interpretation as any).productData = allProductsToShow.reduce((acc, p) => {
           acc[p.id] = p;
+          return acc;
+        }, {} as Record<number, Product>);
+        
+        // Guardar TODOS los productos por índice (1-5) para selección numérica
+        (interpretation as any).productsByIndex = allProductsToShow.reduce((acc, p, idx) => {
+          acc[idx + 1] = p; // Índice 1-based
           return acc;
         }, {} as Record<number, Product>);
         
         // También agregar como texto para fallback
         interpretation.message += `\n\n`;
-        interpretation.message += needsConfirmation[0].options.slice(0, 5).map((p, idx) => 
+        interpretation.message += allProductsToShow.map((p, idx) => 
           `${idx + 1}. *${p.name}* - RD$${p.price}`
         ).join('\n');
         interpretation.message += `\n\n💬 Selecciona una opción o dime el número.`;

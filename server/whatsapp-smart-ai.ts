@@ -197,6 +197,7 @@ export async function createOrderFromAICart(
     address?: string;
     paymentMethod?: string;
     notes?: string;
+    originalMessages?: string[]; // Mensajes originales del cliente
   }
 ): Promise<number | null> {
   try {
@@ -215,6 +216,21 @@ export async function createOrderFromAICart(
     }
 
     const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
+    
+    // 📝 Construir notas con mensajes originales del cliente
+    let orderNotes = orderData?.notes || '';
+    if (orderData?.originalMessages && orderData.originalMessages.length > 0) {
+      const customerMessages = orderData.originalMessages
+        .filter(msg => msg.trim().length > 0)
+        .map(msg => `- "${msg}"`)
+        .join('\n');
+      
+      if (customerMessages) {
+        orderNotes = `💬 MENSAJES ORIGINALES DEL CLIENTE:\n${customerMessages}\n\n${orderNotes}`.trim();
+        console.log(`📝 [AI-SMART] Agregadas ${orderData.originalMessages.length} mensajes del cliente a las notas`);
+      }
+    }
+    
     const order = await tenantStorage.createOrder({
       customerId,
       storeId,
@@ -224,7 +240,7 @@ export async function createOrderFromAICart(
       source: 'whatsapp_ai',
       deliveryAddress: orderData?.address || '',
       paymentMethod: orderData?.paymentMethod || '',
-      notes: orderData?.notes || '',
+      notes: orderNotes,
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -456,11 +472,22 @@ export async function tryProcessWithAI(
     const activeProducts = allProducts.filter((p: any) => p.isActive);
     console.log(`📦 [AI-SMART] ${activeProducts.length} productos activos disponibles`);
 
+    // 🔍 Obtener productos pendientes de selección si existen
+    let pendingProducts: any[] = [];
+    if (aiConversation.pendingProductSelection) {
+      const pendingSelection = typeof aiConversation.pendingProductSelection === 'string'
+        ? JSON.parse(aiConversation.pendingProductSelection)
+        : aiConversation.pendingProductSelection;
+      pendingProducts = Object.values(pendingSelection);
+      console.log(`📋 [AI-SMART] ${pendingProducts.length} productos pendientes de selección detectados`);
+    }
+
     const interpretation = await interpretAIMessage(messageText, {
       storeId,
       customerId,
       token: process.env.STORE_BEARER_TOKEN!,
-      apiBaseUrl: process.env.API_BASE_URL!
+      apiBaseUrl: process.env.API_BASE_URL!,
+      pendingProducts: pendingProducts // Pasar productos pendientes al contexto
     }, recentMessages);
 
     console.log('🧠 [AI-SMART] Interpretación IA:', {
@@ -638,6 +665,13 @@ export async function tryProcessWithAI(
           // ✅ CREAR ORDEN CON TODOS LOS DATOS RECOLECTADOS
           try {
             console.log(`✅ [AI-SMART] Creando orden con datos recolectados...`);
+            
+            // 📝 Capturar mensajes originales del cliente
+            const customerMessages = recentMessages
+              .filter((msg: any) => msg.role === 'user' && msg.content && msg.content.trim().length > 0)
+              .map((msg: any) => msg.content.trim())
+              .slice(-10); // Últimos 10 mensajes del cliente
+            
             const orderId = await createOrderFromAICart(
               pendingOrder.cartItems,
               customerId,
@@ -646,7 +680,8 @@ export async function tryProcessWithAI(
               {
                 address: pendingOrder.address,
                 paymentMethod: pendingOrder.paymentMethod,
-                notes: pendingOrder.notes
+                notes: pendingOrder.notes,
+                originalMessages: customerMessages
               }
             );
 
@@ -686,16 +721,22 @@ export async function tryProcessWithAI(
           const useButtons = (interpretation as any).useButtons || false;
           const productOptions = (interpretation as any).productOptions || [];
           const productData = (interpretation as any).productData || {};
+          const productsByIndex = (interpretation as any).productsByIndex || {};
           
           // ✅ Si tiene opciones Y useButtons está activo, preparar botones interactivos
           if (useButtons && productOptions.length > 0) {
             console.log(`🔘 [AI-SMART] Enviando ${productOptions.length} botones interactivos de WhatsApp`);
             
-            // Guardar productData en la conversación para procesar clicks
+            // Guardar productData Y productsByIndex en la conversación para procesar clicks y números
             if (Object.keys(productData).length > 0) {
               aiConversation.pendingProductSelection = productData;
-              await tenantStorage.updateAIConversation?.(storeId, conversationId, aiConversation);
-              console.log(`💾 [AI-SMART] Guardados ${Object.keys(productData).length} productos pendientes de selección`);
+              aiConversation.pendingProductsByIndex = productsByIndex;
+              await tenantStorage.updateAIConversation(conversationId, {
+                pendingProductSelection: JSON.stringify(productData),
+                pendingProductsByIndex: JSON.stringify(productsByIndex),
+                updatedAt: new Date()
+              });
+              console.log(`💾 [AI-SMART] Guardados ${Object.keys(productData).length} productos por ID y ${Object.keys(productsByIndex).length} por índice`);
             }
             
             return {
@@ -861,6 +902,77 @@ export async function tryProcessWithAI(
           cart: currentCart
         };
 
+      case 'remove_from_cart':
+        // 🗑️ ELIMINAR DEL CARRITO
+        console.log(`🗑️ [AI-SMART] Solicitud de eliminar del carrito`);
+        
+        if (currentCart.length === 0) {
+          return {
+            handled: true,
+            responseMessage: '🛒 Tu carrito está vacío. No hay productos para eliminar.'
+          };
+        }
+
+        // Detectar si es por índice o por nombre
+        const itemToRemove = interpretation.items[0];
+        let removedProduct = null;
+        let removeIndex = -1;
+
+        if (itemToRemove?.removeByIndex) {
+          // Eliminar por índice (1-based)
+          removeIndex = itemToRemove.removeByIndex - 1; // Convertir a 0-based
+          console.log(`🔍 [AI-SMART] Eliminar por índice: ${itemToRemove.removeByIndex} (posición ${removeIndex})`);
+          
+          if (removeIndex >= 0 && removeIndex < currentCart.length) {
+            removedProduct = currentCart[removeIndex];
+            currentCart.splice(removeIndex, 1);
+            console.log(`✅ [AI-SMART] Eliminado: ${removedProduct.productName}`);
+          } else {
+            return {
+              handled: true,
+              responseMessage: `❌ No existe el producto #${itemToRemove.removeByIndex} en tu carrito.\n\n${formatCartSummary(currentCart)}`
+            };
+          }
+        } else if (itemToRemove?.removeByName) {
+          // Eliminar por nombre
+          const searchQuery = itemToRemove.searchQuery.toLowerCase();
+          console.log(`🔍 [AI-SMART] Eliminar por nombre: "${searchQuery}"`);
+          
+          removeIndex = currentCart.findIndex(item => 
+            item.productName.toLowerCase().includes(searchQuery) ||
+            searchQuery.includes(item.productName.toLowerCase())
+          );
+          
+          if (removeIndex !== -1) {
+            removedProduct = currentCart[removeIndex];
+            currentCart.splice(removeIndex, 1);
+            console.log(`✅ [AI-SMART] Eliminado: ${removedProduct.productName}`);
+          } else {
+            return {
+              handled: true,
+              responseMessage: `❌ No encontré "${itemToRemove.searchQuery}" en tu carrito.\n\n${formatCartSummary(currentCart)}`
+            };
+          }
+        }
+
+        // Actualizar carrito en conversación
+        await AIConversationManager.updateCart(storeId, conversationId, currentCart);
+
+        // Generar respuesta
+        if (currentCart.length === 0) {
+          return {
+            handled: true,
+            responseMessage: `✅ *${removedProduct.productName}* eliminado.\n\n🛒 Tu carrito está vacío. ¿Qué te gustaría agregar?`,
+            cart: currentCart
+          };
+        } else {
+          return {
+            handled: true,
+            responseMessage: `✅ *${removedProduct.productName}* eliminado.\n\n${formatCartSummary(currentCart)}\n\n💬 Puedes:\n• Agregar más productos\n• Escribir *"confirmar pedido"* cuando termines`,
+            cart: currentCart
+          };
+        }
+
       case 'search_product': {
         // ✨ Usar el nuevo Sales Agent para generar respuesta persuasiva
         // Pass activeProducts instead of matches so the Sales Agent has the full catalog
@@ -912,7 +1024,21 @@ export async function tryProcessWithAI(
           // ✅ Cliente registrado - crear orden final
           console.log(`✅ [AI-SMART] Cliente registrado - creando orden final`);
           
+          // 📝 Capturar mensajes originales del cliente de esta conversación
+          const customerMessages = recentMessages
+            .filter((msg: any) => msg.role === 'user' && msg.content && msg.content.trim().length > 0)
+            .map((msg: any) => msg.content.trim())
+            .slice(-10); // Últimos 10 mensajes del cliente
+          
+          console.log(`📝 [AI-SMART] Capturados ${customerMessages.length} mensajes del cliente para notas`);
+          
           const cartTotal = calculateCartTotal(currentCart);
+          
+          // Construir notas con mensajes originales
+          const orderNotes = customerMessages.length > 0 
+            ? `📬 MENSAJES ORIGINALES DEL CLIENTE:\n${customerMessages.map((msg: string) => `- "${msg}"`).join('\n')}`
+            : '';
+          
           const finalOrder = await tenantStorage.createOrder({
             customerId,
             storeId,
@@ -927,7 +1053,8 @@ export async function tryProcessWithAI(
             customerName: customerInfo.name || 'Cliente',
             customerPhone: phoneNumber,
             address: customerInfo.address,
-            paymentMethod: 'cash'
+            paymentMethod: 'cash',
+            notes: orderNotes
           });
 
           console.log(`✅ [AI-SMART] Orden creada: ${finalOrder.orderNumber} (ID: ${finalOrder.id})`);
@@ -959,6 +1086,16 @@ export async function tryProcessWithAI(
           // ❌ Cliente NO registrado - crear orden draft y recolectar datos
           console.log(`📝 [AI-SMART] Cliente sin dirección - creando orden draft y recolectando datos`);
           
+          // 📝 Capturar mensajes originales del cliente
+          const customerMessages = recentMessages
+            .filter((msg: any) => msg.role === 'user' && msg.content && msg.content.trim().length > 0)
+            .map((msg: any) => msg.content.trim())
+            .slice(-10); // Últimos 10 mensajes del cliente
+          
+          const orderNotes = customerMessages.length > 0 
+            ? `📬 MENSAJES ORIGINALES DEL CLIENTE:\n${customerMessages.map((msg: string) => `- "${msg}"`).join('\n')}`
+            : '';
+          
           const cartTotal = calculateCartTotal(currentCart);
           const draftOrder = await tenantStorage.createOrder({
             customerId,
@@ -972,7 +1109,8 @@ export async function tryProcessWithAI(
             })),
             totalAmount: cartTotal,
             customerName: customerInfo?.name || 'Cliente',
-            customerPhone: phoneNumber
+            customerPhone: phoneNumber,
+            notes: orderNotes
           });
 
           console.log(`📦 [AI-SMART] Orden draft creada: ${draftOrder.orderNumber} (ID: ${draftOrder.id})`);

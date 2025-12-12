@@ -404,6 +404,23 @@ const handlePrintOrder = () => {
             </CardContent>
           </Card>
 
+          {/* Notas del Cliente */}
+          {order.notes && order.notes.trim() !== '' && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-base text-blue-800">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Mensaje Original del Cliente
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-blue-900 whitespace-pre-wrap font-mono bg-white p-3 rounded border border-blue-200">
+                  {order.notes}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Acciones */}
           <div className="grid grid-cols-2 gap-3">
             {/* Cambiar Estado */}

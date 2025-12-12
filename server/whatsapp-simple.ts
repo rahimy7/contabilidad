@@ -1972,10 +1972,36 @@ if (messageType === 'text') {
       } else {
         console.log(`📥 Downloading audio from WhatsApp (Media ID: ${audioMediaId})...`);
 
-        // Descargar y transcribir
+        // 🎯 Generar prompt personalizado con productos de la tienda
+        let customPrompt: string | undefined;
+        try {
+          const { createTenantStorageForStore: createStorage } = await import('./tenant-storage.js');
+          const tenantStorage = await createStorage(safeStoreMapping.storeId);
+          const allProducts = await tenantStorage.getAllProducts();
+          const activeProducts = allProducts.filter((p: any) => p.isActive);
+          
+          if (activeProducts && activeProducts.length > 0) {
+            // Obtener nombres de productos más comunes (primeros 30)
+            const productNames = activeProducts
+              .slice(0, 30)
+              .map(p => p.name)
+              .join(', ');
+            
+            customPrompt = 
+              `Cliente haciendo pedido de: ${productNames}. ` +
+              `Términos comunes: cantidad, precio, dirección, eliminar, agregar, quitar, carrito, confirmar, listo, envío, pagar`;
+            
+            console.log(`🎯 Generated custom prompt with ${activeProducts.length} products from store ${safeStoreMapping.storeId}`);
+          }
+        } catch (promptError) {
+          console.warn(`⚠️ Could not generate custom prompt, using default:`, promptError);
+        }
+
+        // Descargar y transcribir con prompt personalizado
         const transcriptionResult = await transcriber.downloadAndTranscribe(
           audioMediaId,
-          audioMimeType
+          audioMimeType,
+          customPrompt
         );
 
         if (transcriptionResult.success && transcriptionResult.transcription) {
@@ -2185,78 +2211,231 @@ if (conversation) {
       return; // Esperar a que el usuario escriba su pregunta
     }
 
-    // 🔘 DETECTAR CLICKS EN BOTONES DE PRODUCTOS
-    if (messageText.startsWith('product_')) {
-      console.log(`🔘 [BUTTON-CLICK] Click en botón de producto detectado: ${messageText}`);
-      
-      try {
-        // Obtener producto ID del botón
-        const productId = parseInt(messageText.replace('product_', ''));
-        
-        if (isNaN(productId)) {
-          console.error(`❌ [BUTTON-CLICK] ID de producto inválido: ${messageText}`);
-        } else {
-          // Obtener AI conversation directamente de la DB
-          const aiConversationRaw = await tenantStorage.getAIConversation(conversationId);
-          
-          if (aiConversationRaw && aiConversationRaw.pendingProductSelection) {
-            const pendingSelection = typeof aiConversationRaw.pendingProductSelection === 'string' 
-              ? JSON.parse(aiConversationRaw.pendingProductSelection)
-              : aiConversationRaw.pendingProductSelection;
-            
-            const productData = pendingSelection[productId];
-            
-            if (productData) {
-              console.log(`✅ [BUTTON-CLICK] Producto encontrado: ${productData.name} - RD$${productData.price}`);
-              
-              // Obtener carrito actual
-              const currentCartRaw = aiConversationRaw.cartItems || '[]';
-              const currentCart = typeof currentCartRaw === 'string' 
-                ? JSON.parse(currentCartRaw) 
-                : currentCartRaw;
-              
-              // Agregar producto al carrito
-              currentCart.push({
-                productId: productData.id,
-                productName: productData.name,
-                quantity: 1,
-                price: Number(productData.price),
-                totalPrice: Number(productData.price)
-              });
-              
-              // Actualizar conversación en BD (firma correcta: 2 parámetros)
-              await tenantStorage.updateAIConversation(conversationId, {
-                cartItems: JSON.stringify(currentCart),
-                pendingProductSelection: null, // Limpiar selección pendiente
-                updatedAt: new Date()
-              });
-              
-              // Enviar confirmación
-              const cartSummary = currentCart.map((item: any, idx: number) => 
-                `${idx + 1}. ${item.productName} x${item.quantity} - RD$${item.totalPrice}`
-              ).join('\\n');
-              
-              const totalCart = currentCart.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
-              
-              await sendWhatsAppMessageDirect(
-                customerPhone,
-                `✅ *${productData.name}* agregado al carrito.\\n\\n🛒 *Tu carrito:*\\n${cartSummary}\\n\\n💰 *Total: RD$${totalCart}*\\n\\n¿Deseas agregar algo más o confirmar el pedido?`,
-                safeStoreMapping.storeId
-              );
-              
-              console.log(`✅ [BUTTON-CLICK] Producto agregado al carrito exitosamente`);
-              return; // Salir, ya procesamos el click
-            } else {
-              console.error(`❌ [BUTTON-CLICK] Producto ${productId} no encontrado en pendingProductSelection`);
-            }
-          } else {
-            console.error(`❌ [BUTTON-CLICK] No hay pendingProductSelection en la conversación`);
-          }
-        }
-      } catch (buttonError) {
-        console.error(`❌ [BUTTON-CLICK] Error procesando click de botón:`, buttonError);
+    // 🔘 DETECTAR SELECCIÓN DE PRODUCTOS (Botón, Número o Nombre)
+    // Primero verificar si hay productos pendientes de selección
+    console.log(`🔍 [SELECTION-CHECK] Verificando si hay productos pendientes para conversación ${conversationId}`);
+    const aiConversationRaw = await tenantStorage.getAIConversation(conversationId);
+    
+    console.log(`🔍 [SELECTION-CHECK] aiConversation existe:`, !!aiConversationRaw);
+    if (aiConversationRaw) {
+      console.log(`🔍 [SELECTION-CHECK] pendingProductSelection:`, aiConversationRaw.pendingProductSelection ? 'EXISTE' : 'NULL');
+      console.log(`🔍 [SELECTION-CHECK] pendingProductsByIndex:`, aiConversationRaw.pendingProductsByIndex ? 'EXISTE' : 'NULL');
+      if (aiConversationRaw.pendingProductSelection) {
+        console.log(`🔍 [SELECTION-CHECK] Tipo de pendingProductSelection:`, typeof aiConversationRaw.pendingProductSelection);
+        console.log(`🔍 [SELECTION-CHECK] Contenido:`, JSON.stringify(aiConversationRaw.pendingProductSelection).substring(0, 200));
       }
     }
+    
+    if (aiConversationRaw && aiConversationRaw.pendingProductSelection) {
+      const pendingSelection = typeof aiConversationRaw.pendingProductSelection === 'string' 
+        ? JSON.parse(aiConversationRaw.pendingProductSelection)
+        : aiConversationRaw.pendingProductSelection;
+      
+      // También obtener productos indexados (para selección numérica)
+      const pendingByIndex = aiConversationRaw.pendingProductsByIndex 
+        ? (typeof aiConversationRaw.pendingProductsByIndex === 'string'
+            ? JSON.parse(aiConversationRaw.pendingProductsByIndex)
+            : aiConversationRaw.pendingProductsByIndex)
+        : null;
+      
+      const products = Object.values(pendingSelection) as any[];
+      
+      console.log(`🔍 [SELECTION] Hay ${products.length} productos pendientes de selección`);
+      console.log(`📋 [SELECTION] Productos por ID:`, Object.keys(pendingSelection));
+      if (pendingByIndex) {
+        console.log(`📋 [SELECTION] Productos por índice:`, Object.keys(pendingByIndex));
+      }
+      
+      // 🎯 DETECTAR SI ES UNA BÚSQUEDA NUEVA vs SELECCIÓN
+      const newSearchKeywords = /\b(dame|quiero|busco|necesito|vendeme|hay|tienen|cuanto|precio)\b/i;
+      const hasMultipleProducts = /\by\b|,/.test(messageText); // Contiene "y" o comas
+      const isLongMessage = messageText.length > 30;
+      
+      const seemsLikeNewSearch = 
+        newSearchKeywords.test(messageText) || 
+        (hasMultipleProducts && isLongMessage);
+      
+      if (seemsLikeNewSearch) {
+        console.log(`🔍 [SELECTION] Mensaje parece BÚSQUEDA NUEVA, no selección de pendientes`);
+        console.log(`🔍 [SELECTION] - Tiene keywords: ${newSearchKeywords.test(messageText)}`);
+        console.log(`🔍 [SELECTION] - Múltiples productos: ${hasMultipleProducts}`);
+        console.log(`🔍 [SELECTION] - Mensaje largo: ${isLongMessage}`);
+        console.log(`🧹 [SELECTION] Limpiando pending y dejando que IA procese búsqueda nueva`);
+        
+        // Limpiar pending para que IA procese como búsqueda nueva
+        await tenantStorage.updateAIConversation(conversationId, {
+          pendingProductSelection: null,
+          pendingProductsByIndex: null
+        });
+        
+        // Saltar al flujo de IA, no intentar matching de selección
+        console.log(`⏭️ [SELECTION] Saltando a procesamiento con IA para búsqueda nueva`);
+      } else {
+        console.log(`✅ [SELECTION] Mensaje parece SELECCIÓN de productos pendientes - procesando`);
+        
+        let selectedProducts: any[] = [];
+        let selectionMethod = '';
+        
+        // 🔢 DETECCIÓN DE MÚLTIPLES NÚMEROS (ej: "la 1 y la 3", "dame el 2 y el 5")
+        const multipleNumbersMatch = messageText.match(/\b(\d+)\b/g);
+        if (multipleNumbersMatch && multipleNumbersMatch.length > 0 && pendingByIndex) {
+        const numbers = multipleNumbersMatch.map(n => parseInt(n)).filter(n => n >= 1 && n <= 5);
+        
+        if (numbers.length > 0) {
+          for (const num of numbers) {
+            if (pendingByIndex[num]) {
+              selectedProducts.push(pendingByIndex[num]);
+              console.log(`✅ [SELECTION] Detectado número ${num}: ${pendingByIndex[num].name}`);
+            }
+          }
+          
+          if (selectedProducts.length > 0) {
+            selectionMethod = numbers.length > 1 ? 'multiple-numbers' : 'single-number';
+          }
+        }
+      }
+      
+      // 1️⃣ MÉTODO 1: Click en botón (product_123) - SOLO si no hay múltiples números
+      if (selectedProducts.length === 0 && messageText.startsWith('product_')) {
+        const productId = parseInt(messageText.replace('product_', ''));
+        if (!isNaN(productId) && pendingSelection[productId]) {
+          selectedProducts.push(pendingSelection[productId]);
+          selectionMethod = 'button-click';
+          console.log(`✅ [SELECTION] Detectado click en botón product_${productId}: ${pendingSelection[productId].name}`);
+        } else {
+          console.error(`❌ [SELECTION] Producto ID ${productId} NO encontrado en pendingSelection`);
+          console.error(`❌ [SELECTION] IDs disponibles:`, Object.keys(pendingSelection));
+        }
+      }
+      
+      // 3️⃣ MÉTODO 3: Parte del nombre del producto (solo si no hay números detectados)
+      if (selectedProducts.length === 0) {
+        const searchText = messageText.toLowerCase().trim();
+        
+        // Buscar coincidencia exacta primero
+        for (const product of products) {
+          if (product.name.toLowerCase() === searchText) {
+            selectedProducts.push(product);
+            selectionMethod = 'exact-name';
+            console.log(`✅ [SELECTION] Coincidencia exacta: ${product.name}`);
+            break;
+          }
+        }
+        
+        // Si no hay exacta, buscar coincidencia parcial (más del 40% de similitud)
+        if (selectedProducts.length === 0 && searchText.length >= 3) {
+          let bestMatch: any = null;
+          let bestScore = 0;
+          
+          for (const product of products) {
+            const productName = product.name.toLowerCase();
+            
+            // Calcular score de similitud
+            let score = 0;
+            
+            // Si el nombre del producto contiene la búsqueda completa
+            if (productName.includes(searchText)) {
+              score = 80;
+            }
+            // Si la búsqueda contiene palabras del producto
+            else {
+              const searchWords = searchText.split(/\s+/);
+              const productWords = productName.split(/\s+/);
+              
+              const matchedWords = new Set<string>(); // Evitar contar la misma palabra múltiples veces
+              
+              for (const searchWord of searchWords) {
+                if (searchWord.length >= 3) {
+                  for (const productWord of productWords) {
+                    if ((productWord.includes(searchWord) || searchWord.includes(productWord)) 
+                        && !matchedWords.has(productWord)) {
+                      score += 30;
+                      matchedWords.add(productWord);
+                      break; // Solo contar una vez por searchWord
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Limitar score a máximo 100
+            score = Math.min(score, 100);
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = product;
+            }
+          }
+          
+          // Solo aceptar si el score es mayor a 40
+          if (bestMatch && bestScore >= 40) {
+            selectedProducts.push(bestMatch);
+            selectionMethod = 'partial-name';
+            console.log(`✅ [SELECTION] Coincidencia parcial (${bestScore}%): ${bestMatch.name}`);
+          }
+        }
+      }
+      
+      // 🎯 SI SE ENCONTRARON PRODUCTOS, AGREGARLOS AL CARRITO
+      if (selectedProducts.length > 0) {
+        try {
+          console.log(`🛒 [SELECTION] Agregando ${selectedProducts.length} producto(s) al carrito vía ${selectionMethod}`);
+          
+          // Obtener carrito actual
+          const currentCartRaw = aiConversationRaw.cartItems || '[]';
+          const currentCart = typeof currentCartRaw === 'string' 
+            ? JSON.parse(currentCartRaw) 
+            : currentCartRaw;
+          
+          // Agregar todos los productos seleccionados
+          for (const selectedProduct of selectedProducts) {
+            currentCart.push({
+              productId: selectedProduct.id,
+              productName: selectedProduct.name,
+              quantity: 1,
+              price: Number(selectedProduct.price),
+              totalPrice: Number(selectedProduct.price)
+            });
+            console.log(`✅ [SELECTION] Agregado: ${selectedProduct.name}`);
+          }
+          
+          // Actualizar conversación en BD
+          await tenantStorage.updateAIConversation(conversationId, {
+            cartItems: JSON.stringify(currentCart),
+            pendingProductSelection: null, // Limpiar selección pendiente por ID
+            pendingProductsByIndex: null, // Limpiar selección pendiente por índice
+            updatedAt: new Date()
+          });
+          
+          // Enviar confirmación
+          const cartSummary = currentCart.map((item: any, idx: number) => 
+            `${idx + 1}. ${item.productName} x${item.quantity} - RD$${item.totalPrice}`
+          ).join('\n');
+          
+          const totalCart = currentCart.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
+          
+          const addedProductsList = selectedProducts.length === 1 
+            ? `✅ *${selectedProducts[0].name}*`
+            : `✅ *${selectedProducts.length} productos*:\n${selectedProducts.map(p => `• ${p.name}`).join('\n')}`;
+          
+          await sendWhatsAppMessageDirect(
+            customerPhone,
+            `${addedProductsList} agregado(s) al carrito.\n\n🛒 *Tu carrito:*\n${cartSummary}\n\n💰 *Total: RD$${totalCart}*\n\n¿Deseas agregar algo más o confirmar el pedido?`,
+            safeStoreMapping.storeId
+          );
+          
+          console.log(`✅ [SELECTION] ${selectedProducts.length} producto(s) agregado(s) exitosamente vía ${selectionMethod}`);
+          return; // Salir, ya procesamos la selección
+          
+        } catch (error) {
+          console.error(`❌ [SELECTION] Error agregando producto al carrito:`, error);
+        }
+        } else {
+          console.log(`⚠️ [SELECTION] No se pudo identificar selección en: "${messageText}"`);
+          // No hacer return, dejar que continúe el flujo normal de AI
+        }
+      } // Fin del else de "Mensaje parece SELECCIÓN"
+    } // Fin del if de pendingProductSelection
 
     // 🤖 INTENTAR PROCESAR CON IA (NUEVO - ANTES DE ÓRDENES PENDIENTES)
     console.log(`🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...`);

@@ -4649,11 +4649,18 @@ async getUsersByRole(role: string) {
    */
   async getAIConversation(conversationId: number) {
     try {
+      console.log(`🔍 [AI-CONV] Obteniendo conversación AI para conversationId: ${conversationId}`);
       const [conversation] = await tenantDb
         .select()
         .from(schema.aiConversations)
         .where(eq(schema.aiConversations.conversationId, conversationId))
         .limit(1);
+      
+      if (conversation) {
+        console.log(`✅ [AI-CONV] Conversación ${conversationId} encontrada (ID: ${conversation.id}, Cliente: ${conversation.customerId})`);
+      } else {
+        console.log(`❌ [AI-CONV] Conversación ${conversationId} NO encontrada`);
+      }
       return conversation || null;
     } catch (error) {
       console.error('Error getting AI conversation:', error);
@@ -4686,10 +4693,12 @@ async getUsersByRole(role: string) {
    */
   async updateAIConversation(conversationId: number, data: any) {
     try {
+      console.log(`💾 [AI-CONV] Actualizando conversación ${conversationId} - Campos:`, Object.keys(data).filter(k => k !== 'updatedAt'));
       await tenantDb
         .update(schema.aiConversations)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(schema.aiConversations.conversationId, conversationId));
+      console.log(`✅ [AI-CONV] Conversación ${conversationId} actualizada exitosamente`);
     } catch (error) {
       console.error('Error updating AI conversation:', error);
       throw error;

@@ -1555,6 +1555,10 @@ export const aiConversations = pgTable("ai_conversations", {
   // Carrito/Pedido
   draftOrderId: integer("draft_order_id"),
   cartItems: text("cart_items"),
+  
+  // Productos pendientes de selección (para botones/opciones)
+  pendingProductSelection: text("pending_product_selection"), // JSON: productos indexados por ID
+  pendingProductsByIndex: text("pending_products_by_index"), // JSON: productos indexados por número (1-5)
 
   // Métricas
   messageCount: integer("message_count").default(0),

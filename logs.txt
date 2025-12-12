@@ -1,521 +1,30 @@
-../dist/public/assets/html2pdf-dIrMjhIJ.js           349.41 kB │ gzip:  81.97 kB
-../dist/public/assets/charts-pdW679NQ.js             420.22 kB │ gzip: 112.96 kB
-../dist/public/assets/index-3X_m5MfK.js            1,687.54 kB │ gzip: 428.06 kB
-
-(!) Some chunks are larger than 1000 kB after minification. Consider:
-- Using dynamic import() to code-split the application
-- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks  
-- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 8.86s
-[dotenv@17.2.3] injecting env (33) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
-✅ Multi-tenant storage system initialized
-🏭 Storage Factory ready for multi-tenant operations
-✅ Master Storage instance created
-[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
-✅ Routes registered successfully with migrated storage
-✅ API Router mounted successfully
-🚀 Starting application with migrated storage...
-🔐 Validando configuración de IA...
-✅ Configuración de IA válida
-✅ Configuración de IA válida - Sistema listo para procesar mensajes con IA
-✅ Routes registered successfully with migrated storage
-✅ User Management routes registered successfully with migrated storage
-📝 Available endpoints:
-   - GET    /api/user-management/global-users
-   - POST   /api/user-management/global-users
-   - GET    /api/user-management/store-users
-   - POST   /api/user-management/store-users
-   - GET    /api/user-management/users/:id
-   - PUT    /api/user-management/users/:id
-   - PATCH  /api/user-management/users/:id
-   - DELETE /api/user-management/users/:id
-   - POST   /api/user-management/users/:id/change-password
-   - POST   /api/user-management/users/:id/reset-password
-   - GET    /api/user-management/roles
-   - GET    /api/user-management/permissions
-   - GET    /api/user-management/stats
-   - GET    /api/user-management/search
-   - GET    /api/user-management/profile
-   - PUT    /api/user-management/profile
-   - POST   /api/user-management/bulk-operations
-   - GET    /api/user-management/export
-   - POST   /api/user-management/check-username
-   - POST   /api/user-management/check-email
-   - GET    /api/user-management/users/:id/notifications
-   - GET    /api/user-management/users/:id/notifications/counts
-   - GET    /api/user-management/health
-Starting seed process...
-Seed process completed.
-🔌 Servidor WebSocket configurado con manejo de errores mejorado
-
-🚀 ===== STARTING SCHEDULED TASKS =====
-⏰ Current time: 2025-12-12T06:04:57.900Z
-📅 Conversations cleanup: Every 24 hours
-📅 Registration flows cleanup: Every 6 hours
-📅 Orphan data cleanup: Every 12 hours
-📅 AI conversations cleanup: Every 30 minutes
-🚀 Billing cron jobs placeholder - services not available
-📅 Storage update job: Daily at 3:00 AM
-✅ Storage update job scheduled (daily at 3:00 AM)
-⏱️ Next run: 2025-12-13T07:00:00.000Z
-📅 Storage limit check job: Every hour
-✅ Storage limit check job scheduled (hourly)
-⏳ Running initial cleanup in 1 minute...
-✅ All scheduled tasks started successfully
-
-🚀 Billing cron jobs placeholder - services not available
-2:04:57 AM [express] 🚀 Server running on 0.0.0.0:5000
-2:04:57 AM [express] 📱 Health check available at http://0.0.0.0:5000/api/health
-2:04:57 AM [express] 🔌 WebSocket server ready
-2:04:57 AM [express] 🌍 Environment: production
-2:04:57 AM [express] ✅ Storage migration applied successfully
-2:04:57 AM [express] 🏢 Master Storage: Global operations
-2:04:57 AM [express] 🏪 Tenant Storage: Store-specific operations
-📝 POST /api/webhook - 2025-12-12T06:05:09.562Z
-✅ CORS: POST /api/webhook from no-origin
-🎯 WEBHOOK RECEIVED - Processing WhatsApp message
-🎯 PROCESSWHATSAPPMESSAGE - Iniciando procesamiento
-🚀 WEBHOOK RECEIVED - Function called successfully
-📥 Webhook recibido, procesando con manejo seguro...
-📊 [MasterStorage] Querying all virtual stores...
-✅ [MasterStorage] Retrieved 4 virtual stores
-📱 Processing incoming user message - FLUJO ORIGINAL + GUARDADO
-✅ IDEMPOTENCY: Marked messageId wamid.test.1765519510 as processed
-📱 USER MESSAGE RECEIVED - From: 18494553242, Text: "dame un calcio"
-✅ PROCESSING USER MESSAGE - Store: MAS QUE SALUD (ID: 6)
-✅ Using TENANT schema: store_6
-🔍 TenantDb validation for store 6: {
-  exists: true,
-  hasExecute: true,
-  type: 'object',
-  keys: [
-    'query',   '$with',
-    '$cache',  'authToken',
-    'dialect', 'session',
-    '_',       '$client'
-  ]
-}
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 6 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 6, schema: undefined
-💾 GUARDANDO MENSAJE EN BASE DE DATOS...
-📝 GUARDANDO MENSAJE: "dame un calcio..." de 18494553242
-🔍 GETTING OR CREATING CONVERSATION for phone: 18494553242
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-✅ EXISTING CONVERSATION FOUND - ID: 67
-💬 Conversación obtenida/creada: 67
-📝 CREATING MESSAGE - Data: {
-  conversationId: 67,
-  content: 'dame un calcio...',
-  isFromCustomer: true,
-  whatsappMessageId: 'wamid.test.1765519510'
-}
-✅ MESSAGE CREATED - ID: 1171
-✅ MENSAJE GUARDADO EXITOSAMENTE:
-   - DB ID: 1171
-   - Conversación: 67
-   - WhatsApp ID: wamid.test.1765519510
-✅ MENSAJE GUARDADO - Conversación: 67, Mensaje: 1171
-✅ Added WhatsApp log: incoming for 18494553242
-🔄 get customer 18494553242 (intento 1/3)
-✅ Nueva conexión Neon establecida
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-✅ get customer 18494553242 completado
-👤 CUSTOMER FOUND/CREATED - ID: 69, Name: dame tambien un protf
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔄 REGISTRATION FLOW STATUS: {
-  exists: false,
-  isCompleted: undefined,
-  currentStep: undefined,
-  isExpired: false
-}
-🔍 CHECKING IF MESSAGE IS AN ORDER...
-
-🔍 ===== DETECTING ORDER MESSAGE =====
-🛍️ Order detection: NO
-🛍️ IS ORDER MESSAGE: false
-❌ NOT AN ORDER - Processing as regular message
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...
-🤖 [AI-SMART] Intentando procesar con IA...
-📜 Getting last 20 messages for conversation 67
-✅ Retrieved 20 recent messages
-📋 [AI-SMART] Contexto actual: {
-  isAfterWelcome: false,
-  isAfterCatalog: false,
-  lastAutoResponse: undefined
-}
-🔄 [HYBRID] Analizando contexto de flujo para 18494553242
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-📭 [HYBRID] No hay flow activo
-🤖 [HYBRID] MODO IA ACTIVO - Solo IA hasta confirmación de pedido
-🔄 [HYBRID] Flow context - shouldUseAI: true, shouldUseAutomatic: false
-🤖 [HYBRID] Flow indica usar IA - procediendo
-🔍 [AI-CREDITS] Usando tenantStorage para tienda 6
-🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda 6...
-✅ [TENANT-STORAGE] Créditos encontrados para tienda 6: { available: 865, isEnabled: true, totalCredits: 1000 }
-🔍 [AI-CREDITS] Verificando créditos para tienda 6: {"id":3,"storeId":6,"totalCredits":1000,"usedCredits":163,"availableCredits":865,"isEnabled":true,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10}
-💰 [AI-CREDITS] Tienda 6 - Op: message, Costo: 1, Disponibles: 865, ¿Suficiente?: true
-✅ [AI-CREDITS] Créditos SUFICIENTES - Activar IA
-🔄 Creating new tenant storage for store 6
-✅ Connection test passed for store 6
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 6 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 6, schema: undefined
-✅ Tenant storage created and cached for store 6
-📜 Getting last 10 messages for conversation 67
-✅ Retrieved 10 recent messages
-📜 [AI-SMART] Historial de 10 mensajes cargado para contexto
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
 📦 [AI-SMART] 71 productos activos disponibles
-🤖 [AI-ASSISTANT] Analizando mensaje: "dame un calcio"
+🤖 [AI-ASSISTANT] Analizando mensaje: "Cal-Mag Complex"
 🤖 Interpretando mensaje con IA...
-✅ Mensaje interpretado: {
-  intent: 'El cliente está solicitando un producto específico.',
-  category: 'order',
-  entities: {
-    products: [ 'calcio' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
-  },
-  sentiment: 'neutral',
-  suggestedResponse: 'Claro, agregaremos un calcio a tu pedido. ¿Necesitas algo más?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Interpretación obtenida: {
-  intent: 'El cliente está solicitando un producto específico.',
-  category: 'order',
-  entities: {
-    products: [ 'calcio' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
-  },
-  sentiment: 'neutral',
-  suggestedResponse: 'Claro, agregaremos un calcio a tu pedido. ¿Necesitas algo más?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Producto + cantidad detectada: calcio x1
-♻️ Using cached tenant storage for store 6
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
-🔍 Búsqueda inteligente para "calcio": 26 resultados
-   Top 3: Akwä Royal Bath (Mascarilla de Velo)
-, Cal-Mag Complex (anteriormente CM Super), Life C® Masticable
-🧠 [AI-SMART] Interpretación IA: {
-  intent: 'search_product',
-  itemsCount: 1,
-  message: '🔍 Encontré estas opciones para "calcio":\n' +
-    '\n' +
-    '1. *Akwä Royal Bath (Mascarilla de Velo)\r\n' +
-    '* - RD$42.00\n' +
-    '2. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00\n' +
-    '3. *Life C® Masticable* - RD$28.00\n' +
-    '4. *Super Detox®* - RD$40.00\n' +
-    '5. *Akwä Lavapure (Mascarilla de Barro Volcánico)* - RD$43.00\n' +
-    '\n' +
-    '💬 ¿Cuál deseas? Dime el número o el nombre completo.'
-}
-🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda 6...
-🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":163,"availableCredits":865,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":163,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:02:18.334Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:02:18.334Z"}]
-✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 865, isEnabled: true }
-♻️ Using cached tenant storage for store 6
-🧾 [AI-CREDITS] Log registrado en tenant store_6
-✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 864
-🛒 [AI-SMART] Carrito existente con 3 items - Manteniendo
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔍 [AI-SMART] Cliente buscando producto - modo conversacional
-📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "calcio":
-
-1. *Akwä Royal Bath (Mascarilla de Velo)
-* - RD$42.00
-2.
-✅ [AI-SMART] Enviando opciones de búsqueda directamente (335 chars)
-✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected
-📤 SENDING WHATSAPP MESSAGE - To: 18494553242, Store: 6
-🌐 Making API call to: https://graph.facebook.com/v22.0/766302823222313/messages
-✅ MESSAGE SENT SUCCESSFULLY: {
-  messaging_product: 'whatsapp',
-  contacts: [ { input: '18494553242', wa_id: '18494553242' } ],
-  messages: [
-    {
-      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBJFOUIxNDQwREE5QTY1NjhGMTMA'
-    }
-  ]
-}
-✅ Added WhatsApp log: outbound for 18494553242
-✅ WhatsApp log saved successfully with store ID: 6
-✅ Webhook procesado exitosamente con manejo seguro
-✅ WhatsApp message processed successfully
-📝 POST /api/webhook - 2025-12-12T06:05:37.076Z
-✅ CORS: POST /api/webhook from no-origin
-🎯 WEBHOOK RECEIVED - Processing WhatsApp message
-🎯 PROCESSWHATSAPPMESSAGE - Iniciando procesamiento
-🚀 WEBHOOK RECEIVED - Function called successfully
-📥 Webhook recibido, procesando con manejo seguro...
-📊 [MasterStorage] Querying all virtual stores...
-✅ [MasterStorage] Retrieved 4 virtual stores
-📱 Processing incoming user message - FLUJO ORIGINAL + GUARDADO
-✅ IDEMPOTENCY: Marked messageId wamid.test.1765519537 as processed
-📱 USER MESSAGE RECEIVED - From: 18494553242, Text: "cal mag"
-✅ PROCESSING USER MESSAGE - Store: MAS QUE SALUD (ID: 6)
-🔍 TenantDb validation for store 6: {
-  exists: true,
-  hasExecute: true,
-  type: 'object',
-  keys: [
-    'query',   '$with',
-    '$cache',  'authToken',
-    'dialect', 'session',
-    '_',       '$client'
-  ]
-}
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 6 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 6, schema: undefined
-💾 GUARDANDO MENSAJE EN BASE DE DATOS...
-📝 GUARDANDO MENSAJE: "cal mag..." de 18494553242
-🔍 GETTING OR CREATING CONVERSATION for phone: 18494553242
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-✅ EXISTING CONVERSATION FOUND - ID: 67
-💬 Conversación obtenida/creada: 67
-📝 CREATING MESSAGE - Data: {
-  conversationId: 67,
-  content: 'cal mag...',
-  isFromCustomer: true,
-  whatsappMessageId: 'wamid.test.1765519537'
-}
-✅ MESSAGE CREATED - ID: 1172
-✅ MENSAJE GUARDADO EXITOSAMENTE:
-   - DB ID: 1172
-   - Conversación: 67
-   - WhatsApp ID: wamid.test.1765519537
-✅ MENSAJE GUARDADO - Conversación: 67, Mensaje: 1172
-✅ Added WhatsApp log: incoming for 18494553242
-🔄 get customer 18494553242 (intento 1/3)
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-✅ get customer 18494553242 completado
-👤 CUSTOMER FOUND/CREATED - ID: 69, Name: dame tambien un protf
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔄 REGISTRATION FLOW STATUS: {
-  exists: false,
-  isCompleted: undefined,
-  currentStep: undefined,
-  isExpired: false
-}
-🔍 CHECKING IF MESSAGE IS AN ORDER...
-
-🔍 ===== DETECTING ORDER MESSAGE =====
-🛍️ Order detection: NO
-🛍️ IS ORDER MESSAGE: false
-❌ NOT AN ORDER - Processing as regular message
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...
-🤖 [AI-SMART] Intentando procesar con IA...
-📜 Getting last 20 messages for conversation 67
-✅ Retrieved 20 recent messages
-📋 [AI-SMART] Contexto actual: {
-  isAfterWelcome: false,
-  isAfterCatalog: false,
-  lastAutoResponse: undefined
-}
-🔄 [HYBRID] Analizando contexto de flujo para 18494553242
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-📭 [HYBRID] No hay flow activo
-🤖 [HYBRID] MODO IA ACTIVO - Solo IA hasta confirmación de pedido
-🔄 [HYBRID] Flow context - shouldUseAI: true, shouldUseAutomatic: false
-🤖 [HYBRID] Flow indica usar IA - procediendo
-🔍 [AI-CREDITS] Usando tenantStorage para tienda 6
-🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda 6...
-✅ [TENANT-STORAGE] Créditos encontrados para tienda 6: { available: 864, isEnabled: true, totalCredits: 1000 }
-🔍 [AI-CREDITS] Verificando créditos para tienda 6: {"id":3,"storeId":6,"totalCredits":1000,"usedCredits":164,"availableCredits":864,"isEnabled":true,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10}
-💰 [AI-CREDITS] Tienda 6 - Op: message, Costo: 1, Disponibles: 864, ¿Suficiente?: true
-✅ [AI-CREDITS] Créditos SUFICIENTES - Activar IA
-♻️ Using cached tenant storage for store 6
-📜 Getting last 10 messages for conversation 67
-✅ Retrieved 10 recent messages
-📜 [AI-SMART] Historial de 10 mensajes cargado para contexto
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
-📦 [AI-SMART] 71 productos activos disponibles
-🤖 [AI-ASSISTANT] Analizando mensaje: "cal mag"
-🤖 Interpretando mensaje con IA...
-✅ Mensaje interpretado: {
-  intent: 'request for product',
-  category: 'order',
-  entities: {
-    products: [ 'cal mag' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
-  },
-  sentiment: 'neutral',
-  suggestedResponse: '¿Cuántas unidades de Cal Mag deseas?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Interpretación obtenida: {
-  intent: 'request for product',
-  category: 'order',
-  entities: {
-    products: [ 'cal mag' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
-  },
-  sentiment: 'neutral',
-  suggestedResponse: '¿Cuántas unidades de Cal Mag deseas?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Producto + cantidad detectada: cal mag x1
-♻️ Using cached tenant storage for store 6
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
-🔍 Búsqueda inteligente para "cal mag": 33 resultados
-   Top 3: Cal-Mag Complex (anteriormente CM Super), Akwä Royal Bath (Mascarilla de Velo)
-, 4Life Transfer Factor ReCall
-🧠 [AI-SMART] Interpretación IA: {
-  intent: 'search_product',
-  itemsCount: 1,
-  message: '🔍 Encontré estas opciones para "cal mag":\n' +
-    '\n' +
-    '1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00\n' +
-    '2. *Akwä Royal Bath (Mascarilla de Velo)\r\n' +
-    '* - RD$42.00\n' +
-    '3. *4Life Transfer Factor ReCall* - RD$70.00\n' +
-    '4. *Transfer Factor plus * - RD$80.00\n' +
-    '5. *Life C® Masticable* - RD$28.00\n' +
-    '\n' +
-    '💬 ¿Cuál deseas? Dime el número o el nombre completo.'
-}
-🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda 6...
-🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":164,"availableCredits":864,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":164,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:05:15.303Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:05:15.303Z"}]
-✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 864, isEnabled: true }
-♻️ Using cached tenant storage for store 6
-🧾 [AI-CREDITS] Log registrado en tenant store_6
-✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 863
-🛒 [AI-SMART] Carrito existente con 3 items - Manteniendo
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔍 [AI-SMART] Cliente buscando producto - modo conversacional
-📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "cal mag":
-
-1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00
-✅ [AI-SMART] Enviando opciones de búsqueda directamente (328 chars)
-✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected
-📤 SENDING WHATSAPP MESSAGE - To: 18494553242, Store: 6
-🌐 Making API call to: https://graph.facebook.com/v22.0/766302823222313/messages
-✅ MESSAGE SENT SUCCESSFULLY: {
-  messaging_product: 'whatsapp',
-  contacts: [ { input: '18494553242', wa_id: '18494553242' } ],
-  messages: [
-    {
-      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBI1QUQyNUJCNTY5RERCMkVFNEQA'
-    }
-  ]
-}
-✅ Added WhatsApp log: outbound for 18494553242
-✅ WhatsApp log saved successfully with store ID: 6
-✅ Webhook procesado exitosamente con manejo seguro
-✅ WhatsApp message processed successfully
-🧹 Cleaned idempotency cache. Currently tracking: 2 message(s)
-
-🧹 ===== STARTING SCHEDULED CONVERSATIONS CLEANUP =====
-⏰ 2025-12-12T06:05:57.934Z
-
-🧹 ===== STARTING SCHEDULED FLOWS CLEANUP =====
-
-🧹 ===== STARTING ORPHAN DATA CLEANUP =====
-
-🧹 ===== STARTING SCHEDULED AI CONVERSATIONS CLEANUP =====
-⏰ 2025-12-12T06:05:57.937Z
-🏪 Found 4 active stores
-
-🔄 Processing store: MINI MARKET EL RUBIO (ID: 16)
-🔄 Creating new tenant storage for store 16
 ✅ Nueva conexión Neon establecida
 ✅ Nueva conexión Neon establecida
-✅ Nueva conexión Neon establecida
-🔄 Creating new tenant storage for store 16
-🔄 Creating new tenant storage for store 16
-🏪 Found 4 active stores
-
-🔄 Processing AI cleanup for store: MINI MARKET EL RUBIO (ID: 16)
-🔄 Creating new tenant storage for store 16
-✅ Using TENANT schema: store_16
-✅ Connection test passed for store 16
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 16 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 16, schema: undefined
-✅ Tenant storage created and cached for store 16
-🧹 Cleaning up conversations older than 7 days...
-📅 Cutoff date: 2025-12-05T06:05:59.541Z
-✅ Using TENANT schema: store_16
-✅ Connection test passed for store 16
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 16 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 16, schema: undefined
-✅ Tenant storage created and cached for store 16
-🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 16
-⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:35:59.619Z
-✅ Using TENANT schema: store_16
-✅ Connection test passed for store 16
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 16 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 16, schema: undefined
-✅ Tenant storage created and cached for store 16
-✅ Using TENANT schema: store_16
-✅ Connection test passed for store 16
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 16 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 16, schema: undefined
-✅ Tenant storage created and cached for store 16
+♻️ Using cached tenant storage for store 16
 🧹 CLEANING UP ORPHAN DATA for store 16...
+♻️ Using cached tenant storage for store 16
+✅ Nueva conexión Neon establecida
 ✅ No old conversations to clean up
 ✅ Store 16: No old conversations to clean
 
 🔄 Processing store: MAS QUE SALUD (ID: 6)
 ♻️ Using cached tenant storage for store 6
 🧹 Cleaning up conversations older than 7 days...
-📅 Cutoff date: 2025-12-05T06:05:59.829Z
+📅 Cutoff date: 2025-12-05T06:24:15.541Z
+🏪 Found 4 active stores
+
+🔄 Processing AI cleanup for store: MINI MARKET EL RUBIO (ID: 16)
+♻️ Using cached tenant storage for store 16
+🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 16
+⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:54:15.579Z
+✅ No old conversations to clean up
+✅ Store 6: No old conversations to clean
+
+🔄 Processing store: Tienda Moda (ID: 17)
+🔄 Creating new tenant storage for store 17
 📊 [AI-CLEANUP] Encontradas 2 conversaciones activas
 🎉 [AI-CLEANUP] Limpieza completada: 0 conversaciones limpiadas
 ✅ Store 16: No inactive AI conversations to clean
@@ -523,15 +32,7 @@ Seed process completed.
 🔄 Processing AI cleanup for store: MAS QUE SALUD (ID: 6)
 ♻️ Using cached tenant storage for store 6
 🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 6
-⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:35:59.889Z
-♻️ Using cached tenant storage for store 6
-✅ No old conversations to clean up
-✅ Store 6: No old conversations to clean
-
-🔄 Processing store: Tienda Moda (ID: 17)
-🔄 Creating new tenant storage for store 17
-♻️ Using cached tenant storage for store 6
-🧹 CLEANING UP ORPHAN DATA for store 6...
+⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:54:15.653Z
 📊 [AI-CLEANUP] Encontradas 2 conversaciones activas
 🎉 [AI-CLEANUP] Limpieza completada: 0 conversaciones limpiadas
 ✅ Store 6: No inactive AI conversations to clean
@@ -547,10 +48,7 @@ Seed process completed.
 🏗️ Creating tenant storage for store 17, schema: undefined
 ✅ Tenant storage created and cached for store 17
 🧹 Cleaning up conversations older than 7 days...
-📅 Cutoff date: 2025-12-05T06:06:00.269Z
-♻️ Using cached tenant storage for store 17
-🧹 CLEANING UP ORPHAN DATA for store 17...
-✅ Using TENANT schema: store_17
+📅 Cutoff date: 2025-12-05T06:24:15.782Z
 ✅ Connection test passed for store 17
 🏗️ createTenantStorage called with:
   - tenantDb: true
@@ -559,19 +57,17 @@ Seed process completed.
 🏗️ Creating tenant storage for store 17, schema: undefined
 ✅ Tenant storage created and cached for store 17
 🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 17
-⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:36:00.297Z
+⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:54:15.804Z
+♻️ Using cached tenant storage for store 6
+🧹 CLEANING UP ORPHAN DATA for store 6...
 ♻️ Using cached tenant storage for store 17
+🧹 CLEANING UP ORPHAN DATA for store 17...
 ✅ No old conversations to clean up
 ✅ Store 17: No old conversations to clean
 
 🔄 Processing store: TIENDA BONAO (ID: 18)
 🔄 Creating new tenant storage for store 18
-✅ [AI-CLEANUP] No hay conversaciones activas para limpiar
-✅ Store 17: No inactive AI conversations to clean
-
-🔄 Processing AI cleanup for store: TIENDA BONAO (ID: 18)
-🔄 Creating new tenant storage for store 18
-🔄 Creating new tenant storage for store 18
+♻️ Using cached tenant storage for store 6
 ✅ Using TENANT schema: store_18
 ✅ Connection test passed for store 18
 🏗️ createTenantStorage called with:
@@ -581,27 +77,73 @@ Seed process completed.
 🏗️ Creating tenant storage for store 18, schema: undefined
 ✅ Tenant storage created and cached for store 18
 🧹 Cleaning up conversations older than 7 days...
-📅 Cutoff date: 2025-12-05T06:06:00.718Z
-✅ Using TENANT schema: store_18
-✅ Connection test passed for store 18
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 18 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 18, schema: undefined
-✅ Tenant storage created and cached for store 18
-🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 18
-⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:36:00.764Z
-✅ Using TENANT schema: store_18
-✅ Connection test passed for store 18
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 18 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 18, schema: undefined
-✅ Tenant storage created and cached for store 18
-🧹 CLEANING UP ORPHAN DATA for store 18...
+📅 Cutoff date: 2025-12-05T06:24:17.659Z
+♻️ Using cached tenant storage for store 17
+✅ Mensaje interpretado: {
+  intent: 'confirmación de producto',
+  category: 'order',
+  entities: {
+    products: [ 'Cal-Mag Complex' ],
+    quantity: 1,
+    location: '',
+    phoneNumber: ''
+  },
+  sentiment: 'neutral',
+  suggestedResponse: 'Entendido, has confirmado 1 unidad de Cal-Mag Complex. ¿Deseas algo más?',
+  confidence: 0.95
+}
+✅ [AI-ASSISTANT] Interpretación obtenida: {
+  intent: 'confirmación de producto',
+  category: 'order',
+  entities: {
+    products: [ 'Cal-Mag Complex' ],
+    quantity: 1,
+    location: '',
+    phoneNumber: ''
+  },
+  sentiment: 'neutral',
+  suggestedResponse: 'Entendido, has confirmado 1 unidad de Cal-Mag Complex. ¿Deseas algo más?',
+  confidence: 0.95
+}
+✅ [AI-ASSISTANT] Producto + cantidad detectada: Cal-Mag Complex x1
+♻️ Using cached tenant storage for store 6
+📦 Getting all products for store 6 - tenantDb exists: true
+🚀 Executing direct query for store 6
 ♻️ Using cached tenant storage for store 18
+🔍 Búsqueda inteligente para "cal-mag complex": 32 resultados
+   Top 3: Cal-Mag Complex (anteriormente CM Super), Akwä Royal Bath (Mascarilla de Velo)
+, Life C
+🧠 [AI-SMART] Interpretación IA: {
+  intent: 'search_product',
+  itemsCount: 1,
+  message: '🔍 Encontré estas opciones para "Cal-Mag Complex":\n' +
+    '\n' +
+    '1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00\n' +
+    '2. *Akwä Royal Bath (Mascarilla de Velo)\r\n' +
+    '* - RD$42.00\n' +
+    '3. *Life C* - RD$28.00\n' +
+    '4. *Life C® Masticable* - RD$28.00\n' +
+    '5. *Transfer Factor plus * - RD$80.00\n' +
+    '\n' +
+    '💬 Selecciona una opción o dime el número.'
+}
+🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda 6...
+🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":168,"availableCredits":860,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":168,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:23:26.959Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:23:26.960Z"}]
+✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 860, isEnabled: true }
+♻️ Using cached tenant storage for store 6
+🧾 [AI-CREDITS] Log registrado en tenant store_6
+✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 859
+🛒 [AI-SMART] Carrito existente con 3 items - Manteniendo
+🔍 Getting registration flow for phone: 18494553242 in store: 6
+✅ [AI-CLEANUP] No hay conversaciones activas para limpiar
+✅ Store 17: No inactive AI conversations to clean
+
+🔄 Processing AI cleanup for store: TIENDA BONAO (ID: 18)
+♻️ Using cached tenant storage for store 18
+🧹 [AI-CLEANUP] Iniciando limpieza de conversaciones inconclusas para tienda 18
+⏰ [AI-CLEANUP] Buscando conversaciones inactivas desde: 2025-12-12T05:54:18.469Z
+♻️ Using cached tenant storage for store 18
+🧹 CLEANING UP ORPHAN DATA for store 18...
 ✅ No old conversations to clean up
 ✅ Store 18: No old conversations to clean
 
@@ -609,7 +151,11 @@ Seed process completed.
 ✅ Stores processed successfully: 4/4
 🗑️ Total conversations deleted: 0
 💬 Total messages deleted: 0
-✅ Cleanup completed at: 2025-12-12T06:06:01.126Z
+✅ Cleanup completed at: 2025-12-12T06:24:19.460Z
+
+
+✅ Total expired flows deleted: 0
+✅ Stores processed: 4/4
 
 ✅ [AI-CLEANUP] No hay conversaciones activas para limpiar
 ✅ Store 18: No inactive AI conversations to clean
@@ -617,200 +163,80 @@ Seed process completed.
 📊 ===== AI CLEANUP SUMMARY =====
 ✅ Stores processed successfully: 4/4
 🗑️ Total AI conversations cleaned: 0
-✅ AI cleanup completed at: 2025-12-12T06:06:01.160Z
+✅ AI cleanup completed at: 2025-12-12T06:24:20.452Z
 
+🔍 Registration flow: NOT FOUND
+🔍 [AI-SMART] Cliente buscando producto - modo conversacional
+📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "Cal-Mag Complex":
+
+1. *Cal-Mag Complex (anteriormente CM Super)* -
+✅ [AI-SMART] Enviando opciones de búsqueda directamente (303 chars)
+🔘 [AI-SMART] Enviando 3 botones interactivos de WhatsApp
+💾 [AI-SMART] Guardados 3 productos pendientes de selección
+✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected
+🔘 [AI-SMART] Enviando mensaje con 3 botones interactivos
+📤 SENDING INTERACTIVE MESSAGE - To: 18494553242, Buttons: 3
+♻️ Using cached tenant storage for store 6
+🔍 Searching customer by phone: 18494553242 in store: 6
+🔄 Using fallback method for phone: 18494553242
+🔄 Working in schema: store_6
 
 ✅ Total orphan data fixed: 0 conversations, 0 messages
 ✅ Stores processed: 4/4
 
-
-✅ Total expired flows deleted: 0
-✅ Stores processed: 4/4
-
-📝 POST /api/webhook - 2025-12-12T06:06:01.926Z
-✅ CORS: POST /api/webhook from no-origin
-🎯 WEBHOOK RECEIVED - Processing WhatsApp message
-🎯 PROCESSWHATSAPPMESSAGE - Iniciando procesamiento
-🚀 WEBHOOK RECEIVED - Function called successfully
-📥 Webhook recibido, procesando con manejo seguro...
-📊 [MasterStorage] Querying all virtual stores...
-✅ [MasterStorage] Retrieved 4 virtual stores
-📱 Processing incoming user message - FLUJO ORIGINAL + GUARDADO
-✅ IDEMPOTENCY: Marked messageId wamid.test.1765519562 as processed
-📱 USER MESSAGE RECEIVED - From: 18494553242, Text: "1"
-✅ PROCESSING USER MESSAGE - Store: MAS QUE SALUD (ID: 6)
-🔍 TenantDb validation for store 6: {
-  exists: true,
-  hasExecute: true,
-  type: 'object',
-  keys: [
-    'query',   '$with',
-    '$cache',  'authToken',
-    'dialect', 'session',
-    '_',       '$client'
-  ]
-}
-🏗️ createTenantStorage called with:
-  - tenantDb: true
-  - storeId: 6 (type: number)
-  - schemaType: undefined
-🏗️ Creating tenant storage for store 6, schema: undefined
-💾 GUARDANDO MENSAJE EN BASE DE DATOS...
-📝 GUARDANDO MENSAJE: "1..." de 18494553242
-🔍 GETTING OR CREATING CONVERSATION for phone: 18494553242
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
 ✅ Customer found via fallback: ID 69
-✅ EXISTING CONVERSATION FOUND - ID: 67
-💬 Conversación obtenida/creada: 67
-📝 CREATING MESSAGE - Data: {
-  conversationId: 67,
-  content: '1...',
-  isFromCustomer: true,
-  whatsappMessageId: 'wamid.test.1765519562'
+🔍 Order flow detected: false
+🔍 PROCESSING BUTTON 0: {
+  "type": "reply",
+  "reply": {
+    "id": "product_10",
+    "title": "Cal-Mag Complex (..."
+  }
 }
-✅ MESSAGE CREATED - ID: 1173
-✅ MENSAJE GUARDADO EXITOSAMENTE:
-   - DB ID: 1173
-   - Conversación: 67
-   - WhatsApp ID: wamid.test.1765519562
-✅ MENSAJE GUARDADO - Conversación: 67, Mensaje: 1173
-✅ Added WhatsApp log: incoming for 18494553242
-🔄 get customer 18494553242 (intento 1/3)
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-✅ get customer 18494553242 completado
-👤 CUSTOMER FOUND/CREATED - ID: 69, Name: dame tambien un protf
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔄 REGISTRATION FLOW STATUS: {
-  exists: false,
-  isCompleted: undefined,
-  currentStep: undefined,
-  isExpired: false
+✅ USING reply.title: "Cal-Mag Complex (..."
+✅ FINAL BUTTON: ID="product_10", TITLE="Cal-Mag Complex (..."
+🔍 PROCESSING BUTTON 1: {
+  "type": "reply",
+  "reply": {
+    "id": "product_86",
+    "title": "Akwä Royal Bath (..."
+  }
 }
-🔍 CHECKING IF MESSAGE IS AN ORDER...
-
-🔍 ===== DETECTING ORDER MESSAGE =====
-🛍️ Order detection: NO
-🛍️ IS ORDER MESSAGE: false
-❌ NOT AN ORDER - Processing as regular message
-🔍 Searching customer by phone: 18494553242 in store: 6
-🔄 Using fallback method for phone: 18494553242
-🔄 Working in schema: store_6
-✅ Customer found via fallback: ID 69
-🤖 [AI-SMART] CHECKING IF AI SHOULD HANDLE MESSAGE...
-🤖 [AI-SMART] Intentando procesar con IA...
-📜 Getting last 20 messages for conversation 67
-✅ Retrieved 20 recent messages
-📋 [AI-SMART] Contexto actual: {
-  isAfterWelcome: false,
-  isAfterCatalog: false,
-  lastAutoResponse: undefined
+✅ USING reply.title: "Akwä Royal Bath (..."
+✅ FINAL BUTTON: ID="product_86", TITLE="Akwä Royal Bath (..."
+🔍 PROCESSING BUTTON 2: {
+  "type": "reply",
+  "reply": {
+    "id": "product_68",
+    "title": "Life C"
+  }
 }
-🔄 [HYBRID] Analizando contexto de flujo para 18494553242
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-📭 [HYBRID] No hay flow activo
-🤖 [HYBRID] MODO IA ACTIVO - Solo IA hasta confirmación de pedido
-🔄 [HYBRID] Flow context - shouldUseAI: true, shouldUseAutomatic: false
-🤖 [HYBRID] Flow indica usar IA - procediendo
-🔍 [AI-CREDITS] Usando tenantStorage para tienda 6
-🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda 6...
-✅ [TENANT-STORAGE] Créditos encontrados para tienda 6: { available: 863, isEnabled: true, totalCredits: 1000 }
-🔍 [AI-CREDITS] Verificando créditos para tienda 6: {"id":3,"storeId":6,"totalCredits":1000,"usedCredits":165,"availableCredits":863,"isEnabled":true,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10}
-💰 [AI-CREDITS] Tienda 6 - Op: message, Costo: 1, Disponibles: 863, ¿Suficiente?: true
-✅ [AI-CREDITS] Créditos SUFICIENTES - Activar IA
-♻️ Using cached tenant storage for store 6
-📜 Getting last 10 messages for conversation 67
-✅ Retrieved 10 recent messages
-📜 [AI-SMART] Historial de 10 mensajes cargado para contexto
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
-📦 [AI-SMART] 71 productos activos disponibles
-🤖 [AI-ASSISTANT] Analizando mensaje: "1"
-🤖 Interpretando mensaje con IA...
-✅ Mensaje interpretado: {
-  intent: 'confirmación de cantidad de producto',
-  category: 'order',
-  entities: {
-    products: [ 'cal mag' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
+✅ USING reply.title: "Life C"
+✅ FINAL BUTTON: ID="product_68", TITLE="Life C"
+📋 PROCESSED BUTTONS: [
+  {
+    type: 'reply',
+    reply: { id: 'product_10', title: 'Cal-Mag Complex (...' }
   },
-  sentiment: 'neutral',
-  suggestedResponse: 'Has confirmado 1 unidad de Cal Mag. ¿Deseas algo más?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Interpretación obtenida: {
-  intent: 'confirmación de cantidad de producto',
-  category: 'order',
-  entities: {
-    products: [ 'cal mag' ],
-    quantity: 1,
-    location: '',
-    phoneNumber: ''
+  {
+    type: 'reply',
+    reply: { id: 'product_86', title: 'Akwä Royal Bath (...' }
   },
-  sentiment: 'neutral',
-  suggestedResponse: 'Has confirmado 1 unidad de Cal Mag. ¿Deseas algo más?',
-  confidence: 0.95
-}
-✅ [AI-ASSISTANT] Producto + cantidad detectada: cal mag x1
-♻️ Using cached tenant storage for store 6
-📦 Getting all products for store 6 - tenantDb exists: true
-🚀 Executing direct query for store 6
-🔍 Búsqueda inteligente para "cal mag": 33 resultados
-   Top 3: Cal-Mag Complex (anteriormente CM Super), Akwä Royal Bath (Mascarilla de Velo)
-, 4Life Transfer Factor ReCall
-🧠 [AI-SMART] Interpretación IA: {
-  intent: 'search_product',
-  itemsCount: 1,
-  message: '🔍 Encontré estas opciones para "cal mag":\n' +
-    '\n' +
-    '1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00\n' +
-    '2. *Akwä Royal Bath (Mascarilla de Velo)\r\n' +
-    '* - RD$42.00\n' +
-    '3. *4Life Transfer Factor ReCall* - RD$70.00\n' +
-    '4. *Transfer Factor plus * - RD$80.00\n' +
-    '5. *Life C® Masticable* - RD$28.00\n' +
-    '\n' +
-    '💬 ¿Cuál deseas? Dime el número o el nombre completo.'
-}
-🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda 6...
-🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":165,"availableCredits":863,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":165,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:05:44.356Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:05:44.356Z"}]
-✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 863, isEnabled: true }
-♻️ Using cached tenant storage for store 6
-🧾 [AI-CREDITS] Log registrado en tenant store_6
-✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 862
-🛒 [AI-SMART] Carrito existente con 3 items - Manteniendo
-🔍 Getting registration flow for phone: 18494553242 in store: 6
-🔍 Registration flow: NOT FOUND
-🔍 [AI-SMART] Cliente buscando producto - modo conversacional
-📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "cal mag":
-
-1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00
-✅ [AI-SMART] Enviando opciones de búsqueda directamente (328 chars)
-✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected
-📤 SENDING WHATSAPP MESSAGE - To: 18494553242, Store: 6
-🌐 Making API call to: https://graph.facebook.com/v22.0/766302823222313/messages
-✅ MESSAGE SENT SUCCESSFULLY: {
+  { type: 'reply', reply: { id: 'product_68', title: 'Life C' } }
+]
+✅ INTERACTIVE MESSAGE SENT SUCCESSFULLY: {
   messaging_product: 'whatsapp',
   contacts: [ { input: '18494553242', wa_id: '18494553242' } ],
   messages: [
     {
-      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBIzQjM2Qjk5MkI4NzhBMkU3RjMA'
+      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBJFM0VENzk2OUVFNjYzQ0I5RjMA'
     }
   ]
 }
-✅ Added WhatsApp log: outbound for 18494553242
-✅ WhatsApp log saved successfully with store ID: 6
+✅ [AI-SMART] Botones interactivos enviados exitosamente
 ✅ Webhook procesado exitosamente con manejo seguro
 ✅ WhatsApp message processed successfully
-📝 POST /api/webhook - 2025-12-12T06:06:36.449Z
+📝 POST /api/webhook - 2025-12-12T06:24:41.881Z
 ✅ CORS: POST /api/webhook from no-origin
 🎯 WEBHOOK RECEIVED - Processing WhatsApp message
 🎯 PROCESSWHATSAPPMESSAGE - Iniciando procesamiento
@@ -819,7 +245,7 @@ Seed process completed.
 📊 [MasterStorage] Querying all virtual stores...
 ✅ [MasterStorage] Retrieved 4 virtual stores
 📱 Processing incoming user message - FLUJO ORIGINAL + GUARDADO
-✅ IDEMPOTENCY: Marked messageId wamid.test.1765519596 as processed
+✅ IDEMPOTENCY: Marked messageId wamid.test.1765520682 as processed
 📱 USER MESSAGE RECEIVED - From: 18494553242, Text: "1"
 ✅ PROCESSING USER MESSAGE - Store: MAS QUE SALUD (ID: 6)
 🔍 TenantDb validation for store 6: {
@@ -851,14 +277,14 @@ Seed process completed.
   conversationId: 67,
   content: '1...',
   isFromCustomer: true,
-  whatsappMessageId: 'wamid.test.1765519596'
+  whatsappMessageId: 'wamid.test.1765520682'
 }
-✅ MESSAGE CREATED - ID: 1174
+✅ MESSAGE CREATED - ID: 1177
 ✅ MENSAJE GUARDADO EXITOSAMENTE:
-   - DB ID: 1174
+   - DB ID: 1177
    - Conversación: 67
-   - WhatsApp ID: wamid.test.1765519596
-✅ MENSAJE GUARDADO - Conversación: 67, Mensaje: 1174
+   - WhatsApp ID: wamid.test.1765520682
+✅ MENSAJE GUARDADO - Conversación: 67, Mensaje: 1177
 ✅ Added WhatsApp log: incoming for 18494553242
 🔄 get customer 18494553242 (intento 1/3)
 ✅ Nueva conexión Neon establecida
@@ -904,9 +330,9 @@ Seed process completed.
 🤖 [HYBRID] Flow indica usar IA - procediendo
 🔍 [AI-CREDITS] Usando tenantStorage para tienda 6
 🔍 [TENANT-STORAGE] Obteniendo créditos de IA para tienda 6...
-✅ [TENANT-STORAGE] Créditos encontrados para tienda 6: { available: 862, isEnabled: true, totalCredits: 1000 }
-🔍 [AI-CREDITS] Verificando créditos para tienda 6: {"id":3,"storeId":6,"totalCredits":1000,"usedCredits":166,"availableCredits":862,"isEnabled":true,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10}
-💰 [AI-CREDITS] Tienda 6 - Op: message, Costo: 1, Disponibles: 862, ¿Suficiente?: true
+✅ [TENANT-STORAGE] Créditos encontrados para tienda 6: { available: 859, isEnabled: true, totalCredits: 1000 }
+🔍 [AI-CREDITS] Verificando créditos para tienda 6: {"id":3,"storeId":6,"totalCredits":1000,"usedCredits":169,"availableCredits":859,"isEnabled":true,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10}
+💰 [AI-CREDITS] Tienda 6 - Op: message, Costo: 1, Disponibles: 859, ¿Suficiente?: true
 ✅ [AI-CREDITS] Créditos SUFICIENTES - Activar IA
 ♻️ Using cached tenant storage for store 6
 📜 Getting last 10 messages for conversation 67
@@ -918,80 +344,125 @@ Seed process completed.
 🤖 [AI-ASSISTANT] Analizando mensaje: "1"
 🤖 Interpretando mensaje con IA...
 ✅ Mensaje interpretado: {
-  intent: 'confirmación de cantidad',
+  intent: 'order',
   category: 'order',
   entities: {
-    products: [ 'cal mag' ],
+    products: [ 'Cal-Mag Complex' ],
     quantity: 1,
     location: '',
     phoneNumber: ''
   },
   sentiment: 'neutral',
-  suggestedResponse: 'Has solicitado 1 unidad de Cal Mag. ¿Deseas algo más?',
+  suggestedResponse: 'Has solicitado 1 unidad de Cal-Mag Complex. ¿Deseas algo más?',
   confidence: 0.95
 }
 ✅ [AI-ASSISTANT] Interpretación obtenida: {
-  intent: 'confirmación de cantidad',
+  intent: 'order',
   category: 'order',
   entities: {
-    products: [ 'cal mag' ],
+    products: [ 'Cal-Mag Complex' ],
     quantity: 1,
     location: '',
     phoneNumber: ''
   },
   sentiment: 'neutral',
-  suggestedResponse: 'Has solicitado 1 unidad de Cal Mag. ¿Deseas algo más?',
+  suggestedResponse: 'Has solicitado 1 unidad de Cal-Mag Complex. ¿Deseas algo más?',
   confidence: 0.95
 }
-✅ [AI-ASSISTANT] Producto + cantidad detectada: cal mag x1
+✅ [AI-ASSISTANT] Producto + cantidad detectada: Cal-Mag Complex x1
 ♻️ Using cached tenant storage for store 6
 📦 Getting all products for store 6 - tenantDb exists: true
 🚀 Executing direct query for store 6
-🔍 Búsqueda inteligente para "cal mag": 33 resultados
+🔍 Búsqueda inteligente para "cal-mag complex": 32 resultados
    Top 3: Cal-Mag Complex (anteriormente CM Super), Akwä Royal Bath (Mascarilla de Velo)
-, 4Life Transfer Factor ReCall
+, Life C
 🧠 [AI-SMART] Interpretación IA: {
   intent: 'search_product',
   itemsCount: 1,
-  message: '🔍 Encontré estas opciones para "cal mag":\n' +
+  message: '🔍 Encontré estas opciones para "Cal-Mag Complex":\n' +
     '\n' +
     '1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00\n' +
     '2. *Akwä Royal Bath (Mascarilla de Velo)\r\n' +
     '* - RD$42.00\n' +
-    '3. *4Life Transfer Factor ReCall* - RD$70.00\n' +
-    '4. *Transfer Factor plus * - RD$80.00\n' +
-    '5. *Life C® Masticable* - RD$28.00\n' +
+    '3. *Life C* - RD$28.00\n' +
+    '4. *Life C® Masticable* - RD$28.00\n' +
+    '5. *Transfer Factor plus * - RD$80.00\n' +
     '\n' +
-    '💬 ¿Cuál deseas? Dime el número o el nombre completo.'
+    '💬 Selecciona una opción o dime el número.'
 }
 🔍 [MASTER-STORAGE] Buscando créditos de IA para tienda 6...
-🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":166,"availableCredits":862,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":166,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:06:12.081Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:06:12.082Z"}]
-✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 862, isEnabled: true }
+🔍 [MASTER-STORAGE] Resultado de búsqueda: [{"id":3,"storeId":6,"totalCredits":1000,"usedCredits":169,"availableCredits":859,"isEnabled":true,"autoRecharge":true,"rechargeThreshold":100,"rechargeAmount":1000,"costPerMessage":1,"costPerOrder":5,"costPerVoiceNote":10,"fallbackWhenNoCredits":true,"notifyLowCredits":true,"lowCreditThreshold":50,"totalMessagesProcessed":169,"totalOrdersCreated":0,"totalVoiceNotesTranscribed":0,"lastRecharge":null,"lastUsage":"2025-12-12T06:24:18.032Z","createdAt":"2025-11-12T02:00:46.723Z","updatedAt":"2025-12-12T06:24:18.032Z"}]
+✅ [MASTER-STORAGE] Créditos encontrados para tienda 6: { totalCredits: 1000, availableCredits: 859, isEnabled: true }
 ♻️ Using cached tenant storage for store 6
 🧾 [AI-CREDITS] Log registrado en tenant store_6
-✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 861
+✅ [AI-CREDITS] Consumidos 1 créditos. Restantes: 858
 🛒 [AI-SMART] Carrito existente con 3 items - Manteniendo
 🔍 Getting registration flow for phone: 18494553242 in store: 6
 🔍 Registration flow: NOT FOUND
 🔍 [AI-SMART] Cliente buscando producto - modo conversacional
-📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "cal mag":
+📝 [AI-SMART] Mensaje actual: 🔍 Encontré estas opciones para "Cal-Mag Complex":
 
-1. *Cal-Mag Complex (anteriormente CM Super)* - RD$26.00
-✅ [AI-SMART] Enviando opciones de búsqueda directamente (328 chars)
+1. *Cal-Mag Complex (anteriormente CM Super)* -
+✅ [AI-SMART] Enviando opciones de búsqueda directamente (303 chars)
+🔘 [AI-SMART] Enviando 3 botones interactivos de WhatsApp
+💾 [AI-SMART] Guardados 3 productos pendientes de selección
 ✅ [AI-SMART] MESSAGE HANDLED BY AI - Intent detected
-📤 SENDING WHATSAPP MESSAGE - To: 18494553242, Store: 6
-🌐 Making API call to: https://graph.facebook.com/v22.0/766302823222313/messages
-✅ MESSAGE SENT SUCCESSFULLY: {
+🔘 [AI-SMART] Enviando mensaje con 3 botones interactivos
+📤 SENDING INTERACTIVE MESSAGE - To: 18494553242, Buttons: 3
+♻️ Using cached tenant storage for store 6
+🔍 Searching customer by phone: 18494553242 in store: 6
+🔄 Using fallback method for phone: 18494553242
+🔄 Working in schema: store_6
+✅ Customer found via fallback: ID 69
+🔍 Order flow detected: false
+🔍 PROCESSING BUTTON 0: {
+  "type": "reply",
+  "reply": {
+    "id": "product_10",
+    "title": "Cal-Mag Complex (..."
+  }
+}
+✅ USING reply.title: "Cal-Mag Complex (..."
+✅ FINAL BUTTON: ID="product_10", TITLE="Cal-Mag Complex (..."
+🔍 PROCESSING BUTTON 1: {
+  "type": "reply",
+  "reply": {
+    "id": "product_86",
+    "title": "Akwä Royal Bath (..."
+  }
+}
+✅ USING reply.title: "Akwä Royal Bath (..."
+✅ FINAL BUTTON: ID="product_86", TITLE="Akwä Royal Bath (..."
+🔍 PROCESSING BUTTON 2: {
+  "type": "reply",
+  "reply": {
+    "id": "product_68",
+    "title": "Life C"
+  }
+}
+✅ USING reply.title: "Life C"
+✅ FINAL BUTTON: ID="product_68", TITLE="Life C"
+📋 PROCESSED BUTTONS: [
+  {
+    type: 'reply',
+    reply: { id: 'product_10', title: 'Cal-Mag Complex (...' }
+  },
+  {
+    type: 'reply',
+    reply: { id: 'product_86', title: 'Akwä Royal Bath (...' }
+  },
+  { type: 'reply', reply: { id: 'product_68', title: 'Life C' } }
+]
+✅ INTERACTIVE MESSAGE SENT SUCCESSFULLY: {
   messaging_product: 'whatsapp',
   contacts: [ { input: '18494553242', wa_id: '18494553242' } ],
   messages: [
     {
-      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBJGMUZGNTJGRjBCQjg5NDk5MTMA'
+      id: 'wamid.HBgLMTg0OTQ1NTMyNDIVAgARGBI5Q0RDMkQ1QTdDRjRGRDYwNjkA'
     }
   ]
 }
-✅ Added WhatsApp log: outbound for 18494553242
-✅ WhatsApp log saved successfully with store ID: 6
+✅ [AI-SMART] Botones interactivos enviados exitosamente
 ✅ Webhook procesado exitosamente con manejo seguro
 ✅ WhatsApp message processed successfully
-🧹 Cleaned idempotency cache. Currently tracking: 4 message(s)
+🧹 Cleaned idempotency cache. Currently tracking: 3 message(s)

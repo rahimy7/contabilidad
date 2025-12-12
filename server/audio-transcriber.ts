@@ -130,8 +130,13 @@ export class AudioTranscriber {
 
   /**
    * Transcribe un archivo de audio usando Whisper API de OpenAI
+   * @param customPrompt - Prompt personalizado con contexto específico de la tienda (productos, términos)
    */
-  async transcribeAudio(audioBuffer: Buffer, mimeType: string = 'audio/ogg'): Promise<TranscriptionResult> {
+  async transcribeAudio(
+    audioBuffer: Buffer, 
+    mimeType: string = 'audio/ogg',
+    customPrompt?: string
+  ): Promise<TranscriptionResult> {
     let tempFilePath: string | null = null;
 
     try {
@@ -151,6 +156,24 @@ export class AudioTranscriber {
       formData.append('file', fs.createReadStream(tempFilePath), filename);
       formData.append('model', 'whisper-1');
       formData.append('language', 'es'); // Idioma español
+      
+      // 🎯 MEJORA: Usar prompt personalizado de la tienda o uno genérico
+      const transcriptionPrompt = customPrompt || 
+        'Cliente haciendo pedido: cantidad, precio, dirección, ' +
+        'eliminar, agregar, quitar, carrito, confirmar, listo, envío, pagar';
+      formData.append('prompt', transcriptionPrompt);
+      
+      if (customPrompt) {
+        console.log(`🎯 Using custom prompt for store context`);
+      }
+      
+      // 🎯 MEJORA: Solicitar formato verbose_json para obtener más información
+      // Incluye timestamps, confianza, y mejor manejo de puntuación
+      formData.append('response_format', 'verbose_json');
+      
+      // 🎯 MEJORA: Temperatura 0 para transcripción más precisa y consistente
+      // Rango: 0 (más preciso) a 1 (más creativo)
+      formData.append('temperature', '0');
 
       // Enviar a Whisper API
       console.log(`📤 Sending audio to Whisper API (${audioBuffer.length} bytes, format: ${ext})`);
@@ -175,8 +198,21 @@ export class AudioTranscriber {
       const result: any = await response.json();
       const transcription = result.text?.trim() || '';
 
+      // 📊 Extraer información adicional del formato verbose_json
+      const duration = result.duration || 0;
+      const language = result.language || 'es';
+      const segments = result.segments || [];
+      
       console.log(`✅ Audio transcribed successfully`);
       console.log(`📝 Transcription: "${transcription}"`);
+      console.log(`⏱️ Duration: ${duration}s, Language detected: ${language}`);
+      
+      // 🎯 Log de confianza si hay segmentos disponibles
+      if (segments.length > 0) {
+        const avgConfidence = segments.reduce((sum: number, seg: any) => 
+          sum + (seg.avg_logprob || 0), 0) / segments.length;
+        console.log(`🎯 Average confidence: ${(avgConfidence * 100).toFixed(1)}%`);
+      }
 
       return {
         success: true,
@@ -203,17 +239,19 @@ export class AudioTranscriber {
 
   /**
    * Método conveniente: descarga y transcribe en un paso
+   * @param customPrompt - Prompt personalizado con nombres de productos de la tienda
    */
   async downloadAndTranscribe(
     audioMediaId: string,
-    mimeType: string = 'audio/ogg'
+    mimeType: string = 'audio/ogg',
+    customPrompt?: string
   ): Promise<TranscriptionResult> {
     try {
       // Descargar audio desde WhatsApp
       const audioBuffer = await this.downloadAudioFromWhatsApp(audioMediaId);
 
-      // Transcribir usando Whisper
-      const result = await this.transcribeAudio(audioBuffer, mimeType);
+      // Transcribir usando Whisper con prompt personalizado
+      const result = await this.transcribeAudio(audioBuffer, mimeType, customPrompt);
 
       return result;
     } catch (error) {

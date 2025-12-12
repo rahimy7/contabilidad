@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, Download, Printer, ShoppingCart, Filter } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, UserCheck, Clock, CheckCircle, XCircle, Package, MapPin, Phone, Download, Printer, ShoppingCart, Filter, MessageCircle } from "lucide-react";
 import AssignmentModal from "@/components/orders/assignment-modal";
 import OrderDetailModal from "@/components/orders/order-detail-modal";
 import EditOrderModal from "@/components/orders/edit-order-modal";
@@ -509,8 +509,21 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
   
   // Footer
   ticket += CENTER + '\nGracias por su preferencia!\n';
-  if (order.notes) {
-    ticket += '\nNota: ' + order.notes + '\n';
+  
+  // Notas del cliente
+  if (order.notes && order.notes.trim() !== '') {
+    ticket += LEFT + LINE + '\n';
+    
+    // Si son mensajes originales del cliente, formatear mejor
+    if (order.notes.includes('MENSAJES ORIGINALES')) {
+      ticket += CENTER + BOLD_ON + 'PEDIDO DEL CLIENTE:\n' + BOLD_OFF;
+      ticket += LEFT + order.notes.replace('📬 MENSAJES ORIGINALES DEL CLIENTE:', '').trim() + '\n';
+    } else {
+      ticket += CENTER + BOLD_ON + 'NOTA:\n' + BOLD_OFF;
+      ticket += LEFT + order.notes + '\n';
+    }
+    
+    ticket += LINE + '\n';
   }
   
   ticket += '\n\n\n';
@@ -766,6 +779,19 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                         <span>{assignedUser(order)}</span>
                       </div>
                     </div>
+                    
+                    {/* Indicador de notas del cliente */}
+                    {order.notes && order.notes.trim() !== '' && (
+                      <div className="mt-2 flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                        <MessageCircle className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-blue-800 line-clamp-2 flex-1">
+                          <span className="font-semibold">Mensaje del cliente:</span>{' '}
+                          {order.notes.length > 100 
+                            ? order.notes.substring(0, 100) + '...' 
+                            : order.notes}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
