@@ -32,11 +32,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-            <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
+            <User className="h-6 w-6 text-primary dark:text-primary" />
           </div>
           <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
             Iniciar Sesión

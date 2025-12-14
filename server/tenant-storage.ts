@@ -36,13 +36,13 @@ async getAllProducts() {
   try {
     console.log(`📦 Getting all products for store ${storeId} - tenantDb exists: ${!!tenantDb}`);
 
-      // ✅ SOLUCIÓN: String interpolation directa
+      // ✅ SOLUCIÓN: String interpolation directa en schema público
       const directQuery = `
-        SELECT * FROM "store_${storeId}".products
+        SELECT * FROM products
         WHERE store_id = ${storeId} AND "is_active" = true
         ORDER BY created_at DESC
       `;
-      console.log(`🚀 Executing direct query for store ${storeId}`);
+      console.log(`🚀 Executing direct query for store ${storeId} in public schema`);
       const result = await tenantDb.execute(directQuery);
       // 🎁 Transform snake_case to camelCase for all fields
       return result.rows.map((row: any) => {
@@ -337,7 +337,7 @@ async calculateOrderLoyaltyPointsTotal(items: any[] = []): Promise<number> {
           // Get the product to access loyaltyPointsValue
           const productQuery = `
             SELECT loyalty_points_value
-            FROM "store_${storeId}".products
+            FROM products
             WHERE id = ${item.productId} AND store_id = ${storeId}
           `;
           const productResult = await tenantDb.execute(productQuery);
@@ -386,7 +386,7 @@ async calculateOrderLoyaltyPointsData(items: any[] = []): Promise<{
     try {
       const productQuery = `
         SELECT loyalty_points_value, loyalty_points_property_name
-        FROM "store_${storeId}".products
+        FROM products
         WHERE id = ${item.productId} AND store_id = ${storeId}
         LIMIT 1
       `;
@@ -932,8 +932,8 @@ async getAllCustomers() {
         c.*,
         pc.id as "parentCustomer_id",
         pc.name as "parentCustomer_name"
-      FROM "store_${storeId}".customers c
-      LEFT JOIN "store_${storeId}".customers pc ON c.parent_customer_id = pc.id
+      FROM customers c
+      LEFT JOIN customers pc ON c.parent_customer_id = pc.id
       WHERE c.store_id = ${storeId}
       ORDER BY c.created_at DESC
     `;
@@ -1055,23 +1055,10 @@ async getCustomerByPhoneFallback(phoneNumber: string) {
   try {
     console.log(`🔄 Using fallback method for phone: ${phoneNumber}`);
     
-    // Obtener el schema de la tienda
-    const storeResult = await pool.query(`
-      SELECT database_url FROM virtual_stores WHERE id = $1
-    `, [storeId]);
-    
-    if (!storeResult.rows[0]) {
-      console.error(`❌ Store ${storeId} not found`);
-      return null;
-    }
-    
-    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    // Para tienda única, usar schema público directamente
+    const schemaName = 'public';
     
     console.log(`🔄 Working in schema: ${schemaName}`);
-    
-    // Configurar search_path
-    await pool.query(`SET search_path TO ${schemaName}, public`);
     
     // Buscar cliente
     const result = await pool.query(`
@@ -1134,18 +1121,8 @@ async ensureCorrectSchema(): Promise<boolean> {
   });
   
   try {
-    // Obtener información de la tienda
-    const storeResult = await pool.query(`
-      SELECT database_url FROM virtual_stores WHERE id = $1
-    `, [storeId]);
-    
-    if (!storeResult.rows[0]) {
-      console.error(`❌ Store ${storeId} not found`);
-      return false;
-    }
-    
-    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    // Para tienda única, usar schema público
+    const schemaName = 'public';
     
     console.log(`🔍 Schema verification for store ${storeId}: ${schemaName}`);
     
@@ -1538,12 +1515,12 @@ async getUserNotifications(userId: number) {
     .where(eq(schema.notifications.userId, userId))
     .orderBy(desc(schema.notifications.createdAt));
   } else {
-    // Store users buscan en tenant schema
-    const schemaName = `store_${storeId}`;
+    // Store users buscan en schema público
+    const schemaName = `public`;
     const directQuery = `
   SELECT id, user_id, title, message, type, priority, is_read,
          related_id, related_type, metadata, created_at
-  FROM "store_${storeId}".notifications 
+  FROM notifications 
   WHERE user_id = ${userId}
   ORDER BY created_at DESC
 `;
@@ -2081,23 +2058,10 @@ async getAllRegistrationFlows(): Promise<CustomerRegistrationFlow[]> {
     });
     
     try {
-      // Obtener el schema name
-      const storeResult = await pool.query(`
-        SELECT database_url FROM virtual_stores WHERE id = $1
-      `, [storeId]);
-      
-      if (!storeResult.rows[0]) {
-        console.error(`❌ Store ${storeId} not found`);
-        return [];
-      }
-      
-      const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-      const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+      // Para tienda única, usar schema público
+      const schemaName = 'public';
       
       console.log(`🔄 Working in schema: ${schemaName}`);
-      
-      // Configurar search_path
-      await pool.query(`SET search_path TO ${schemaName}, public`);
       
       // Obtener todos los flows
       const result = await pool.query(`
@@ -2169,16 +2133,8 @@ async getRegistrationFlowById(id: number): Promise<CustomerRegistrationFlow | nu
         SELECT database_url FROM virtual_stores WHERE id = $1
       `, [storeId]);
       
-      if (!storeResult.rows[0]) {
-        console.error(`❌ Store ${storeId} not found`);
-        return null;
-      }
-      
-      const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-      const schemaName = schemaMatch ? schemaMatch[1] : 'public';
-      
-      // Configurar search_path
-      await pool.query(`SET search_path TO ${schemaName}, public`);
+      // Para tienda única, usar schema público
+      const schemaName = 'public';
       
       // Obtener el flow por ID
       const result = await pool.query(`
@@ -2740,23 +2696,10 @@ async getAllConversationsFallback() {
   try {
     console.log(`🔄 Using fallback method for conversations in store: ${storeId}`);
     
-    // Obtener el schema de la tienda
-    const storeResult = await pool.query(`
-      SELECT database_url FROM virtual_stores WHERE id = $1
-    `, [storeId]);
-    
-    if (!storeResult.rows[0]) {
-      console.error(`❌ Store ${storeId} not found`);
-      return [];
-    }
-    
-    const schemaMatch = storeResult.rows[0].database_url?.match(/schema=([^&]+)/);
-    const schemaName = schemaMatch ? schemaMatch[1] : 'public';
+    // Para tienda única, usar schema público directamente
+    const schemaName = 'public';
     
     console.log(`🔄 Working in schema: ${schemaName}`);
-    
-    // Configurar search_path
-    await pool.query(`SET search_path TO ${schemaName}, public`);
     
     // Query con JOIN para obtener datos del cliente
     const result = await pool.query(`

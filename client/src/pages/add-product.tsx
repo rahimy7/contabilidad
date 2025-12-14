@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+
+// SVG placeholder para productos sin imagen
+const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2U1ZTdlYiIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TaW4gSW1hZ2VuPC90ZXh0Pgo8L3N2Zz4=';
 import {
   Card,
   CardContent,
@@ -1402,7 +1405,7 @@ export default function EnhancedAddProduct() {
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               console.error('❌ Error cargando imagen:', productImages[currentImageIndex]?.url);
-                              e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Error+al+cargar';
+                              e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
                             }}
                           />
 
@@ -1493,7 +1496,7 @@ export default function EnhancedAddProduct() {
                               alt={`Miniatura ${index + 1}`}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.currentTarget.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=?';
+                                e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
                               }}
                             />
                             

@@ -3,59 +3,59 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(154, 100%, 98%);
-  --foreground: hsl(240, 10%, 3.9%);
-  --muted: hsl(154, 40%, 94%);
-  --muted-foreground: hsl(240, 3.7%, 44.7%);
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(226, 10%, 15%);
+  --muted: hsl(226, 20%, 95%);
+  --muted-foreground: hsl(226, 5%, 45%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(226, 10%, 15%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(240, 10%, 3.9%);
-  --border: hsl(154, 30%, 88%);
-  --input: hsl(154, 30%, 92%);
-  --primary: hsl(158, 64%, 52%);
+  --card-foreground: hsl(226, 10%, 15%);
+  --border: hsl(226, 20%, 88%);
+  --input: hsl(226, 20%, 92%);
+  --primary: hsl(226, 47%, 44%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(175, 100%, 96%);
-  --secondary-foreground: hsl(158, 64%, 32%);
-  --accent: hsl(175, 60%, 90%);
-  --accent-foreground: hsl(158, 64%, 32%);
+  --secondary: hsl(226, 30%, 96%);
+  --secondary-foreground: hsl(226, 47%, 30%);
+  --accent: hsl(226, 35%, 90%);
+  --accent-foreground: hsl(226, 47%, 30%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(158, 64%, 52%);
+  --ring: hsl(226, 47%, 44%);
   --radius: 0.75rem;
   --whatsapp: hsl(142, 70%, 40%);
   --whatsapp-foreground: hsl(0, 0%, 100%);
   --warning: hsl(36, 100%, 50%);
   --warning-foreground: hsl(0, 0%, 100%);
-  --success: hsl(158, 64%, 52%);
+  --success: hsl(142, 60%, 45%);
   --success-foreground: hsl(0, 0%, 100%);
 }
 
 .dark {
-  --background: hsl(158, 40%, 8%);
-  --foreground: hsl(154, 100%, 95%);
-  --muted: hsl(158, 30%, 15%);
-  --muted-foreground: hsl(154, 20%, 64%);
-  --popover: hsl(158, 40%, 10%);
-  --popover-foreground: hsl(154, 100%, 95%);
-  --card: hsl(158, 40%, 10%);
-  --card-foreground: hsl(154, 100%, 95%);
-  --border: hsl(158, 30%, 18%);
-  --input: hsl(158, 30%, 18%);
-  --primary: hsl(158, 64%, 52%);
+  --background: hsl(226, 30%, 10%);
+  --foreground: hsl(226, 20%, 95%);
+  --muted: hsl(226, 25%, 16%);
+  --muted-foreground: hsl(226, 15%, 65%);
+  --popover: hsl(226, 30%, 12%);
+  --popover-foreground: hsl(226, 20%, 95%);
+  --card: hsl(226, 30%, 12%);
+  --card-foreground: hsl(226, 20%, 95%);
+  --border: hsl(226, 25%, 20%);
+  --input: hsl(226, 25%, 20%);
+  --primary: hsl(226, 47%, 50%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(158, 30%, 15%);
-  --secondary-foreground: hsl(154, 100%, 95%);
-  --accent: hsl(158, 30%, 18%);
-  --accent-foreground: hsl(154, 100%, 95%);
+  --secondary: hsl(226, 25%, 16%);
+  --secondary-foreground: hsl(226, 20%, 95%);
+  --accent: hsl(226, 25%, 20%);
+  --accent-foreground: hsl(226, 20%, 95%);
   --destructive: hsl(0, 62.8%, 30.6%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --ring: hsl(226, 47%, 50%);
   --whatsapp: hsl(142, 100%, 39%);
   --whatsapp-foreground: hsl(0, 0%, 100%);
   --warning: hsl(36, 100%, 50%);
   --warning-foreground: hsl(0, 0%, 100%);
-  --success: hsl(120, 61%, 50%);
+  --success: hsl(142, 60%, 45%);
   --success-foreground: hsl(0, 0%, 100%);
 }
 
@@ -111,5 +111,41 @@
   /* 🎨 FIX: Asegurar que el contenedor del diálogo mantenga márgenes consistentes */
   .fixed {
     scrollbar-gutter: stable;
+  }
+
+  /* 🛒 Botón de Agregar al Carrito - Color Primario (Azul 4Life) */
+  .add-to-cart-btn {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .add-to-cart-btn:hover {
+    background-color: hsl(226, 47%, 38%) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(60, 84, 165, 0.3);
+  }
+
+  .add-to-cart-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(60, 84, 165, 0.2);
+  }
+
+  /* 💬 Botón de WhatsApp - Color Verde WhatsApp */
+  .whatsapp-btn {
+    background-color: hsl(var(--whatsapp)) !important;
+    color: hsl(var(--whatsapp-foreground)) !important;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .whatsapp-btn:hover {
+    background-color: hsl(142, 70%, 35%) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 211, 102, 0.3);
+  }
+
+  .whatsapp-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(37, 211, 102, 0.2);
   }
 }

@@ -6,6 +6,9 @@ import { Loader2, AlertCircle, MessageCircle, ShoppingCart, ArrowLeft } from 'lu
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
 
+// SVG placeholder para productos sin imagen
+const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2U1ZTdlYiIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TaW4gSW1hZ2VuPC90ZXh0Pgo8L3N2Zz4=';
+
 interface Product {
   id: number;
   name: string;
@@ -79,7 +82,7 @@ export default function ShareProduct() {
     if (product?.imageUrl) {
       return product.imageUrl;
     }
-    return 'https://via.placeholder.com/800x600/25D366/FFFFFF?text=Producto';
+    return DEFAULT_PRODUCT_IMAGE;
   };
 
   const formatPrice = (price: string | undefined, currency: string = 'DOP') => {
@@ -310,7 +313,7 @@ export default function ShareProduct() {
                 alt={product.name}
                 className="w-full h-80 md:h-96 object-contain"
                 onError={(e) => {
-                  e.currentTarget.src = 'https://via.placeholder.com/800x600/25D366/FFFFFF?text=Sin+Imagen';
+                  e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
                 }}
               />
               {product.category && (

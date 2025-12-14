@@ -1,27 +1,18 @@
 // server/storage/storage-factory.ts
-// CORRECCIÓN COMPLETA - Factory pattern para gestionar instancias de storage
+// Versión simplificada para tienda única (4Life Bella Vista)
 
-import { Pool } from "@neondatabase/serverless";
-import { drizzle } from 'drizzle-orm/neon-serverless';
 import { MasterStorageService } from './master-storage.js';
 import { createTenantStorage } from '../tenant-storage.js';
-import * as schema from '../../shared/schema.js';
-import ws from "ws";
-
-// Configurar WebSocket para Neon
-// @ts-ignore
-if (typeof globalThis.WebSocket === 'undefined') {
-  globalThis.WebSocket = ws as any;
-}
 
 /**
- * Factory para gestionar instancias de storage con cache y validaciones
+ * Factory simplificado para tienda única
+ * Siempre retorna la misma instancia de storage
  */
 export class StorageFactory {
   private static instance: StorageFactory | null = null;
   private static masterStorage: MasterStorageService | null = null;
-  private static tenantStorageCache = new Map<number, any>();
-  private static connectionCache = new Map<number, any>();
+  private static tenantStorageCache: any = null;
+  private static readonly DEFAULT_STORE_ID = 1;
 
   // SINGLETON PATTERN
   static getInstance(): StorageFactory {
@@ -39,109 +30,74 @@ export class StorageFactory {
       }
 
       StorageFactory.masterStorage = new MasterStorageService(process.env.DATABASE_URL);
-      console.log('✅ Master Storage instance created');
+      console.log('✅ Master Storage instance created for single store');
     }
 
     return StorageFactory.masterStorage;
   }
 
-  // TENANT STORAGE MANAGEMENT
-async getTenantStorage(storeId: number): Promise<TenantStorage> {
-  try {
-    // Verificar parámetros
-    if (!storeId || storeId <= 0) {
-      throw new Error('Invalid store ID provided');
+  // TENANT STORAGE MANAGEMENT (simplificado para tienda única)
+  async getTenantStorage(storeId: number = StorageFactory.DEFAULT_STORE_ID): Promise<any> {
+    try {
+      // En modo tienda única, ignoramos el storeId y siempre usamos el ID 1
+      if (storeId !== StorageFactory.DEFAULT_STORE_ID) {
+        console.warn(`⚠️ Requested storeId ${storeId}, but using default ${StorageFactory.DEFAULT_STORE_ID} for single store mode`);
+      }
+
+      // Verificar cache
+      if (StorageFactory.tenantStorageCache) {
+        console.log(`♻️ Using cached tenant storage`);
+        return StorageFactory.tenantStorageCache;
+      }
+
+      console.log(`🔄 Creating tenant storage for single store (ID: ${StorageFactory.DEFAULT_STORE_ID})`);
+
+      // Usar la conexión simplificada multi-tenant-db
+      const { getTenantDb } = await import('../multi-tenant-db.js');
+      const tenantDb = await getTenantDb(StorageFactory.DEFAULT_STORE_ID);
+
+      console.log(`✅ Connection established for store ${StorageFactory.DEFAULT_STORE_ID}`);
+
+      // Crear tenant storage
+      const tenantStorage = createTenantStorage(tenantDb, StorageFactory.DEFAULT_STORE_ID);
+
+      // Cache the storage instance
+      StorageFactory.tenantStorageCache = tenantStorage;
+      console.log(`✅ Tenant storage created and cached`);
+
+      return tenantStorage;
+
+    } catch (error) {
+      console.error(`❌ Error creating tenant storage:`, error);
+
+      // Limpiar cache en caso de error
+      this.clearCache();
+
+      throw new Error(`Failed to initialize tenant storage: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    // Verificar cache
-    if (StorageFactory.tenantStorageCache.has(storeId)) {
-      const cachedStorage = StorageFactory.tenantStorageCache.get(storeId)!;
-      console.log(`♻️ Using cached tenant storage for store ${storeId}`);
-      return cachedStorage;
-    }
-
-    console.log(`🔄 Creating new tenant storage for store ${storeId}`);
-
-    // Obtener configuración de la tienda desde master storage
-    const masterStorage = this.getMasterStorage();
-    const store = await masterStorage.getVirtualStore(storeId);
-
-    if (!store) {
-      throw new Error(`Store with ID ${storeId} not found in master storage`);
-    }
-
-    if (!store.isActive) {
-      throw new Error(`Store with ID ${storeId} is not active`);
-    }
-
-    // ✅ CORRECCIÓN: Usar getTenantDb en lugar de conexión master
-    const { getTenantDb } = await import('../multi-tenant-db.js');
-    const tenantDb = await getTenantDb(storeId);
-    
-    console.log(`✅ Connection test passed for store ${storeId}`);
-
-    // ✅ CORRECCIÓN: Usar la conexión tenant correcta
-    const tenantStorage = createTenantStorage(tenantDb, storeId);
-    
-    // Cache the storage instance
-    StorageFactory.tenantStorageCache.set(storeId, tenantStorage);
-    console.log(`✅ Tenant storage created and cached for store ${storeId}`);
-    
-    return tenantStorage;
-
-  } catch (error) {
-    console.error(`❌ Error creating tenant storage for store ${storeId}:`, error);
-    
-    // Limpiar cache en caso de error
-    this.clearCacheForStore(storeId);
-    
-    throw new Error(`Failed to initialize tenant storage for store ${storeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-}
 
   // CACHE MANAGEMENT
-  clearCacheForStore(storeId: number): void {
-    if (StorageFactory.tenantStorageCache.has(storeId)) {
-      StorageFactory.tenantStorageCache.delete(storeId);
-      console.log(`🧹 Cache cleared for store ${storeId}`);
-    }
-    
-    if (StorageFactory.connectionCache.has(storeId)) {
-      StorageFactory.connectionCache.delete(storeId);
-    }
-  }
-
-  clearAllCaches(): void {
-    StorageFactory.tenantStorageCache.clear();
-    StorageFactory.connectionCache.clear();
-    console.log('🧹 All caches cleared');
+  clearCache(): void {
+    StorageFactory.tenantStorageCache = null;
+    console.log('🧹 Tenant storage cache cleared');
   }
 
   // UTILITIES
   getCacheStats(): { tenantCacheSize: number; connectionCacheSize: number } {
     return {
-      tenantCacheSize: StorageFactory.tenantStorageCache.size,
-      connectionCacheSize: StorageFactory.connectionCache.size
+      tenantCacheSize: StorageFactory.tenantStorageCache ? 1 : 0,
+      connectionCacheSize: 0 // No usado en modo tienda única
     };
   }
 
-}
-
-
-
-// HELPER FUNCTION
-// ✅ CORRECTO - Debería recibir el objeto user
-/* export async function getTenantStorageForUser(user: { storeId: number }): Promise<any> {
-  try {
-    const factory = StorageFactory.getInstance();
-    
-    if (!user.storeId) {
-      throw new Error('User must have a storeId for tenant operations');
-    }
-
-    return await factory.getTenantStorage(user.storeId);
-  } catch (error) {
-    console.error(`Error getting tenant storage for user with storeId ${user.storeId}:`, error);
-    throw error;
+  // COMPATIBILIDAD - Métodos legacy que pueden ser llamados por código antiguo
+  clearCacheForStore(storeId: number): void {
+    console.log(`⚠️ clearCacheForStore called for store ${storeId}, clearing all cache`);
+    this.clearCache();
   }
-} */
+
+  clearAllCaches(): void {
+    this.clearCache();
+  }
+}

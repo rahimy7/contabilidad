@@ -53,42 +53,33 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isStoreUser = user && !isSuperAdmin;
-
   const { data: orders = [] } = useQuery({
     queryKey: ["/api/orders"],
-    enabled: isStoreUser && hasPermission(user.role, 'view_orders'),
+    enabled: user && hasPermission(user.role, 'view_orders'),
   });
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["/api/conversations"],
-    enabled: isStoreUser && hasPermission(user.role, 'view_conversations'),
+    enabled: user && hasPermission(user.role, 'view_conversations'),
   });
 
   const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
     queryKey: ["/api/notifications/count", { userId: user?.id }],
     queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
     refetchInterval: 30000,
-    enabled: isStoreUser && hasPermission(user.role, 'view_notifications'),
-  });
-
-  const { data: superAdminMetrics } = useQuery({
-    queryKey: ["/api/super-admin/metrics"],
-    enabled: isSuperAdmin,
-    refetchInterval: 60000,
+    enabled: user && hasPermission(user.role, 'view_notifications'),
   });
 
 const { data: activeTrip } = useQuery<ActiveTrip | null>({
   queryKey: ["/api/trips/my-active"],
-  enabled: isStoreUser && user?.role === 'delivery',
+  enabled: user && user?.role === 'delivery',
   refetchInterval: 30000,
 });
 
   // Query para obtener stats de viajes (para admin/sales)
   const { data: tripStats } = useQuery({
     queryKey: ["/api/trips", { status: 'pending' }],
-    enabled: isStoreUser && (user?.role === 'admin' || user?.role === 'sales_rep'),
+    enabled: user && (user?.role === 'admin' || user?.role === 'sales_rep'),
     refetchInterval: 30000,
   });
 
@@ -122,7 +113,6 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Dashboard",
       badge: null,
       permission: "view_dashboard",
-      excludeRoles: ["super_admin"],
     },
     {
       href: "/conversations",
@@ -130,7 +120,6 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Conversaciones WhatsApp",
       badge: activeConversations > 0 ? activeConversations : null,
       permission: "view_conversations",
-      excludeRoles: ["super_admin"],
     },
     {
       href: "/notifications",
@@ -138,7 +127,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Notificaciones",
       badge: unreadNotifications > 0 ? unreadNotifications : null,
       permission: "view_notifications",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/orders",
@@ -146,7 +135,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Pedidos",
       badge: pendingOrders > 0 ? pendingOrders : null,
       permission: "manage_orders",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     // === VIAJES - PARA ADMIN Y SALES ===
     {
@@ -163,7 +152,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Empleados",
       badge: null,
       permission: "manage_users",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/product-management",
@@ -171,7 +160,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Gestión de Productos",
       badge: null,
       permission: "manage_products",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/admin/measurement-units",
@@ -179,7 +168,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Unidades de Medida",
       badge: null,
       permission: "manage_products",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/purchase-management",
@@ -187,7 +176,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Gestión de Compras",
       badge: null,
       permission: "manage_products",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/inventory-traceability",
@@ -195,7 +184,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Trazabilidad de Inventario",
       badge: null,
       permission: "manage_products",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/customer-management",
@@ -203,7 +192,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Gestión de Clientes",
       badge: null,
       permission: "manage_customers",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     // === VENTAS Y PUNTO DE VENTA ===
     {
@@ -235,7 +224,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Reportes",
       badge: null,
       permission: "view_reports",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/billing",
@@ -243,7 +232,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Facturación",
       badge: null,
       permission: "view_reports",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/settings",
@@ -251,7 +240,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Configuración",
       badge: null,
       permission: "manage_settings",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/auto-responses",
@@ -259,7 +248,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Respuestas Automáticas",
       badge: null,
       permission: "manage_settings",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     {
       href: "/assignment-rules",
@@ -267,7 +256,7 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       label: "Asignación Automática",
       badge: null,
       permission: "manage_assignments",
-      excludeRoles: ["super_admin", "technician"],
+      excludeRoles: ["technician"],
     },
     // === MENU ESPECÍFICO PARA TÉCNICOS ===
     {
@@ -303,138 +292,6 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
       permission: "view_orders",
       roles: ["delivery"],
     },
-    // === MENU DE SUPER ADMIN ===
-    {
-      href: "/super-admin/dashboard",
-      icon: Shield,
-      label: "Panel Super Admin",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Dashboard",
-    },
-    // --- GESTIÓN DE TIENDAS ---
-    {
-      href: "/super-admin/stores",
-      icon: Store,
-      label: "Gestión de Tiendas",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Tiendas",
-    },
-    {
-      href: "/super-admin/subscriptions",
-      icon: Receipt,
-      label: "Suscripciones",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Tiendas",
-    },
-    {
-      href: "/super-admin/subscription-plans",
-      icon: Layout,
-      label: "Planes de Suscripción",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Tiendas",
-    },
-    // --- USUARIOS Y ACCESO ---
-    {
-      href: "/super-admin/global-users",
-      icon: Users,
-      label: "Usuarios Globales",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Usuarios",
-    },
-    // --- CONFIGURACIÓN Y DATOS ---
-    {
-      href: "/super-admin/store-settings",
-      icon: Database,
-      label: "Configuración de Tiendas",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Configuración",
-    },
-    {
-      href: "/super-admin/store-products",
-      icon: Package,
-      label: "Productos de Tiendas",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Configuración",
-    },
-    {
-      href: "/super-admin/store-themes",
-      icon: Palette,
-      label: "Temas y Personalización",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Configuración",
-    },
-    {
-      href: "/super-admin/whatsapp-management",
-      icon: MessageCircle,
-      label: "Gestión de WhatsApp",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Configuración",
-    },
-    {
-      href: "/super-admin/settings",
-      icon: Settings,
-      label: "Configuración Global",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Configuración",
-    },
-    // --- FACTURACIÓN Y CRÉDITOS ---
-    {
-      href: "/super-admin/billing",
-      icon: DollarSign,
-      label: "Facturación",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Facturación",
-    },
-    {
-      href: "/super-admin/credits",
-      icon: Coins,
-      label: "Gestión de Créditos",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Facturación",
-    },
-    // --- ÓRDENES Y REPORTES ---
-    {
-      href: "/super-admin/global-orders",
-      icon: ShoppingCart,
-      label: "Órdenes Globales",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Operaciones",
-    },
-    {
-      href: "/super-admin/reports",
-      icon: TrendingUp,
-      label: "Reportes",
-      badge: null,
-      permission: "super_admin",
-      roles: ["super_admin"],
-      section: "Operaciones",
-    },
   ];
 
   const navItems = allNavItems.filter(item => {
@@ -451,19 +308,6 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
     return hasPermission(user.role, item.permission);
   });
 
-  // Agrupar items por sección para super admin
-  const groupedNavItems = isSuperAdmin ? navItems.reduce((acc, item) => {
-    const section = item.section || 'Otro';
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(item);
-    return acc;
-  }, {} as Record<string, NavItem[]>) : {};
-
-  const sectionOrder = ['Dashboard', 'Tiendas', 'Usuarios', 'Configuración', 'Facturación', 'Operaciones'];
-  const orderedSections = sectionOrder.filter(section => groupedNavItems[section]);
-
   if (isMobile && !isOpen) return null;
 
   return (
@@ -476,9 +320,9 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
         />
       )}
       
-      <aside className={`w-72 bg-gradient-to-b from-emerald-500 to-teal-600 shadow-xl border-r border-emerald-400 flex flex-col h-full ${
-        isMobile 
-          ? 'fixed left-0 top-0 z-50 transform transition-transform duration-300' 
+      <aside className={`w-72 bg-gradient-to-b from-[#4a5eba] to-[#3d4e9f] shadow-xl border-r border-white/10 flex flex-col h-full ${
+        isMobile
+          ? 'fixed left-0 top-0 z-50 transform transition-transform duration-300'
           : 'relative'
       } ${
         isMobile && !isOpen ? '-translate-x-full' : 'translate-x-0'
@@ -499,123 +343,80 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
         )}
 
         {/* Logo Header */}
-        <div className="p-4 md:p-6 border-b border-white/20 flex-shrink-0">
+        <div className="p-4 md:p-6 border-b border-white/30 flex-shrink-0 bg-black/10">
           <div className="flex items-center space-x-3">
-            <div className="w-8 md:w-10 h-8 md:h-10 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
-              <MessageCircle className="text-white h-5 md:h-6 w-5 md:w-6" />
-            </div>
+            <img
+              src="/4life-logo-white.svg"
+              alt="4Life Logo"
+              className="h-8 md:h-10 w-auto drop-shadow-lg"
+            />
             <div>
-              <h1 className="font-bold text-white text-base md:text-lg">🏪 OrderManager</h1>
-              <p className="text-xs md:text-sm text-emerald-100">WhatsApp Business</p>
+              <h1 className="font-bold text-white text-base md:text-lg drop-shadow-sm">Bella Vista</h1>
             </div>
           </div>
         </div>
 
         {/* User Profile */}
-        <div className="p-4 border-b border-white/20 flex-shrink-0">
+        <div className="p-4 border-b border-white/30 flex-shrink-0 bg-black/5">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">👤</span>
+            <div className="w-8 h-8 bg-white/30 backdrop-blur rounded-full flex items-center justify-center shadow-md">
+              <span className="text-white text-sm font-medium drop-shadow-sm">👤</span>
             </div>
             <div className="flex-1">
-              <p className="font-medium text-white text-sm">Administrador</p>
-              <p className="text-xs text-emerald-100">Sistema</p>
+              <p className="font-medium text-white text-sm drop-shadow-sm">Administrador</p>
+              <p className="text-xs text-white/90">Sistema</p>
             </div>
-            <button className="text-emerald-100 hover:text-white">
-              <ChartLine className="h-4 w-4" />
+            <button className="text-white/90 hover:text-white transition-colors">
+              <ChartLine className="h-4 w-4 drop-shadow-sm" />
             </button>
           </div>
         </div>
 
         {/* Navigation Menu - CON SCROLL */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {isSuperAdmin ? (
-            // Vista agrupada por secciones para Super Admin
-            <div className="space-y-4">
-              {orderedSections.map((section) => (
-                <div key={section}>
-                  {/* Encabezado de sección */}
-                  <div className="px-3 py-2 text-xs font-semibold text-emerald-100 uppercase tracking-wider opacity-75">
-                    {section}
-                  </div>
-                  {/* Items de la sección */}
-                  <div className="space-y-1">
-                    {groupedNavItems[section]?.map((item) => {
-                      const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-                      const Icon = item.icon;
+          <div className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
+              const Icon = item.icon;
 
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={handleMenuItemClick}
-                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                            isActive
-                              ? "bg-white/25 backdrop-blur text-white shadow-lg"
-                              : "text-emerald-100 hover:bg-white/15 hover:text-white"
-                          }`}
-                        >
-                          <Icon className="h-5 w-5" />
-                          <span className="flex-1">{item.label}</span>
-                          {item.badge && (
-                            <Badge
-                              variant="destructive"
-                              className="text-xs px-2 py-1"
-                            >
-                              {item.badge}
-                            </Badge>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Vista normal para otros usuarios
-            <div className="space-y-1">
-              {navItems.map((item) => {
-                const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-                const Icon = item.icon;
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={handleMenuItemClick}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                      isActive
-                        ? "bg-white/25 backdrop-blur text-white shadow-lg"
-                        : "text-emerald-100 hover:bg-white/15 hover:text-white"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                    {item.badge && (
-                      <Badge
-                        variant={item.href === "/conversations" ? "default" : "destructive"}
-                        className={`ml-auto text-xs px-2 py-1 ${
-                          item.href === "/conversations" ? "whatsapp-bg text-white" : ""
-                        } ${
-                          item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
-                        }`}
-                      >
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleMenuItemClick}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-white text-[#4a5eba] shadow-lg font-semibold"
+                      : "text-white/95 hover:bg-white/20 hover:text-white hover:shadow-md"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${
+                    isActive ? "" : "drop-shadow-sm"
+                  }`} />
+                  <span className={isActive ? "" : "drop-shadow-sm"}>{item.label}</span>
+                  {item.badge && (
+                    <Badge
+                      variant={item.href === "/conversations" ? "default" : "destructive"}
+                      className={`ml-auto text-xs px-2 py-1 ${
+                        item.href === "/conversations" ? "whatsapp-bg text-white" : ""
+                      } ${
+                        item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
+                      }`}
+                    >
+                      {item.badge}
+                    </Badge>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/20 flex-shrink-0">
+        <div className="p-4 border-t border-white/30 flex-shrink-0 bg-black/5">
           <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm text-emerald-100">✅ WhatsApp API Conectado</span>
+            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg"></div>
+            <span className="text-sm text-white/95 drop-shadow-sm font-medium">✅ WhatsApp API Conectado</span>
           </div>
         </div>
       </aside>

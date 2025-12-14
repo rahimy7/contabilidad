@@ -885,7 +885,7 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
             <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
               <CardHeader className="pb-4">
                 {/* Imagen del producto */}
-                <div className="w-full h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
+                <div className="w-full h-48 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
                   {getProductMainImage(product) ? (
                     <img
                       src={getProductMainImage(product)}

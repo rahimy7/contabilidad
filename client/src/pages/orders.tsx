@@ -592,12 +592,12 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-5 gap-3">
-        <Card 
+        <Card
           className={`cursor-pointer transition-all hover:shadow-md ${
-            dateFilter === "today" && statusFilter === "all" 
-              ? "ring-2 ring-blue-500 bg-blue-50" 
-              : "bg-gradient-to-r from-blue-50 to-blue-100"
-          } border-blue-200`}
+            dateFilter === "today" && statusFilter === "all"
+              ? "ring-2 ring-primary bg-primary/5"
+              : "bg-gradient-to-r from-slate-50 to-slate-100"
+          } border-primary/20`}
           onClick={() => handleStatClick("today")}
         >
           <CardContent className="p-3">

@@ -147,12 +147,12 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
   return (
     <div className="space-y-6">
       {/* Header del Viaje */}
-      <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+      <Card className="bg-gradient-to-r from-primary to-primary/80 text-white">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-2xl text-white">{trip.tripNumber}</CardTitle>
-              <p className="text-blue-100 mt-1">Viaje Activo</p>
+              <p className="text-primary-foreground/80 mt-1">Viaje Activo</p>
             </div>
             <Badge variant="secondary" className="bg-white text-blue-600">
               {trip.status === 'active' ? 'Activo' : 'En Progreso'}

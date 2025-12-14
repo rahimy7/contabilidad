@@ -7,7 +7,7 @@ import React from "react";
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (username: string, password: string, companyId?: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -69,18 +69,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
-  const login = async (username: string, password: string, companyId?: string) => {
-    const loginData = companyId 
-      ? { username, password, companyId }
-      : { username, password };
-      
-    // ✅ CORREGIDO: apiRequest ya maneja todo automáticamente
+  const login = async (username: string, password: string) => {
+    const loginData = { username, password };
+
     const response = await apiRequest('POST', '/api/auth/login', loginData);
     const { user: userData, token } = response as { user: AuthUser; token: string };
-    
+
     localStorage.setItem('auth_token', token);
     setUser(userData);
-    
+
     // Redirección automática después del login exitoso
     setTimeout(() => {
       window.location.href = '/';

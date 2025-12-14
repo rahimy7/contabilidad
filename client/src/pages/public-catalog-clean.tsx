@@ -274,7 +274,7 @@ export default function PublicCatalogClean() {
                 <CardHeader className="pb-4">
                   {/* Imagen clickeable */}
                   <div 
-                    className="w-full h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center cursor-pointer relative overflow-hidden group"
+                    className="w-full h-48 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg flex items-center justify-center cursor-pointer relative overflow-hidden group"
                     onClick={() => openImageGallery(product, 0)}
                   >
                     <img 
@@ -498,8 +498,8 @@ export default function PublicCatalogClean() {
               <div className="p-4 space-y-4">
                 {cart.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded flex items-center justify-center">
-                      <ShoppingBag className="w-6 h-6 text-blue-600" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-slate-50 to-slate-100 rounded flex items-center justify-center">
+                      <ShoppingBag className="w-6 h-6 text-primary" />
                     </div>
                     
                     <div className="flex-1">

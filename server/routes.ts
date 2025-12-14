@@ -25,25 +25,20 @@ import {
 import { type AuthUser } from "@shared/auth";
 
 // Middleware
-import { authenticateToken, requireSuperAdmin, requireAdmin } from "./authMiddleware";
+import { authenticateToken, requireAdmin } from "./authMiddleware";
 
 // Storage Layer
 import { StorageFactory } from './storage/storage-factory';
 import { UnifiedStorage } from './storage/unified-storage';
-import { getTenantStorage, healthCheck, TenantStorage } from './storage/index';
+import { getTenantStorage, healthCheck } from './storage/index';
 import { db as masterDb } from './db'; // ✅ Usar db como masterDb
 import * as schema from '@shared/schema'; // ✅ Importar schema directamente
-import { getTenantDb } from "./multi-tenant-db.js";
 import { createTenantStorage } from "./tenant-storage.js";
 import { NotificationService } from "./notification-service.js";
-import superAdminRoutes from './routes/super-admin-routes';
+// ❌ Multi-tenant super admin routes comentado (no existe en sistema single-store)
+// import superAdminRoutes from './routes/super-admin-routes';
 import { executeAutoAssignment } from "./services/auto-assignment-service.js";
 import { integrateWithAutoAssignment, TripService } from "./services/trip-service.js";
-
-
-function getSchemaForUser(user: AuthUser): 'public' | 'tenant' {
-  return user.role === 'super_admin' ? 'public' : 'tenant';
-}
 
 // ✅ Schema de validación para reglas de asignación
 const assignmentRuleSchema = z.object({
@@ -93,44 +88,15 @@ const byCustomerOrderSchema = z.object({
   })).optional(),
 }).passthrough();
 
-export async function getTenantStorageWithSchema(user: any) {
-  // ✅ Super admins deben usar endpoints de /api/super-admin/
-  if (user.role === 'super_admin') {
-    throw new Error('Super admin should use /api/super-admin/ endpoints');
-  }
+// ✅ Storage factory para sistema single-store
+const storageFactory = StorageFactory.getInstance();
 
+export async function getTenantStorageWithSchema(user: any) {
   if (!user.storeId) {
     throw new Error('Store ID required for tenant operations');
   }
-
   return storageFactory.getTenantStorage(user.storeId);
 }
-
-const storageFactory = StorageFactory.getInstance();
-
-const routeWithSchemaRouting = (handler: Function) => {
-  return async (req: any, res: any, next: any) => {
-    try {
-      const user = req.user as AuthUser;
-      
-      // Determinar si forzar public schema
-      const forcePublic = user.role === 'super_admin';
-      
-      if (forcePublic) {
-        console.log(`🔑 Super admin accessing PUBLIC schema`);
-      } else {
-        console.log(`🏪 Store user accessing TENANT schema for store ${user.storeId}`);
-      }
-      
-      // Inyectar schema info en request
-      req.schemaType = forcePublic ? 'public' : 'tenant';
-      
-      return await handler(req, res, next);
-    } catch (error) {
-      next(error);
-    }
-  };
-};
 
 
 
@@ -187,7 +153,8 @@ async function syncOrderStatusWithTrip(
   try {
     console.log(`🔄 [SYNC] Sincronizando estado de orden ${orderId} con viaje... (nuevo estado: ${newOrderStatus})`);
 
-    const db = await getTenantDb(storeId);
+    // Usar masterDb ya que es single-store (siempre schema public)
+    const db = masterDb;
 
     // Obtener información completa de la orden
     const [order] = await db
@@ -513,12 +480,6 @@ const getProductsHandler = async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
 
-    if (user.role === 'super_admin') {
-      return res.status(403).json({
-        error: "Super admin debe usar /api/super-admin/stores/:storeId/products"
-      });
-    }
-
     if (!user.storeId) {
       return res.status(403).json({
         error: "Store ID es requerido"
@@ -537,8 +498,7 @@ const getProductsHandler = async (req: any, res: any) => {
   } catch (error) {
     console.error('❌ Error fetching products:', {
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      user: user?.storeId
+      stack: error instanceof Error ? error.stack : undefined
     });
     res.status(500).json({
       error: "Error al obtener productos",
@@ -552,28 +512,20 @@ const getProductByIdHandler = async (req: any, res: any) => {
     const user = req.user as AuthUser;
     const productId = parseInt(req.params.id);
 
-    // ✅ Super admin puede especificar storeId vía query parameter
-    const storeId = req.query.storeId
-      ? parseInt(req.query.storeId as string)
-      : user.storeId;
-
-    if (!storeId) {
+    if (!user.storeId) {
       return res.status(400).json({
-        error: "Store ID is required. Super admins must provide storeId query parameter."
+        error: "Store ID is required"
       });
     }
 
-    console.log('🔍 Getting product', productId, 'for store:', storeId);
+    console.log('🔍 Getting product', productId, 'for store:', user.storeId);
 
-    // ✅ Obtener storage para la tienda específica
-    const tenantStorage = user.role === 'super_admin'
-      ? await storageFactory.getTenantStorage(storeId)
-      : await getTenantStorageWithSchema(user);
+    const tenantStorage = await getTenantStorageWithSchema(user);
 
     const product = await tenantStorage.getProductById(productId);
 
     if (!product) {
-      console.log('❌ Product not found in store:', storeId);
+      console.log('❌ Product not found in store:', user.storeId);
       return res.status(404).json({ error: "Product not found" });
     }
 
@@ -583,8 +535,7 @@ const getProductByIdHandler = async (req: any, res: any) => {
     console.error('❌ Error fetching product:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      productId: req.params.id,
-      storeId: req.query.storeId || req.user?.storeId
+      productId: req.params.id
     });
     res.status(500).json({
       error: "Error al obtener producto",
@@ -1314,9 +1265,11 @@ const uploadImageHandler = async (req: any, res: any) => {
 }; */
 
 // ================================
-// USER MANAGEMENT FUNCTIONS
+// USER MANAGEMENT FUNCTIONS (Multi-tenant - COMENTADO)
 // ================================
 
+// ❌ Funciones multi-tenant comentadas - no se usan en sistema single-store
+/*
 export function setupUserManagementRoutes(app: any) {
   // Crear usuario global (super_admin, system_admin)
   app.post('/api/super-admin/global-users', authenticateToken, requireSuperAdmin, async (req: Request, res: Response) => {
@@ -1433,12 +1386,11 @@ export function setupUserManagementRoutes(app: any) {
       console.error('Error fetching user metrics:', error);
       res.status(500).json({ error: 'Failed to fetch user metrics' });
     }
-  }); */
+  }); 
 
   
 }
-
-
+*/
 
 // ================================
 // WEBHOOK PROCESSORS
@@ -1483,7 +1435,7 @@ app.use('/api', employeeRouter);
       }
 
       // Usar master storage para autenticación
-      const user = await masterStorage.authenticateUser(username, password, storeId);
+      const user = await masterStorage.authenticateUser(username, password);
 
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -1521,12 +1473,8 @@ router.get('/auth/me', authenticateToken, async (req: any, res: any) => {
     // Si es super admin, obtener de master storage
     if (user.role === 'super_admin') {
       const masterStorage = storageFactory.getMasterStorage();
-      const globalUser = await masterStorage.getGlobalUserById(user.id);
-      
-      if (globalUser) {
-        const { password, ...safeUser } = globalUser;
-        return res.json(safeUser);
-      }
+     
+  
     }
     
     // Para usuarios de tienda, obtener de tenant storage
@@ -1671,11 +1619,11 @@ router.put('/brands/:id', authenticateToken, updateBrandHandler);
 router.delete('/brands/:id', authenticateToken, deleteBrandHandler);
 
 //===================================
-// SUPER ADMIN 
+// SUPER ADMIN (Multi-tenant - COMENTADO)
 //==================================
 
-// Agregar a routes.ts en la sección SUPER ADMIN ROUTES
-
+// ❌ Todas las rutas de super-admin comentadas - sistema single-store no las usa
+/*
 // GET - Usuarios por contexto (sin requerir storeId del usuario)
 router.get('/super-admin/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
@@ -2003,13 +1951,11 @@ router.get('/super-admin/user-metrics', authenticateToken, requireSuperAdmin, as
     res.status(500).json({ error: "Failed to fetch metrics" });
   }
 });
+*/
 
-
-
-  // ================================
-    // ================================
-  // CONVERSATION ROUTES - CORREGIDOS ✅
-  // ================================
+// ================================
+// CONVERSATION ROUTES - CORREGIDOS ✅
+// ================================
 
 router.get('/conversations', authenticateToken, async (req: any, res: any) => {
   try {
@@ -4343,38 +4289,51 @@ router.patch('/users/:userId/status', authenticateToken, async (req: any, res: a
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
       
+      // Validar ID
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid registration flow ID' });
+      }
+      
       const tenantStorage = await getTenantStorageWithSchema(user);
+      
+      // Verificar que el flujo existe antes de eliminar
+      const flow = await tenantStorage.getRegistrationFlowById(id);
+      if (!flow) {
+        return res.status(404).json({ error: 'Registration flow not found' });
+      }
+      
       await tenantStorage.deleteRegistrationFlow(id);
-      res.json({ success: true });
+      res.json({ success: true, message: 'Registration flow deleted successfully' });
     } catch (error) {
       console.error("Error deleting registration flow:", error);
-      res.status(500).json({ error: "Failed to delete registration flow" });
+      res.status(500).json({ 
+        error: "Failed to delete registration flow",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
   // ================================
-  // USER MANAGEMENT ROUTES (TENANT LEVEL)
+  // USER MANAGEMENT ROUTES (Single-Store)
   // ================================
+  // ❌ Rutas multi-tenant eliminadas (375 líneas) - solo quedan las necesarias para single-store
 
-// GET - Endpoint unificado para obtener usuarios
-router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
-  try {
-    const { storeId, level, search, page = 1, limit = 50 } = req.query;
-    const user = req.user as AuthUser;
+// router.get('/users')  - ELIMINADO (usaba requireSuperAdmin)
+// router.post('/users') - ELIMINADO (usaba requireSuperAdmin)
+// router.get('/stores') - ELIMINADO (virtualStores no existe)
+// [~360 líneas de código multi-tenant eliminadas aquí]
+    //const user = req.user as AuthUser;
     
     let users = [];
     let totalCount = 0;
     let source = '';
 
     // Si se especifica storeId, obtener usuarios del schema de esa tienda
-    if (storeId) {
-      const storeIdInt = parseInt(storeId as string);
+
       
       // Verificar que la tienda existe
-      const store = await masterStorage.getVirtualStore(storeIdInt);
-      if (!store) {
-        return res.status(404).json({ error: 'Store not found' });
-      }
+    /*   const store = await masterStorage.getVirtualStore(storeIdInt);
+    
 
       try {
         const tenantStorage = await storageFactory.getTenantStorage(storeIdInt);
@@ -4383,7 +4342,7 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
         users = tenantUsers.map(u => ({
           ...u,
           level: 'tenant',
-          storeId: storeIdInt,
+    
           storeName: store.name,
           source: 'tenant_schema'
         }));
@@ -4474,9 +4433,12 @@ router.get('/users', authenticateToken, requireSuperAdmin, async (req: any, res:
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
-
-// POST - Crear usuario (mejorado para manejar diferentes contextos)
-router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
+ */
+// ❌ POST /users - COMENTADO (ruta multi-tenant que usa métodos inexistentes)
+// Esta ruta usaba createStoreUser, createGlobalUser que no existen en single-store
+// Para crear usuarios, usar POST /stores/:storeId/users o la interfaz de administración
+/*
+router.post('/users', authenticateToken, async (req: any, res: any) => {
   try {
     const { storeId, level = 'global', ...userData } = req.body;
     const user = req.user as AuthUser;
@@ -4542,7 +4504,10 @@ router.post('/users', authenticateToken, requireSuperAdmin, async (req: any, res
     res.status(500).json({ error: "Failed to create user" });
   }
 });
+*/
 
+// ❌ Ruta de stores multi-tenant comentada
+/*
 // GET - Obtener stores disponibles para el selector
 router.get('/stores', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
@@ -4575,8 +4540,9 @@ router.get('/stores', authenticateToken, requireSuperAdmin, async (req: any, res
     res.status(500).json({ error: "Failed to fetch stores" });
   }
 });
+*/
 
-  router.get('/users/:id', authenticateToken, async (req: any, res: any) => {
+router.get('/users/:id', authenticateToken, async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
       const user = req.user as AuthUser;
@@ -4632,7 +4598,10 @@ router.put('/users/:id', authenticateToken, async (req: any, res: any) => {
   }
 });
 
-// POST - Reset password (contexto unificado)
+// ❌ POST /users/:id/reset-password - COMENTADO (ruta multi-tenant obsoleta)
+// Esta ruta usaba requireSuperAdmin, updateStoreUser, updateGlobalUser que no existen
+// Para resetear contraseñas, usar POST /api/auth/emergency-reset-admin o la interfaz de administración
+/*
 router.post('/users/:id/reset-password', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
@@ -4675,8 +4644,12 @@ router.post('/users/:id/reset-password', authenticateToken, requireSuperAdmin, a
     res.status(500).json({ error: "Failed to reset password" });
   }
 });
+*/
 
-// DELETE - Eliminar usuario (contexto unificado)
+// ❌ DELETE /users/:id - COMENTADO (ruta multi-tenant obsoleta)
+// Esta ruta usaba requireSuperAdmin, deleteStoreUser, deleteGlobalUser que no existen
+// Para eliminar usuarios, usar la interfaz de administración de usuarios de la tienda
+/*
 router.delete('/users/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
@@ -4712,39 +4685,34 @@ router.delete('/users/:id', authenticateToken, requireSuperAdmin, async (req: an
 
     res.json({ 
       success: true, 
-      message: `User deleted successfully from ${level} context`
-    });
+// router.post('/users/:id/reset-password') - ELIMINADO (usaba requireSuperAdmin)
+// router.delete('/users/:id') - ELIMINADO (usaba requireSuperAdmin)
 
+// ✅ Rutas válidas para single-store a continuación:
+router.patch('/users/:id/status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status } = z.object({ status: z.string() }).parse(req.body);
+    const user = req.user as AuthUser;
+    
+    const tenantStorage = await getTenantStorageWithSchema(user);
+    const updatedUser = await tenantStorage.updateUser(id, { status });
+    
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(updatedUser);
   } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ error: "Failed to delete user" });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid status data", details: error.errors });
+    }
+    res.status(500).json({ error: "Failed to update user status" });
   }
 });
 
-  router.patch('/users/:id/status', authenticateToken, async (req: any, res: any) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { status } = z.object({ status: z.string() }).parse(req.body);
-      const user = req.user as AuthUser;
-      
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      const updatedUser = await tenantStorage.updateUser(id, { status });
-      
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      res.json(updatedUser);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid status data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update user status" });
-    }
-  });
-
-  // ================================
-  // NOTIFICATION ROUTES
-  // ================================
+// ================================
+// NOTIFICATION ROUTES
+// ================================
 
   router.get("/notifications/count/:userId", authenticateToken, async (req: any, res: any) => {
     try {
@@ -5079,7 +5047,10 @@ router.get("/notifications/:userId", authenticateToken, async (req: any, res: an
   // ================================
 // STORE-SPECIFIC USER ROUTES
 // ================================
+// ❌ Rutas multi-tenant comentadas - usan getVirtualStore, createStoreUser, deleteStoreUser que no existen
+// En single-store, los usuarios se gestionan directamente sin necesidad de especificar storeId
 
+/*
 // POST - Crear usuario para una tienda específica
 router.post('/stores/:storeId/users', authenticateToken, async (req: any, res: any) => {
   try {
@@ -5232,6 +5203,7 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
     res.status(500).json({ error: "Failed to delete user" });
   }
 });
+*/ // FIN RUTAS /stores/:storeId/users/* MULTI-TENANT COMENTADAS
 
   // ================================
   // REPORTS/ANALYTICS ROUTES
@@ -5404,9 +5376,11 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   });
 
   // ================================
-  // SUPER ADMIN ROUTES (GLOBAL OPERATIONS)
+  // SUPER ADMIN ROUTES (Multi-tenant - COMENTADO)
   // ================================
 
+// ❌ Rutas de super admin stores comentadas
+/*
   router.get('/super-admin/stores', authenticateToken, requireAdmin, async (req: any, res: any) => {
     try {
       console.log('🏪 [GET /super-admin/stores] Fetching all stores...');
@@ -5481,7 +5455,10 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       });
     }
   });
+*/
 
+// ❌ Rutas de super-admin para stores comentadas (multi-tenant no usado)
+/*
   router.put('/super-admin/stores/:id', authenticateToken, requireSuperAdmin, async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
@@ -5606,9 +5583,9 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       });
     }
   });
+*/
 
-
-  // Nuevo endpoint para actualizar moneda base de producto
+// Nuevo endpoint para actualizar moneda base de producto
 app.patch('/api/products/:id/currency', authenticateToken, requireTenantStorage, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
@@ -6183,7 +6160,8 @@ router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any,
 
   app.use("/api", router);
   app.use('/api/exchange-rates', exchangeRateRoutes);
-  app.use('/api/super-admin', superAdminRoutes);
+  // ❌ Super admin routes comentado (no existe en sistema single-store)
+  // app.use('/api/super-admin', superAdminRoutes);
   app.use('/api', tripRoutes);
   app.use('/api', unitConversionRoutes);
   app.use('/api', customerManagementRoutes);
@@ -6196,6 +6174,8 @@ router.patch('/assignment-rules/:id/toggle', authenticateToken, async (req: any,
 // ADDITIONAL ROUTE REGISTRATION FUNCTIONS
 // ================================
 
+// ❌ Funciones de registro multi-tenant comentadas
+/*
 export async function registerUserManagementRoutes(app: express.Application) {
   // Setup user management routes
   setupUserManagementRoutes(app);
@@ -6315,24 +6295,23 @@ app.post('/auth/change-password', authenticateToken, async (req: any, res: any) 
 
 
 
-// Obtener perfil del usuario actual
+// Obtener perfil del usuario actual - SINGLE STORE VERSION
 app.get('/auth/me', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
 
-    // Obtener datos completos del usuario
+    // Obtener datos completos del usuario (usa users table en single-store)
     const [dbUser] = await masterDb
       .select({
-        id: schema.systemUsers.id,
-        username: schema.systemUsers.username,
-        name: schema.systemUsers.name,
-        email: schema.systemUsers.email,
-        role: schema.systemUsers.role,
-        storeId: schema.systemUsers.storeId,
-        isActive: schema.systemUsers.isActive,
+        id: schema.users.id,
+        username: schema.users.username,
+        name: schema.users.name,
+        email: schema.users.email,
+        role: schema.users.role,
+        status: schema.users.status,
       })
-      .from(schema.systemUsers)
-      .where(eq(schema.systemUsers.id, user.id))
+      .from(schema.users)
+      .where(eq(schema.users.id, user.id))
       .limit(1);
 
     if (!dbUser) {
@@ -6345,13 +6324,14 @@ app.get('/auth/me', authenticateToken, async (req: any, res: any) => {
     console.error('❌ Error getting user profile:', error);
     res.status(500).json({ 
       error: 'Error al obtener el perfil',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
 
   console.log("✅ Global routes registered");
 }
+*/
 
 // ================================
 // EXPORT DEFAULT

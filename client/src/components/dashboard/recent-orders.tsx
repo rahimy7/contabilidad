@@ -36,11 +36,11 @@ export default function RecentOrders() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { label: string; className: string }> = {
-      pending: { label: "Pendiente", className: "bg-red-100 text-red-800" },
-      assigned: { label: "Asignado", className: "bg-blue-100 text-blue-800" },
-      procesing: { label: "En proceso", className: "bg-yellow-100 text-yellow-800" },
-      completed: { label: "Completado", className: "bg-green-100 text-green-800" },
-      cancelled: { label: "Cancelado", className: "bg-gray-100 text-gray-800" },
+      pending: { label: "Pendiente", className: "bg-destructive/10 text-destructive" },
+      assigned: { label: "Asignado", className: "bg-primary/10 text-primary" },
+      procesing: { label: "En proceso", className: "warning-bg/10 warning-text" },
+      completed: { label: "Completado", className: "success-bg/10 success-text" },
+      cancelled: { label: "Cancelado", className: "bg-muted text-muted-foreground" },
     };
 
     return variants[status] || variants.pending;

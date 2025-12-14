@@ -31,26 +31,8 @@ import SimpleCatalog from "@/pages/simple-catalog";
 import Cart from "@/pages/cart";
 import Billing from "@/pages/billing";
 import OrderManagement from "@/pages/order-management";
-import StoreManagement from "@/pages/store-management";
 import MultiTenantLogin from "@/pages/multi-tenant-login";
-import SuperAdminDashboard from "@/pages/super-admin-dashboard";
-import GlobalUsersManagement from "@/pages/global-users-management";
-import GlobalDashboard from "@/pages/super-admin/global-dashboard";
-
-import GlobalSettings from "@/pages/super-admin/global-settings";
-import Subscriptions from "@/pages/super-admin/subscriptions";
-import GlobalOrders from "@/pages/super-admin/global-orders";
-import SuperAdminUsers from "@/pages/super-admin/users";
-import SuperAdminReports from "@/pages/super-admin/reports";
-import Support from "@/pages/super-admin/support";
-import StoresPage from "@/pages/super-admin/stores";
-import StoreSettings from "@/pages/super-admin/store-settings";
-import StoreProducts from "@/pages/super-admin/store-products";
-import StoreThemes from "@/pages/super-admin/store-themes";
-import WhatsAppManagement from "@/pages/super-admin/whatsapp-management";
-import SubscriptionPlans from "@/pages/super-admin/subscription-plans";
 import AppLayout from "@/components/layout/app-layout";
-import WhatsAppSettingsWrapper from "./pages/super-admin/whatsapp-settings-wrapper";
 import { useEffect, useRef } from 'react';
 import { ErrorBoundary } from "./ErrorBoundary";
 import React from "react";
@@ -137,47 +119,22 @@ function ProtectedRoute({ component: Component, permission }: { component: React
 
 function RoleDashboard() {
   const { user } = useAuth();
-  
-  // 🔍 LOG: Debug completo de RoleDashboard
-/*   console.log('🎯 RoleDashboard - Debug completo:', {
-    user: user ? {
-      username: user.username,
-      role: user.role,
-      level: user.level,
-      storeId: user.storeId
-    } : null,
-    isTechnician: user?.role === 'technician',
-    isSuperAdmin: user?.role === 'super_admin',
-    isAdmin: user?.role === 'admin',
-    isStoreAdmin: user?.role === 'store_admin',
-    shouldGoToDashboard: user?.role === 'admin' || user?.role === 'store_admin'
-  }); */
-  
+
   // Redireccionar técnicos a su dashboard específico
   if (user?.role === 'technician') {
-   // console.log('🔧 RoleDashboard: Enviando a TechnicianDashboard');
     return <ProtectedRoute component={TechnicianDashboard} permission="technician_work" />;
   }
 
   if (user?.role === 'delivery') {
-   // console.log('🔧 RoleDashboard: Enviando a DeliveryDashboardPage');
     return <ProtectedRoute component={DeliveryDashboardPage} permission="view_dashboard_delivery" />;
   }
-  
-  // Super administradores al Panel de Control General
-  if (user?.role === 'super_admin') {
-  //  console.log('🔥 RoleDashboard: Enviando a GlobalDashboard');
-    return <ProtectedRoute component={GlobalDashboard} permission="super_admin" />;
-  }
-  
-  // Administradores de tienda al Dashboard Principal
-  if (user?.role === 'admin' || user?.role === 'store_admin') {
-    console.log(user.role + '📊 RoleDashboard: Enviando a Dashboard Principal');
+
+  // Administradores al Dashboard Principal
+  if (user?.role === 'admin') {
     return <ProtectedRoute component={Dashboard} permission="view_dashboard" />;
   }
-  
+
   // Otros roles a conversaciones
-//  console.log('💬 RoleDashboard: Enviando a Conversations (otros roles)');
   return <ProtectedRoute component={Conversations} permission="view_conversations" />;
 }
 
@@ -219,28 +176,10 @@ function Router() {
       <Route path="/customers" component={() => <ProtectedRoute component={Customers} permission="manage_customers" />} />
       <Route path="/assignment-rules" component={() => <ProtectedRoute component={AssignmentRules} permission="manage_assignments" />} />
       <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} permission="view_notifications" />} />
-      <Route path="/store-management" component={() => <ProtectedRoute component={StoreManagement} permission="manage_settings" />} />
-      <Route path="/super-admin-dashboard" component={() => <ProtectedRoute component={SuperAdminDashboard} permission="super_admin" />} />
-      <Route path="/global-users-management" component={() => <ProtectedRoute component={GlobalUsersManagement} permission="super_admin" />} />
-      <Route path="/super-admin/dashboard" component={() => <ProtectedRoute component={GlobalDashboard} permission="super_admin" />} />
       <Route path="/admin/categories-brands" component={() => <ProtectedRoute component={CategoriesBrandsManagement} permission="manage_products" />} />
       <Route path="/admin/brands" component={() => <ProtectedRoute component={BrandsManagement} permission="manage_products" />} />
       <Route path="/admin/measurement-units" component={() => <ProtectedRoute component={MeasurementUnitsManagement} permission="manage_products" />} />
       <Route path="/employees" component={() => <ProtectedRoute component={Employees} permission="manage_users" />} />
-      <Route path="/super-admin/subscriptions" component={() => <ProtectedRoute component={Subscriptions} permission="super_admin" />} />
-      <Route path="/super-admin/global-orders" component={() => <ProtectedRoute component={GlobalOrders} permission="super_admin" />} />
-      <Route path="/super-admin/users" component={() => <ProtectedRoute component={SuperAdminUsers} permission="super_admin" />} />
-      <Route path="/super-admin/reports" component={() => <ProtectedRoute component={SuperAdminReports} permission="super_admin" />} />
-      <Route path="/super-admin/support" component={() => <ProtectedRoute component={Support} permission="super_admin" />} />
-      <Route path="/super-admin/stores" component={() => <ProtectedRoute component={StoresPage} permission="super_admin" />} />
-      <Route path="/super-admin/stores/:storeId/whatsapp" component={() => (<ProtectedRoute component={WhatsAppSettingsWrapper} permission="super_admin" />)} />
-      <Route path="/super-admin/whatsapp-settings"  component={() => (          <ProtectedRoute component={WhatsAppSettingsWrapper}            permission="super_admin"  />    )}      />
-      <Route path="/super-admin/store-settings" component={() => <ProtectedRoute component={StoreSettings} permission="super_admin" />} />
-      <Route path="/super-admin/store-products" component={() => <ProtectedRoute component={StoreProducts} permission="super_admin" />} />
-      <Route path="/super-admin/store-themes" component={() => <ProtectedRoute component={StoreThemes} permission="super_admin" />} />
-      <Route path="/super-admin/whatsapp-management" component={() => <ProtectedRoute component={WhatsAppManagement} permission="super_admin" />} />
-      <Route path="/super-admin/subscription-plans" component={() => <ProtectedRoute component={SubscriptionPlans} permission="super_admin" />} />
-      <Route path="/super-admin/settings" component={() => <ProtectedRoute component={GlobalSettings} permission="super_admin" />} />
       <Route path="/catalog" component={Catalog} />
       <Route path="/public-catalog" component={PublicCatalogClean} />
       <Route path="/simple-catalog" component={SimpleCatalog} />

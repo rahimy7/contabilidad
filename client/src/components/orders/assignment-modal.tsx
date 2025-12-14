@@ -204,15 +204,15 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
 
         <div className="space-y-4">
           {/* Información de la orden */}
-          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+          <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
             <CardContent className="p-4 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-blue-900">Cliente:</span>
-                <span className="text-sm text-blue-800">{order.customer?.name}</span>
+                <span className="text-sm font-medium text-foreground">Cliente:</span>
+                <span className="text-sm text-muted-foreground">{order.customer?.name}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-blue-900">Monto:</span>
-                <span className="text-sm font-bold text-blue-800">{formatCurrency(order.totalAmount)}</span>
+                <span className="text-sm font-medium text-foreground">Monto:</span>
+                <span className="text-sm font-bold text-primary">{formatCurrency(order.totalAmount)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-blue-900">Estado:</span>

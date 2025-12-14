@@ -3,7 +3,6 @@ import { z } from "zod";
 export const loginSchema = z.object({
   username: z.string().min(1, "Usuario requerido"),
   password: z.string().min(1, "Contraseña requerida"),
-  companyId: z.string().optional(),
 });
 
 export type LoginRequest = z.infer<typeof loginSchema>;
@@ -14,13 +13,11 @@ export interface AuthUser {
   name: string;
   role: string;
   status: string;
-  companyId?: string;
   phone?: string;
   email?: string;
   department?: string;
   storeId: number;
   storeName?: string;
-  level?: 'global' | 'store' | 'tenant'; // ✅ AGREGADO: propiedad level
 }
 
 export interface AuthResponse {
@@ -52,38 +49,6 @@ declare global {
 
 // Definición de permisos por rol
 export const rolePermissions = {
-  super_admin: [
-    'super_admin',
-    'view_dashboard',
-    'manage_users',
-    'manage_orders',
-    'manage_customers',
-    'manage_products',
-    'view_reports',
-    'manage_settings',
-    'view_conversations',
-    'send_messages',
-    'view_notifications',
-    'manage_assignments',
-    'manage_global_system',
-    'manage_virtual_stores',
-    'manage_global_users',
-    'view_global_metrics'
-  ],
-  // Administrador de tienda - máximos permisos a nivel tienda
-  store_admin: [
-    'view_dashboard',
-    'manage_users',
-    'manage_orders',
-    'manage_customers',
-    'manage_products',
-    'view_reports',
-    'manage_settings',
-    'view_conversations',
-    'send_messages',
-    'view_notifications',
-    'manage_assignments'
-  ],
   admin: [
     'view_dashboard',
     'manage_users',
@@ -143,8 +108,7 @@ export function hasPermission(userRole: string, permission: string): boolean {
 
 export function getRoleDisplayName(role: string): string {
   const roleNames = {
-    super_admin: 'Super Administrador',
-    store_admin: 'Administrador de Tienda',
+    admin: 'Administrador',
     technician: 'Técnico',
     seller: 'Vendedor',
     delivery: 'Repartidor',

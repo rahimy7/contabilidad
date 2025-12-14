@@ -53,7 +53,7 @@ export default function Header({
   };
 
   return (
-    <header className="bg-gradient-to-r from-emerald-500 to-teal-500 border-b border-emerald-400 px-3 md:px-6 py-3 md:py-4 shadow-lg">
+    <header className="bg-primary border-b border-primary/40 px-3 md:px-6 py-3 md:py-4 shadow-lg">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {showMenuButton && (
@@ -70,7 +70,7 @@ export default function Header({
             <h2 className="text-lg md:text-2xl font-bold text-white">
               {user?.storeName ? `${user.storeName}` : title}
             </h2>
-            <p className="text-sm md:text-base text-emerald-100 hidden sm:block">
+            <p className="text-sm md:text-base text-primary-foreground/80 hidden sm:block">
               {user?.name ? `Bienvenido, ${user.name}` : subtitle}
             </p>
           </div>

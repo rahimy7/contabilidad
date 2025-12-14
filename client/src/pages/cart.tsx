@@ -191,7 +191,7 @@ export default function Cart() {
               <Card key={item.id} className="overflow-hidden">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-20 h-20 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
                       {item.product?.imageUrl ? (
                         <img 
                           src={item.product.imageUrl} 

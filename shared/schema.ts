@@ -4,51 +4,32 @@ import { z } from "zod";
 import { makeInsertSchema } from "./schema.utils";
 
 // ================================
-// SISTEMA MULTI-TENANT - TIENDAS VIRTUALES
+// SISTEMA TIENDA ÚNICA - NO MULTI-TENANT
 // ================================
+// ⚠️ NOTA: virtualStores y systemUsers ya NO existen en la base de datos
+// El sistema ahora usa una única tienda con ID fijo = 1
+// Todas las configuraciones están en store_settings
 
-// Tabla principal de tiendas virtuales (en base de datos maestra)
-export const virtualStores = pgTable("virtual_stores", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(), // URL amigable para la tienda
-  description: text("description"),
-  logo: text("logo"), // URL del logo de la tienda
-  domain: text("domain"), // Dominio personalizado opcional
-  whatsappNumber: text("whatsapp_number"),
-  phoneNumberId: text("phone_number_id"),
-  address: text("address"),
-  timezone: text("timezone").default("America/Mexico_City"),
-  currency: text("currency").default("MXN"),
-  isActive: boolean("is_active").default(true),
-  subscription: text("subscription").default("free"), // 'free', 'basic', 'premium', 'enterprise'
-  subscriptionExpiry: timestamp("subscription_expiry"),
-  subscriptionPlanId: integer("subscription_plan_id").references(() => subscriptionPlans.id),
-  databaseUrl: text("database_url").notNull(), // URL de la base de datos específica de la tienda
- createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  ownerId: integer("owner_id"), // ID del usuario propietario principal
-  settings: text("settings"), // JSON con configuraciones específicas de la tienda
+// ❌ TABLA REMOVIDA - Ya no existe en la BD
+// export const virtualStores = pgTable("virtual_stores", {
+//   ...
+// });
+// Usar store_settings en su lugar
 
-});
+// ❌ TABLA REMOVIDA - Ya no existe en la BD
+// Ahora se usa la tabla "users" para todos los usuarios
+// export const systemUsers = pgTable("system_users", {
+//   ...
+// });
 
-// Usuarios del sistema multi-tenant (en base de datos maestra)
-export const systemUsers = pgTable("system_users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  phone: text("phone"),
-  role: text("role").notNull().default("store_admin"), // 'super_admin', 'store_admin', 'store_user'
-  storeId: integer("store_id").references(() => virtualStores.id), // NULL para super_admin
-  isActive: boolean("is_active").default(true),
-  lastLogin: timestamp("last_login"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+// ❌ TABLAS REMOVIDAS - Sistema multi-tenant ya no existe
+// export const subscriptionPlans = pgTable("subscription_plans", { ... });
+// export const storeSubscriptions = pgTable("store_subscriptions", { ... });
+// export const usageHistory = pgTable("usage_history", { ... });
+// export const systemAuditLog = pgTable("system_audit_log", { ... });
 
-// Planes de suscripción del sistema
+// NOTA: Si necesitas estas tablas más adelante, descomenta y crea las migraciones
+/*
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -84,8 +65,10 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+*/
 
-// Suscripciones activas de las tiendas
+// Suscripciones activas de las tiendas (COMENTADO - No existe)
+/*
 export const storeSubscriptions = pgTable("store_subscriptions", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").references(() => virtualStores.id).notNull(),
@@ -118,8 +101,10 @@ export const storeSubscriptions = pgTable("store_subscriptions", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+*/
 
-// Historial de uso y facturación
+// Historial de uso y facturación (COMENTADO - No existe)
+/*
 export const usageHistory = pgTable("usage_history", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").references(() => virtualStores.id).notNull(),
@@ -143,8 +128,10 @@ export const usageHistory = pgTable("usage_history", {
   
   createdAt: timestamp("created_at").defaultNow(),
 });
+*/
 
-// Tabla de auditoría para el sistema multi-tenant
+// Tabla de auditoría para el sistema multi-tenant (COMENTADO - No existe)
+/*
 export const systemAuditLog = pgTable("system_audit_log", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => systemUsers.id),
@@ -157,8 +144,13 @@ export const systemAuditLog = pgTable("system_audit_log", {
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+*/
 
-// Store configuration table
+// ================================
+// CONFIGURACIÓN DE TIENDA ÚNICA
+// ================================
+
+// ✅ Store configuration table (TABLA PRINCIPAL PARA TIENDA ÚNICA)
 export const storeSettings = pgTable("store_settings", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").notNull(),
@@ -249,7 +241,7 @@ export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   phone: text("phone").notNull().unique(),
-  storeId: integer("store_id").notNull().references(() => virtualStores.id),
+  storeId: integer("store_id").notNull(),
   whatsappId: text("whatsapp_id"),
   email: text("email").unique().notNull(),
 
@@ -642,7 +634,7 @@ export const messages = pgTable("messages", {
 
 export const whatsappSettings = pgTable("whatsapp_settings", {
   id: serial("id").primaryKey(),
-  storeId: integer("store_id").references(() => virtualStores.id).notNull(),
+  storeId: integer("store_id").notNull(), // ID de tienda (siempre 1)
   accessToken: text("access_token").notNull(),
   phoneNumberId: text("phone_number_id").notNull(),
   webhookVerifyToken: text("webhook_verify_token").notNull(),
@@ -657,7 +649,7 @@ export const whatsappLogs = pgTable("whatsapp_logs", {
   id: serial("id").primaryKey(),
   type: text("type").notNull(), // 'incoming', 'outgoing', 'webhook', 'error'
   phoneNumber: text("phone_number"),
-  storeId: integer("store_id").references(() => virtualStores.id).notNull(),
+  storeId: integer("store_id").notNull(), // ID de tienda (siempre 1)
   messageContent: text("message_content"),
   messageId: text("message_id"),
   status: text("status"), // 'sent', 'delivered', 'read', 'failed'
@@ -1141,38 +1133,23 @@ export const insertShoppingCartSchema = makeInsertSchema(shoppingCart);
 
 export const insertProductCategorySchema = makeInsertSchema(productCategories);
 
-export const insertSubscriptionPlanSchema = makeInsertSchema(subscriptionPlans, {
-  monthlyPrice: z.string().nullable().optional(),
-  maxDbStorage: z.string().nullable().optional(),
-  pricePerProduct: z.string().nullable().optional(),
-  pricePerMessage: z.string().nullable().optional(),
-  pricePerGbStorage: z.string().nullable().optional(),
-  pricePerOrder: z.string().nullable().optional(),
-  aiCreditsIncluded: z.number().int().nonnegative().optional(),
-  aiCostPerMessage: z.number().int().nonnegative().optional(),
-  aiCostPerOrder: z.number().int().nonnegative().optional(),
-  aiCostPerVoiceNote: z.number().int().nonnegative().optional(),
-  aiAutoRecharge: z.boolean().optional(),
-  aiRechargeAmount: z.number().int().positive().optional(),
-});
-
-export const insertStoreSubscriptionSchema = makeInsertSchema(storeSubscriptions);
-
-export const insertUsageHistorySchema = makeInsertSchema(usageHistory, {}, ["id", "createdAt"]);
+// ❌ Schemas multi-tenant comentados (tablas no existen)
+// export const insertSubscriptionPlanSchema = makeInsertSchema(subscriptionPlans, { ... });
+// export const insertStoreSubscriptionSchema = makeInsertSchema(storeSubscriptions);
+// export const insertUsageHistorySchema = makeInsertSchema(usageHistory, {}, ["id", "createdAt"]);
 
 export const insertNotificationSchema = makeInsertSchema(notifications, {}, ["id", "createdAt"]);
 
 export const insertStoreSettingsSchema = makeInsertSchema(storeSettings);
 
-export const insertVirtualStoreSchema = makeInsertSchema(virtualStores, {}, [
-  "id", "createdAt", "updatedAt", "databaseUrl",
-]);
-
-export const insertSystemUserSchema = makeInsertSchema(systemUsers, {}, [
-  "id", "createdAt", "updatedAt", "lastLogin",
-]);
-
-export const insertSystemAuditLogSchema = makeInsertSchema(systemAuditLog, {}, ["id", "createdAt"]);
+// ❌ Schemas comentados (tablas no existen)
+// export const insertVirtualStoreSchema = makeInsertSchema(virtualStores, {}, [
+//   "id", "createdAt", "updatedAt", "databaseUrl",
+// ]);
+// export const insertSystemUserSchema = makeInsertSchema(systemUsers, {}, [
+//   "id", "createdAt", "updatedAt", "lastLogin",
+// ]);
+// export const insertSystemAuditLogSchema = makeInsertSchema(systemAuditLog, {}, ["id", "createdAt"]);
 
 export const insertCustomerHistorySchema = makeInsertSchema(customerHistory);
 
@@ -1253,15 +1230,13 @@ export type InsertMeasurementUnit = z.infer<typeof insertMeasurementUnitSchema>;
 export type ProductUnitConversion = typeof productUnitConversions.$inferSelect;
 export type InsertProductUnitConversion = z.infer<typeof insertProductUnitConversionSchema>;
 
-// Subscription types
-export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
-export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
-
-export type StoreSubscription = typeof storeSubscriptions.$inferSelect;
-export type InsertStoreSubscription = z.infer<typeof insertStoreSubscriptionSchema>;
-
-export type UsageHistory = typeof usageHistory.$inferSelect;
-export type InsertUsageHistory = z.infer<typeof insertUsageHistorySchema>;
+// ❌ Subscription types comentados (tablas no existen)
+// export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+// export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+// export type StoreSubscription = typeof storeSubscriptions.$inferSelect;
+// export type InsertStoreSubscription = z.infer<typeof insertStoreSubscriptionSchema>;
+// export type UsageHistory = typeof usageHistory.$inferSelect;
+// export type InsertUsageHistory = z.infer<typeof insertUsageHistorySchema>;
 
 export type CartItem = typeof shoppingCart.$inferSelect;
 export type InsertCartItem = z.infer<typeof insertShoppingCartSchema>;
@@ -1310,18 +1285,14 @@ export type StoreSettings = typeof storeSettings.$inferSelect;
 export type InsertStoreSettings = z.infer<typeof insertStoreSettingsSchema>;
 
 // ================================
-// TIPOS Y SCHEMAS MULTI-TENANT
+// TIPOS MULTI-TENANT (COMENTADOS - No existen)
 // ================================
-
-export type VirtualStore = typeof virtualStores.$inferSelect;
-export type InsertVirtualStore = z.infer<typeof insertVirtualStoreSchema>;
-
-
-export type SystemUser = typeof systemUsers.$inferSelect;
-export type InsertSystemUser = z.infer<typeof insertSystemUserSchema>;
-
-export type SystemAuditLog = typeof systemAuditLog.$inferSelect;
-export type InsertSystemAuditLog = z.infer<typeof insertSystemAuditLogSchema>;
+// export type VirtualStore = typeof virtualStores.$inferSelect;
+// export type InsertVirtualStore = z.infer<typeof insertVirtualStoreSchema>;
+// export type SystemUser = typeof systemUsers.$inferSelect;
+// export type InsertSystemUser = z.infer<typeof insertSystemUserSchema>;
+// export type SystemAuditLog = typeof systemAuditLog.$inferSelect;
+// export type InsertSystemAuditLog = z.infer<typeof insertSystemAuditLogSchema>;
 
 export type Brand = {
   id: number;
@@ -1386,14 +1357,16 @@ export type RegistrationFlow = {
   updatedAt?: Date;
 };
 
-// Extended types for multi-tenant API responses
-export type VirtualStoreWithOwner = VirtualStore & {
-  owner?: SystemUser;
-  userCount?: number;
-  orderCount?: number;
-  lastActivity?: Date;
-};
-
+// Extended types for multi-tenant API responses (COMENTADOS - No existen)
+// export type VirtualStoreWithOwner = VirtualStore & {
+//   owner?: SystemUser;
+//   userCount?: number;
+//   orderCount?: number;
+//   lastActivity?: Date;
+// };
+// export type SystemUserWithStore = SystemUser & {
+//   store?: VirtualStore;
+// };
 
 export type NotificationChannel = {
   id: string;
@@ -1402,7 +1375,6 @@ export type NotificationChannel = {
   description?: string;
 };
 
-// En shared/schema.ts:
 export type NotificationEvent = {
   id: string;
   name: string;
@@ -1410,21 +1382,19 @@ export type NotificationEvent = {
   category: string;
 };
 
-export type SystemUserWithStore = SystemUser & {
-  store?: VirtualStore;
-};
-
 export const schema = {
-  // Sistema multi-tenant
-  virtualStores,
-  systemUsers,
-  subscriptionPlans,
-  storeSubscriptions,
-  usageHistory,
-  systemAuditLog,
+  // ❌ Sistema multi-tenant (tablas comentadas - no existen)
+  // virtualStores,
+  // systemUsers,
+  // subscriptionPlans,
+  // storeSubscriptions,
+  // usageHistory,
+  // systemAuditLog,
+  
+  // ✅ Configuración de tienda única
   storeSettings,
 
-  // Esquemas de tienda virtual
+  // ✅ Esquemas operacionales (schema público)
   users,
   customers,
   customerTypes,
@@ -1596,10 +1566,11 @@ export const aiProductMatches = pgTable("ai_product_matches", {
 });
 
 // ================================
-// SISTEMA DE FACTURACIÓN Y PAGOS
+// SISTEMA DE FACTURACIÓN Y PAGOS (COMENTADO - No existe en sistema single-store)
 // ================================
 
-// Tabla de facturas (Base de datos maestra)
+// Tabla de facturas (Base de datos maestra) - COMENTADO
+/*
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   invoiceNumber: text("invoice_number").notNull().unique(), // Ej: INV-2025-001
@@ -1638,8 +1609,10 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => systemUsers.id),
 });
+*/
 
-// Tabla de pagos (Base de datos maestra)
+// Tabla de pagos (Base de datos maestra) - COMENTADO
+/*
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
@@ -1675,8 +1648,10 @@ export const payments = pgTable("payments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+*/
 
-// Tabla de transacciones de créditos de IA (Base de datos maestra)
+// Tabla de transacciones de créditos de IA (Base de datos maestra) - COMENTADO
+/*
 export const creditTransactions = pgTable("credit_transactions", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").references(() => virtualStores.id).notNull(),
@@ -1706,8 +1681,10 @@ export const creditTransactions = pgTable("credit_transactions", {
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+*/
 
-// Tabla de configuración de PayPal (Base de datos maestra)
+// Tabla de configuración de PayPal (Base de datos maestra) - COMENTADO
+/*
 export const paypalIntegration = pgTable("paypal_integration", {
   id: serial("id").primaryKey(),
 
@@ -1731,12 +1708,14 @@ export const paypalIntegration = pgTable("paypal_integration", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => systemUsers.id),
 });
+*/
 
 // ================================
-// VALIDACIÓN ZOD PARA NUEVAS TABLAS
+// VALIDACIÓN ZOD PARA TABLAS DE FACTURACIÓN (COMENTADO - No existe)
 // ================================
 
-// Validaciones para invoices
+// Validaciones para invoices - COMENTADO
+/*
 export const createInvoiceSchema = z.object({
   invoiceNumber: z.string().min(1, "Invoice number is required"),
   storeId: z.number().int().positive(),
@@ -1801,3 +1780,4 @@ export const createPayPalIntegrationSchema = z.object({
 });
 
 export const updatePayPalIntegrationSchema = createPayPalIntegrationSchema.partial();
+*/

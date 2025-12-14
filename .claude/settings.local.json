@@ -42,7 +42,11 @@
       "Bash(yarn install:*)",
       "Bash(Select-String -Pattern \"PATCH.*orders|PUT.*orders|completed|LOYALTY\")",
       "Bash(Select-Object -Last 20)",
-      "Bash(timeout /t 2 /nobreak)"
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(node run-migration.js:*)",
+      "Bash(timeout 8 echo:*)",
+      "Bash(timeout 60 echo:*)"
     ],
     "deny": [],
     "ask": []

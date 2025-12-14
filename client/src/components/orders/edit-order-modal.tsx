@@ -131,12 +131,12 @@ export default function EditOrderModal({
 
           <div className="flex-1 overflow-y-auto py-4 space-y-6">
             {/* Información del Cliente */}
-            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
               <CardContent className="p-4 space-y-2">
-                <h3 className="font-semibold text-blue-900 mb-2">Información del Cliente</h3>
+                <h3 className="font-semibold text-foreground mb-2">Información del Cliente</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="font-medium text-blue-800">Nombre:</span>
+                    <span className="font-medium text-muted-foreground">Nombre:</span>
                     <p className="text-blue-700">{order.customer?.name}</p>
                   </div>
                   <div>

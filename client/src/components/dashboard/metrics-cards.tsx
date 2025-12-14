@@ -82,7 +82,7 @@ export default function MetricsCards() {
                 <div className="flex-1">
                   <p className="text-xs md:text-sm font-medium text-gray-600">{card.title}</p>
                   <p className="text-lg md:text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
-                  <p className="text-xs md:text-sm text-green-600 mt-1 flex items-center">
+                  <p className="text-xs md:text-sm success-text mt-1 flex items-center">
                     <TrendingUp className="h-2 md:h-3 w-2 md:w-3 mr-1" />
                     {card.change}
                   </p>

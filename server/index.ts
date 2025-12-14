@@ -158,7 +158,7 @@ setupPrintRoutes(app);
 // ================================
 // API ROUTER SETUP
 // ================================
-registerRoutes(app);
+// registerRoutes(app); // ❌ COMENTADO - se llama después en la función async
 
 const apiRouter = express.Router();
 app.use('/api/exchange-rates', exchangeRateRoutes);
@@ -261,92 +261,114 @@ apiRouter.post('/tenant-users', authenticateToken, async (req, res) => {
 });
 
 
+// ================================
+// EMERGENCY ADMIN PASSWORD RESET (TEMPORAL)
+// ================================
+apiRouter.post('/auth/emergency-reset-admin', async (req, res) => {
+  try {
+    const { username, newPassword, confirmPassword } = req.body;
+
+    // Validaciones
+    if (!username || !newPassword || !confirmPassword) {
+      return res.status(400).json({ 
+        error: 'Todos los campos son requeridos' 
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ 
+        error: 'Las contraseñas no coinciden' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        error: 'La contraseña debe tener al menos 6 caracteres' 
+      });
+    }
+
+    // Solo permitir para usuario admin
+    if (username.toLowerCase() !== 'admin') {
+      return res.status(403).json({ 
+        error: 'Este endpoint solo está disponible para el usuario admin' 
+      });
+    }
+
+    console.log('🔑 Emergency reset requested for admin user');
+
+    // Buscar usuario admin en la tabla users (sistema de tienda única)
+    const adminUser = await masterStorage.getUser('admin');
+    
+    if (!adminUser) {
+      console.log('❌ Admin user not found in database');
+      return res.status(404).json({ 
+        error: 'Usuario admin no encontrado en el sistema' 
+      });
+    }
+
+    console.log(`✅ Admin user found (ID: ${adminUser.id})`);
+
+    // Actualizar contraseña (updateUser la hasheará automáticamente)
+    await masterStorage.updateUser(adminUser.id, { 
+      password: newPassword 
+    });
+    
+    console.log(`💾 Password updated in database`);
+    
+    // Probar autenticación inmediata para verificar
+    const testAuth = await masterStorage.authenticateUser(username, newPassword);
+    console.log(`🧪 Test authentication: ${testAuth ? '✅ SUCCESS' : '❌ FAILED'}`);
+    
+    if (!testAuth) {
+      console.error('⚠️ WARNING: Password was saved but immediate authentication test failed!');
+      return res.status(500).json({ 
+        error: 'La contraseña se guardó pero no se pudo verificar' 
+      });
+    }
+
+    console.log('✅ Admin password reset successfully');
+    
+    return res.json({ 
+      success: true, 
+      message: 'Contraseña actualizada exitosamente' 
+    });
+
+  } catch (error) {
+    console.error('❌ Error in emergency admin reset:', error);
+    res.status(500).json({ 
+      error: 'Error al resetear la contraseña',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 apiRouter.post('/auth/login', async (req, res) => {
   try {
-    const { authenticateUser } = await import('./multi-tenant-auth.js');
-    const { username, password, companyId, storeId } = req.body;
+    const { username, password } = req.body;
     
-    const targetStoreId = storeId || companyId;
-    console.log(`🔍 Login attempt for ${username} with targetStoreId: ${targetStoreId}`);
+    console.log(`🔍 Login attempt for ${username}`);
     
-    const user = await authenticateUser(username, password, targetStoreId);
+    // Usar autenticación simplificada de master storage (tienda única)
+    const user = await masterStorage.authenticateUser(username, password);
     
     if (!user) {
+      console.log(`❌ Authentication failed for ${username}`);
       return res.status(401).json({ 
         success: false, 
         message: 'Credenciales inválidas' 
       });
     }
-
-    console.log(`✅ User authenticated:`, {
-      id: user.id,
-      username: user.username,
-      level: user.level,
-      storeId: user.storeId,
-      targetStoreId
-    });
-
-    // Validación de acceso a tienda mejorada
-   if (targetStoreId) {
-  const targetStoreIdInt = parseInt(targetStoreId.toString());
-  
-  console.log(`🔍 Store access validation:`, {
-    userStoreId: user.storeId,
-    userStoreIdType: typeof user.storeId,
-    targetStoreId: targetStoreIdInt,
-    targetStoreIdType: typeof targetStoreIdInt
-  });
-  
-  // Super admin puede acceder a cualquier tienda
-  if (user.level === 'global') {
-    console.log('✅ Global user access granted');
-  } 
-  // Usuarios de tenant pertenecen automáticamente a la tienda que autenticó
-     else if (user.level === 'tenant') {
-  // Asegurar que ambos valores son números para la comparación
-  const userStoreIdInt = parseInt(user.storeId?.toString() || '0');
-  
-  console.log(`🔍 Tenant access validation:`, {
-    userStoreIdInt,
-    targetStoreIdInt,
-    comparison: userStoreIdInt === targetStoreIdInt
-  });
     
-    if (userStoreIdInt !== targetStoreIdInt) {
-      console.log(`❌ Tenant user ${user.username} belongs to store ${userStoreIdInt}, not ${targetStoreIdInt}`);
-      return res.status(403).json({
-        success: false,
-        code: 'STORE_ACCESS_DENIED',
-        message: 'No tienes acceso a esta tienda'
-      });
-    }
-    console.log('✅ Tenant user access granted');
-      }
-      // Usuarios de store deben tener el storeId correcto
-      else if (user.level === 'store') {
-        if (!user.storeId || user.storeId !== targetStoreIdInt) {
-          console.log(`❌ Store user ${user.username} access denied to store ${targetStoreIdInt}`);
-          return res.status(403).json({
-            success: false,
-            code: 'STORE_ACCESS_DENIED',
-            message: 'No tienes acceso a esta tienda'
-          });
-        }
-        console.log('✅ Store user access granted');
-      }
-    }
-
-    const tokenPayload: any = {
+    // Crear token JWT con la información del usuario
+    const tokenPayload = {
       id: user.id,
       username: user.username,
+      name: user.name,
       role: user.role,
-      level: user.level
+      storeId: user.storeId, // Siempre será 1 en sistema de tienda única
+      status: user.status,
+      level: 'store' // Para compatibilidad con el frontend
     };
-    
-    // Incluir storeId en el token
-    if (user.storeId) {
-      tokenPayload.storeId = user.storeId;
-    }
     
     const token = jwt.sign(
       tokenPayload,
@@ -354,17 +376,13 @@ apiRouter.post('/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    console.log(`✅ Login successful, token generated`);
+
     res.setHeader('Content-Type', 'application/json');
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        storeId: user.storeId,
-        level: user.level
-      }
+      user: tokenPayload
     });
   } catch (error) {
     console.error('Login error:', error);

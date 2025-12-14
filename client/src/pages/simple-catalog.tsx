@@ -194,7 +194,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-primary/20">
         <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
           <Button variant="ghost" onClick={onClose} className="p-2">
@@ -206,7 +206,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Galería de imágenes */}
             <div className="space-y-4">
-              <div className="aspect-square bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg relative overflow-hidden">
+              <div className="aspect-square bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg relative overflow-hidden">
                 {currentImage && !imageError ? (
                   <img
                     src={currentImage}
@@ -345,12 +345,12 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
 
               {/* Botones de acción */}
               <div className="flex gap-3 pt-4">
-                <Button 
+                <Button
                   onClick={() => {
                     onAddToCart(convertedProduct);
                     onClose();
                   }}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+                  className="w-full add-to-cart-btn"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar al carrito
@@ -364,6 +364,9 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, storeId }: 
   );
 };
 
+// SVG placeholder para productos sin imagen
+const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2U1ZTdlYiIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TaW4gSW1hZ2VuPC90ZXh0Pgo8L3N2Zz4=';
+
 // Componente para mostrar imágenes
 const ProductImage = ({ product, className = "", onClick }: { product: any; className?: string; onClick?: () => void }) => {
   const { images, mainImage } = normalizeProductImages(product);
@@ -376,7 +379,7 @@ const ProductImage = ({ product, className = "", onClick }: { product: any; clas
         className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
         onError={(e) => {
           console.log('Error cargando imagen del producto:', mainImage);
-          e.currentTarget.src = 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen';
+          e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
         }}
       />
       {images.length > 1 && (
@@ -408,9 +411,9 @@ const ProductImage = ({ product, className = "", onClick }: { product: any; clas
 
   return {
     images,
-    mainImage: images.length > 0 
-      ? images[0] 
-      : 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen'
+    mainImage: images.length > 0
+      ? images[0]
+      : DEFAULT_PRODUCT_IMAGE
   };
 };
 
@@ -611,19 +614,19 @@ const getProductImage = (product: any): string => {
   if (images.length > 0) {
     return images[0];
   }
-  return 'https://via.placeholder.com/150x150/e5e7eb/9ca3af?text=Sin+Imagen';
+  return DEFAULT_PRODUCT_IMAGE;
 };
   
   // ✅ GESTIÓN DEL CARRITO (PRECIOS YA CONVERTIDOS A DOP)
 const addToCart = (product: any) => {
   const convertedProduct = convertProduct(product);
-  
+
   // Preservar imagen explícitamente
   const getProductImage = (product: any): string => {
     if (product.image_url) return product.image_url;
     if (product.images && product.images.length > 0) return product.images[0];
     if (product.imageUrl) return product.imageUrl;
-    return 'https://via.placeholder.com/150x150/e5e7eb/9ca3af?text=Sin+Imagen';
+    return DEFAULT_PRODUCT_IMAGE;
   };
   const { images, mainImage } = normalizeProductImages(product);
  setCart(currentCart => {
@@ -754,9 +757,9 @@ ${orderItems}
   // ✅ ESTADO DE CARGA
   if (loadingStore || loadingProducts || loadingCategories || !storeId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-blue-100">
         <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-gray-600 text-lg">Cargando catálogo de la tienda...</p>
           {storeId && <p className="text-gray-500 text-sm mt-2">Tienda ID: {storeId}</p>}
         </div>
@@ -765,21 +768,28 @@ ${orderItems}
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-blue-100 relative">
       {/* Header Responsivo Fijo */}
-      <div className="sticky top-0 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 shadow-lg z-30">
+      <div className="sticky top-0 bg-primary shadow-lg z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Vista móvil */}
           <div className="lg:hidden py-3">
             <div className="flex flex-col space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-lg font-bold text-white truncate">
-                    🛍️ {storeInfo?.name || 'Catálogo'}
-                  </h1>
-                  <p className="text-xs text-emerald-100">
-                    💰 Precios en Pesos Dominicanos
-                  </p>
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/4life-logo-white.svg"
+                    alt="4Life Logo"
+                    className="h-8 w-auto"
+                  />
+                  <div>
+                    <h1 className="text-lg font-bold text-white truncate">
+                      {storeInfo?.name || 'Catálogo'}
+                    </h1>
+                    <p className="text-xs text-emerald-100">
+                      💰 Precios en Pesos Dominicanos
+                    </p>
+                  </div>
                 </div>
                 <div className="text-xs text-emerald-100 bg-white/20 px-2 py-1 rounded-full">
                   {filteredProducts.length}
@@ -818,19 +828,26 @@ ${orderItems}
           <div className="hidden lg:block py-6">
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-3xl font-bold text-white">
-                    🛍️ {storeInfo?.name || 'Catálogo'}
-                  </h1>
-                  <div className="flex items-center gap-3 mt-2">
-                    {storeInfo?.description && (
-                      <p className="text-emerald-100">{storeInfo.description}</p>
-                    )}
-                    <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
-                      <DollarSign className="w-4 h-4 text-emerald-100" />
-                      <span className="text-emerald-100 text-sm font-medium">
-                        Todos los precios en Pesos Dominicanos
-                      </span>
+                <div className="flex items-center gap-4">
+                  <img
+                    src="/4life-logo-white.svg"
+                    alt="4Life Logo"
+                    className="h-12 w-auto"
+                  />
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">
+                      {storeInfo?.name || 'Catálogo'}
+                    </h1>
+                    <div className="flex items-center gap-3 mt-2">
+                      {storeInfo?.description && (
+                        <p className="text-emerald-100">{storeInfo.description}</p>
+                      )}
+                      <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
+                        <DollarSign className="w-4 h-4 text-emerald-100" />
+                        <span className="text-emerald-100 text-sm font-medium">
+                          Todos los precios en Pesos Dominicanos
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -892,7 +909,7 @@ ${orderItems}
         <div className="fixed bottom-6 right-6 z-50">
           <Button
             onClick={() => setShowCart(!showCart)}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-2xl rounded-full w-16 h-16 p-0 relative animate-bounce"
+            className="bg-primary hover:bg-primary/90 text-white shadow-2xl rounded-full w-16 h-16 p-0 relative animate-bounce"
             size="lg"
           >
             <ShoppingCart className="w-6 h-6" />
@@ -906,7 +923,7 @@ ${orderItems}
       {/* Carrito (sidebar) */}
 {showCart && (
   <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center sm:justify-center">
-    <div className="bg-white w-full sm:max-w-md sm:rounded-t-lg rounded-t-lg max-h-[80vh] flex flex-col">
+    <div className="bg-white w-full sm:max-w-md sm:rounded-t-lg rounded-t-lg max-h-[80vh] flex flex-col shadow-2xl sm:border-2 sm:border-primary/20">
       {/* Header del carrito */}
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -934,7 +951,7 @@ ${orderItems}
               const itemImage = normalizeProductImages(item).mainImage;
 
               return (
-                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                   <img
                     src={itemImage}
                     alt={item.name}
@@ -992,7 +1009,7 @@ ${orderItems}
             </div>
           )}
 
-          {/* Botón WhatsApp existente */}
+          {/* Botón WhatsApp existente debe ser verde siempre*/}
           <Button
             onClick={makeOrder}
             className="w-full bg-green-600 hover:bg-green-700 text-white"
@@ -1017,7 +1034,7 @@ ${orderItems}
             variant="outline"
             className="w-full"
           >
-            Limpiar carrito
+            Vaciar el Carrito
           </Button>
         </div>
       )}
@@ -1053,7 +1070,7 @@ ${orderItems}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product: any) => (
-                <Card key={product.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm hover:bg-white/95 flex flex-col">
+                <Card key={product.id} className="group hover:shadow-2xl transition-all duration-300 border-2 border-primary/20 hover:border-primary/40 shadow-md bg-white backdrop-blur-sm hover:bg-white flex flex-col">
                   <CardContent className="p-0 flex flex-col h-full">
                     {/* Imagen reducida - aspect-video en lugar de aspect-square */}
                     <div className="aspect-video rounded-t-lg relative overflow-hidden flex-shrink-0">
@@ -1106,7 +1123,7 @@ ${orderItems}
                       <div className="flex gap-2 mt-auto">
                         <Button
                           onClick={() => addToCart(product)}
-                          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs h-8"
+                          className="flex-1 add-to-cart-btn text-xs h-8"
                           size="sm"
                         >
                           <Plus className="w-3 h-3 mr-1" />

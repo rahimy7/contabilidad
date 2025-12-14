@@ -256,7 +256,7 @@ export default function PublicCatalogFixed() {
   // Mostrar estado de carga
   if (loadingProducts || loadingCategories) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-500 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-white text-lg font-medium">Cargando catálogo...</p>
@@ -266,7 +266,7 @@ export default function PublicCatalogFixed() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-500">
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-sm border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -348,7 +348,7 @@ export default function PublicCatalogFixed() {
     className="cursor-pointer"
   >
     <CardHeader className="pb-4">
-      <div className="w-full h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg overflow-hidden relative">
+      <div className="w-full h-48 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg overflow-hidden relative">
         {product.images.length ? (
           <>
             <img
@@ -364,11 +364,11 @@ export default function PublicCatalogFixed() {
               }}
             />
             <div
-              className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-100
+              className="w-full h-full bg-gradient-to-br from-slate-50 to-slate-100
                          flex items-center justify-center absolute inset-0"
               style={{ display: "none" }}           // fallback invisible
             >
-              <ShoppingBag className="w-16 h-16 text-blue-600" />
+              <ShoppingBag className="w-16 h-16 text-primary" />
             </div>
 
             {product.images.length > 1 && (
@@ -441,7 +441,7 @@ export default function PublicCatalogFixed() {
       {showCart && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
+            <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-primary to-primary/80 text-white">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <ShoppingCart className="w-6 h-6" />
                 Carrito de Compras
@@ -468,7 +468,7 @@ export default function PublicCatalogFixed() {
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">{item.name}</h3>
                         <p className="text-sm text-gray-500">{item.category}</p>
-                        <p className="font-bold text-teal-600">${formatCurrency(item.price)}</p>
+                        <p className="font-bold text-primary">${formatCurrency(item.price)}</p>
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -513,7 +513,7 @@ export default function PublicCatalogFixed() {
               <div className="p-6 border-t bg-gray-50">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-lg font-bold text-gray-900">
-                    Total: <span className="text-teal-600">${formatCurrency(cartTotal)}</span>
+                    Total: <span className="text-primary">${formatCurrency(cartTotal)}</span>
                   </span>
                   <Button 
                     variant="outline" 
@@ -632,10 +632,10 @@ export default function PublicCatalogFixed() {
               {/* Información del producto */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="text-3xl font-bold text-teal-600">
+                  <div className="text-3xl font-bold text-primary">
                     ${formatCurrency(selectedProduct.price)}
                   </div>
-                  <Badge className="bg-teal-100 text-teal-700 border-0 text-sm px-3 py-1">
+                  <Badge className="bg-primary/10 text-primary border-0 text-sm px-3 py-1">
                     {selectedProduct.category}
                   </Badge>
                 </div>

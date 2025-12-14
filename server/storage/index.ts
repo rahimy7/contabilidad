@@ -1,9 +1,7 @@
+// server/storage/index.ts
+// Versión simplificada para tienda única (4Life Bella Vista)
+
 import { UnifiedStorage } from "./unified-storage";
-import {
-  MasterStorage,
-  TenantStorage,
-  UnifiedStorageInterface,
-} from "../interfaces/storage";
 
 // ========================================
 // ⚙️ LAZY LOAD DE STORAGE FACTORY (compatible ESM)
@@ -23,29 +21,21 @@ export const getStorageFactory = async () => {
 // 🚀 FUNCIONES DE CONVENIENCIA
 // ========================================
 
-export const getMasterStorage = async (): Promise<MasterStorage> => {
+export const getMasterStorage = async () => {
   const factory = await getStorageFactory();
   return factory.getMasterStorage();
 };
 
-export const getTenantStorage = async (
-  storeId: number
-): Promise<TenantStorage> => {
+export const getTenantStorage = async (storeId: number = 1) => {
   const factory = await getStorageFactory();
   return factory.getTenantStorage(storeId);
 };
 
-export const validateTenantAccess = async (
-  storeId: number
-): Promise<boolean> => {
-  if (!storeId || storeId <= 0) throw new Error("Invalid store ID");
-
-  const masterStorage = await getMasterStorage();
-  const store = await masterStorage.getVirtualStore(storeId);
-
-  if (!store) throw new Error(`Store with ID ${storeId} not found`);
-  if (!store.isActive) throw new Error(`Store with ID ${storeId} is not active`);
-
+// Función simplificada - en tienda única siempre es válido
+export const validateTenantAccess = async (storeId: number = 1): Promise<boolean> => {
+  if (storeId !== 1) {
+    console.warn(`⚠️ Single store mode: storeId ${storeId} requested, but only ID 1 is valid`);
+  }
   return true;
 };
 
@@ -53,13 +43,11 @@ export const validateTenantAccess = async (
 // 🧩 UNIFIED STORAGE
 // ========================================
 
-export const createUnifiedStorage = (
-  storeId: number
-): UnifiedStorageInterface => {
+export const createUnifiedStorage = (storeId: number = 1) => {
   return new UnifiedStorage(storeId);
 };
 
-export const createMasterOnlyStorage = (): UnifiedStorageInterface => {
+export const createMasterOnlyStorage = () => {
   return new UnifiedStorage(); // sin storeId
 };
 
@@ -69,18 +57,12 @@ export const createMasterOnlyStorage = (): UnifiedStorageInterface => {
 
 export const clearTenantCache = async (storeId?: number): Promise<void> => {
   const factory = await getStorageFactory();
-  if (storeId) {
-    factory.clearCacheForStore(storeId);
-  } else {
-    factory.clearAllCaches();
-  }
+  factory.clearCache();
 };
 
-export const refreshTenantStorage = async (
-  storeId: number
-): Promise<TenantStorage> => {
+export const refreshTenantStorage = async (storeId: number = 1) => {
   const factory = await getStorageFactory();
-  factory.clearCacheForStore(storeId);
+  factory.clearCache();
   return await factory.getTenantStorage(storeId);
 };
 
@@ -94,53 +76,40 @@ export const healthCheck = async () => {
     master: masterHealth,
     cache: cacheStats,
     timestamp: new Date().toISOString(),
+    mode: 'single-store'
   };
 };
 
 export const debugStorageFactory = async () => {
   const factory = await getStorageFactory();
   const stats = factory.getCacheStats();
-  console.log("🔍 Storage Factory Debug:", {
+  console.log("🔍 Storage Factory Debug (Single Store Mode):", {
     tenantCacheSize: stats.tenantCacheSize,
-    connectionCacheSize: stats.connectionCacheSize,
+    storeId: 1,
     timestamp: new Date().toISOString(),
   });
   return stats;
 };
 
-export const getStorageForUser = async (user: { storeId: number }) => {
-  if (!user.storeId)
-    throw new Error("User must have a store ID for this operation");
-  return await getTenantStorage(user.storeId);
+export const getStorageForUser = async (user: { storeId?: number }) => {
+  // En tienda única, siempre retornamos el storage del ID 1
+  return await getTenantStorage(1);
 };
 
-export const validateStoreMigration = async (
-  storeId: number
-): Promise<boolean> => {
+export const validateStoreMigration = async (storeId: number = 1): Promise<boolean> => {
   try {
     const tenantStorage = await getTenantStorage(storeId);
     await tenantStorage.getAllProducts();
     return true;
   } catch (error) {
-    console.error(`Migration validation failed for store ${storeId}:`, error);
+    console.error(`Migration validation failed:`, error);
     return false;
   }
-};
-
-export const getTenantStorageBySlug = async (slug: string): Promise<TenantStorage> => {
-  const factory = await getStorageFactory();
-  return factory.getTenantStorageBySlug(slug);
 };
 
 // ========================================
 // 📦 EXPORTS
 // ========================================
-
-export type {
-  MasterStorage,
-  TenantStorage,
-  UnifiedStorageInterface,
-} from "../interfaces/storage";
 
 export { UnifiedStorage };
 
@@ -158,5 +127,5 @@ export default {
   validateStoreMigration,
 };
 
-console.log("✅ Multi-tenant storage system initialized");
-console.log("🏭 Storage Factory ready for multi-tenant operations");
+console.log("✅ Single-store storage system initialized");
+console.log("🏪 Storage ready for 4Life Bella Vista (store ID: 1)");
