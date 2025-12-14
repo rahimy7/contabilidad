@@ -678,7 +678,7 @@ export default function POSScreen() {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
-          <Package className="w-16 h-16 text-emerald-600 mx-auto mb-4" />
+          <Package className="w-16 h-16 text-primary mx-auto mb-4" />
           <p className="text-lg text-gray-600">Cargando productos...</p>
         </div>
       </div>
@@ -688,7 +688,7 @@ export default function POSScreen() {
   return (
     <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Header - Full Width */}
-      <div className="bg-emerald-600 text-white p-4 shadow-lg flex justify-between items-center flex-shrink-0">
+      <div className="bg-primary text-white p-4 shadow-lg flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
           <ShoppingCart className="w-8 h-8" />
           <h1 className="text-2xl font-bold">Punto de Venta</h1>
@@ -703,8 +703,8 @@ export default function POSScreen() {
                 onClick={() => setSelectedCurrency(currency.code)}
                 className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
                   selectedCurrency === currency.code
-                    ? 'bg-emerald-700 text-white'
-                    : 'bg-white text-emerald-600'
+                    ? 'bg-white/20 text-white border border-white'
+                    : 'bg-white text-primary'
                 }`}
               >
                 {currency.symbol}
@@ -726,7 +726,7 @@ export default function POSScreen() {
           <Button
             onClick={() => setLocation('/dashboard')}
             variant="outline"
-            className="bg-white text-emerald-600 hover:bg-gray-100 border-0 flex items-center gap-2"
+            className="bg-white text-primary hover:bg-slate-100 border-0 flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Dashboard
@@ -737,10 +737,10 @@ export default function POSScreen() {
       {/* Main Content - Full Width */}
       <div className="flex-1 overflow-hidden grid grid-cols-3 gap-4 p-4">
         {/* Products Section - 2/3 width */}
-        <div className="col-span-2 flex flex-col bg-blue-50 rounded-lg overflow-hidden shadow">
+        <div className="col-span-2 flex flex-col bg-slate-50 rounded-lg overflow-hidden shadow">
           {/* Search Bar */}
-          <div className="p-4 bg-teal-700 flex gap-2 flex-shrink-0">
-            <div className="flex-1 flex items-center gap-2 bg-teal-900 px-3 rounded-lg">
+          <div className="p-4 bg-primary flex gap-2 flex-shrink-0">
+            <div className="flex-1 flex items-center gap-2 bg-primary/80 px-3 rounded-lg">
               <Search className="w-5 h-5 text-white" />
               <input
                 type="text"
@@ -774,7 +774,7 @@ export default function POSScreen() {
                 onClick={() => setSelectedCategory(category)}
                 className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all ${
                   selectedCategory === category
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-white text-gray-600 border border-gray-300'
                 }`}
               >
@@ -797,11 +797,11 @@ export default function POSScreen() {
                   return (
                     <Card
                       key={product.id}
-                      className="cursor-pointer hover:shadow-lg transition-all border-2 border-emerald-500"
+                      className="cursor-pointer hover:shadow-lg transition-all border-2 border-primary/30 hover:border-primary"
                       onClick={() => addToCart(product)}
                     >
                       <CardContent className="p-3">
-                        <div className="aspect-video bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                        <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                           {imageUrl ? (
                             <img
                               src={imageUrl}
@@ -809,12 +809,12 @@ export default function POSScreen() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Package className="w-12 h-12 text-emerald-600" />
+                            <Package className="w-12 h-12 text-primary" />
                           )}
                         </div>
                         <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">{product.name}</h3>
-                        <p className="text-xs text-emerald-600 my-1">{product.category}</p>
-                        <p className="text-lg font-bold text-emerald-600">{formatCurrency(getBasePrice(product))}</p>
+                        <p className="text-xs text-primary my-1">{product.category}</p>
+                        <p className="text-lg font-bold text-primary">{formatCurrency(getBasePrice(product))}</p>
 
                         {/* 🎁 Loyalty Points */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
@@ -825,7 +825,7 @@ export default function POSScreen() {
 
                         <Button
                           size="sm"
-                          className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          className="w-full mt-2 bg-primary hover:bg-primary/90 text-white"
                           onClick={() => addToCart(product)}
                         >
                           <Plus className="w-4 h-4 mr-1" />
@@ -879,7 +879,7 @@ export default function POSScreen() {
                           {formatCurrency(itemPrice)}
                           {showUnitSelector && (
                             <select
-                              className="text-[10px] border border-emerald-200 rounded px-1 py-0.5 bg-white text-emerald-700"
+                              className="text-[10px] border border-primary/30 rounded px-1 py-0.5 bg-white text-primary"
                               value={currentUnitId || ''}
                               onChange={(e) => {
                                 const selectedId = Number(e.target.value);
@@ -897,7 +897,7 @@ export default function POSScreen() {
                             </select>
                           )}
                           {!showUnitSelector && getUnitSymbol(item.product.id, currentUnitId) && (
-                            <span className="text-[10px] text-emerald-700 uppercase">
+                            <span className="text-[10px] text-primary uppercase">
                               {getUnitSymbol(item.product.id, currentUnitId)}
                             </span>
                           )}
@@ -910,10 +910,10 @@ export default function POSScreen() {
                       </p>
 
                       {/* Controles de cantidad */}
-                      <div className="flex items-center bg-emerald-600 rounded overflow-hidden flex-shrink-0">
+                      <div className="flex items-center bg-primary rounded overflow-hidden flex-shrink-0">
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          className="text-white p-0.5 hover:bg-emerald-700 h-6 w-6 flex items-center justify-center text-sm"
+                          className="text-white p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
                         >
                           −
                         </button>
@@ -927,12 +927,12 @@ export default function POSScreen() {
                             }
                           }}
                           onFocus={(e) => e.target.select()}
-                          className="text-white text-xs font-semibold w-10 text-center bg-emerald-600 border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="text-white text-xs font-semibold w-10 text-center bg-primary border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           min="1"
                         />
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                          className="text-white p-0.5 hover:bg-emerald-700 h-6 w-6 flex items-center justify-center text-sm"
+                          className="text-white p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
                         >
                           +
                         </button>
@@ -951,7 +951,7 @@ export default function POSScreen() {
               </div>
 
               {/* Totals */}
-              <div className="p-3 bg-green-50 border-t-2 border-b-2 border-emerald-600 space-y-2 flex-shrink-0">
+              <div className="p-3 bg-slate-50 border-t-2 border-b-2 border-primary space-y-2 flex-shrink-0">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
                   <span className="font-semibold">{formatCurrency(calculateSubtotal())}</span>
@@ -962,7 +962,7 @@ export default function POSScreen() {
                 </div>
                 <div className="flex justify-between border-t pt-2 mb-2">
                   <span className="font-bold text-lg">TOTAL</span>
-                  <span className="font-bold text-lg text-emerald-600">{formatCurrency(calculateTotal())}</span>
+                  <span className="font-bold text-lg text-primary">{formatCurrency(calculateTotal())}</span>
                 </div>
 
                 {/* 🎁 Loyalty Points Total */}
@@ -979,7 +979,7 @@ export default function POSScreen() {
               {/* Checkout Button */}
               <Button
                 onClick={handleCheckout}
-                className="m-3 w-[calc(100%-1.5rem)] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 text-lg flex-shrink-0"
+                className="m-3 w-[calc(100%-1.5rem)] bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg flex-shrink-0"
               >
                 <DollarSign className="w-5 h-5 mr-2" />
                 PROCESAR PAGO
@@ -999,9 +999,9 @@ export default function POSScreen() {
 
           <div className="space-y-6">
             {/* Total Display */}
-            <div className="bg-green-50 p-6 rounded-lg text-center border-2 border-emerald-600">
+            <div className="bg-primary/5 p-6 rounded-lg text-center border-2 border-primary">
               <p className="text-gray-600 mb-2">Total a Pagar</p>
-              <p className="text-4xl font-bold text-emerald-600">{formatCurrency(calculateTotal())}</p>
+              <p className="text-4xl font-bold text-primary">{formatCurrency(calculateTotal())}</p>
             </div>
 
             {/* Payment Method Selection */}
@@ -1014,7 +1014,7 @@ export default function POSScreen() {
                     onClick={() => setPaymentMethod(method)}
                     className={`p-3 rounded-lg font-semibold transition-all border-2 ${
                       paymentMethod === method
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-600'
+                        ? 'border-primary bg-primary/10 text-primary'
                         : 'border-gray-300 bg-white text-gray-600'
                     }`}
                   >
@@ -1058,7 +1058,7 @@ export default function POSScreen() {
                       <button
                         key={amount}
                         onClick={() => setReceivedAmount(amount.toString())}
-                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-emerald-600 transition-all"
+                        className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold text-primary transition-all"
                       >
                         {formatCurrency(amount)}
                       </button>
@@ -1067,11 +1067,11 @@ export default function POSScreen() {
                 </div>
 
                 {/* Change Display */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-300">
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-300">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-blue-900">Cambio</span>
+                    <span className="font-semibold text-slate-900">Cambio</span>
                     <span className={`text-2xl font-bold ${
-                      parseFloat(receivedAmount) < calculateTotal() ? 'text-red-600' : 'text-blue-600'
+                      parseFloat(receivedAmount) < calculateTotal() ? 'text-red-600' : 'text-primary'
                     }`}>
                       {parseFloat(receivedAmount) < calculateTotal()
                         ? `Insuficiente (${formatCurrency(calculateTotal() - parseFloat(receivedAmount))})`
@@ -1087,7 +1087,7 @@ export default function POSScreen() {
             <Button
               onClick={processSale}
               disabled={createSaleMutation.isPending}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 text-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
             >
               {createSaleMutation.isPending ? 'Procesando...' : 'COMPLETAR VENTA'}
             </Button>
@@ -1113,7 +1113,7 @@ export default function POSScreen() {
                   value={skuQuery}
                   onChange={(e) => setSkuQuery(e.target.value)}
                   autoFocus
-                  className="text-2xl font-bold text-emerald-600 tracking-widest"
+                  className="text-2xl font-bold text-primary tracking-widest"
                 />
                 {skuQuery.length > 0 && (
                   <button
@@ -1127,19 +1127,19 @@ export default function POSScreen() {
             </div>
 
             {/* Numeric Keyboard */}
-            <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-lg">
+            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                 <button
                   key={num}
                   onClick={() => setSkuQuery(skuQuery + num.toString())}
-                  className="p-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-all"
+                  className="p-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
                 >
                   {num}
                 </button>
               ))}
               <button
                 onClick={() => setSkuQuery(skuQuery + '0')}
-                className="col-span-2 p-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-all"
+                className="col-span-2 p-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
               >
                 0
               </button>
@@ -1174,7 +1174,7 @@ export default function POSScreen() {
                             setShowSkuModal(false);
                             setSkuQuery('');
                           }}
-                          className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border-2 border-emerald-300 cursor-pointer hover:bg-green-100 transition-all"
+                          className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border-2 border-primary/30 cursor-pointer hover:bg-primary/10 hover:border-primary transition-all"
                         >
                           <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center overflow-hidden">
                             {imageUrl ? (
@@ -1184,7 +1184,7 @@ export default function POSScreen() {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <Package className="w-8 h-8 text-emerald-600" />
+                              <Package className="w-8 h-8 text-primary" />
                             )}
                           </div>
                           <div className="flex-1">
@@ -1201,11 +1201,11 @@ export default function POSScreen() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-emerald-600 font-bold mt-1">
+                            <p className="text-sm text-primary font-bold mt-1">
                               {formatCurrency(getBasePrice(product))}
                             </p>
                           </div>
-                          <Plus className="w-6 h-6 text-emerald-600" />
+                          <Plus className="w-6 h-6 text-primary" />
                         </div>
                       );
                     })

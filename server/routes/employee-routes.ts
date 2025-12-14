@@ -25,18 +25,18 @@ const CreateUserWithProfileSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(6),
   name: z.string().min(2),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
   role: z.enum(['admin', 'technician', 'seller', 'delivery']),
   
   // ID del perfil a asignar
   employeeProfileId: z.number().int().positive(),
   
   // Datos personalizados del empleado (opcionales)
-  emergencyContact: z.string().optional(),
-  emergencyPhone: z.string().optional(),
-  vehicleInfo: z.string().optional(),
-  address: z.string().optional(),
+  emergencyContact: z.string().optional().nullable(),
+  emergencyPhone: z.string().optional().nullable(),
+  vehicleInfo: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
 });
 
 // ================================
