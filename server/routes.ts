@@ -15,6 +15,7 @@ import unitConversionRoutes from './routes/unit-conversion-routes';
 import customerManagementRoutes from './routes/customer-management-routes';
 import purchaseManagementRoutes from './routes/purchase-management-routes';
 import appointmentRoutes from './routes/appointment-routes';
+import inventoryAdjustmentRoutes from './routes/inventory-adjustment-routes';
 
 // Schema and Types
 import {
@@ -1426,6 +1427,7 @@ export async function registerRoutes(app: express.Application) {
 app.use('/api', employeeRouter);
 app.use('/api', rolesManagementRouter);
 app.use('/api', appointmentRoutes);
+  app.use('/api', inventoryAdjustmentRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================

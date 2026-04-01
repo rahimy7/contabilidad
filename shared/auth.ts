@@ -61,7 +61,8 @@ export const rolePermissions = {
     'send_messages',
     'view_notifications',
     'manage_assignments',
-    'manage_appointments'
+    'manage_appointments',
+    'manage_inventory_adjustments'
   ],
   technician: [
     'view_dashboard',

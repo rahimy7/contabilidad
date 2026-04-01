@@ -1868,3 +1868,53 @@ export const insertAppointmentSchema = z.object({
 });
 
 export const updateAppointmentSchema = insertAppointmentSchema.partial().omit({ storeId: true });
+
+// ================================
+// AJUSTE DE INVENTARIO
+// ================================
+
+export const inventoryAdjustments = pgTable("inventory_adjustments", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  adjustedBy: integer("adjusted_by").references(() => users.id),
+  notes: text("notes"),
+  totalItems: integer("total_items").notNull().default(0),
+  surplusItems: integer("surplus_items").notNull().default(0),
+  deficitItems: integer("deficit_items").notNull().default(0),
+  surplusValue: decimal("surplus_value", { precision: 14, scale: 2 }).notNull().default("0"),
+  deficitValue: decimal("deficit_value", { precision: 14, scale: 2 }).notNull().default("0"),
+  netAdjustmentValue: decimal("net_adjustment_value", { precision: 14, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const inventoryAdjustmentItems = pgTable("inventory_adjustment_items", {
+  id: serial("id").primaryKey(),
+  adjustmentId: integer("adjustment_id").references(() => inventoryAdjustments.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  productName: text("product_name").notNull(),
+  previousStock: integer("previous_stock").notNull().default(0),
+  realStock: integer("real_stock").notNull().default(0),
+  difference: integer("difference").notNull().default(0),
+  unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull().default("0"),
+  baseCurrency: text("base_currency").notNull().default("DOP"),
+  adjustmentAmount: decimal("adjustment_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+});
+
+export const insertInventoryAdjustmentSchema = z.object({
+  storeId: z.number().int().optional(), // ignored; backend uses user.storeId from JWT
+  adjustedBy: z.number().int().positive().optional(),
+  notes: z.string().optional().nullable(),
+  items: z.array(z.object({
+    productId: z.number().int().positive(),
+    productName: z.string(),
+    previousStock: z.number().int(),
+    realStock: z.number().int(),
+    difference: z.number().int(),
+    unitPrice: z.string(),
+    baseCurrency: z.string().default("DOP"),
+    adjustmentAmount: z.string(),
+  })).min(1, "Se requiere al menos un producto"),
+});
+
+export type InventoryAdjustment = typeof inventoryAdjustments.$inferSelect;
+export type InventoryAdjustmentItem = typeof inventoryAdjustmentItems.$inferSelect;

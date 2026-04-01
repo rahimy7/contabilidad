@@ -115,6 +115,14 @@ const initialViews: ViewData[] = [
     section: 'admin',
     isSystem: true,
   },
+  {
+    routePath: '/inventory-adjustment',
+    label: 'Ajuste de Inventario',
+    iconName: 'ClipboardList',
+    permissionRequired: 'manage_inventory_adjustments',
+    section: 'admin',
+    isSystem: true,
+  },
 
   // Sales & POS
   {
