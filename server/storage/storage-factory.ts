@@ -1,5 +1,5 @@
 // server/storage/storage-factory.ts
-// Versión simplificada para tienda única (4Life Bella Vista)
+// Versión simplificada para tienda única (Metabella)
 
 import { MasterStorageService } from './master-storage.js';
 import { createTenantStorage } from '../tenant-storage.js';

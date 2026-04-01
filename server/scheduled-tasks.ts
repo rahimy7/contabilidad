@@ -1,5 +1,5 @@
 // server/scheduled-tasks.ts
-// Versión simplificada para tienda única (4Life Bella Vista)
+// Versión simplificada para tienda única (Metabella)
 
 import { getTenantStorage } from './storage/index.js';
 import { cleanupIncompleteAIConversations } from './ai-conversation-cleanup.js';
@@ -11,7 +11,7 @@ import { startStorageUpdateJob, startStorageLimitCheckJob } from './jobs/storage
 
 // ID fijo de la tienda única
 const SINGLE_STORE_ID = 1;
-const STORE_NAME = '4Life Bella Vista';
+const STORE_NAME = 'Metabella';
 
 // Configuración de intervalos
 const CLEANUP_INTERVALS = {

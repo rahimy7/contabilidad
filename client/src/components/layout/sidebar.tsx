@@ -194,12 +194,12 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="p-4 md:p-6 border-b border-white/30 flex-shrink-0 bg-black/10">
           <div className="flex items-center space-x-3">
             <img
-              src="/4life-logo-white.svg"
-              alt="4Life Logo"
+              src="/image.png"
+              alt="Metabella Logo"
               className="h-8 md:h-10 w-auto drop-shadow-lg"
             />
             <div>
-              <h1 className="font-bold text-white text-base md:text-lg drop-shadow-sm">Bella Vista</h1>
+              <h1 className="font-bold text-white text-base md:text-lg drop-shadow-sm">Metabella</h1>
             </div>
           </div>
         </div>

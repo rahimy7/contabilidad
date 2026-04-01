@@ -186,6 +186,7 @@ function Router() {
       <Route path="/inventory-traceability" component={() => <ProtectedRoute component={InventoryTraceability} permission="manage_products" />} />
       <Route path="/appointments" component={() => <ProtectedRoute component={AppointmentsPage} permission="manage_appointments" />} />
       <Route path="/inventory-adjustment" component={() => <ProtectedRoute component={InventoryAdjustmentPage} permission="manage_inventory_adjustments" />} />
+      <Route path="/user-settings" component={UserSettings} />
     </Switch>
   );
 }

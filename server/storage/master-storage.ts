@@ -1,5 +1,5 @@
 // server/storage/master-storage.ts
-// Versión simplificada para tienda única (4Life Bella Vista)
+// Versión simplificada para tienda única (Metabella)
 // Solo accede a tablas que realmente existen en la nueva BD
 
 import { Pool } from "@neondatabase/serverless";
@@ -238,9 +238,9 @@ export class MasterStorageService {
     console.log(`⚠️ getVirtualStore called with storeId ${storeId}, returning mock data`);
     return {
       id: this.storeId,
-      name: '4Life Bella Vista',
+      name: 'Metabella',
       isActive: true,
-      slug: '4life-bellavista',
+      slug: 'metabella',
       databaseUrl: process.env.DATABASE_URL
     };
   }

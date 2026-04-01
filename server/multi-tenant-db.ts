@@ -1,5 +1,5 @@
 // server/multi-tenant-db-simple.ts
-// Versión simplificada para tienda única (4Life Bella Vista)
+// Versión simplificada para tienda única (Metabella)
 
 import { db, pool } from './db';
 import * as schema from "@shared/schema";
@@ -9,7 +9,7 @@ export const masterDb = db;
 export const masterPool = pool;
 
 /**
- * Obtiene la información de la tienda (siempre tienda ID 1 para 4Life Bella Vista)
+ * Obtiene la información de la tienda (siempre tienda ID 1 para Metabella)
  * @param storeId - ID de la tienda (siempre debería ser 1)
  * @returns Información básica de la tienda
  */
@@ -17,8 +17,8 @@ export async function getStoreInfo(storeId: number = 1) {
   // En un sistema de tienda única, siempre devolvemos la información de la tienda principal
   return {
     id: 1,
-    name: '4Life Bella Vista',
-    slug: '4life-bellavista',
+    name: 'Metabella',
+    slug: 'metabella',
     isActive: true,
     databaseUrl: process.env.DATABASE_URL
   };

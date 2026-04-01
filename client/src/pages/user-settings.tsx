@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Save, User, Key, Bell, Settings } from "lucide-react";
 
 export default function UserSettings() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -28,6 +28,39 @@ export default function UserSettings() {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Actualizar formData cuando el usuario se carga
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        phone: user.phone || '',
+        email: user.email || '',
+        status: user.status || 'active'
+      });
+    }
+  }, [user]);
+
+  // Mostrar loading mientras se carga el usuario
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Redirigir o mostrar mensaje si no hay usuario
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">No autenticado</h1>
+          <p className="text-gray-600">Por favor inicia sesión para acceder a esta página.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Mutation for updating user profile
   const updateProfileMutation = useMutation({

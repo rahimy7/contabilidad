@@ -113,38 +113,7 @@ export default function Header({
                   <span>Ajustes del Usuario</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <div className="px-2 py-1">
-                  <p className="text-xs text-muted-foreground mb-2">Cambio rápido de usuario:</p>
-                  {user?.role !== 'admin' && (
-                    <DropdownMenuItem 
-                      onClick={() => switchUser('admin', 'password')}
-                      className="text-xs py-1 mb-1"
-                    >
-                      <RefreshCw className="mr-2 h-3 w-3" />
-                      <span>👑 Administrador</span>
-                    </DropdownMenuItem>
-                  )}
-                  {user?.role !== 'technician' && (
-                    <DropdownMenuItem 
-                      onClick={() => switchUser('tech1', 'password')}
-                      className="text-xs py-1 mb-1"
-                    >
-                      <RefreshCw className="mr-2 h-3 w-3" />
-                      <span>🔧 Técnico (Dashboard Nuevo)</span>
-                    </DropdownMenuItem>
-                  )}
-                  {user?.role !== 'seller' && (
-                    <DropdownMenuItem 
-                      onClick={() => switchUser('seller1', 'password')}
-                      className="text-xs py-1"
-                    >
-                      <RefreshCw className="mr-2 h-3 w-3" />
-                      <span>💼 Vendedor</span>
-                    </DropdownMenuItem>
-                  )}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Cerrar Sesión</span>
                 </DropdownMenuItem>

@@ -778,8 +778,8 @@ ${orderItems}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <img
-                    src="/4life-logo-white.svg"
-                    alt="4Life Logo"
+                    src="/image.png"
+                    alt="Metabella Logo"
                     className="h-8 w-auto"
                   />
                   <div>
@@ -830,8 +830,8 @@ ${orderItems}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                   <img
-                    src="/4life-logo-white.svg"
-                    alt="4Life Logo"
+                    src="/image.png"
+                    alt="Metabella Logo"
                     className="h-12 w-auto"
                   />
                   <div>

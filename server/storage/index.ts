@@ -1,5 +1,5 @@
 // server/storage/index.ts
-// Versión simplificada para tienda única (4Life Bella Vista)
+// Versión simplificada para tienda única (Metabella)
 
 import { UnifiedStorage } from "./unified-storage";
 
@@ -128,4 +128,4 @@ export default {
 };
 
 console.log("✅ Single-store storage system initialized");
-console.log("🏪 Storage ready for 4Life Bella Vista (store ID: 1)");
+console.log("🏪 Storage ready for Metabella (store ID: 1)");
