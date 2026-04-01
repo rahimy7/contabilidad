@@ -9,6 +9,7 @@ import { sql, eq, count, and, isNull, or, max, desc, asc } from "drizzle-orm";
 import { exchangeRateRoutes } from './exchange-rate.routes';
 import { productCurrencyMiddleware } from './middleware/currency.middleware.js';
 import employeeRouter from './routes/employee-routes.js';
+import rolesManagementRouter from './routes/roles-management-routes.js';
 import tripRoutes from './routes/trip-routes';
 import unitConversionRoutes from './routes/unit-conversion-routes';
 import customerManagementRoutes from './routes/customer-management-routes';
@@ -1422,6 +1423,7 @@ async function processWhatsAppMessage(value: any) {
 export async function registerRoutes(app: express.Application) {
   const router = express.Router();
 app.use('/api', employeeRouter);
+app.use('/api', rolesManagementRouter);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================

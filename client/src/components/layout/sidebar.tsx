@@ -1,12 +1,15 @@
 import { Link, useLocation } from "wouter";
-import { ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, Menu, X, Smartphone, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Store, Shield, CreditCard, MessageSquare, Cog, Database, Palette, Truck, DollarSign, ShoppingBasket, Sliders, TrendingUp, Coins, Receipt, Layout, Scale, FileText, PackageSearch } from "lucide-react";
+import { 
+  ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, 
+  X, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Shield, 
+  CreditCard, Truck, DollarSign, ShoppingBasket, Sliders, Scale, FileText, PackageSearch 
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { hasPermission } from "@shared/auth";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -26,15 +29,6 @@ interface NavItem {
   icon: any;
   label: string;
   badge: number | string | null;
-  permission: string;
-  roles?: string[];
-  excludeRoles?: string[];
-  section?: string;
-}
-
-interface NavSection {
-  title: string;
-  items: NavItem[];
 }
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
@@ -53,36 +47,54 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // ================================
+  // CARGA DE VISTAS DINÁMICAS - SISTEMA RBAC
+  // ================================
+  
+  const { data: dynamicViews = [], isLoading: viewsLoading } = useQuery({
+    queryKey: ["/api/roles/me/permissions"],
+    queryFn: () => apiRequest("GET", "/api/roles/me/permissions"),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
+  // ================================
+  // QUERIES PARA BADGES
+  // ================================
+  
   const { data: orders = [] } = useQuery({
     queryKey: ["/api/orders"],
-    enabled: user && hasPermission(user.role, 'view_orders'),
+    enabled: !!user,
   });
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["/api/conversations"],
-    enabled: user && hasPermission(user.role, 'view_conversations'),
+    enabled: !!user,
   });
 
   const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
     queryKey: ["/api/notifications/count", { userId: user?.id }],
     queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
     refetchInterval: 30000,
-    enabled: user && hasPermission(user.role, 'view_notifications'),
+    enabled: !!user,
   });
 
-const { data: activeTrip } = useQuery<ActiveTrip | null>({
-  queryKey: ["/api/trips/my-active"],
-  enabled: user && user?.role === 'delivery',
-  refetchInterval: 30000,
-});
-
-  // Query para obtener stats de viajes (para admin/sales)
-  const { data: tripStats } = useQuery({
-    queryKey: ["/api/trips", { status: 'pending' }],
-    enabled: user && (user?.role === 'admin' || user?.role === 'sales_rep'),
+  const { data: activeTrip } = useQuery<ActiveTrip | null>({
+    queryKey: ["/api/trips/my-active"],
+    enabled: !!user && user?.role === 'delivery',
     refetchInterval: 30000,
   });
 
+  const { data: tripStats } = useQuery({
+    queryKey: ["/api/trips", { status: 'pending' }],
+    enabled: !!user && (user?.role === 'admin' || user?.role === 'sales_rep'),
+    refetchInterval: 30000,
+  });
+
+  // ================================
+  // CÁLCULO DE BADGES
+  // ================================
+  
   const pendingOrders = Array.isArray(orders) ? orders.filter((order: any) => order.status === "pending").length : 0;
   const activeConversations = Array.isArray(conversations) ? conversations.filter((conv: any) => conv.unreadCount > 0).length : 0;
   const unreadNotifications = (() => {
@@ -93,12 +105,46 @@ const { data: activeTrip } = useQuery<ActiveTrip | null>({
     }
     return 0;
   })();
-
-  // Badge para viajes pendientes (admin/sales)
   const pendingTrips = Array.isArray(tripStats) ? tripStats.filter((trip: any) => trip.status === 'pending').length : 0;
+  const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'processing';
+
+  // ================================
+  // CONSTRUCCIÓN DE ITEMS DE NAVEGACIÓN
+  // ================================
   
-  // Badge para delivery (muestra si tiene viaje activo)
-const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'processing';
+  // Mapa de iconos
+  const iconMap: Record<string, any> = {
+    ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings,
+    UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Truck, DollarSign,
+    ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CreditCard, Bot, Shield,
+  };
+
+  // Mapa de badges por ruta
+  const getBadgeForRoute = (routePath: string): number | string | null => {
+    switch (routePath) {
+      case '/conversations':
+        return activeConversations > 0 ? activeConversations : null;
+      case '/notifications':
+        return unreadNotifications > 0 ? unreadNotifications : null;
+      case '/orders':
+        return pendingOrders > 0 ? pendingOrders : null;
+      case '/trips':
+        return pendingTrips > 0 ? pendingTrips : null;
+      case '/delivery-dashboard':
+        return hasActiveTrip ? "●" : null;
+      default:
+        return null;
+    }
+  };
+
+  // Convertir vistas dinámicas a NavItems
+  const navItems: NavItem[] = dynamicViews.map((view: any) => ({
+    href: view.route_path,
+    icon: iconMap[view.icon_name] || Package,
+    label: view.label,
+    badge: getBadgeForRoute(view.route_path),
+  }));
+
   // Función para manejar el clic en las opciones del menú
   const handleMenuItemClick = () => {
     if (isMobile && onClose) {
@@ -106,207 +152,9 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
     }
   };
 
-  const allNavItems: NavItem[] = [
-    {
-      href: "/dashboard",
-      icon: ChartLine,
-      label: "Dashboard",
-      badge: null,
-      permission: "view_dashboard",
-    },
-    {
-      href: "/conversations",
-      icon: MessageCircle,
-      label: "Conversaciones WhatsApp",
-      badge: activeConversations > 0 ? activeConversations : null,
-      permission: "view_conversations",
-    },
-    {
-      href: "/notifications",
-      icon: Bell,
-      label: "Notificaciones",
-      badge: unreadNotifications > 0 ? unreadNotifications : null,
-      permission: "view_notifications",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/orders",
-      icon: ShoppingCart,
-      label: "Pedidos",
-      badge: pendingOrders > 0 ? pendingOrders : null,
-      permission: "manage_orders",
-      excludeRoles: ["technician"],
-    },
-    // === VIAJES - PARA ADMIN Y SALES ===
-    {
-      href: "/trips",
-      icon: Truck,
-      label: "Gestión de Viajes",
-      badge: pendingTrips > 0 ? pendingTrips : null,
-      permission: "manage_orders",
-      roles: ["admin", "sales_rep"],
-    },
-    {
-      href: "/employees",
-      icon: UserPlus,
-      label: "Empleados",
-      badge: null,
-      permission: "manage_users",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/product-management",
-      icon: Package,
-      label: "Gestión de Productos",
-      badge: null,
-      permission: "manage_products",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/admin/measurement-units",
-      icon: Scale,
-      label: "Unidades de Medida",
-      badge: null,
-      permission: "manage_products",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/purchase-management",
-      icon: FileText,
-      label: "Gestión de Compras",
-      badge: null,
-      permission: "manage_products",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/inventory-traceability",
-      icon: PackageSearch,
-      label: "Trazabilidad de Inventario",
-      badge: null,
-      permission: "manage_products",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/customer-management",
-      icon: Users,
-      label: "Gestión de Clientes",
-      badge: null,
-      permission: "manage_customers",
-      excludeRoles: ["technician"],
-    },
-    // === VENTAS Y PUNTO DE VENTA ===
-    {
-      href: "/pos",
-      icon: ShoppingBasket,
-      label: "Punto de Venta (POS)",
-      badge: null,
-      permission: "manage_orders",
-      roles: ["admin", "sales_rep"],
-    },
-    {
-      href: "/store-settings",
-      icon: Sliders,
-      label: "Configuración de Tienda",
-      badge: null,
-      permission: "manage_settings",
-      roles: ["admin"],
-    },
-    {
-      href: "/exchange-rates",
-      icon: DollarSign,
-      label: "Tasas de Cambio",
-      badge: null,
-      permission: "manage_settings",
-    },
-    {
-      href: "/reports",
-      icon: BarChart3,
-      label: "Reportes",
-      badge: null,
-      permission: "view_reports",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/billing",
-      icon: CreditCard,
-      label: "Facturación",
-      badge: null,
-      permission: "view_reports",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/settings",
-      icon: Settings,
-      label: "Configuración",
-      badge: null,
-      permission: "manage_settings",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/auto-responses",
-      icon: Bot,
-      label: "Respuestas Automáticas",
-      badge: null,
-      permission: "manage_settings",
-      excludeRoles: ["technician"],
-    },
-    {
-      href: "/assignment-rules",
-      icon: Zap,
-      label: "Asignación Automática",
-      badge: null,
-      permission: "manage_assignments",
-      excludeRoles: ["technician"],
-    },
-    // === MENU ESPECÍFICO PARA TÉCNICOS ===
-    {
-      href: "/technician-dashboard",
-      icon: Wrench,
-      label: "Panel Técnico",
-      badge: null,
-      permission: "view_technician",
-      roles: ["technician"],
-    },
-    {
-      href: "/installation-requests",
-      icon: ClipboardList,
-      label: "Solicitudes de Instalación",
-      badge: null,
-      permission: "manage_installations",
-      roles: ["technician"],
-    },
-    {
-      href: "/my-installations",
-      icon: ShoppingBag,
-      label: "Mis Instalaciones",
-      badge: null,
-      permission: "view_installations",
-      roles: ["technician"],
-    },
-    // === MENU ESPECÍFICO PARA DELIVERY ===
-    {
-      href: "/delivery-dashboard",
-      icon: Truck,
-      label: "Mi Viaje",
-      badge: hasActiveTrip ? "●" : null,
-      permission: "view_orders",
-      roles: ["delivery"],
-    },
-  ];
-
-  const navItems = allNavItems.filter(item => {
-    if (!user) return false;
-
-    if (item.roles && !item.roles.includes(user.role)) {
-      return false;
-    }
-
-    if (item.excludeRoles && item.excludeRoles.includes(user.role)) {
-      return false;
-    }
-
-    return hasPermission(user.role, item.permission);
-  });
+  // ================================
+  // RENDERIZADO
+  // ================================
 
   if (isMobile && !isOpen) return null;
 
@@ -363,8 +211,8 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
               <span className="text-white text-sm font-medium drop-shadow-sm">👤</span>
             </div>
             <div className="flex-1">
-              <p className="font-medium text-white text-sm drop-shadow-sm">Administrador</p>
-              <p className="text-xs text-white/90">Sistema</p>
+              <p className="font-medium text-white text-sm drop-shadow-sm">{user?.name || 'Usuario'}</p>
+              <p className="text-xs text-white/90 capitalize">{user?.role || 'Sistema'}</p>
             </div>
             <button className="text-white/90 hover:text-white transition-colors">
               <ChartLine className="h-4 w-4 drop-shadow-sm" />
@@ -374,7 +222,18 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
 
         {/* Navigation Menu - CON SCROLL */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          <div className="space-y-1">
+          {viewsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-white/70 text-sm">Cargando menú...</div>
+            </div>
+          ) : navItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <Shield className="w-12 h-12 text-white/50 mb-3" />
+              <p className="text-white/70 text-sm">No tienes vistas asignadas</p>
+              <p className="text-white/50 text-xs mt-1">Contacta al administrador</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
             {navItems.map((item) => {
               const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
               const Icon = item.icon;
@@ -409,7 +268,8 @@ const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 
                 </Link>
               );
             })}
-          </div>
+            </div>
+          )}
         </nav>
 
         {/* Footer */}

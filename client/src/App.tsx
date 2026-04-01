@@ -8,6 +8,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@shared/auth";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -60,22 +62,16 @@ import ReceivePurchaseOrder from "./pages/receive-purchase-order";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
-  
-  // 🔍 LOG: Debug de ProtectedRoute
- /*  console.log('🔍 ProtectedRoute - Debug:', {
-    component: Component.name,
-    permission,
-    user: user ? {
-      username: user.username,
-      role: user.role,
-      level: user.level,
-      storeId: user.storeId
-    } : null,
-    isLoading
-  }); */
-  
-  if (isLoading) {
-    // console.log('⏳ ProtectedRoute: Cargando...');
+
+  // Cargar vistas asignadas por RBAC (usa el mismo cache que el sidebar)
+  const { data: rbacViews = [], isLoading: rbacLoading } = useQuery<any[]>({
+    queryKey: ["/api/roles/me/permissions"],
+    queryFn: () => apiRequest("GET", "/api/roles/me/permissions"),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading || (!!user && rbacLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -84,20 +80,17 @@ function ProtectedRoute({ component: Component, permission }: { component: React
   }
 
   if (!user) {
-   // console.log('❌ ProtectedRoute: Sin usuario, redirigiendo a login');
     return <MultiTenantLogin />;
   }
 
   if (permission) {
-    const hasRequiredPermission = hasPermission(user.role, permission);
-   /*  console.log('🔐 ProtectedRoute - Verificando permisos:', {
-      userRole: user.role,
-      requiredPermission: permission,
-      hasPermission: hasRequiredPermission
-    }); */
-    
-    if (!hasRequiredPermission) {
-     // console.log('❌ ProtectedRoute: ACCESO DENEGADO');
+    // Admin siempre tiene acceso total
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    // Para otros roles: verificar que la vista está asignada en el sistema RBAC
+    const hasRbacAccess = isAdmin ||
+      rbacViews.some((v: any) => v.permission_required === permission);
+
+    if (!hasRbacAccess) {
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">

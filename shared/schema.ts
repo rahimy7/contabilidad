@@ -219,6 +219,54 @@ export const users = pgTable('users', {
 });
 
 // ================================
+// SISTEMA DE ROLES Y PERMISOS (RBAC)
+// ================================
+
+// Tabla de roles del sistema
+export const roles = pgTable('roles', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(), // Identificador interno (ej: 'admin', 'supervisor')
+  displayName: text('display_name').notNull(), // Nombre para mostrar (ej: 'Administrador', 'Supervisor')
+  description: text('description'), // Descripción del rol
+  isSystem: boolean('is_system').default(false), // true para roles no editables (admin)
+  isActive: boolean('is_active').default(true), // Estado del rol
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Tabla de vistas/páginas disponibles en el sistema
+export const views = pgTable('views', {
+  id: serial('id').primaryKey(),
+  routePath: text('route_path').notNull().unique(), // Ruta de la vista (ej: '/dashboard', '/orders')
+  label: text('label').notNull(), // Etiqueta para mostrar (ej: 'Dashboard', 'Pedidos')
+  iconName: text('icon_name').notNull(), // Nombre del ícono de lucide-react (ej: 'ChartLine', 'ShoppingCart')
+  permissionRequired: text('permission_required').notNull(), // Permiso requerido (ej: 'view_dashboard', 'manage_orders')
+  section: text('section'), // Sección a la que pertenece (ej: 'core', 'admin', 'sales')
+  isSystem: boolean('is_system').default(false), // true para vistas del sistema que no se pueden eliminar
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Tabla de permisos de vistas por rol (incluye orden de visualización)
+export const rolePermissions = pgTable('role_permissions', {
+  id: serial('id').primaryKey(),
+  roleId: integer('role_id').references(() => roles.id, { onDelete: 'cascade' }).notNull(),
+  viewId: integer('view_id').references(() => views.id, { onDelete: 'cascade' }).notNull(),
+  canAccess: boolean('can_access').default(true), // Permiso de acceso
+  sortOrder: integer('sort_order').default(0), // Orden de visualización en el sidebar (menor = primero)
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Tabla de asignación de roles a usuarios
+export const userRoles = pgTable('user_roles', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  roleId: integer('role_id').references(() => roles.id, { onDelete: 'restrict' }).notNull(),
+  isPrimary: boolean('is_primary').default(true), // true para el rol principal del usuario
+  assignedAt: timestamp('assigned_at').defaultNow(),
+});
+
+// ================================
 // TIPOS DE CLIENTES Y CATEGORIZACIÓN
 // ================================
 
@@ -1426,6 +1474,11 @@ export const schema = {
   trips,
   tripOrders,
   exchangeRates,
+  // RBAC tables
+  roles,
+  views,
+  rolePermissions,
+  userRoles,
 };
 
 // ================================

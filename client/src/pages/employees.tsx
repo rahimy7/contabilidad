@@ -12,8 +12,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Trash2, Plus, Users, Briefcase, Search } from 'lucide-react';
+import { Pencil, Trash2, Plus, Users, Briefcase, Search, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { RolesManager } from '@/components/roles/RolesManager';
 
 const createEmployeeSchema = z.object({
   username: z.string().min(3, "Mínimo 3 caracteres"),
@@ -264,6 +265,7 @@ const handleEditProfile = (profile: any) => {
         <TabsList>
           <TabsTrigger value="employees"><Users className="w-4 h-4 mr-2" />Empleados</TabsTrigger>
           <TabsTrigger value="profiles"><Briefcase className="w-4 h-4 mr-2" />Perfiles</TabsTrigger>
+          <TabsTrigger value="roles"><Shield className="w-4 h-4 mr-2" />Roles y Permisos</TabsTrigger>
         </TabsList>
         <TabsContent value="employees" className="space-y-4">
           <div className="flex gap-4 items-center">
@@ -360,6 +362,9 @@ const handleEditProfile = (profile: any) => {
               </Card>
             ))}
           </div>
+        </TabsContent>
+        <TabsContent value="roles" className="space-y-4">
+          <RolesManager />
         </TabsContent>
       </Tabs>
 

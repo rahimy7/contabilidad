@@ -122,7 +122,7 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
             </div>
             {data.tax > 0 && (
               <div className="flex justify-between py-2 border-b border-gray-200 text-sm">
-                <span>ITBIS (18%):</span>
+                <span>ITBIS (0%):</span>
                 <span>RD${data.tax.toFixed(2)}</span>
               </div>
             )}
@@ -199,9 +199,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
       const opt = {
         margin: 0,
         filename: `factura-${data?.orderNumber || 'venta'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2 },
-        jsPDF: { format: 'a4', orientation: 'portrait' }
+        jsPDF: { format: 'a4' as const, orientation: 'portrait' as const }
       };
 
       html2pdf().set(opt).from(element).save();

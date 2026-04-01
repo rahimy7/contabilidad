@@ -957,7 +957,7 @@ export default function POSScreen() {
                   <span className="font-semibold">{formatCurrency(calculateSubtotal())}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">ITBIS (18%)</span>
+                  <span className="text-gray-600">ITBIS (0%)</span>
                   <span className="font-semibold">{formatCurrency(calculateTax())}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2 mb-2">

@@ -3,7 +3,43 @@ import { z } from 'zod';
 import { authenticateToken, requireAdmin } from '../authMiddleware';
 import bcrypt from 'bcryptjs';
 import { getTenantStorageWithSchema } from 'server/routes';
+import { getTenantDb } from '../multi-tenant-db';
+import { users } from '../../shared/schema';
+import { eq } from 'drizzle-orm';
 import { Pool } from '@neondatabase/serverless';
+
+/**
+ * Sincroniza user_roles: cuando un empleado cambia de rol (o es creado),
+ * actualiza la tabla user_roles para que el sidebar dinámico muestre las
+ * vistas configuradas para ese rol en el sistema RBAC.
+ */
+async function syncUserRole(userId: number, roleName: string): Promise<void> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    // Buscar el rol en la tabla roles por nombre
+    const roleResult = await pool.query(
+      'SELECT id FROM roles WHERE name = $1 AND is_active = TRUE',
+      [roleName]
+    );
+    if (roleResult.rows.length === 0) {
+      console.warn(`⚠️  syncUserRole: rol '${roleName}' no encontrado en tabla roles`);
+      return;
+    }
+    const roleId = roleResult.rows[0].id;
+
+    // Reemplazar la asignación de rol del usuario
+    await pool.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+    await pool.query(
+      'INSERT INTO user_roles (user_id, role_id, is_primary) VALUES ($1, $2, TRUE) ON CONFLICT (user_id, role_id) DO NOTHING',
+      [userId, roleId]
+    );
+    console.log(`✅ syncUserRole: usuario ${userId} asignado al rol '${roleName}' (id=${roleId})`);
+  } catch (error) {
+    console.error('❌ syncUserRole error:', error);
+  } finally {
+    await pool.end();
+  }
+}
 
 const router = Router();
 
@@ -224,6 +260,9 @@ router.post('/employees', authenticateToken, requireAdmin, async (req: any, res:
     // Obtener usuario completo con perfil
     const employeeWithProfile = await tenantStorage.getUserById(newUser.id);
     const completeProfile = await tenantStorage.getEmployeeProfileById(newUser.employeeProfileId!);
+
+    // Sincronizar user_roles con el rol seleccionado
+    await syncUserRole(newUser.id, validatedData.role);
     
     const { password, ...safeUser } = employeeWithProfile;
     
@@ -270,59 +309,43 @@ router.put('/employees/:id', authenticateToken, async (req: any, res: any) => {
       updates.password = await bcrypt.hash(updates.password, 10);
     }
     
-    // ✅ USAR QUERY DIRECTO - bypass del método faltante
-    const pool = new Pool({ 
-      connectionString: process.env.DATABASE_URL,
-      max: 1 
-    });
+    // Usar tenantDb con Drizzle ORM
+    const tenantDb = await getTenantDb(user.storeId);
     
-    try {
-      // Obtener schema
-      const storeResult = await pool.query(
-        'SELECT database_url FROM virtual_stores WHERE id = $1',
-        [user.storeId]
-      );
-      
-      const schemaMatch = storeResult.rows[0]?.database_url?.match(/schema=([^&]+)/);
-      const schemaName = schemaMatch ? schemaMatch[1] : 'public';
-      
-      await pool.query(`SET search_path TO ${schemaName}, public`);
-      
-      // Construir query dinámico
-      const fields = [];
-      const values = [];
-      let counter = 1;
-      
-      Object.keys(updates).forEach(key => {
-        if (updates[key] !== undefined) {
-          const columnName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-          fields.push(`${columnName} = $${counter}`);
-          values.push(updates[key]);
-          counter++;
-        }
-      });
-      
-      fields.push('updated_at = NOW()');
-      values.push(userId);
-      
-      const result = await pool.query(`
-        UPDATE users 
-        SET ${fields.join(', ')}
-        WHERE id = $${counter}
-        RETURNING *
-      `, values);
-      
-      await pool.end();
-      
-      const updatedUser = result.rows[0];
-      const { password, ...safeUser } = updatedUser;
-      
-      res.json(safeUser);
-      
-    } catch (error) {
-      await pool.end().catch(() => {});
-      throw error;
+    // Preparar updates - solo campos definidos
+    const updateData: any = {};
+    if (updates.username !== undefined) updateData.username = updates.username;
+    if (updates.password !== undefined) updateData.password = updates.password;
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.employeeProfileId !== undefined) updateData.employeeProfileId = updates.employeeProfileId;
+    if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+    
+    updateData.updatedAt = new Date();
+    
+    // Actualizar usuario
+    const result = await tenantDb
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!result.length) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    
+    const updatedUser = result[0];
+
+    // Si el rol cambió, sincronizar user_roles
+    if (updates.role !== undefined) {
+      await syncUserRole(userId, updates.role);
+    }
+
+    const { password, ...safeUser } = updatedUser;
+    
+    res.json(safeUser);
     
   } catch (error) {
     console.error('Error updating employee:', error);
@@ -422,6 +445,50 @@ router.get('/employees/by-department/:department', authenticateToken, async (req
   } catch (error) {
     console.error('Error fetching employees by department:', error);
     res.status(500).json({ error: "Error al obtener empleados" });
+  }
+});
+
+// POST - Sincronizar user_roles para todos los empleados existentes
+// Corrige la desincronización entre users.role y user_roles
+router.post('/employees/sync-roles', authenticateToken, requireAdmin, async (req: any, res: any) => {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    // Obtener todos los usuarios con su rol legacy
+    const usersResult = await pool.query(
+      'SELECT id, username, role FROM users WHERE role IS NOT NULL AND status != $1',
+      ['deleted']
+    );
+
+    let synced = 0;
+    let skipped = 0;
+    const details: any[] = [];
+
+    for (const u of usersResult.rows) {
+      const roleResult = await pool.query(
+        'SELECT id FROM roles WHERE name = $1 AND is_active = TRUE',
+        [u.role]
+      );
+      if (roleResult.rows.length === 0) {
+        skipped++;
+        details.push({ username: u.username, role: u.role, status: 'skipped - rol no encontrado en RBAC' });
+        continue;
+      }
+      const roleId = roleResult.rows[0].id;
+      await pool.query('DELETE FROM user_roles WHERE user_id = $1', [u.id]);
+      await pool.query(
+        'INSERT INTO user_roles (user_id, role_id, is_primary) VALUES ($1, $2, TRUE) ON CONFLICT (user_id, role_id) DO NOTHING',
+        [u.id, roleId]
+      );
+      synced++;
+      details.push({ username: u.username, role: u.role, status: 'synced' });
+    }
+
+    res.json({ message: `Sincronización completada: ${synced} sincronizados, ${skipped} omitidos`, details });
+  } catch (error) {
+    console.error('Error syncing user roles:', error);
+    res.status(500).json({ error: 'Error al sincronizar roles' });
+  } finally {
+    await pool.end();
   }
 });
 
