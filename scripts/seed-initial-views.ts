@@ -107,6 +107,14 @@ const initialViews: ViewData[] = [
     section: 'admin',
     isSystem: true,
   },
+  {
+    routePath: '/appointments',
+    label: 'Agenda de Citas',
+    iconName: 'CalendarDays',
+    permissionRequired: 'manage_appointments',
+    section: 'admin',
+    isSystem: true,
+  },
 
   // Sales & POS
   {

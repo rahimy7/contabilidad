@@ -59,6 +59,7 @@ import CustomerManagement from "./pages/customer-management";
 import PurchaseManagement from "./pages/purchase-management";
 import InventoryTraceability from "./pages/inventory-traceability";
 import ReceivePurchaseOrder from "./pages/receive-purchase-order";
+import AppointmentsPage from "./pages/appointments";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -182,6 +183,7 @@ function Router() {
       <Route path="/purchase-management" component={() => <ProtectedRoute component={PurchaseManagement} permission="manage_products" />} />
       <Route path="/receive-purchase-order/:id" component={() => <ProtectedRoute component={ReceivePurchaseOrder} permission="manage_products" />} />
       <Route path="/inventory-traceability" component={() => <ProtectedRoute component={InventoryTraceability} permission="manage_products" />} />
+      <Route path="/appointments" component={() => <ProtectedRoute component={AppointmentsPage} permission="manage_appointments" />} />
     </Switch>
   );
 }

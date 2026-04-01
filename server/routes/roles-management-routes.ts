@@ -274,8 +274,34 @@ router.get('/views', authenticateToken, async (req: any, res: any) => {
 router.get('/roles/me/permissions', authenticateToken, async (req: any, res: any) => {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const userId = req.user.id;
+  const userRole = req.user.role;
 
   try {
+    // Admins y super_admins ven TODAS las vistas sin importar role_permissions
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      const result = await pool.query(`
+        SELECT
+          v.id,
+          v.route_path,
+          v.label,
+          v.icon_name,
+          v.permission_required,
+          v.section,
+          COALESCE(rp.sort_order, v.id) AS sort_order
+        FROM views v
+        LEFT JOIN role_permissions rp ON rp.view_id = v.id
+          AND rp.role_id = (
+            SELECT r.id FROM user_roles ur
+            INNER JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = $1 LIMIT 1
+          )
+        ORDER BY COALESCE(rp.sort_order, v.id) ASC;
+      `, [userId]);
+
+      return res.json(result.rows);
+    }
+
+    // Para otros roles: solo las vistas asignadas explícitamente
     const result = await pool.query(
       `
       SELECT DISTINCT

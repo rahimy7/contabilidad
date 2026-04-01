@@ -14,6 +14,7 @@ import tripRoutes from './routes/trip-routes';
 import unitConversionRoutes from './routes/unit-conversion-routes';
 import customerManagementRoutes from './routes/customer-management-routes';
 import purchaseManagementRoutes from './routes/purchase-management-routes';
+import appointmentRoutes from './routes/appointment-routes';
 
 // Schema and Types
 import {
@@ -1424,6 +1425,7 @@ export async function registerRoutes(app: express.Application) {
   const router = express.Router();
 app.use('/api', employeeRouter);
 app.use('/api', rolesManagementRouter);
+app.use('/api', appointmentRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================
@@ -1565,7 +1567,64 @@ router.post('/products', authenticateToken, createProductHandler);
   router.put('/products/:id', authenticateToken, updateProductHandler);
   router.delete('/products/:id', authenticateToken, deleteProductHandler);
 
-  // Inventory movements
+  // ================================
+  // BULK PRICE UPDATE
+  // ================================
+  router.put('/products-bulk-price', authenticateToken, async (req: any, res: any) => {
+    try {
+      const user = req.user as AuthUser;
+      if (!user.storeId) {
+        return res.status(403).json({ error: 'Store ID requerido' });
+      }
+
+      const { updates, currency } = req.body as {
+        updates: { id: number; price: string }[];
+        currency: string;
+      };
+
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({ error: 'Se requiere un array de actualizaciones' });
+      }
+
+      const supportedCurrencies = ['USD', 'DOP'];
+      const normalizedCurrency = (currency || 'DOP').toUpperCase();
+      if (!supportedCurrencies.includes(normalizedCurrency)) {
+        return res.status(400).json({ error: `Moneda no soportada: ${currency}` });
+      }
+
+      const tenantStorage = await getTenantStorageWithSchema(user);
+      const results: { id: number; success: boolean; error?: string }[] = [];
+
+      for (const { id, price } of updates) {
+        try {
+          const priceNum = parseFloat(price);
+          if (isNaN(priceNum) || priceNum < 0) {
+            results.push({ id, success: false, error: 'Precio inválido' });
+            continue;
+          }
+          await tenantStorage.updateProduct(id, {
+            price: priceNum.toFixed(2),
+            baseCurrency: normalizedCurrency,
+            updatedAt: new Date(),
+          });
+          results.push({ id, success: true });
+        } catch (err: any) {
+          results.push({ id, success: false, error: err.message });
+        }
+      }
+
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
+      res.json({
+        message: `${succeeded} producto(s) actualizados correctamente${failed > 0 ? `, ${failed} con error` : ''}`,
+        results,
+      });
+    } catch (error: any) {
+      console.error('Error in bulk price update:', error);
+      res.status(500).json({ error: 'Error al actualizar precios', details: error.message });
+    }
+  });
   router.get('/api/products/:id/inventory-movements', authenticateToken, async (req: any, res: any) => {
     try {
       const productId = parseInt(req.params.id);

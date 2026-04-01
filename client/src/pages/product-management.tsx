@@ -53,7 +53,11 @@ import {
   ChevronRight,
   Globe,
   Check,
+  DollarSign,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -159,6 +163,12 @@ export default function ImprovedProductManagement() {
   const [movementNotes, setMovementNotes] = useState('');
   const [movementLot, setMovementLot] = useState('');
   const [movementExpiration, setMovementExpiration] = useState('');
+
+  // Bulk price update state
+  const [activeTab, setActiveTab] = useState<'catalog' | 'bulk-prices'>('catalog');
+  const [bulkCurrency, setBulkCurrency] = useState<'DOP' | 'USD'>('DOP');
+  const [bulkPrices, setBulkPrices] = useState<Record<number, string>>({});
+  const [bulkSearch, setBulkSearch] = useState('');
 
   // ✅ Only fetch store data if user has a storeId (not super_admin)
   const hasStoreContext = !!user?.storeId;
@@ -369,6 +379,34 @@ const updateProductMutation = useMutation({
         variant: "destructive",
       });
     }
+  });
+
+  // Bulk price update mutation
+  const bulkPriceMutation = useMutation({
+    mutationFn: async (payload: { updates: { id: number; price: string }[]; currency: string }) => {
+      const token = getAuthToken();
+      const response = await fetch('/api/products-bulk-price', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        throw new Error(err.error || 'Error al actualizar precios');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: 'Precios actualizados', description: data.message });
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      setBulkPrices({});
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
   });
 
   // Formulario - ACTUALIZADO con currency
@@ -845,7 +883,16 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
   </div>
 </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="catalog">Catálogo de Productos</TabsTrigger>
+          <TabsTrigger value="bulk-prices" className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
+            Actualizar Precios
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="catalog">
       {/* Búsqueda y filtros */}
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -1090,6 +1137,105 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
           </CardContent>
         </Card>
       )}
+
+        </TabsContent>
+
+        <TabsContent value="bulk-prices">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5" />
+                    Actualización Masiva de Precios
+                  </CardTitle>
+                  <CardDescription>Ingresa los nuevos precios y guarda todos los cambios a la vez</CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Label>Moneda:</Label>
+                    <Select value={bulkCurrency} onValueChange={(v) => setBulkCurrency(v as 'DOP' | 'USD')}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DOP">DOP</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      const pendingUpdates = Object.entries(bulkPrices)
+                        .filter(([, price]) => price !== '' && !isNaN(parseFloat(price)))
+                        .map(([id, price]) => ({ id: parseInt(id), price }));
+                      if (pendingUpdates.length === 0) {
+                        toast({ title: 'Sin cambios', description: 'No hay precios para actualizar.' });
+                        return;
+                      }
+                      bulkPriceMutation.mutate({ updates: pendingUpdates, currency: bulkCurrency });
+                    }}
+                    disabled={bulkPriceMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    {bulkPriceMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Guardar Cambios
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Buscar producto..."
+                    value={bulkSearch}
+                    onChange={(e) => setBulkSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3 font-medium text-gray-600">Producto</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-600">Precio Actual</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-600">Nuevo Precio ({bulkCurrency})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(products as any[])
+                      .filter((p: any) =>
+                        (!bulkSearch || p.name?.toLowerCase().includes(bulkSearch.toLowerCase()))
+                      )
+                      .map((product: any) => (
+                        <tr key={product.id} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-3 font-medium">{product.name}</td>
+                          <td className="py-2 px-3 text-gray-500">
+                            {formatCurrency(product.price || '0', product.baseCurrency || product.currency || 'DOP')}
+                          </td>
+                          <td className="py-2 px-3">
+                            <Input
+                              type="number"
+                              placeholder="Nuevo precio"
+                              value={bulkPrices[product.id] ?? ''}
+                              onChange={(e) =>
+                                setBulkPrices((prev) => ({ ...prev, [product.id]: e.target.value }))
+                              }
+                              className="w-36"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog solo para modo view - ACTUALIZADO con campo moneda */}
       <Dialog open={isDialogOpen && dialogMode === 'view'} onOpenChange={setIsDialogOpen}>

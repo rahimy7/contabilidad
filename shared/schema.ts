@@ -1834,3 +1834,37 @@ export const createPayPalIntegrationSchema = z.object({
 
 export const updatePayPalIntegrationSchema = createPayPalIntegrationSchema.partial();
 */
+
+// ================================
+// SISTEMA DE AGENDA DE CITAS
+// ================================
+
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  appointmentDate: timestamp("appointment_date").notNull(),
+  appointmentEndDate: timestamp("appointment_end_date"),
+  status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled, no_show
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Validación Zod para citas
+export const insertAppointmentSchema = z.object({
+  storeId: z.number().int().positive(),
+  customerId: z.number().int().positive(),
+  title: z.string().min(1, "El título es requerido"),
+  description: z.string().optional().nullable(),
+  appointmentDate: z.string().or(z.date()),
+  appointmentEndDate: z.string().or(z.date()).optional().nullable(),
+  status: z.enum(["scheduled", "completed", "cancelled", "no_show"]).default("scheduled"),
+  notes: z.string().optional().nullable(),
+  createdBy: z.number().int().positive().optional(),
+});
+
+export const updateAppointmentSchema = insertAppointmentSchema.partial().omit({ storeId: true });

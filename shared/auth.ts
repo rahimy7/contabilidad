@@ -60,7 +60,8 @@ export const rolePermissions = {
     'view_conversations',
     'send_messages',
     'view_notifications',
-    'manage_assignments'
+    'manage_assignments',
+    'manage_appointments'
   ],
   technician: [
     'view_dashboard',
