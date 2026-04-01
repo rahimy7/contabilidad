@@ -146,14 +146,14 @@ const useCurrencyConversion = (exchangeRates: any[]) => {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
-        minimumFractionDigits: 0,
+        minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }).format(amount);
     } else if (currency === 'DOP') {
       return new Intl.NumberFormat('es-DO', {
         style: 'currency',
         currency: 'DOP',
-        minimumFractionDigits: 0,
+        minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }).format(amount);
     }
@@ -204,6 +204,12 @@ export default function POSScreen() {
   const [selectedCurrency, setSelectedCurrency] = useState<string>('DOP');
   const [productUnits, setProductUnits] = useState<Record<number, MeasurementUnit[]>>({});
   const [loadingUnits, setLoadingUnits] = useState<Record<number, boolean>>({});
+
+  // Numeric keypad modal state
+  const [showKeypadModal, setShowKeypadModal] = useState(false);
+  const [keypadProduct, setKeypadProduct] = useState<Product | null>(null);
+  const [keypadMode, setKeypadMode] = useState<'add' | 'edit'>('add');
+  const [keypadValue, setKeypadValue] = useState('');
 
   const getBaseUnitId = (product: Product) => {
     return product.baseUnitId ?? (product as any).base_unit_id ?? undefined;
@@ -398,6 +404,7 @@ export default function POSScreen() {
     },
     onSuccess: (orderData) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
 
       // ✅ Preparar datos de factura con datos de la tienda
       const now = new Date();
@@ -480,7 +487,7 @@ export default function POSScreen() {
   }, [products, searchQuery, selectedCategory, skuQuery]);
 
   // Cart operations
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, quantity: number = 1) => {
     const baseUnitId = getBaseUnitId(product);
     const basePrice = getBasePrice(product);
     const baseLoyaltyPoints = product.loyaltyPointsValue ? parseFloat(product.loyaltyPointsValue.toString()) : 0;
@@ -490,7 +497,7 @@ export default function POSScreen() {
       if (existingItem) {
         return prevCart.map(item =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
@@ -499,7 +506,7 @@ export default function POSScreen() {
         ...prevCart,
         {
           product,
-          quantity: 1,
+          quantity,
           selectedUnitId: baseUnitId,
           conversionFactor: 1,
           unitPrice: basePrice,
@@ -511,6 +518,90 @@ export default function POSScreen() {
     if (isUnitConversionEnabled(product)) {
       fetchUnitsForProduct(product.id);
     }
+  };
+
+  const openKeypadForProduct = (product: Product) => {
+    setKeypadProduct(product);
+    setKeypadMode('add');
+    setKeypadValue('');
+    setShowKeypadModal(true);
+  };
+
+  const openKeypadForCartEdit = (item: CartItem) => {
+    setKeypadProduct(item.product);
+    setKeypadMode('edit');
+    setKeypadValue(item.quantity.toString());
+    setShowKeypadModal(true);
+  };
+
+  const handleKeypadConfirm = () => {
+    const qty = parseInt(keypadValue);
+    if (!keypadProduct || isNaN(qty) || qty <= 0) {
+      return;
+    }
+    if (keypadMode === 'add') {
+      addToCart(keypadProduct, qty);
+    } else {
+      updateQuantity(keypadProduct.id, qty);
+    }
+    setShowKeypadModal(false);
+    setKeypadProduct(null);
+    setKeypadValue('');
+  };
+
+  const handleKeypadDigit = (digit: string) => {
+    setKeypadValue(prev => {
+      if (prev === '' || prev === '0') return digit;
+      const next = prev + digit;
+      return next.length > 6 ? prev : next;
+    });
+  };
+
+  const handleKeypadBackspace = () => {
+    setKeypadValue(prev => (prev.length <= 1 ? '' : prev.slice(0, -1)));
+  };
+
+  const handleKeypadClear = () => {
+    setKeypadValue('');
+  };
+
+  // Soporte de teclado físico cuando el modal está abierto
+  useEffect(() => {
+    if (!showKeypadModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        setKeypadValue(prev => {
+          if (prev === '' || prev === '0') return e.key;
+          const next = prev + e.key;
+          return next.length > 6 ? prev : next;
+        });
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        setKeypadValue(prev => (prev.length <= 1 ? '' : prev.slice(0, -1)));
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        setKeypadValue('');
+      } else if (e.key === 'Escape') {
+        setShowKeypadModal(false);
+        setKeypadProduct(null);
+        setKeypadValue('');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleKeypadConfirm();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showKeypadModal, handleKeypadConfirm]);
+
+  // Helper: lee stockQuantity sin importar si viene snake_case o camelCase del API
+  const getProductStock = (product: Product | null): number | null => {
+    if (!product) return null;
+    const raw = product.stockQuantity ?? (product as any).stock_quantity;
+    if (raw === undefined || raw === null) return null;
+    const n = Number(raw);
+    return isNaN(n) ? null : n;
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
@@ -798,7 +889,7 @@ export default function POSScreen() {
                     <Card
                       key={product.id}
                       className="cursor-pointer hover:shadow-lg transition-all border-2 border-primary/30 hover:border-primary"
-                      onClick={() => addToCart(product)}
+                      onClick={() => openKeypadForProduct(product)}
                     >
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
@@ -826,7 +917,7 @@ export default function POSScreen() {
                         <Button
                           size="sm"
                           className="w-full mt-2 bg-primary hover:bg-primary/90 text-white"
-                          onClick={() => addToCart(product)}
+                          onClick={(e) => { e.stopPropagation(); openKeypadForProduct(product); }}
                         >
                           <Plus className="w-4 h-4 mr-1" />
                           Agregar
@@ -917,19 +1008,12 @@ export default function POSScreen() {
                         >
                           −
                         </button>
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            if (!isNaN(value) && value >= 0) {
-                              updateQuantity(item.product.id, value);
-                            }
-                          }}
-                          onFocus={(e) => e.target.select()}
-                          className="text-white text-xs font-semibold w-10 text-center bg-primary border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                        />
+                        <button
+                          onClick={() => openKeypadForCartEdit(item)}
+                          className="text-white text-xs font-semibold w-10 text-center bg-primary border-none outline-none hover:bg-primary/80 h-6 flex items-center justify-center"
+                        >
+                          {item.quantity}
+                        </button>
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           className="text-white p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
@@ -970,7 +1054,7 @@ export default function POSScreen() {
                   <div className="flex justify-between items-center p-2 bg-amber-50 rounded-lg border border-amber-200">
                     <span className="text-sm font-medium text-amber-700">Puntos Acumulados:</span>
                     <span className="font-bold text-amber-600">
-                      {calculateTotalLoyaltyPoints().toFixed(2)} {getLoyaltyPropertyName()}
+                      {calculateTotalLoyaltyPoints().toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getLoyaltyPropertyName()}
                     </span>
                   </div>
                 )}
@@ -1217,6 +1301,121 @@ export default function POSScreen() {
                 )}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔢 Numeric Keypad Modal */}
+      <Dialog open={showKeypadModal} onOpenChange={(open) => { if (!open) { setShowKeypadModal(false); setKeypadProduct(null); setKeypadValue(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {keypadMode === 'add' ? 'Agregar producto' : 'Editar cantidad'}
+            </DialogTitle>
+            {keypadProduct && (
+              <DialogDescription asChild>
+                <div className="space-y-1 text-left">
+                  <p className="font-semibold text-gray-900 text-sm">{keypadProduct.name}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-bold">{formatCurrency(getBasePrice(keypadProduct))}</span>
+                    {(() => {
+                      const stock = getProductStock(keypadProduct);
+                      if (stock === null) return null;
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          stock <= 0 ? 'bg-red-100 text-red-700'
+                          : stock < 5 ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-green-100 text-green-700'
+                        }`}>
+                          Stock: {stock}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Quantity display */}
+            <div className="bg-slate-100 rounded-lg p-4 text-center">
+              <p className={`text-4xl font-bold tracking-wider ${keypadValue ? 'text-primary' : 'text-gray-400'}`}>
+                {keypadValue || 'Ingresa cantidad...'}
+              </p>
+              {(() => {
+                const stock = getProductStock(keypadProduct);
+                const qty = parseInt(keypadValue);
+                if (keypadValue === '' || isNaN(qty) || stock === null) return null;
+                if (qty > stock) {
+                  return (
+                    <div className="mt-2 flex items-center justify-center gap-1 bg-red-100 border border-red-400 rounded p-2">
+                      <span className="text-red-700 text-sm font-bold">
+                        ⚠️ Stock insuficiente — Disponible: {stock} unidades
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+
+            {/* Numeric keypad */}
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => handleKeypadDigit(num.toString())}
+                  className="p-4 bg-slate-100 hover:bg-slate-200 text-gray-900 font-bold text-lg rounded-lg transition-all"
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                onClick={handleKeypadClear}
+                className="p-4 bg-slate-200 hover:bg-slate-300 text-gray-700 font-bold rounded-lg transition-all text-sm"
+              >
+                C
+              </button>
+              <button
+                onClick={() => handleKeypadDigit('0')}
+                className="p-4 bg-slate-100 hover:bg-slate-200 text-gray-900 font-bold text-lg rounded-lg transition-all"
+              >
+                0
+              </button>
+              <button
+                onClick={handleKeypadBackspace}
+                className="p-4 bg-slate-200 hover:bg-slate-300 text-gray-700 font-bold rounded-lg transition-all"
+              >
+                ⌫
+              </button>
+            </div>
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setShowKeypadModal(false); setKeypadProduct(null); setKeypadValue(''); }}
+                className="py-3"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleKeypadConfirm}
+                disabled={keypadValue === '' || parseInt(keypadValue) <= 0}
+                className={`py-3 text-white font-bold ${
+                  (() => {
+                    const stock = getProductStock(keypadProduct);
+                    const qty = parseInt(keypadValue);
+                    return keypadValue !== '' && !isNaN(qty) && stock !== null && qty > stock;
+                  })()
+                    ? 'bg-orange-500 hover:bg-orange-600'
+                    : 'bg-primary hover:bg-primary/90'
+                }`}
+              >
+                {keypadMode === 'add' ? 'Agregar al carrito' : 'Confirmar'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

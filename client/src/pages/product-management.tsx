@@ -782,6 +782,14 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
   return `${currencyConfig.symbol}${numPrice.toFixed(2)}`;
 };
 
+const formatStock = (qty: number | undefined | null): string => {
+  const num = qty ?? 0;
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
+
   // Funciones de imagen (sin cambios)
   const getProductMainImage = (product: Product) => {
     if (product.images && product.images.length > 0) {
@@ -1010,9 +1018,15 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    Stock: {product.stock_quantity || 0}
-                  </span>
+                  {(product.stock_quantity ?? 0) < 0 ? (
+                    <span className="text-sm font-semibold text-white bg-red-600 px-2 py-0.5 rounded">
+                      Stock: {formatStock(product.stock_quantity)}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-600">
+                      Stock: {formatStock(product.stock_quantity)}
+                    </span>
+                  )}
                   <div className="flex gap-1">
                     <Button
                       size="sm"
@@ -1082,7 +1096,11 @@ const formatCurrency = (price: string | number, currency: string = 'DOP') => {
                         <span className="text-sm font-medium text-green-600">
                          {formatCurrency(product.price || "0", product.baseCurrency || product.currency || 'DOP')}
                         </span>
-                        <Badge variant="outline">Stock: {product.stock_quantity || 0}</Badge>
+                        {(product.stock_quantity ?? 0) < 0 ? (
+                          <Badge className="bg-red-600 text-white border-red-600">Stock: {formatStock(product.stock_quantity)}</Badge>
+                        ) : (
+                          <Badge variant="outline">Stock: {formatStock(product.stock_quantity)}</Badge>
+                        )}
                         {product.sku && (
                           <Badge variant="outline" className="font-mono text-xs">
                             SKU: {product.sku}

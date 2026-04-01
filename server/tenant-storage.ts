@@ -50,14 +50,24 @@ async getAllProducts() {
         const loyaltyPointsPropertyName = row.loyalty_points_property_name || row.loyaltyPointsPropertyName;
         const loyaltyPointsValue = row.loyalty_points_value || row.loyaltyPointsValue;
         const isActive = row.is_active !== undefined ? row.is_active : row.isActive;
+        const stockQuantity = row.stock_quantity !== undefined ? row.stock_quantity : row.stockQuantity;
+        const unitConversionEnabled = row.unit_conversion_enabled !== undefined ? row.unit_conversion_enabled : row.unitConversionEnabled;
+        const baseUnitId = row.base_unit_id !== undefined ? row.base_unit_id : row.baseUnitId;
+        const imageUrl = row.image_url !== undefined ? row.image_url : row.imageUrl;
+        const baseCurrency = row.base_currency !== undefined ? row.base_currency : row.baseCurrency;
 
         return {
           ...row,
-          loyalty_points_property_name: loyaltyPointsPropertyName, // Keep original snake_case
-          loyalty_points_value: loyaltyPointsValue, // Keep original snake_case
-          loyaltyPointsPropertyName: loyaltyPointsPropertyName, // Add camelCase
-          loyaltyPointsValue: loyaltyPointsValue, // Add camelCase
-          isActive: isActive, // Transform is_active to isActive for filtering
+          loyalty_points_property_name: loyaltyPointsPropertyName,
+          loyalty_points_value: loyaltyPointsValue,
+          loyaltyPointsPropertyName: loyaltyPointsPropertyName,
+          loyaltyPointsValue: loyaltyPointsValue,
+          isActive: isActive,
+          stockQuantity: stockQuantity,
+          unitConversionEnabled: unitConversionEnabled,
+          baseUnitId: baseUnitId,
+          imageUrl: imageUrl,
+          baseCurrency: baseCurrency,
         };
       });
     } catch (error) {
@@ -825,6 +835,7 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       referenceId?: number;
       lotNumber?: string | null;
       expirationDate?: Date | null;
+      allowNegative?: boolean;
     }) {
       const { productId, type, quantity } = data;
       if (!productId || !quantity || !type) {
@@ -846,7 +857,7 @@ async getStoreLocation(storeId: number): Promise<any | null> {
       }
 
       const newStock = currentStock + delta;
-      if (newStock < 0) {
+      if (newStock < 0 && !data.allowNegative) {
         throw new Error(`Stock insuficiente para movimiento. Actual: ${currentStock}, delta: ${delta}`);
       }
 
@@ -855,6 +866,8 @@ async getStoreLocation(storeId: number): Promise<any | null> {
         productId,
         type,
         quantity: delta,
+        quantityBefore: currentStock,
+        quantityAfter: newStock,
         unitId: data.unitId || null,
         notes: data.notes || null,
         referenceType: data.referenceType || null,
@@ -875,6 +888,171 @@ async getStoreLocation(storeId: number): Promise<any | null> {
         .where(eq(schema.products.id, productId));
 
       return movement;
+    },
+
+    // ✅ FIFO: descuenta stock de los lotes más antiguos primero.
+    // Crea un movimiento por cada lote consumido y actualiza stockQuantity del producto.
+    async deductStockFIFO(data: {
+      productId: number;
+      quantity: number; // positivo, en unidad base
+      unitId?: number;
+      referenceType?: string;
+      referenceId?: number | null;
+      notes?: string;
+      allowNegative?: boolean;
+    }) {
+      const { productId } = data;
+      const qtyToDeduct = Math.abs(data.quantity);
+
+      const [product] = await tenantDb.select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1);
+      if (!product) throw new Error(`Producto ${productId} no encontrado`);
+
+      const currentTotalStock = product.stockQuantity || 0;
+
+      if (qtyToDeduct > currentTotalStock && !data.allowNegative) {
+        throw new Error(`Stock insuficiente. Actual: ${currentTotalStock}, Requerido: ${qtyToDeduct}`);
+      }
+
+      // Obtener todos los movimientos del producto para calcular stock por lote
+      const allMovements = await tenantDb.select({
+        quantity: schema.inventoryMovements.quantity,
+        type: schema.inventoryMovements.type,
+        lotNumber: schema.inventoryMovements.lotNumber,
+        expirationDate: schema.inventoryMovements.expirationDate,
+        createdAt: schema.inventoryMovements.createdAt,
+      })
+      .from(schema.inventoryMovements)
+      .where(and(
+        eq(schema.inventoryMovements.productId, productId),
+        eq(schema.inventoryMovements.storeId, storeId)
+      ))
+      .orderBy(asc(schema.inventoryMovements.createdAt));
+
+      // Agrupar por lote y calcular stock restante
+      const lotMap = new Map<string, {
+        lotNumber: string | null;
+        expirationDate: Date | null;
+        stock: number;
+        firstReceiptDate: Date | null;
+      }>();
+
+      for (const m of allMovements) {
+        const key = m.lotNumber || '__NO_LOT__';
+        if (!lotMap.has(key)) {
+          lotMap.set(key, {
+            lotNumber: m.lotNumber || null,
+            expirationDate: m.expirationDate || null,
+            stock: 0,
+            firstReceiptDate: null,
+          });
+        }
+        const lotData = lotMap.get(key)!;
+        const qty = parseFloat(m.quantity);
+        lotData.stock += qty; // quantity ya es firmado (negativo para salidas)
+        // Fecha del primer ingreso al lote (para ordenar FIFO)
+        if (qty > 0 && (!lotData.firstReceiptDate || m.createdAt < lotData.firstReceiptDate)) {
+          lotData.firstReceiptDate = m.createdAt;
+        }
+      }
+
+      // Filtrar lotes con stock > 0 y ordenar por fecha de primer ingreso (FIFO)
+      const availableLots = Array.from(lotMap.values())
+        .filter(l => l.stock > 0)
+        .sort((a, b) => {
+          if (!a.firstReceiptDate && !b.firstReceiptDate) return 0;
+          if (!a.firstReceiptDate) return 1;
+          if (!b.firstReceiptDate) return -1;
+          return a.firstReceiptDate.getTime() - b.firstReceiptDate.getTime();
+        });
+
+      const createdMovements: any[] = [];
+      let remaining = qtyToDeduct;
+      let runningStock = currentTotalStock;
+
+      if (availableLots.length === 0) {
+        // Sin trazabilidad de lotes — un solo movimiento genérico
+        const delta = -qtyToDeduct;
+        const [movement] = await tenantDb.insert(schema.inventoryMovements).values({
+          storeId,
+          productId,
+          type: 'sale' as const,
+          quantity: delta,
+          quantityBefore: runningStock,
+          quantityAfter: runningStock + delta,
+          unitId: data.unitId || null,
+          notes: data.notes || null,
+          referenceType: data.referenceType || null,
+          referenceId: data.referenceId || null,
+          lotNumber: product.lotNumber || null,
+          expirationDate: product.expirationDate || null,
+          createdAt: new Date(),
+          createdBy: null,
+        }).returning();
+        createdMovements.push(movement);
+        runningStock += delta;
+      } else {
+        // FIFO: consumir desde el lote más antiguo
+        for (const lot of availableLots) {
+          if (remaining <= 0) break;
+          const toConsume = Math.min(remaining, lot.stock);
+          const delta = -toConsume;
+          const qBefore = runningStock;
+          const qAfter = runningStock + delta;
+
+          const [movement] = await tenantDb.insert(schema.inventoryMovements).values({
+            storeId,
+            productId,
+            type: 'sale' as const,
+            quantity: delta,
+            quantityBefore: qBefore,
+            quantityAfter: qAfter,
+            unitId: data.unitId || null,
+            notes: data.notes || null,
+            referenceType: data.referenceType || null,
+            referenceId: data.referenceId || null,
+            lotNumber: lot.lotNumber,
+            expirationDate: lot.expirationDate,
+            createdAt: new Date(),
+            createdBy: null,
+          }).returning();
+          createdMovements.push(movement);
+          runningStock = qAfter;
+          remaining -= toConsume;
+        }
+
+        // Si queda cantidad después de agotar todos los lotes (allowNegative)
+        if (remaining > 0) {
+          const delta = -remaining;
+          const [movement] = await tenantDb.insert(schema.inventoryMovements).values({
+            storeId,
+            productId,
+            type: 'sale' as const,
+            quantity: delta,
+            quantityBefore: runningStock,
+            quantityAfter: runningStock + delta,
+            unitId: data.unitId || null,
+            notes: data.notes || null,
+            referenceType: data.referenceType || null,
+            referenceId: data.referenceId || null,
+            lotNumber: null,
+            expirationDate: null,
+            createdAt: new Date(),
+            createdBy: null,
+          }).returning();
+          createdMovements.push(movement);
+          runningStock += delta;
+        }
+      }
+
+      // Actualizar stock total del producto
+      await tenantDb.update(schema.products)
+        .set({ stockQuantity: runningStock, updatedAt: new Date() })
+        .where(eq(schema.products.id, productId));
+
+      return createdMovements;
     },
 
     async getInventoryMovementsByProduct(productId: number) {

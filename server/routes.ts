@@ -3336,6 +3336,26 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
       } catch (itemError) {
         console.warn('⚠️ Could not create order items:', itemError);
       }
+
+      // ✅ REGISTRAR MOVIMIENTOS DE INVENTARIO POR CADA ITEM VENDIDO (FIFO por lotes)
+      for (const item of req.body.items) {
+        try {
+          const qtyToDeduct = item.quantityInBaseUnit || item.quantity;
+          if (item.productId && qtyToDeduct > 0) {
+            await tenantStorage.deductStockFIFO({
+              productId: item.productId,
+              quantity: qtyToDeduct,
+              unitId: item.unitId || undefined,
+              referenceType: 'order',
+              referenceId: order.id,
+              notes: `Venta POS - Orden #${order.orderNumber || order.id}`,
+              allowNegative: true, // la venta fue confirmada, permitir stock negativo
+            });
+          }
+        } catch (invError) {
+          console.warn(`⚠️ No se pudo registrar movimiento de inventario para producto ${item.productId}:`, invError);
+        }
+      }
     }
     
     // ✅ INTEGRAR CON VIAJES
