@@ -307,6 +307,7 @@ export const customers = pgTable("customers", {
   // Contacto
   lastContact: timestamp("last_contact"),
   registrationDate: timestamp("registration_date").defaultNow(),
+  birthdayDate: timestamp("birthday_date"),
 
   // Estadísticas
   totalOrders: integer("total_orders").default(0),
@@ -1839,10 +1840,63 @@ export const updatePayPalIntegrationSchema = createPayPalIntegrationSchema.parti
 // SISTEMA DE AGENDA DE CITAS
 // ================================
 
+// ================================
+// TITULARES DE CITAS
+// ================================
+export const appointmentTitulares = pgTable("appointment_titulares", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(),
+  specialty: text("specialty"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAppointmentTitularSchema = z.object({
+  storeId: z.number().int().positive(),
+  name: z.string().min(1, "El nombre es requerido"),
+  specialty: z.string().optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAppointmentTitularSchema = insertAppointmentTitularSchema.partial().omit({ storeId: true });
+
+// ================================
+// TIPOS DE SERVICIOS DE CITAS
+// ================================
+export const appointmentServiceTypes = pgTable("appointment_service_types", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("general"), // general, programa_especial
+  description: text("description"),
+  duration: integer("duration"), // duration in minutes
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAppointmentServiceTypeSchema = z.object({
+  storeId: z.number().int().positive(),
+  name: z.string().min(1, "El nombre es requerido"),
+  category: z.enum(["general", "programa_especial"]).default("general"),
+  description: z.string().optional().nullable(),
+  duration: z.number().int().positive().optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAppointmentServiceTypeSchema = insertAppointmentServiceTypeSchema.partial().omit({ storeId: true });
+
+// ================================
+// CITAS
+// ================================
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").notNull(),
   customerId: integer("customer_id").references(() => customers.id).notNull(),
+  titularId: integer("titular_id").references(() => appointmentTitulares.id),
+  serviceTypeId: integer("service_type_id").references(() => appointmentServiceTypes.id),
   title: text("title").notNull(),
   description: text("description"),
   appointmentDate: timestamp("appointment_date").notNull(),
@@ -1858,6 +1912,8 @@ export const appointments = pgTable("appointments", {
 export const insertAppointmentSchema = z.object({
   storeId: z.number().int().positive(),
   customerId: z.number().int().positive(),
+  titularId: z.number().int().positive().optional().nullable(),
+  serviceTypeId: z.number().int().positive().optional().nullable(),
   title: z.string().min(1, "El título es requerido"),
   description: z.string().optional().nullable(),
   appointmentDate: z.string().or(z.date()),

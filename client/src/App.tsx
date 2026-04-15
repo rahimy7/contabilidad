@@ -60,6 +60,7 @@ import PurchaseManagement from "./pages/purchase-management";
 import InventoryTraceability from "./pages/inventory-traceability";
 import ReceivePurchaseOrder from "./pages/receive-purchase-order";
 import AppointmentsPage from "./pages/appointments";
+import AppointmentServicesPage from "./pages/appointment-services";
 import InventoryAdjustmentPage from "./pages/inventory-adjustment";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
@@ -185,6 +186,7 @@ function Router() {
       <Route path="/receive-purchase-order/:id" component={() => <ProtectedRoute component={ReceivePurchaseOrder} permission="manage_products" />} />
       <Route path="/inventory-traceability" component={() => <ProtectedRoute component={InventoryTraceability} permission="manage_products" />} />
       <Route path="/appointments" component={() => <ProtectedRoute component={AppointmentsPage} permission="manage_appointments" />} />
+      <Route path="/appointment-services" component={() => <ProtectedRoute component={AppointmentServicesPage} permission="manage_appointments" />} />
       <Route path="/inventory-adjustment" component={() => <ProtectedRoute component={InventoryAdjustmentPage} permission="manage_inventory_adjustments" />} />
       <Route path="/user-settings" component={UserSettings} />
     </Switch>

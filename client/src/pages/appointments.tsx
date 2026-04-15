@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import {
   CalendarDays, Plus, Search, Filter, Clock, User, Phone,
-  Mail, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, XCircle, AlertCircle, ChevronsUpDown, UserPlus
+  Mail, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, XCircle, AlertCircle, ChevronsUpDown, UserPlus,
+  Star, Stethoscope, Cake, Settings2,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,6 +65,7 @@ const newCustomerSchema = z.object({
   name: z.string().min(2, "El nombre es requerido (mínimo 2 caracteres)"),
   phone: z.string().min(7, "El teléfono es requerido"),
   email: z.string().email("Email inválido"),
+  birthdayDate: z.string().optional(),
 });
 type NewCustomerFormData = z.infer<typeof newCustomerSchema>;
 
@@ -150,6 +152,8 @@ function CustomerCombobox({
 
 const appointmentFormSchema = z.object({
   customerId: z.string().min(1, "Seleccione un cliente"),
+  titularId: z.string().optional(),
+  serviceTypeId: z.string().optional(),
   title: z.string().min(1, "El título es requerido"),
   description: z.string().optional(),
   appointmentDate: z.string().min(1, "La fecha es requerida"),
@@ -221,6 +225,16 @@ export default function AppointmentsPage() {
     queryFn: () => apiCall('/api/customers'),
   });
 
+  const { data: titulares = [] } = useQuery({
+    queryKey: ['/api/appointment-titulares'],
+    queryFn: () => apiCall('/api/appointment-titulares'),
+  });
+
+  const { data: serviceTypes = [] } = useQuery({
+    queryKey: ['/api/appointment-service-types'],
+    queryFn: () => apiCall('/api/appointment-service-types'),
+  });
+
   // ================================
   // Mutations
   // ================================
@@ -266,7 +280,10 @@ export default function AppointmentsPage() {
 
   const createCustomerMutation = useMutation({
     mutationFn: (data: NewCustomerFormData) =>
-      apiCall('/api/customers', { method: 'POST', body: JSON.stringify(data) }),
+      apiCall('/api/customers', { method: 'POST', body: JSON.stringify({
+        ...data,
+        birthdayDate: data.birthdayDate || undefined,
+      }) }),
     onSuccess: (newCustomer: any) => {
       toast({ title: `Cliente "${newCustomer.name}" creado exitosamente` });
       refetchCustomers();
@@ -290,6 +307,8 @@ export default function AppointmentsPage() {
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
       customerId: '',
+      titularId: 'none',
+      serviceTypeId: 'none',
       title: '',
       description: '',
       appointmentDate: '',
@@ -306,7 +325,7 @@ export default function AppointmentsPage() {
 
   const newCustomerForm = useForm<NewCustomerFormData>({
     resolver: zodResolver(newCustomerSchema),
-    defaultValues: { name: '', phone: '', email: '' },
+    defaultValues: { name: '', phone: '', email: '', birthdayDate: '' },
   });
 
   // ================================
@@ -320,6 +339,8 @@ export default function AppointmentsPage() {
 
     createMutation.mutate({
       customerId: parseInt(data.customerId),
+      titularId: (data.titularId && data.titularId !== 'none') ? parseInt(data.titularId) : undefined,
+      serviceTypeId: (data.serviceTypeId && data.serviceTypeId !== 'none') ? parseInt(data.serviceTypeId) : undefined,
       title: data.title,
       description: data.description || undefined,
       appointmentDate,
@@ -341,6 +362,8 @@ export default function AppointmentsPage() {
       id: selectedAppointment.id,
       data: {
         customerId: parseInt(data.customerId),
+        titularId: (data.titularId && data.titularId !== 'none') ? parseInt(data.titularId) : null,
+        serviceTypeId: (data.serviceTypeId && data.serviceTypeId !== 'none') ? parseInt(data.serviceTypeId) : null,
         title: data.title,
         description: data.description || undefined,
         appointmentDate,
@@ -358,6 +381,8 @@ export default function AppointmentsPage() {
 
     editForm.reset({
       customerId: String(appointment.customerId),
+      titularId: appointment.titularId ? String(appointment.titularId) : 'none',
+      serviceTypeId: appointment.serviceTypeId ? String(appointment.serviceTypeId) : 'none',
       title: appointment.title,
       description: appointment.description || '',
       appointmentDate: format(date, 'yyyy-MM-dd'),
@@ -377,6 +402,8 @@ export default function AppointmentsPage() {
   function openCreateForDay(day: Date) {
     createForm.reset({
       customerId: '',
+      titularId: 'none',
+      serviceTypeId: 'none',
       title: '',
       description: '',
       appointmentDate: format(day, 'yyyy-MM-dd'),
@@ -442,9 +469,14 @@ export default function AppointmentsPage() {
             Gestiona las citas con tus clientes
           </p>
         </div>
-        <Button onClick={() => {
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/appointment-services'}>
+            <Settings2 className="h-4 w-4 mr-2" />
+            Servicios &amp; Titulares
+          </Button>
+          <Button onClick={() => {
           createForm.reset({
-            customerId: '', title: '', description: '',
+            customerId: '', titularId: 'none', serviceTypeId: 'none', title: '', description: '',
             appointmentDate: format(new Date(), 'yyyy-MM-dd'),
             appointmentTime: '09:00', appointmentEndTime: '', status: 'scheduled', notes: '',
           });
@@ -453,6 +485,7 @@ export default function AppointmentsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Nueva Cita
         </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -605,6 +638,20 @@ export default function AppointmentsPage() {
                                   {apt.customerPhone}
                                 </div>
                               )}
+                              {apt.titularName && (
+                                <div className="flex items-center gap-1">
+                                  <Stethoscope className="h-3 w-3 text-green-600" />
+                                  {apt.titularName}
+                                </div>
+                              )}
+                              {apt.serviceTypeName && (
+                                <div className="flex items-center gap-1">
+                                  {apt.serviceTypeCategory === 'programa_especial'
+                                    ? <Star className="h-3 w-3 text-purple-600" />
+                                    : <Stethoscope className="h-3 w-3 text-blue-600" />}
+                                  {apt.serviceTypeName}
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -694,6 +741,20 @@ export default function AppointmentsPage() {
                                   {apt.customerPhone}
                                 </span>
                               )}
+                              {apt.titularName && (
+                                <span className="flex items-center gap-1">
+                                  <Stethoscope className="h-3.5 w-3.5 text-green-600" />
+                                  {apt.titularName}
+                                </span>
+                              )}
+                              {apt.serviceTypeName && (
+                                <span className="flex items-center gap-1">
+                                  {apt.serviceTypeCategory === 'programa_especial'
+                                    ? <Star className="h-3.5 w-3.5 text-purple-600" />
+                                    : <Stethoscope className="h-3.5 w-3.5 text-blue-600" />}
+                                  {apt.serviceTypeName}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -739,6 +800,67 @@ export default function AppointmentsPage() {
                       }}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* Titular */}
+              <FormField control={createForm.control} name="titularId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titular (Consultor/a)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar titular..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin titular</SelectItem>
+                      {(titulares as any[]).filter((t: any) => t.isActive).map((t: any) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name}{t.specialty ? ` — ${t.specialty}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* Servicio / Programa */}
+              <FormField control={createForm.control} name="serviceTypeId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Servicio / Programa Especial</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar servicio..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin servicio</SelectItem>
+                      {(serviceTypes as any[]).filter((s: any) => s.category === 'programa_especial' && s.isActive).length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-purple-700 flex items-center gap-1">
+                            <Star className="h-3 w-3" /> Programas Especiales
+                          </div>
+                          {(serviceTypes as any[]).filter((s: any) => s.category === 'programa_especial' && s.isActive).map((s: any) => (
+                            <SelectItem key={s.id} value={String(s.id)}>⭐ {s.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {(serviceTypes as any[]).filter((s: any) => s.category === 'general' && s.isActive).length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-blue-700 flex items-center gap-1 mt-1">
+                            <Stethoscope className="h-3 w-3" /> Servicios Generales
+                          </div>
+                          {(serviceTypes as any[]).filter((s: any) => s.category === 'general' && s.isActive).map((s: any) => (
+                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -842,6 +964,67 @@ export default function AppointmentsPage() {
                       }}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* Titular */}
+              <FormField control={editForm.control} name="titularId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titular (Consultor/a)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar titular..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin titular</SelectItem>
+                      {(titulares as any[]).filter((t: any) => t.isActive).map((t: any) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name}{t.specialty ? ` — ${t.specialty}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* Servicio / Programa */}
+              <FormField control={editForm.control} name="serviceTypeId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Servicio / Programa Especial</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar servicio..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin servicio</SelectItem>
+                      {(serviceTypes as any[]).filter((s: any) => s.category === 'programa_especial' && s.isActive).length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-purple-700 flex items-center gap-1">
+                            <Star className="h-3 w-3" /> Programas Especiales
+                          </div>
+                          {(serviceTypes as any[]).filter((s: any) => s.category === 'programa_especial' && s.isActive).map((s: any) => (
+                            <SelectItem key={s.id} value={String(s.id)}>⭐ {s.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {(serviceTypes as any[]).filter((s: any) => s.category === 'general' && s.isActive).length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-blue-700 flex items-center gap-1 mt-1">
+                            <Stethoscope className="h-3 w-3" /> Servicios Generales
+                          </div>
+                          {(serviceTypes as any[]).filter((s: any) => s.category === 'general' && s.isActive).map((s: any) => (
+                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -1008,6 +1191,19 @@ export default function AppointmentsPage() {
                   <FormLabel>Email *</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="Ej: maria@ejemplo.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={newCustomerForm.control} name="birthdayDate" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1">
+                    <Cake className="h-4 w-4 text-pink-500" />
+                    Fecha de Cumpleaños
+                  </FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

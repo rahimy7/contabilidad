@@ -1,7 +1,7 @@
 // client/src/pages/pos-screen.tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLocation } from 'wouter';
 import { InvoiceModal } from '@/components/invoice-modal';
+import { AppointmentQuickCreateDialog } from '@/components/appointment-quick-create-dialog';
 
 type Product = {
   id: number;
@@ -201,6 +202,7 @@ export default function POSScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('DOP');
   const [productUnits, setProductUnits] = useState<Record<number, MeasurementUnit[]>>({});
   const [loadingUnits, setLoadingUnits] = useState<Record<number, boolean>>({});
@@ -858,7 +860,7 @@ export default function POSScreen() {
           </div>
 
           {/* Categories */}
-          <div className="p-4 bg-white border-b overflow-x-auto flex gap-2 flex-shrink-0">
+          <div className="p-4 bg-white border-b overflow-x-auto flex gap-2 flex-shrink-0 items-center">
             {categories.map((category) => (
               <button
                 key={category}
@@ -872,6 +874,14 @@ export default function POSScreen() {
                 {category}
               </button>
             ))}
+            {/* Appointment quick-access button */}
+            <button
+              onClick={() => setShowAppointmentDialog(true)}
+              className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Agendar Cita
+            </button>
           </div>
 
           {/* Products Grid */}
@@ -1425,6 +1435,12 @@ export default function POSScreen() {
         isOpen={showInvoiceModal}
         data={invoiceData}
         onClose={() => setShowInvoiceModal(false)}
+      />
+
+      {/* 📅 Appointment Quick Create Dialog */}
+      <AppointmentQuickCreateDialog
+        open={showAppointmentDialog}
+        onOpenChange={setShowAppointmentDialog}
       />
     </div>
   );

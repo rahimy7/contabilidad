@@ -9,6 +9,172 @@ import type { AuthUser } from '@shared/auth';
 const router = Router();
 
 // ================================
+// TITULARES
+// ================================
+
+// GET - Obtener todos los titulares
+router.get('/appointment-titulares', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const db = await getTenantDb(user.storeId);
+    const titulares = await db
+      .select()
+      .from(schema.appointmentTitulares)
+      .where(eq(schema.appointmentTitulares.storeId, user.storeId))
+      .orderBy(schema.appointmentTitulares.name);
+    res.json(titulares);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener titulares', details: error.message });
+  }
+});
+
+// POST - Crear titular
+router.post('/appointment-titulares', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const validation = schema.insertAppointmentTitularSchema.safeParse({ ...req.body, storeId: user.storeId });
+    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
+    const db = await getTenantDb(user.storeId);
+    const [titular] = await db.insert(schema.appointmentTitulares).values({
+      storeId: user.storeId,
+      name: validation.data.name!,
+      specialty: validation.data.specialty || null,
+      isActive: validation.data.isActive ?? true,
+    }).returning();
+    res.status(201).json(titular);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al crear titular', details: error.message });
+  }
+});
+
+// PUT - Actualizar titular
+router.put('/appointment-titulares/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+    const validation = schema.updateAppointmentTitularSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
+    const db = await getTenantDb(user.storeId);
+    const [titular] = await db
+      .update(schema.appointmentTitulares)
+      .set({ ...validation.data, updatedAt: new Date() })
+      .where(and(eq(schema.appointmentTitulares.id, id), eq(schema.appointmentTitulares.storeId, user.storeId)))
+      .returning();
+    if (!titular) return res.status(404).json({ error: 'Titular no encontrado' });
+    res.json(titular);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al actualizar titular', details: error.message });
+  }
+});
+
+// DELETE - Eliminar titular
+router.delete('/appointment-titulares/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+    const db = await getTenantDb(user.storeId);
+    const [deleted] = await db
+      .delete(schema.appointmentTitulares)
+      .where(and(eq(schema.appointmentTitulares.id, id), eq(schema.appointmentTitulares.storeId, user.storeId)))
+      .returning();
+    if (!deleted) return res.status(404).json({ error: 'Titular no encontrado' });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al eliminar titular', details: error.message });
+  }
+});
+
+// ================================
+// TIPOS DE SERVICIOS
+// ================================
+
+// GET - Obtener todos los tipos de servicio
+router.get('/appointment-service-types', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const db = await getTenantDb(user.storeId);
+    const services = await db
+      .select()
+      .from(schema.appointmentServiceTypes)
+      .where(eq(schema.appointmentServiceTypes.storeId, user.storeId))
+      .orderBy(schema.appointmentServiceTypes.category, schema.appointmentServiceTypes.name);
+    res.json(services);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener servicios', details: error.message });
+  }
+});
+
+// POST - Crear tipo de servicio
+router.post('/appointment-service-types', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const validation = schema.insertAppointmentServiceTypeSchema.safeParse({ ...req.body, storeId: user.storeId });
+    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
+    const db = await getTenantDb(user.storeId);
+    const [service] = await db.insert(schema.appointmentServiceTypes).values({
+      storeId: user.storeId,
+      name: validation.data.name!,
+      category: validation.data.category ?? 'general',
+      description: validation.data.description || null,
+      duration: validation.data.duration || null,
+      isActive: validation.data.isActive ?? true,
+    }).returning();
+    res.status(201).json(service);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al crear servicio', details: error.message });
+  }
+});
+
+// PUT - Actualizar tipo de servicio
+router.put('/appointment-service-types/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+    const validation = schema.updateAppointmentServiceTypeSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
+    const db = await getTenantDb(user.storeId);
+    const [service] = await db
+      .update(schema.appointmentServiceTypes)
+      .set({ ...validation.data, updatedAt: new Date() })
+      .where(and(eq(schema.appointmentServiceTypes.id, id), eq(schema.appointmentServiceTypes.storeId, user.storeId)))
+      .returning();
+    if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
+    res.json(service);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al actualizar servicio', details: error.message });
+  }
+});
+
+// DELETE - Eliminar tipo de servicio
+router.delete('/appointment-service-types/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+    const db = await getTenantDb(user.storeId);
+    const [deleted] = await db
+      .delete(schema.appointmentServiceTypes)
+      .where(and(eq(schema.appointmentServiceTypes.id, id), eq(schema.appointmentServiceTypes.storeId, user.storeId)))
+      .returning();
+    if (!deleted) return res.status(404).json({ error: 'Servicio no encontrado' });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al eliminar servicio', details: error.message });
+  }
+});
+
+// ================================
 // CITAS / APPOINTMENTS
 // ================================
 
@@ -41,6 +207,8 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
         id: schema.appointments.id,
         storeId: schema.appointments.storeId,
         customerId: schema.appointments.customerId,
+        titularId: schema.appointments.titularId,
+        serviceTypeId: schema.appointments.serviceTypeId,
         title: schema.appointments.title,
         description: schema.appointments.description,
         appointmentDate: schema.appointments.appointmentDate,
@@ -53,9 +221,14 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
         customerName: schema.customers.name,
         customerPhone: schema.customers.phone,
         customerEmail: schema.customers.email,
+        titularName: schema.appointmentTitulares.name,
+        serviceTypeName: schema.appointmentServiceTypes.name,
+        serviceTypeCategory: schema.appointmentServiceTypes.category,
       })
       .from(schema.appointments)
       .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
+      .leftJoin(schema.appointmentTitulares, eq(schema.appointments.titularId, schema.appointmentTitulares.id))
+      .leftJoin(schema.appointmentServiceTypes, eq(schema.appointments.serviceTypeId, schema.appointmentServiceTypes.id))
       .where(and(...conditions))
       .orderBy(desc(schema.appointments.appointmentDate));
 
@@ -90,15 +263,22 @@ router.get('/appointments/calendar/:year/:month', authenticateToken, async (req:
       .select({
         id: schema.appointments.id,
         customerId: schema.appointments.customerId,
+        titularId: schema.appointments.titularId,
+        serviceTypeId: schema.appointments.serviceTypeId,
         title: schema.appointments.title,
         appointmentDate: schema.appointments.appointmentDate,
         appointmentEndDate: schema.appointments.appointmentEndDate,
         status: schema.appointments.status,
         customerName: schema.customers.name,
         customerPhone: schema.customers.phone,
+        titularName: schema.appointmentTitulares.name,
+        serviceTypeName: schema.appointmentServiceTypes.name,
+        serviceTypeCategory: schema.appointmentServiceTypes.category,
       })
       .from(schema.appointments)
       .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
+      .leftJoin(schema.appointmentTitulares, eq(schema.appointments.titularId, schema.appointmentTitulares.id))
+      .leftJoin(schema.appointmentServiceTypes, eq(schema.appointments.serviceTypeId, schema.appointmentServiceTypes.id))
       .where(and(
         eq(schema.appointments.storeId, user.storeId),
         gte(schema.appointments.appointmentDate, startDate),
@@ -133,6 +313,8 @@ router.get('/appointments/:id', authenticateToken, async (req: any, res: any) =>
         id: schema.appointments.id,
         storeId: schema.appointments.storeId,
         customerId: schema.appointments.customerId,
+        titularId: schema.appointments.titularId,
+        serviceTypeId: schema.appointments.serviceTypeId,
         title: schema.appointments.title,
         description: schema.appointments.description,
         appointmentDate: schema.appointments.appointmentDate,
@@ -145,9 +327,14 @@ router.get('/appointments/:id', authenticateToken, async (req: any, res: any) =>
         customerName: schema.customers.name,
         customerPhone: schema.customers.phone,
         customerEmail: schema.customers.email,
+        titularName: schema.appointmentTitulares.name,
+        serviceTypeName: schema.appointmentServiceTypes.name,
+        serviceTypeCategory: schema.appointmentServiceTypes.category,
       })
       .from(schema.appointments)
       .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
+      .leftJoin(schema.appointmentTitulares, eq(schema.appointments.titularId, schema.appointmentTitulares.id))
+      .leftJoin(schema.appointmentServiceTypes, eq(schema.appointments.serviceTypeId, schema.appointmentServiceTypes.id))
       .where(and(
         eq(schema.appointments.id, id),
         eq(schema.appointments.storeId, user.storeId),
@@ -189,6 +376,8 @@ router.post('/appointments', authenticateToken, async (req: any, res: any) => {
       .values({
         storeId: validation.data.storeId,
         customerId: validation.data.customerId,
+        titularId: validation.data.titularId || null,
+        serviceTypeId: validation.data.serviceTypeId || null,
         title: validation.data.title,
         description: validation.data.description || null,
         appointmentDate: new Date(validation.data.appointmentDate),
