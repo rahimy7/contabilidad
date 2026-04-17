@@ -127,6 +127,22 @@ async getAllProducts() {
 
     async deleteProduct(id: number): Promise<void> {
       try {
+        // Delete dependent records in order to avoid FK constraint violations
+        await tenantDb.delete(schema.shoppingCart)
+          .where(eq(schema.shoppingCart.productId, id));
+        await tenantDb.delete(schema.productUnitConversions)
+          .where(eq(schema.productUnitConversions.productId, id));
+        await tenantDb.delete(schema.inventoryAdjustmentItems)
+          .where(eq(schema.inventoryAdjustmentItems.productId, id));
+        await tenantDb.delete(schema.inventoryMovements)
+          .where(eq(schema.inventoryMovements.productId, id));
+        // purchaseOrderItems.productId is nullable — nullify instead of deleting
+        await tenantDb.update(schema.purchaseOrderItems)
+          .set({ productId: null })
+          .where(eq(schema.purchaseOrderItems.productId, id));
+        // orderItems.productId is NOT NULL — delete items referencing this product
+        await tenantDb.delete(schema.orderItems)
+          .where(eq(schema.orderItems.productId, id));
         await tenantDb.delete(schema.products)
           .where(eq(schema.products.id, id));
       } catch (error) {
