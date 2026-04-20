@@ -470,6 +470,16 @@ export const orders = pgTable("orders", {
   serviceType: text("service_type"),
   description: text("description"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
+  // Payment info
+  paymentMethod: text("payment_method"), // cash, card, transfer, credit
+  paymentStatus: text("payment_status").notNull().default("pending"), // pending, paid, partial, credit
+  receivedAmount: decimal("received_amount", { precision: 10, scale: 2 }),
+  changeAmount: decimal("change_amount", { precision: 10, scale: 2 }),
+  orderType: text("order_type").notNull().default("sale"), // sale, appointment, credit_payment
+  // Discount info
+  subtotalAmount: decimal("subtotal_amount", { precision: 10, scale: 2 }).default("0"),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
   // Fidelización - datos de puntos asociados a la orden
   loyaltyPointsPropertyName: text("loyalty_points_property_name"),
   loyaltyPointsValue: decimal("loyalty_points_value", { precision: 10, scale: 2 }),
@@ -1872,6 +1882,11 @@ export const appointmentServiceTypes = pgTable("appointment_service_types", {
   category: text("category").notNull().default("general"), // general, programa_especial
   description: text("description"),
   duration: integer("duration"), // duration in minutes
+  // Pricing
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).default("0"),
+  priceType: text("price_type").notNull().default("fixed"), // fixed, variable, range
+  minPrice: decimal("min_price", { precision: 10, scale: 2 }),
+  maxPrice: decimal("max_price", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1883,6 +1898,10 @@ export const insertAppointmentServiceTypeSchema = z.object({
   category: z.enum(["general", "programa_especial"]).default("general"),
   description: z.string().optional().nullable(),
   duration: z.number().int().positive().optional().nullable(),
+  basePrice: z.string().optional().default("0"),
+  priceType: z.enum(["fixed", "variable", "range"]).default("fixed"),
+  minPrice: z.string().optional().nullable(),
+  maxPrice: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
 });
 
@@ -1902,6 +1921,11 @@ export const appointments = pgTable("appointments", {
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentEndDate: timestamp("appointment_end_date"),
   status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled, no_show
+  // Pricing & Payment
+  price: decimal("price", { precision: 10, scale: 2 }).default("0"),
+  paymentStatus: text("payment_status").notNull().default("pending"), // pending, paid, partial, credit
+  paymentMethod: text("payment_method"), // cash, card, transfer, credit
+  orderId: integer("order_id").references(() => orders.id),
   notes: text("notes"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1919,6 +1943,10 @@ export const insertAppointmentSchema = z.object({
   appointmentDate: z.string().or(z.date()),
   appointmentEndDate: z.string().or(z.date()).optional().nullable(),
   status: z.enum(["scheduled", "completed", "cancelled", "no_show"]).default("scheduled"),
+  price: z.string().optional().default("0"),
+  paymentStatus: z.enum(["pending", "paid", "partial", "credit"]).default("pending"),
+  paymentMethod: z.string().optional().nullable(),
+  orderId: z.number().int().positive().optional().nullable(),
   notes: z.string().optional().nullable(),
   createdBy: z.number().int().positive().optional(),
 });
@@ -1974,3 +2002,47 @@ export const insertInventoryAdjustmentSchema = z.object({
 
 export type InventoryAdjustment = typeof inventoryAdjustments.$inferSelect;
 export type InventoryAdjustmentItem = typeof inventoryAdjustmentItems.$inferSelect;
+
+// ================================
+// SISTEMA DE CRÉDITO DE CLIENTES
+// ================================
+
+export const customerCreditAccounts = pgTable("customer_credit_accounts", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  totalCredit: decimal("total_credit", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalPaid: decimal("total_paid", { precision: 12, scale: 2 }).notNull().default("0"),
+  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const creditTransactions = pgTable("credit_transactions", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  orderId: integer("order_id").references(() => orders.id),
+  type: text("type").notNull(), // charge, payment
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  balanceBefore: decimal("balance_before", { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 12, scale: 2 }).notNull(),
+  description: text("description"),
+  paymentMethod: text("payment_method"), // for payment type: cash, card, transfer
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCreditTransactionSchema = z.object({
+  customerId: z.number().int().positive(),
+  storeId: z.number().int().positive(),
+  orderId: z.number().int().positive().optional().nullable(),
+  type: z.enum(["charge", "payment"]),
+  amount: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Monto debe ser positivo"),
+  description: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().nullable(),
+});
+
+export type CustomerCreditAccount = typeof customerCreditAccounts.$inferSelect;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;

@@ -2486,10 +2486,28 @@ apiRouter.put('/products/:id', authenticateToken, async (req, res) => {
     const tenantStorage = await getTenantStorageWithSchema(user);
     const updateData = { ...req.body };
 
-    if (updateData.images && Array.isArray(updateData.images)) {
+    // ✅ NORMALIZE ARRAY FIELDS - features, tags, images must be arrays for Drizzle
+    const normalizeArrayField = (value: any): string[] => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value.filter(item => item && typeof item === 'string' && item.trim());
+      if (typeof value === 'string') {
+        if (value.trim() === '') return [];
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed.filter(item => item && typeof item === 'string' && item.trim()) : [value.trim()];
+        } catch {
+          return value.trim() ? [value.trim()] : [];
+        }
+      }
+      return [];
+    };
+
+    // Process images with URL validation
+    if (updateData.images !== undefined) {
       console.log('🖼️ Processing images:', updateData.images);
+      const normalizedImages = normalizeArrayField(updateData.images);
       
-      const validUrls = updateData.images.filter(url => {
+      const validUrls = normalizedImages.filter(url => {
         try {
           new URL(url);
           return true;
@@ -2502,6 +2520,48 @@ apiRouter.put('/products/:id', authenticateToken, async (req, res) => {
       updateData.images = validUrls;
       console.log('✅ Valid image URLs:', validUrls.length);
     }
+
+    // Normalize features and tags arrays
+    if (updateData.features !== undefined) {
+      updateData.features = normalizeArrayField(updateData.features);
+      console.log('✅ Normalized features:', updateData.features.length);
+    }
+    
+    if (updateData.tags !== undefined) {
+      updateData.tags = normalizeArrayField(updateData.tags);
+      console.log('✅ Normalized tags:', updateData.tags.length);
+    }
+
+    // ✅ SANITIZE NUMERIC FIELDS - convert empty strings to null
+    const numericFields = ['loyaltyPointsValue', 'salePrice', 'weight', 'price', 'installationCost'];
+    for (const field of numericFields) {
+      if (updateData[field] !== undefined) {
+        if (updateData[field] === '' || updateData[field] === null) {
+          delete updateData[field]; // Remove empty numeric fields
+        } else if (typeof updateData[field] === 'string' && updateData[field].trim() === '') {
+          delete updateData[field];
+        }
+      }
+    }
+
+    // ✅ SANITIZE INTEGER FIELDS - convert empty strings to null
+    const integerFields = ['stockQuantity', 'minQuantity', 'maxQuantity', 'warrantyMonths'];
+    for (const field of integerFields) {
+      if (updateData[field] !== undefined) {
+        if (updateData[field] === '' || updateData[field] === null) {
+          delete updateData[field];
+        } else if (typeof updateData[field] === 'string') {
+          const parsed = parseInt(updateData[field]);
+          if (isNaN(parsed)) {
+            delete updateData[field];
+          } else {
+            updateData[field] = parsed;
+          }
+        }
+      }
+    }
+
+    console.log('📊 Sanitized updateData keys:', Object.keys(updateData));
 
     const product = await tenantStorage.updateProduct(id, updateData);
     

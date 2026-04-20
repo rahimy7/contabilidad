@@ -1,7 +1,7 @@
 // client/src/pages/pos-screen.tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft, CalendarDays, Percent, CreditCard, Users, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,6 +82,7 @@ interface Order {
   priority: string;
   notes: string;
   paymentMethod: string;
+  paymentStatus?: string;
   receivedAmount: number;
   changeAmount: number;
   items: Array<{
@@ -93,6 +94,10 @@ interface Order {
     quantityInBaseUnit?: number;
   }>;
   totalAmount?: number;
+  subtotalAmount?: number;
+  discountPercentage?: number;
+  discountAmount?: number;
+  orderType?: string;
   loyaltyPointsPropertyName?: string | null;
   loyaltyPointsValue?: number | null;
   loyaltyPointsTotal?: number | null;
@@ -199,7 +204,7 @@ export default function POSScreen() {
   const [showSkuModal, setShowSkuModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'credit'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
@@ -207,6 +212,23 @@ export default function POSScreen() {
   const [productUnits, setProductUnits] = useState<Record<number, MeasurementUnit[]>>({});
   const [loadingUnits, setLoadingUnits] = useState<Record<number, boolean>>({});
 
+  // Discount state
+  const [discountPercentage, setDiscountPercentage] = useState('');
+
+  // Customer & Credit state
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number>(1);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerSelector, setShowCustomerSelector] = useState(false);
+
+  // Appointment billing state
+  const [showAppointmentBilling, setShowAppointmentBilling] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+
+  // Debt payment state
+  const [showDebtPayment, setShowDebtPayment] = useState(false);
+  const [selectedDebtCustomer, setSelectedDebtCustomer] = useState<any>(null);
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState('');
+  const [debtPaymentMethod, setDebtPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   // Numeric keypad modal state
   const [showKeypadModal, setShowKeypadModal] = useState(false);
   const [keypadProduct, setKeypadProduct] = useState<Product | null>(null);
@@ -389,6 +411,46 @@ export default function POSScreen() {
     return rawProducts.map(p => convertProduct(p));
   }, [rawProducts, exchangeRates]);
 
+  // Fetch customers for credit sales
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ['customers'],
+    queryFn: async () => {
+      const token = getAuthToken();
+      const response = await fetch('/api/customers', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  // Fetch today's appointments (pending payment)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: todayAppointments = [] } = useQuery<any[]>({
+    queryKey: ['appointments-today', todayStr],
+    queryFn: async () => {
+      const token = getAuthToken();
+      const response = await fetch(`/api/appointments/by-date/${todayStr}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  // Fetch customers with pending credit
+  const { data: pendingCredits = [] } = useQuery<any[]>({
+    queryKey: ['credits-pending'],
+    queryFn: async () => {
+      const token = getAuthToken();
+      const response = await fetch('/api/credits/pending/list', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
   // Create sale mutation
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: Order) => {
@@ -431,6 +493,8 @@ export default function POSScreen() {
         }),
         subtotal: calculateSubtotal(),
         tax: calculateTax(),
+        discountPercentage: parseFloat(discountPercentage) || 0,
+        discountAmount: calculateDiscountAmount(),
         total: calculateTotal(),
         receivedAmount: parseFloat(receivedAmount) || 0,
         changeAmount: calculateChange(),
@@ -642,7 +706,16 @@ export default function POSScreen() {
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax();
+    const disc = parseFloat(discountPercentage) || 0;
+    const discountAmt = disc > 0 ? (subtotal * disc) / 100 : 0;
+    return subtotal + tax - discountAmt;
+  };
+
+  const calculateDiscountAmount = () => {
+    const disc = parseFloat(discountPercentage) || 0;
+    return disc > 0 ? (calculateSubtotal() * disc) / 100 : 0;
   };
 
   // 🎁 Calculate total loyalty points - Considera el factor de conversión
@@ -693,16 +766,30 @@ export default function POSScreen() {
       }
     }
 
+    // Credit sale requires customer selection
+    if (paymentMethod === 'credit' && selectedCustomerId === 1) {
+      alert('Selecciona un cliente para ventas a crédito');
+      return;
+    }
+
+    const discPct = parseFloat(discountPercentage) || 0;
+    const discAmt = calculateDiscountAmount();
+
     const payload: Order = {
-      customerId: 1,
-      status: 'completed',
+      customerId: selectedCustomerId,
+      status: paymentMethod === 'credit' ? 'pending' : 'completed',
       deliveryCost: 0,
       priority: 'normal',
       notes: 'Venta directa - Punto de Venta',
       paymentMethod,
+      paymentStatus: paymentMethod === 'credit' ? 'credit' : 'paid',
       receivedAmount: paymentMethod === 'cash' ? Number(receivedAmount || 0) : Number(calculateTotal().toFixed(2)),
       changeAmount: paymentMethod === 'cash' ? Number(calculateChange().toFixed(2)) : 0,
       totalAmount: calculateTotal(),
+      subtotalAmount: calculateSubtotal(),
+      discountPercentage: discPct > 0 ? discPct : undefined,
+      discountAmount: discAmt > 0 ? Number(discAmt.toFixed(2)) : undefined,
+      orderType: 'sale',
       loyaltyPointsPropertyName: getLoyaltyPropertyName() || undefined as any,
       loyaltyPointsValue: (() => {
         const itemWithLoyalty = cart.find(item => item.product.loyaltyPointsValue);
@@ -724,9 +811,175 @@ export default function POSScreen() {
           totalPrice: Number((unitPrice * item.quantity).toFixed(2)),
         };
       })
-    };
+    } as any;
+
+    // If credit, also create credit charge
+    if (paymentMethod === 'credit') {
+      try {
+        const token = getAuthToken();
+        await fetch('/api/credits/charge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            customerId: selectedCustomerId,
+            amount: calculateTotal(),
+            description: `Venta a crédito - POS`,
+          }),
+        });
+      } catch (e) {
+        console.error('Error creating credit charge:', e);
+      }
+    }
 
     createSaleMutation.mutate(payload);
+  };
+
+  // Process appointment billing
+  const processAppointmentBilling = async (appointment: any) => {
+    const price = parseFloat(appointment.price || '0');
+    if (price <= 0) {
+      alert('Esta cita no tiene precio asignado');
+      return;
+    }
+
+    const token = getAuthToken();
+    try {
+      // Create order for the appointment
+      const orderPayload = {
+        customerId: appointment.customerId || appointment.customer_id || 1,
+        status: 'completed',
+        deliveryCost: 0,
+        priority: 'normal',
+        notes: `Cobro de cita: ${appointment.title}`,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        receivedAmount: price,
+        changeAmount: 0,
+        totalAmount: price,
+        orderType: 'appointment',
+        items: [],
+      };
+
+      const orderRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(orderPayload),
+      });
+      if (!orderRes.ok) throw new Error('Error creando orden');
+      const orderData = await orderRes.json();
+
+      // Update appointment payment status
+      await fetch(`/api/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          paymentStatus: 'paid',
+          paymentMethod: 'cash',
+          orderId: orderData.id,
+        }),
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['appointments-today'] });
+
+      // Show invoice
+      const now = new Date();
+      setInvoiceData({
+        orderNumber: orderData.orderNumber || `APT-${now.getTime()}`,
+        date: now.toLocaleDateString('es-DO'),
+        time: now.toLocaleTimeString('es-DO'),
+        paymentMethod: 'cash',
+        items: [{
+          productName: `Cita: ${appointment.title}`,
+          quantity: 1,
+          unitPrice: price,
+          totalPrice: price,
+        }],
+        subtotal: price,
+        tax: 0,
+        total: price,
+        receivedAmount: price,
+        changeAmount: 0,
+        storeName: storeSettings?.storeName || 'Tu Tienda',
+        storeAddress: storeSettings?.storeAddress,
+        storePhone: storeSettings?.storePhone,
+        storeEmail: storeSettings?.storeEmail,
+        logoUrl: storeSettings?.logoUrl,
+        invoiceFooter: storeSettings?.invoiceFooter,
+      });
+      setShowInvoiceModal(true);
+      setShowAppointmentBilling(false);
+      setSelectedAppointment(null);
+
+      alert('✅ Cita cobrada exitosamente');
+    } catch (error: any) {
+      alert(`Error: ${error?.message || 'No se pudo cobrar la cita'}`);
+    }
+  };
+
+  // Process debt payment
+  const processDebtPayment = async () => {
+    if (!selectedDebtCustomer) return;
+    const amount = parseFloat(debtPaymentAmount);
+    if (!amount || amount <= 0) {
+      alert('Ingresa un monto válido');
+      return;
+    }
+    if (amount > parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0')) {
+      alert('El monto excede la deuda pendiente');
+      return;
+    }
+
+    const token = getAuthToken();
+    try {
+      const res = await fetch('/api/credits/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          customerId: selectedDebtCustomer.customerId || selectedDebtCustomer.customer_id,
+          amount,
+          paymentMethod: debtPaymentMethod,
+          description: `Pago de deuda - POS`,
+        }),
+      });
+      if (!res.ok) throw new Error('Error procesando pago');
+      const paymentData = await res.json();
+
+      queryClient.invalidateQueries({ queryKey: ['credits-pending'] });
+
+      // Show payment receipt
+      const now = new Date();
+      setInvoiceData({
+        orderNumber: paymentData.order?.orderNumber || `DEBT-${now.getTime()}`,
+        date: now.toLocaleDateString('es-DO'),
+        time: now.toLocaleTimeString('es-DO'),
+        paymentMethod: debtPaymentMethod,
+        items: [{
+          productName: `Pago de deuda - ${selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name || 'Cliente'}`,
+          quantity: 1,
+          unitPrice: amount,
+          totalPrice: amount,
+        }],
+        subtotal: amount,
+        tax: 0,
+        total: amount,
+        receivedAmount: amount,
+        changeAmount: 0,
+        storeName: storeSettings?.storeName || 'Tu Tienda',
+        storeAddress: storeSettings?.storeAddress,
+        storePhone: storeSettings?.storePhone,
+        storeEmail: storeSettings?.storeEmail,
+        logoUrl: storeSettings?.logoUrl,
+        invoiceFooter: storeSettings?.invoiceFooter,
+      });
+      setShowInvoiceModal(true);
+      setShowDebtPayment(false);
+      setSelectedDebtCustomer(null);
+      setDebtPaymentAmount('');
+
+      alert('✅ Pago de deuda procesado exitosamente');
+    } catch (error: any) {
+      alert(`Error: ${error?.message || 'No se pudo procesar el pago'}`);
+    }
   };
 
   const resetPOS = () => {
@@ -736,6 +989,8 @@ export default function POSScreen() {
     setShowPaymentModal(false);
     setSearchQuery('');
     setSelectedCategory('Todos');
+    setDiscountPercentage('');
+    setSelectedCustomerId(1);
   };
 
   // formatCurrency is provided by useCurrencyConversion hook
@@ -881,6 +1136,22 @@ export default function POSScreen() {
             >
               <CalendarDays className="w-4 h-4" />
               Agendar Cita
+            </button>
+            {/* Appointment billing button */}
+            <button
+              onClick={() => setShowAppointmentBilling(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 active:scale-95 transition-all shadow-md"
+            >
+              <Receipt className="w-4 h-4" />
+              Cobrar Cita
+            </button>
+            {/* Debt payment button */}
+            <button
+              onClick={() => setShowDebtPayment(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-orange-600 text-white hover:bg-orange-700 active:scale-95 transition-all shadow-md"
+            >
+              <CreditCard className="w-4 h-4" />
+              Pagar Deuda
             </button>
           </div>
 
@@ -1054,6 +1325,27 @@ export default function POSScreen() {
                   <span className="text-gray-600">ITBIS (0%)</span>
                   <span className="font-semibold">{formatCurrency(calculateTax())}</span>
                 </div>
+
+                {/* Discount Input */}
+                <div className="flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-orange-600" />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    placeholder="Desc %"
+                    value={discountPercentage}
+                    onChange={(e) => setDiscountPercentage(e.target.value)}
+                    className="w-20 text-sm border rounded px-2 py-1 text-center"
+                  />
+                  {calculateDiscountAmount() > 0 && (
+                    <span className="text-sm text-orange-600 font-semibold">
+                      -{formatCurrency(calculateDiscountAmount())}
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex justify-between border-t pt-2 mb-2">
                   <span className="font-bold text-lg">TOTAL</span>
                   <span className="font-bold text-lg text-primary">{formatCurrency(calculateTotal())}</span>
@@ -1098,15 +1390,23 @@ export default function POSScreen() {
               <p className="text-4xl font-bold text-primary">{formatCurrency(calculateTotal())}</p>
             </div>
 
+            {/* Discount in Payment Modal */}
+            {calculateDiscountAmount() > 0 && (
+              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <span className="text-sm font-medium text-orange-700">Descuento ({discountPercentage}%)</span>
+                <span className="font-bold text-orange-600">-{formatCurrency(calculateDiscountAmount())}</span>
+              </div>
+            )}
+
             {/* Payment Method Selection */}
             <div className="space-y-3">
               <p className="font-semibold text-gray-900">Método de Pago</p>
-              <div className="grid grid-cols-3 gap-3">
-                {(['cash', 'card', 'transfer'] as const).map((method) => (
+              <div className="grid grid-cols-4 gap-3">
+                {(['cash', 'card', 'transfer', 'credit'] as const).map((method) => (
                   <button
                     key={method}
                     onClick={() => setPaymentMethod(method)}
-                    className={`p-3 rounded-lg font-semibold transition-all border-2 ${
+                    className={`p-3 rounded-lg font-semibold transition-all border-2 text-sm ${
                       paymentMethod === method
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-gray-300 bg-white text-gray-600'
@@ -1115,10 +1415,42 @@ export default function POSScreen() {
                     {method === 'cash' && '💵 Efectivo'}
                     {method === 'card' && '💳 Tarjeta'}
                     {method === 'transfer' && '🏦 Transferencia'}
+                    {method === 'credit' && '📋 Crédito'}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Customer Selection for Credit */}
+            {paymentMethod === 'credit' && (
+              <div className="space-y-3">
+                <p className="font-semibold text-gray-900">Seleccionar Cliente</p>
+                <Input
+                  placeholder="Buscar cliente por nombre..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                />
+                <div className="max-h-40 overflow-y-auto space-y-1 border rounded-lg p-2">
+                  {(customers as any[])
+                    .filter((c: any) => c.id !== 1 && (!customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase())))
+                    .slice(0, 10)
+                    .map((c: any) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setSelectedCustomerId(c.id); setCustomerSearch(c.name); }}
+                        className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                          selectedCustomerId === c.id
+                            ? 'bg-primary/10 text-primary font-semibold'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        {c.phone && <span className="text-muted-foreground ml-2 text-xs">{c.phone}</span>}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Cash Payment Details */}
             {paymentMethod === 'cash' && (
@@ -1442,6 +1774,190 @@ export default function POSScreen() {
         open={showAppointmentDialog}
         onOpenChange={setShowAppointmentDialog}
       />
+
+      {/* 📋 Appointment Billing Dialog */}
+      <Dialog open={showAppointmentBilling} onOpenChange={setShowAppointmentBilling}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-teal-600" />
+              Cobrar Cita
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona una cita del día para cobrar
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {(todayAppointments as any[]).length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <CalendarDays className="w-12 h-12 mx-auto mb-2" />
+                <p className="font-semibold">No hay citas para hoy</p>
+              </div>
+            ) : (
+              (todayAppointments as any[]).map((apt: any) => {
+                const isPaid = (apt.paymentStatus || apt.payment_status) === 'paid';
+                const price = parseFloat(apt.price || '0');
+                const time = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }) : '';
+                return (
+                  <div
+                    key={apt.id}
+                    className={`p-3 rounded-lg border ${isPaid ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-teal-400'} transition-colors`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{time}</span>
+                          <span className="font-medium">{apt.title}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {apt.customerName || apt.customer_name || 'Cliente'}
+                          {apt.serviceTypeName || apt.service_type_name
+                            ? ` • ${apt.serviceTypeName || apt.service_type_name}`
+                            : ''}
+                        </p>
+                        {price > 0 && (
+                          <p className="text-sm font-bold text-green-700 mt-0.5">
+                            {formatCurrency(price)}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        {isPaid ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200">Pagado</Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="bg-teal-600 hover:bg-teal-700 text-white"
+                            onClick={() => processAppointmentBilling(apt)}
+                            disabled={price <= 0}
+                          >
+                            <DollarSign className="w-4 h-4 mr-1" />
+                            Cobrar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 💰 Debt Payment Dialog */}
+      <Dialog open={showDebtPayment} onOpenChange={(open) => { setShowDebtPayment(open); if (!open) { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-orange-600" />
+              Pagar Deuda Pendiente
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona un cliente y registra su pago
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!selectedDebtCustomer ? (
+              <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                {(pendingCredits as any[]).length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Users className="w-12 h-12 mx-auto mb-2" />
+                    <p className="font-semibold">No hay deudas pendientes</p>
+                  </div>
+                ) : (
+                  (pendingCredits as any[]).map((credit: any) => {
+                    const balance = parseFloat(credit.currentBalance || credit.current_balance || '0');
+                    return (
+                      <button
+                        key={credit.customerId || credit.customer_id}
+                        onClick={() => setSelectedDebtCustomer(credit)}
+                        className="w-full text-left p-3 rounded-lg border hover:border-orange-400 hover:bg-orange-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{credit.customerName || credit.customer_name}</p>
+                            <p className="text-sm text-muted-foreground">{credit.customerPhone || credit.customer_phone || ''}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-red-600">{formatCurrency(balance)}</p>
+                            <p className="text-xs text-muted-foreground">Deuda pendiente</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                  <p className="font-semibold">{selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name}</p>
+                  <p className="text-lg font-bold text-red-600 mt-1">
+                    Deuda: {formatCurrency(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0'))}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Monto a Pagar (RD$)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={debtPaymentAmount}
+                    onChange={(e) => setDebtPaymentAmount(e.target.value)}
+                    className="text-xl font-bold text-center"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDebtPaymentAmount(String(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0')))}
+                    >
+                      Pagar todo
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Método de Pago</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['cash', 'card', 'transfer'] as const).map((method) => (
+                      <button
+                        key={method}
+                        onClick={() => setDebtPaymentMethod(method)}
+                        className={`p-2 rounded-lg text-sm font-semibold transition-all border-2 ${
+                          debtPaymentMethod === method
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-gray-300 bg-white text-gray-600'
+                        }`}
+                      >
+                        {method === 'cash' && '💵 Efectivo'}
+                        {method === 'card' && '💳 Tarjeta'}
+                        {method === 'transfer' && '🏦 Transferencia'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setSelectedDebtCustomer(null)}>
+                    ← Volver
+                  </Button>
+                  <Button
+                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                    onClick={processDebtPayment}
+                    disabled={!debtPaymentAmount || parseFloat(debtPaymentAmount) <= 0}
+                  >
+                    Procesar Pago
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

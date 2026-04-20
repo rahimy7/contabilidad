@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { 
   ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, 
   X, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Shield, 
-  CreditCard, Truck, DollarSign, ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CalendarDays
+  CreditCard, Truck, DollarSign, ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CalendarDays, Stethoscope
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +116,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const iconMap: Record<string, any> = {
     ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings,
     UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Truck, DollarSign,
-    ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CreditCard, Bot, Shield, CalendarDays,
+    ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CreditCard, Bot, Shield, CalendarDays, Stethoscope,
   };
 
   // Mapa de badges por ruta

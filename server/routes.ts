@@ -16,6 +16,7 @@ import customerManagementRoutes from './routes/customer-management-routes';
 import purchaseManagementRoutes from './routes/purchase-management-routes';
 import appointmentRoutes from './routes/appointment-routes';
 import inventoryAdjustmentRoutes from './routes/inventory-adjustment-routes';
+import creditRoutes from './routes/credit-routes';
 
 // Schema and Types
 import {
@@ -775,6 +776,32 @@ const updateProductHandler = async (req: any, res: any) => {
       updateData.images = processedImages;
     }
 
+    // ✅ SANITIZE: Remove any undefined/null array fields to prevent Drizzle errors
+    // Ensure all array fields are actually arrays before passing to Drizzle
+    if (updateData.images !== undefined && !Array.isArray(updateData.images)) {
+      console.warn('⚠️ images field is not an array, resetting to empty array');
+      updateData.images = [];
+    }
+    if (updateData.features !== undefined && !Array.isArray(updateData.features)) {
+      console.warn('⚠️ features field is not an array, resetting to empty array');
+      updateData.features = [];
+    }
+    if (updateData.tags !== undefined && !Array.isArray(updateData.tags)) {
+      console.warn('⚠️ tags field is not an array, resetting to empty array');
+      updateData.tags = [];
+    }
+
+    console.log('📊 Final updateData before Drizzle:', {
+      hasImages: !!updateData.images,
+      imagesType: Array.isArray(updateData.images) ? 'array' : typeof updateData.images,
+      imagesLength: Array.isArray(updateData.images) ? updateData.images.length : 'N/A',
+      hasFeatures: !!updateData.features,
+      featuresType: Array.isArray(updateData.features) ? 'array' : typeof updateData.features,
+      hasTags: !!updateData.tags,
+      tagsType: Array.isArray(updateData.tags) ? 'array' : typeof updateData.tags,
+      allKeys: Object.keys(updateData)
+    });
+
     const product = await tenantStorage.updateProduct(productId, updateData);
     
     console.log('✅ Product updated in tenant schema:', {
@@ -1428,6 +1455,7 @@ app.use('/api', employeeRouter);
 app.use('/api', rolesManagementRouter);
 app.use('/api', appointmentRoutes);
   app.use('/api', inventoryAdjustmentRoutes);
+  app.use('/api', creditRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================

@@ -22,10 +22,12 @@ interface InvoiceData {
   orderNumber: string;
   date: string;
   time: string;
-  paymentMethod: 'cash' | 'card' | 'transfer';
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | string;
   items: InvoiceItem[];
   subtotal: number;
   tax: number;
+  discountPercentage?: number;
+  discountAmount?: number;
   total: number;
   receivedAmount: number;
   changeAmount: number;
@@ -49,7 +51,8 @@ const getPaymentMethodLabel = (method: string): string => {
   const labels: Record<string, string> = {
     cash: 'Efectivo',
     card: 'Tarjeta',
-    transfer: 'Transferencia Bancaria'
+    transfer: 'Transferencia Bancaria',
+    credit: 'Crédito'
   };
   return labels[method] || method;
 };
@@ -124,6 +127,12 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
               <div className="flex justify-between py-2 border-b border-gray-200 text-sm">
                 <span>ITBIS (0%):</span>
                 <span>RD${data.tax.toFixed(2)}</span>
+              </div>
+            )}
+            {data.discountAmount && data.discountAmount > 0 && (
+              <div className="flex justify-between py-2 border-b border-gray-200 text-sm text-orange-600">
+                <span>Descuento ({data.discountPercentage || 0}%):</span>
+                <span>-RD${data.discountAmount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between py-3 border-b-2 border-gray-400 font-bold text-lg">

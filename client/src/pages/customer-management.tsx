@@ -547,6 +547,7 @@ export default function CustomerManagement() {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Órdenes</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Total Gastado</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Puntos</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Crédito</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Estado</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Acciones</th>
                     </tr>
@@ -625,6 +626,15 @@ export default function CustomerManagement() {
                             </div>
                           ) : (
                             <span className="text-gray-400 text-sm">Sin datos</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {customer.creditBalance && parseFloat(customer.creditBalance) > 0 ? (
+                            <span className="text-sm font-semibold text-red-600">
+                              RD$ {parseFloat(customer.creditBalance).toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Sin deuda</span>
                           )}
                         </td>
                         <td className="px-4 py-3">

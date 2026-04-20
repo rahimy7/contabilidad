@@ -125,6 +125,10 @@ router.post('/appointment-service-types', authenticateToken, async (req: any, re
       category: validation.data.category ?? 'general',
       description: validation.data.description || null,
       duration: validation.data.duration || null,
+      basePrice: validation.data.basePrice || '0',
+      priceType: validation.data.priceType || 'fixed',
+      minPrice: validation.data.minPrice || null,
+      maxPrice: validation.data.maxPrice || null,
       isActive: validation.data.isActive ?? true,
     }).returning();
     res.status(201).json(service);
@@ -214,6 +218,10 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
         appointmentDate: schema.appointments.appointmentDate,
         appointmentEndDate: schema.appointments.appointmentEndDate,
         status: schema.appointments.status,
+        price: schema.appointments.price,
+        paymentStatus: schema.appointments.paymentStatus,
+        paymentMethod: schema.appointments.paymentMethod,
+        orderId: schema.appointments.orderId,
         notes: schema.appointments.notes,
         createdBy: schema.appointments.createdBy,
         createdAt: schema.appointments.createdAt,
@@ -269,6 +277,8 @@ router.get('/appointments/calendar/:year/:month', authenticateToken, async (req:
         appointmentDate: schema.appointments.appointmentDate,
         appointmentEndDate: schema.appointments.appointmentEndDate,
         status: schema.appointments.status,
+        price: schema.appointments.price,
+        paymentStatus: schema.appointments.paymentStatus,
         customerName: schema.customers.name,
         customerPhone: schema.customers.phone,
         titularName: schema.appointmentTitulares.name,
@@ -320,6 +330,10 @@ router.get('/appointments/:id', authenticateToken, async (req: any, res: any) =>
         appointmentDate: schema.appointments.appointmentDate,
         appointmentEndDate: schema.appointments.appointmentEndDate,
         status: schema.appointments.status,
+        price: schema.appointments.price,
+        paymentStatus: schema.appointments.paymentStatus,
+        paymentMethod: schema.appointments.paymentMethod,
+        orderId: schema.appointments.orderId,
         notes: schema.appointments.notes,
         createdBy: schema.appointments.createdBy,
         createdAt: schema.appointments.createdAt,
@@ -383,6 +397,10 @@ router.post('/appointments', authenticateToken, async (req: any, res: any) => {
         appointmentDate: new Date(validation.data.appointmentDate),
         appointmentEndDate: validation.data.appointmentEndDate ? new Date(validation.data.appointmentEndDate) : null,
         status: validation.data.status || 'scheduled',
+        price: validation.data.price || '0',
+        paymentStatus: validation.data.paymentStatus || 'pending',
+        paymentMethod: validation.data.paymentMethod || null,
+        orderId: validation.data.orderId || null,
         notes: validation.data.notes || null,
         createdBy: validation.data.createdBy || null,
       })
@@ -479,6 +497,151 @@ router.delete('/appointments/:id', authenticateToken, async (req: any, res: any)
   } catch (error: any) {
     console.error('Error deleting appointment:', error);
     res.status(500).json({ error: 'Error al eliminar cita', details: error.message });
+  }
+});
+
+// ================================
+// CITAS POR FECHA (para POS)
+// ================================
+router.get('/appointments/by-date/:date', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const dateStr = req.params.date;
+    const startOfDay = new Date(dateStr + 'T00:00:00');
+    const endOfDay = new Date(dateStr + 'T23:59:59.999');
+    const db = await getTenantDb(user.storeId);
+    const appointments = await db
+      .select({
+        id: schema.appointments.id,
+        storeId: schema.appointments.storeId,
+        customerId: schema.appointments.customerId,
+        titularId: schema.appointments.titularId,
+        serviceTypeId: schema.appointments.serviceTypeId,
+        title: schema.appointments.title,
+        description: schema.appointments.description,
+        appointmentDate: schema.appointments.appointmentDate,
+        appointmentEndDate: schema.appointments.appointmentEndDate,
+        status: schema.appointments.status,
+        price: schema.appointments.price,
+        paymentStatus: schema.appointments.paymentStatus,
+        paymentMethod: schema.appointments.paymentMethod,
+        orderId: schema.appointments.orderId,
+        notes: schema.appointments.notes,
+        createdAt: schema.appointments.createdAt,
+        customerName: schema.customers.name,
+        customerPhone: schema.customers.phone,
+        titularName: schema.appointmentTitulares.name,
+        serviceTypeName: schema.appointmentServiceTypes.name,
+        serviceTypeCategory: schema.appointmentServiceTypes.category,
+        serviceTypePrice: schema.appointmentServiceTypes.basePrice,
+      })
+      .from(schema.appointments)
+      .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
+      .leftJoin(schema.appointmentTitulares, eq(schema.appointments.titularId, schema.appointmentTitulares.id))
+      .leftJoin(schema.appointmentServiceTypes, eq(schema.appointments.serviceTypeId, schema.appointmentServiceTypes.id))
+      .where(and(
+        eq(schema.appointments.storeId, user.storeId),
+        gte(schema.appointments.appointmentDate, startOfDay),
+        lte(schema.appointments.appointmentDate, endOfDay),
+      ))
+      .orderBy(schema.appointments.appointmentDate);
+    res.json(appointments);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener citas del día', details: error.message });
+  }
+});
+
+// ================================
+// CITAS POR TITULAR (para Doctor Dashboard)
+// ================================
+router.get('/appointments/titular/:titularId', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const titularId = parseInt(req.params.titularId);
+    if (isNaN(titularId)) return res.status(400).json({ error: 'ID de titular inválido' });
+    const db = await getTenantDb(user.storeId);
+    const { startDate, endDate } = req.query;
+    let conditions = [
+      eq(schema.appointments.storeId, user.storeId),
+      eq(schema.appointments.titularId, titularId),
+    ];
+    if (startDate) conditions.push(gte(schema.appointments.appointmentDate, new Date(startDate as string)));
+    if (endDate) conditions.push(lte(schema.appointments.appointmentDate, new Date(endDate as string)));
+    const appointments = await db
+      .select({
+        id: schema.appointments.id,
+        customerId: schema.appointments.customerId,
+        titularId: schema.appointments.titularId,
+        serviceTypeId: schema.appointments.serviceTypeId,
+        title: schema.appointments.title,
+        appointmentDate: schema.appointments.appointmentDate,
+        appointmentEndDate: schema.appointments.appointmentEndDate,
+        status: schema.appointments.status,
+        price: schema.appointments.price,
+        paymentStatus: schema.appointments.paymentStatus,
+        notes: schema.appointments.notes,
+        customerName: schema.customers.name,
+        customerPhone: schema.customers.phone,
+        serviceTypeName: schema.appointmentServiceTypes.name,
+        serviceTypeCategory: schema.appointmentServiceTypes.category,
+      })
+      .from(schema.appointments)
+      .leftJoin(schema.customers, eq(schema.appointments.customerId, schema.customers.id))
+      .leftJoin(schema.appointmentServiceTypes, eq(schema.appointments.serviceTypeId, schema.appointmentServiceTypes.id))
+      .where(and(...conditions))
+      .orderBy(desc(schema.appointments.appointmentDate));
+    res.json(appointments);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener citas del titular', details: error.message });
+  }
+});
+
+// GET - Stats del titular
+router.get('/appointments/titular/:titularId/stats', authenticateToken, async (req: any, res: any) => {
+  try {
+    const user = req.user as AuthUser;
+    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    const titularId = parseInt(req.params.titularId);
+    if (isNaN(titularId)) return res.status(400).json({ error: 'ID de titular inválido' });
+    const db = await getTenantDb(user.storeId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const baseConditions = [
+      eq(schema.appointments.storeId, user.storeId),
+      eq(schema.appointments.titularId, titularId),
+    ];
+    // Total appointments
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.appointments)
+      .where(and(...baseConditions));
+    // Today's appointments
+    const [todayResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.appointments)
+      .where(and(...baseConditions, gte(schema.appointments.appointmentDate, today), lte(schema.appointments.appointmentDate, endOfToday)));
+    // Revenue (paid appointments)
+    const [revenueResult] = await db
+      .select({ total: sql<string>`COALESCE(SUM(price::numeric), 0)::text` })
+      .from(schema.appointments)
+      .where(and(...baseConditions, eq(schema.appointments.paymentStatus, 'paid')));
+    // Pending payment
+    const [pendingResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.appointments)
+      .where(and(...baseConditions, eq(schema.appointments.paymentStatus, 'pending')));
+    res.json({
+      totalAppointments: totalResult?.count || 0,
+      todayAppointments: todayResult?.count || 0,
+      totalRevenue: revenueResult?.total || '0',
+      pendingPayment: pendingResult?.count || 0,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener estadísticas', details: error.message });
   }
 });
 

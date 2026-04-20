@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Settings2, Plus, Pencil, Trash2, User, Stethoscope, Star, CheckCircle2, XCircle,
+  Settings2, Plus, Pencil, Trash2, User, Stethoscope, Star, CheckCircle2, XCircle, DollarSign,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,10 @@ const serviceTypeSchema = z.object({
   category: z.enum(['general', 'programa_especial']),
   description: z.string().optional(),
   duration: z.string().optional(),
+  basePrice: z.string().optional().default('0'),
+  priceType: z.enum(['fixed', 'variable', 'range']).default('fixed'),
+  minPrice: z.string().optional(),
+  maxPrice: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 type ServiceTypeForm = z.infer<typeof serviceTypeSchema>;
@@ -183,7 +187,7 @@ export default function AppointmentServicesPage() {
   // ================================
   const serviceForm = useForm<ServiceTypeForm>({
     resolver: zodResolver(serviceTypeSchema),
-    defaultValues: { name: '', category: 'general', description: '', duration: '', isActive: true },
+    defaultValues: { name: '', category: 'general', description: '', duration: '', basePrice: '0', priceType: 'fixed', minPrice: '', maxPrice: '', isActive: true },
   });
 
   const titularForm = useForm<TitularForm>({
@@ -200,6 +204,10 @@ export default function AppointmentServicesPage() {
       category: data.category,
       description: data.description || null,
       duration: data.duration ? parseInt(data.duration) : null,
+      basePrice: data.basePrice || '0',
+      priceType: data.priceType || 'fixed',
+      minPrice: data.priceType !== 'fixed' ? (data.minPrice || null) : null,
+      maxPrice: data.priceType !== 'fixed' ? (data.maxPrice || null) : null,
       isActive: data.isActive,
     };
     if (editingService) {
@@ -216,7 +224,11 @@ export default function AppointmentServicesPage() {
       category: svc.category,
       description: svc.description || '',
       duration: svc.duration ? String(svc.duration) : '',
-      isActive: svc.isActive,
+      basePrice: svc.basePrice || svc.base_price || '0',
+      priceType: svc.priceType || svc.price_type || 'fixed',
+      minPrice: svc.minPrice || svc.min_price || '',
+      maxPrice: svc.maxPrice || svc.max_price || '',
+      isActive: svc.isActive ?? svc.is_active ?? true,
     });
     setIsServiceOpen(true);
   }
@@ -301,7 +313,7 @@ export default function AppointmentServicesPage() {
           <div className="flex justify-end">
             <Button onClick={() => {
               setEditingService(null);
-              serviceForm.reset({ name: '', category: 'general', description: '', duration: '', isActive: true });
+              serviceForm.reset({ name: '', category: 'general', description: '', duration: '', basePrice: '0', priceType: 'fixed', minPrice: '', maxPrice: '', isActive: true });
               setIsServiceOpen(true);
             }}>
               <Plus className="h-4 w-4 mr-2" />
@@ -495,6 +507,66 @@ export default function AppointmentServicesPage() {
                 </FormItem>
               )} />
 
+              {/* Pricing Fields */}
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-green-600" />
+                  Precio del Servicio
+                </h4>
+
+                <FormField control={serviceForm.control} name="priceType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Precio</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fixed">Precio Fijo</SelectItem>
+                        <SelectItem value="variable">Precio Variable</SelectItem>
+                        <SelectItem value="range">Rango de Precios</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={serviceForm.control} name="basePrice" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{serviceForm.watch('priceType') === 'fixed' ? 'Precio Base (RD$)' : 'Precio Sugerido (RD$)'}</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {serviceForm.watch('priceType') !== 'fixed' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={serviceForm.control} name="minPrice" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio Mínimo (RD$)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={serviceForm.control} name="maxPrice" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio Máximo (RD$)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
+              </div>
+
               <FormField control={serviceForm.control} name="isActive" render={({ field }) => (
                 <FormItem className="flex items-center gap-3">
                   <FormControl>
@@ -634,8 +706,21 @@ function ServiceCard({ service, onEdit, onDelete }: { service: any; onEdit: () =
               <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Inactivo</Badge>
             )}
           </div>
-          {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
-          {service.duration && <p className="text-xs text-muted-foreground">{service.duration} min</p>}
+          <div className="flex items-center gap-3 mt-0.5">
+            {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
+            {service.duration && <span className="text-xs text-muted-foreground">{service.duration} min</span>}
+            {parseFloat(service.basePrice || service.base_price || '0') > 0 && (
+              <span className="text-sm font-semibold text-green-700">
+                RD$ {parseFloat(service.basePrice || service.base_price || '0').toFixed(2)}
+                {(service.priceType || service.price_type) === 'variable' && ' (variable)'}
+                {(service.priceType || service.price_type) === 'range' && (
+                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                    ({parseFloat(service.minPrice || service.min_price || '0').toFixed(2)} - {parseFloat(service.maxPrice || service.max_price || '0').toFixed(2)})
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

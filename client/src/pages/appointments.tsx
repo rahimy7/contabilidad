@@ -160,6 +160,8 @@ const appointmentFormSchema = z.object({
   appointmentTime: z.string().min(1, "La hora es requerida"),
   appointmentEndTime: z.string().optional(),
   status: z.string().default("scheduled"),
+  price: z.string().optional().default('0'),
+  paymentStatus: z.string().optional().default('pending'),
   notes: z.string().optional(),
 });
 
@@ -315,6 +317,8 @@ export default function AppointmentsPage() {
       appointmentTime: '',
       appointmentEndTime: '',
       status: 'scheduled',
+      price: '0',
+      paymentStatus: 'pending',
       notes: '',
     },
   });
@@ -346,6 +350,8 @@ export default function AppointmentsPage() {
       appointmentDate,
       appointmentEndDate,
       status: data.status,
+      price: data.price || '0',
+      paymentStatus: data.paymentStatus || 'pending',
       notes: data.notes || undefined,
     });
   }
@@ -369,6 +375,8 @@ export default function AppointmentsPage() {
         appointmentDate,
         appointmentEndDate,
         status: data.status,
+        price: data.price || '0',
+        paymentStatus: data.paymentStatus || 'pending',
         notes: data.notes || undefined,
       },
     });
@@ -389,6 +397,8 @@ export default function AppointmentsPage() {
       appointmentTime: format(date, 'HH:mm'),
       appointmentEndTime: endDate ? format(endDate, 'HH:mm') : '',
       status: appointment.status,
+      price: appointment.price || '0',
+      paymentStatus: appointment.paymentStatus || appointment.payment_status || 'pending',
       notes: appointment.notes || '',
     });
     setIsEditOpen(true);
@@ -410,6 +420,8 @@ export default function AppointmentsPage() {
       appointmentTime: '09:00',
       appointmentEndTime: '',
       status: 'scheduled',
+      price: '0',
+      paymentStatus: 'pending',
       notes: '',
     });
     setIsCreateOpen(true);
@@ -478,7 +490,7 @@ export default function AppointmentsPage() {
           createForm.reset({
             customerId: '', titularId: 'none', serviceTypeId: 'none', title: '', description: '',
             appointmentDate: format(new Date(), 'yyyy-MM-dd'),
-            appointmentTime: '09:00', appointmentEndTime: '', status: 'scheduled', notes: '',
+            appointmentTime: '09:00', appointmentEndTime: '', status: 'scheduled', price: '0', paymentStatus: 'pending', notes: '',
           });
           setIsCreateOpen(true);
         }}>
@@ -831,7 +843,16 @@ export default function AppointmentsPage() {
               <FormField control={createForm.control} name="serviceTypeId" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Servicio / Programa Especial</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                  <Select onValueChange={(val) => {
+                    field.onChange(val);
+                    // Auto-fill price from selected service
+                    if (val && val !== 'none') {
+                      const svc = (serviceTypes as any[]).find((s: any) => String(s.id) === val);
+                      if (svc && (svc.basePrice || svc.base_price)) {
+                        createForm.setValue('price', String(svc.basePrice || svc.base_price || '0'));
+                      }
+                    }
+                  }} value={field.value || 'none'}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar servicio..." />
@@ -864,6 +885,38 @@ export default function AppointmentsPage() {
                   <FormMessage />
                 </FormItem>
               )} />
+
+              {/* Price & Payment Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={createForm.control} name="price" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio (RD$)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={createForm.control} name="paymentStatus" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado de Pago</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || 'pending'}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="paid">Pagado</SelectItem>
+                        <SelectItem value="partial">Parcial</SelectItem>
+                        <SelectItem value="credit">Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
               <FormField control={createForm.control} name="title" render={({ field }) => (
                 <FormItem>
@@ -995,7 +1048,15 @@ export default function AppointmentsPage() {
               <FormField control={editForm.control} name="serviceTypeId" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Servicio / Programa Especial</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                  <Select onValueChange={(val) => {
+                    field.onChange(val);
+                    if (val && val !== 'none') {
+                      const svc = (serviceTypes as any[]).find((s: any) => String(s.id) === val);
+                      if (svc && (svc.basePrice || svc.base_price)) {
+                        editForm.setValue('price', String(svc.basePrice || svc.base_price || '0'));
+                      }
+                    }
+                  }} value={field.value || 'none'}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar servicio..." />
@@ -1028,6 +1089,38 @@ export default function AppointmentsPage() {
                   <FormMessage />
                 </FormItem>
               )} />
+
+              {/* Price & Payment Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={editForm.control} name="price" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio (RD$)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="paymentStatus" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado de Pago</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || 'pending'}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="paid">Pagado</SelectItem>
+                        <SelectItem value="partial">Parcial</SelectItem>
+                        <SelectItem value="credit">Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
               <FormField control={editForm.control} name="title" render={({ field }) => (
                 <FormItem>
