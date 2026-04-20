@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
+import { ensureAppointmentCreditSchema } from '../services/appointment-credit-schema-guard';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 
@@ -16,6 +17,7 @@ router.get('/credits/:customerId', authenticateToken, async (req: any, res: any)
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const customerId = parseInt(req.params.customerId);
     if (isNaN(customerId)) return res.status(400).json({ error: 'ID de cliente inválido' });
 
@@ -71,6 +73,7 @@ router.get('/credits/pending/list', authenticateToken, async (req: any, res: any
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const db = await getTenantDb(user.storeId);
 
@@ -104,6 +107,7 @@ router.post('/credits/charge', authenticateToken, async (req: any, res: any) => 
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const { customerId, amount, orderId, description } = req.body;
     if (!customerId || !amount) return res.status(400).json({ error: 'customerId y amount son requeridos' });
@@ -177,6 +181,7 @@ router.post('/credits/payment', authenticateToken, async (req: any, res: any) =>
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const { customerId, amount, paymentMethod, description } = req.body;
     if (!customerId || !amount) return res.status(400).json({ error: 'customerId y amount son requeridos' });

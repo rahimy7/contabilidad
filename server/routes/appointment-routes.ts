@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
+import { ensureAppointmentCreditSchema } from '../services/appointment-credit-schema-guard';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 
@@ -17,6 +18,7 @@ router.get('/appointment-titulares', authenticateToken, async (req: any, res: an
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const db = await getTenantDb(user.storeId);
     const titulares = await db
       .select()
@@ -34,6 +36,7 @@ router.post('/appointment-titulares', authenticateToken, async (req: any, res: a
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const validation = schema.insertAppointmentTitularSchema.safeParse({ ...req.body, storeId: user.storeId });
     if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
     const db = await getTenantDb(user.storeId);
@@ -54,6 +57,7 @@ router.put('/appointment-titulares/:id', authenticateToken, async (req: any, res
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
     const validation = schema.updateAppointmentTitularSchema.safeParse(req.body);
@@ -76,6 +80,7 @@ router.delete('/appointment-titulares/:id', authenticateToken, async (req: any, 
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
     const db = await getTenantDb(user.storeId);
@@ -99,6 +104,7 @@ router.get('/appointment-service-types', authenticateToken, async (req: any, res
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const db = await getTenantDb(user.storeId);
     const services = await db
       .select()
@@ -116,6 +122,7 @@ router.post('/appointment-service-types', authenticateToken, async (req: any, re
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const validation = schema.insertAppointmentServiceTypeSchema.safeParse({ ...req.body, storeId: user.storeId });
     if (!validation.success) return res.status(400).json({ error: 'Datos inválidos', details: validation.error.errors });
     const db = await getTenantDb(user.storeId);
@@ -142,6 +149,7 @@ router.put('/appointment-service-types/:id', authenticateToken, async (req: any,
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
     const validation = schema.updateAppointmentServiceTypeSchema.safeParse(req.body);
@@ -164,6 +172,7 @@ router.delete('/appointment-service-types/:id', authenticateToken, async (req: a
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
     const db = await getTenantDb(user.storeId);
@@ -189,6 +198,7 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const db = await getTenantDb(user.storeId);
 
@@ -254,6 +264,7 @@ router.get('/appointments/calendar/:year/:month', authenticateToken, async (req:
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const year = parseInt(req.params.year);
     const month = parseInt(req.params.month);
@@ -310,6 +321,7 @@ router.get('/appointments/:id', authenticateToken, async (req: any, res: any) =>
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -372,6 +384,7 @@ router.post('/appointments', authenticateToken, async (req: any, res: any) => {
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const validation = schema.insertAppointmentSchema.safeParse({
       ...req.body,
@@ -420,6 +433,7 @@ router.put('/appointments/:id', authenticateToken, async (req: any, res: any) =>
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -473,6 +487,7 @@ router.delete('/appointments/:id', authenticateToken, async (req: any, res: any)
     if (!user.storeId) {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
+    await ensureAppointmentCreditSchema(user.storeId);
 
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -507,6 +522,7 @@ router.get('/appointments/by-date/:date', authenticateToken, async (req: any, re
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const dateStr = req.params.date;
     const startOfDay = new Date(dateStr + 'T00:00:00');
     const endOfDay = new Date(dateStr + 'T23:59:59.999');
@@ -559,6 +575,7 @@ router.get('/appointments/titular/:titularId', authenticateToken, async (req: an
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const titularId = parseInt(req.params.titularId);
     if (isNaN(titularId)) return res.status(400).json({ error: 'ID de titular inválido' });
     const db = await getTenantDb(user.storeId);
@@ -603,6 +620,7 @@ router.get('/appointments/titular/:titularId/stats', authenticateToken, async (r
   try {
     const user = req.user as AuthUser;
     if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
+    await ensureAppointmentCreditSchema(user.storeId);
     const titularId = parseInt(req.params.titularId);
     if (isNaN(titularId)) return res.status(400).json({ error: 'ID de titular inválido' });
     const db = await getTenantDb(user.storeId);
