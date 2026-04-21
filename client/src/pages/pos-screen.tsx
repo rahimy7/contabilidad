@@ -223,12 +223,17 @@ export default function POSScreen() {
   // Appointment billing state
   const [showAppointmentBilling, setShowAppointmentBilling] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [appointmentSearch, setAppointmentSearch] = useState('');
+  const [appointmentBillingStep, setAppointmentBillingStep] = useState<'list' | 'pay'>('list');
+  const [selectedBillingApt, setSelectedBillingApt] = useState<any>(null);
+  const [aptPaymentMethod, setAptPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
 
   // Debt payment state
   const [showDebtPayment, setShowDebtPayment] = useState(false);
   const [selectedDebtCustomer, setSelectedDebtCustomer] = useState<any>(null);
   const [debtPaymentAmount, setDebtPaymentAmount] = useState('');
   const [debtPaymentMethod, setDebtPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
+  const [debtSearch, setDebtSearch] = useState('');
   // Numeric keypad modal state
   const [showKeypadModal, setShowKeypadModal] = useState(false);
   const [keypadProduct, setKeypadProduct] = useState<Product | null>(null);
@@ -1114,25 +1119,12 @@ export default function POSScreen() {
             </button>
           </div>
 
-          {/* Categories */}
-          <div className="p-4 bg-white border-b overflow-x-auto flex gap-2 flex-shrink-0 items-center">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all ${
-                  selectedCategory === category
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-gray-600 border border-gray-300'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+          {/* Action Buttons */}
+          <div className="px-4 py-2 bg-white border-b flex gap-2 flex-shrink-0 items-center">
             {/* Appointment quick-access button */}
             <button
               onClick={() => setShowAppointmentDialog(true)}
-              className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
             >
               <CalendarDays className="w-4 h-4" />
               Agendar Cita
@@ -1776,180 +1768,476 @@ export default function POSScreen() {
       />
 
       {/* 📋 Appointment Billing Dialog */}
-      <Dialog open={showAppointmentBilling} onOpenChange={setShowAppointmentBilling}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-teal-600" />
-              Cobrar Cita
-            </DialogTitle>
-            <DialogDescription>
-              Selecciona una cita del día para cobrar
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {(todayAppointments as any[]).length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <CalendarDays className="w-12 h-12 mx-auto mb-2" />
-                <p className="font-semibold">No hay citas para hoy</p>
+      <Dialog open={showAppointmentBilling} onOpenChange={(open) => {
+        setShowAppointmentBilling(open);
+        if (!open) { setAppointmentSearch(''); setAppointmentBillingStep('list'); setSelectedBillingApt(null); setAptPaymentMethod('cash'); }
+      }}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden rounded-2xl shadow-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-teal-500 px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2.5 rounded-xl shadow-inner">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">Cobrar Cita</h2>
+                  <p className="text-teal-100 text-xs mt-0.5">
+                    {appointmentBillingStep === 'list'
+                      ? `${(todayAppointments as any[]).length} cita(s) disponibles`
+                      : `Paso 2 de 2 · Confirmar cobro`}
+                  </p>
+                </div>
               </div>
-            ) : (
-              (todayAppointments as any[]).map((apt: any) => {
-                const isPaid = (apt.paymentStatus || apt.payment_status) === 'paid';
-                const price = parseFloat(apt.price || '0');
-                const time = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }) : '';
-                return (
-                  <div
-                    key={apt.id}
-                    className={`p-3 rounded-lg border ${isPaid ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-teal-400'} transition-colors`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{time}</span>
-                          <span className="font-medium">{apt.title}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {apt.customerName || apt.customer_name || 'Cliente'}
-                          {apt.serviceTypeName || apt.service_type_name
-                            ? ` • ${apt.serviceTypeName || apt.service_type_name}`
-                            : ''}
-                        </p>
-                        {price > 0 && (
-                          <p className="text-sm font-bold text-green-700 mt-0.5">
-                            {formatCurrency(price)}
-                          </p>
-                        )}
+              {appointmentBillingStep === 'pay' && (
+                <button onClick={() => { setAppointmentBillingStep('list'); setSelectedBillingApt(null); }}
+                  className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
+                  ← Lista
+                </button>
+              )}
+            </div>
+            {/* Step indicator */}
+            <div className="flex gap-1.5 mt-4">
+              <div className="h-1 flex-1 rounded-full bg-white"></div>
+              <div className={`h-1 flex-1 rounded-full transition-all ${appointmentBillingStep === 'pay' ? 'bg-white' : 'bg-white/30'}`}></div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {appointmentBillingStep === 'list' ? (
+              <>
+                {/* Search box */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por cliente, cita, servicio o fecha…"
+                    value={appointmentSearch}
+                    onChange={(e) => setAppointmentSearch(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-0 focus:border-teal-400 transition-colors"
+                  />
+                  {appointmentSearch && (
+                    <button onClick={() => setAppointmentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Result count */}
+                {appointmentSearch && (
+                  <p className="text-xs text-gray-400 mb-2 px-1">
+                    {(todayAppointments as any[]).filter((apt: any) => {
+                      const q = appointmentSearch.toLowerCase();
+                      const dateStr = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleDateString('es-DO', { day: '2-digit', month: 'long' }) : '';
+                      return (apt.customerName || apt.customer_name || '').toLowerCase().includes(q) ||
+                        (apt.title || '').toLowerCase().includes(q) ||
+                        (apt.serviceTypeName || apt.service_type_name || '').toLowerCase().includes(q) ||
+                        dateStr.toLowerCase().includes(q);
+                    }).length} resultado(s) para &quot;{appointmentSearch}&quot;
+                  </p>
+                )}
+
+                {/* Appointment list */}
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-0.5">
+                  {(() => {
+                    const filtered = (todayAppointments as any[]).filter((apt: any) => {
+                      if (!appointmentSearch) return true;
+                      const q = appointmentSearch.toLowerCase();
+                      const dateStr = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+                      return (apt.customerName || apt.customer_name || '').toLowerCase().includes(q) ||
+                        (apt.title || '').toLowerCase().includes(q) ||
+                        (apt.serviceTypeName || apt.service_type_name || '').toLowerCase().includes(q) ||
+                        dateStr.toLowerCase().includes(q);
+                    });
+                    if (filtered.length === 0) return (
+                      <div className="text-center py-12 text-gray-400">
+                        <CalendarDays className="w-14 h-14 mx-auto mb-3 opacity-30" />
+                        <p className="font-semibold text-sm">No se encontraron citas</p>
+                        <p className="text-xs mt-1">Intenta con otro término de búsqueda</p>
                       </div>
-                      <div>
-                        {isPaid ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-200">Pagado</Badge>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="bg-teal-600 hover:bg-teal-700 text-white"
-                            onClick={() => processAppointmentBilling(apt)}
-                            disabled={price <= 0}
-                          >
-                            <DollarSign className="w-4 h-4 mr-1" />
-                            Cobrar
-                          </Button>
+                    );
+                    return filtered.map((apt: any) => {
+                      const isPaid = (apt.paymentStatus || apt.payment_status) === 'paid';
+                      const price = parseFloat(apt.price || '0');
+                      const aptDate = apt.appointmentDate ? new Date(apt.appointmentDate) : null;
+                      const timeStr = aptDate ? aptDate.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }) : '';
+                      const dateStr = aptDate ? aptDate.toLocaleDateString('es-DO', { weekday: 'short', day: '2-digit', month: 'short' }) : '';
+                      const service = apt.serviceTypeName || apt.service_type_name || '';
+                      const customer = apt.customerName || apt.customer_name || 'Cliente';
+                      return (
+                        <button
+                          key={apt.id}
+                          disabled={isPaid || price <= 0}
+                          onClick={() => { if (!isPaid && price > 0) { setSelectedBillingApt(apt); setAppointmentBillingStep('pay'); } }}
+                          className={`w-full text-left rounded-xl border-2 transition-all group ${
+                            isPaid ? 'bg-green-50 border-green-200 opacity-75 cursor-default' :
+                            price <= 0 ? 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed' :
+                            'bg-white border-gray-200 hover:border-teal-400 hover:shadow-md cursor-pointer'
+                          }`}
+                        >
+                          <div className="p-3.5">
+                            <div className="flex items-start justify-between gap-3">
+                              {/* Left: icon + info */}
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className={`mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                  isPaid ? 'bg-green-100' : 'bg-teal-50 group-hover:bg-teal-100'
+                                }`}>
+                                  <CalendarDays className={`w-4 h-4 ${isPaid ? 'text-green-600' : 'text-teal-600'}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-sm text-gray-800 truncate">{apt.title}</span>
+                                    {isPaid && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">✓ Pagado</span>}
+                                  </div>
+                                  <p className="text-xs font-semibold text-gray-600 mt-0.5 truncate">{customer}</p>
+                                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                    {dateStr && (
+                                      <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                        <CalendarDays className="w-3 h-3" />{dateStr}
+                                      </span>
+                                    )}
+                                    {timeStr && (
+                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+                                        🕐 {timeStr}
+                                      </span>
+                                    )}
+                                    {service && (
+                                      <span className="flex items-center gap-1 text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                        ✦ {service}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Right: price */}
+                              <div className="text-right flex-shrink-0">
+                                {price > 0 ? (
+                                  <span className={`text-base font-extrabold ${isPaid ? 'text-green-700' : 'text-gray-800'}`}>
+                                    {formatCurrency(price)}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400">Sin precio</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </>
+            ) : (
+              /* Step 2 – Payment */
+              <div className="space-y-4">
+                {/* Appointment summary card */}
+                <div className="rounded-xl overflow-hidden border border-teal-200">
+                  <div className="bg-teal-50 px-4 py-3 border-b border-teal-200 flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-teal-600" />
+                    <span className="text-sm font-semibold text-teal-700">Resumen de la cita</span>
+                  </div>
+                  <div className="bg-white px-4 py-3 flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-800 text-sm truncate">{selectedBillingApt?.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{selectedBillingApt?.customerName || selectedBillingApt?.customer_name || 'Cliente'}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {selectedBillingApt?.appointmentDate && (
+                          <span className="text-[11px] text-gray-400">
+                            📅 {new Date(selectedBillingApt.appointmentDate).toLocaleDateString('es-DO', { weekday: 'short', day: '2-digit', month: 'short' })} · {new Date(selectedBillingApt.appointmentDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                        {(selectedBillingApt?.serviceTypeName || selectedBillingApt?.service_type_name) && (
+                          <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            ✦ {selectedBillingApt?.serviceTypeName || selectedBillingApt?.service_type_name}
+                          </span>
                         )}
                       </div>
                     </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-gray-400 mb-0.5">Total a cobrar</p>
+                      <p className="text-2xl font-extrabold text-teal-700">{formatCurrency(parseFloat(selectedBillingApt?.price || '0'))}</p>
+                    </div>
                   </div>
-                );
-              })
+                </div>
+
+                {/* Payment method */}
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Método de pago</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { key: 'cash', label: 'Efectivo', icon: '💵', desc: 'Pago en físico' },
+                      { key: 'card', label: 'Tarjeta', icon: '💳', desc: 'Débito / Crédito' },
+                      { key: 'transfer', label: 'Transferencia', icon: '🏦', desc: 'Banco / Pago móvil' },
+                    ] as const).map(({ key, label, icon, desc }) => (
+                      <button
+                        key={key}
+                        onClick={() => setAptPaymentMethod(key)}
+                        className={`p-3 rounded-xl text-sm border-2 transition-all flex flex-col items-center gap-1 ${
+                          aptPaymentMethod === key
+                            ? 'border-teal-500 bg-teal-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-teal-300'
+                        }`}
+                      >
+                        <span className="text-xl">{icon}</span>
+                        <span className={`font-bold text-xs ${aptPaymentMethod === key ? 'text-teal-700' : 'text-gray-700'}`}>{label}</span>
+                        <span className="text-[10px] text-gray-400">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setAppointmentBillingStep('list'); setSelectedBillingApt(null); }}>
+                    ← Volver
+                  </Button>
+                  <Button
+                    className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md"
+                    onClick={() => processAppointmentBilling(selectedBillingApt)}
+                  >
+                    <DollarSign className="w-4 h-4 mr-1.5" />
+                    Confirmar Cobro
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* 💰 Debt Payment Dialog */}
-      <Dialog open={showDebtPayment} onOpenChange={(open) => { setShowDebtPayment(open); if (!open) { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-orange-600" />
-              Pagar Deuda Pendiente
-            </DialogTitle>
-            <DialogDescription>
-              Selecciona un cliente y registra su pago
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {!selectedDebtCustomer ? (
-              <div className="space-y-3 max-h-[350px] overflow-y-auto">
-                {(pendingCredits as any[]).length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <Users className="w-12 h-12 mx-auto mb-2" />
-                    <p className="font-semibold">No hay deudas pendientes</p>
-                  </div>
-                ) : (
-                  (pendingCredits as any[]).map((credit: any) => {
-                    const balance = parseFloat(credit.currentBalance || credit.current_balance || '0');
-                    return (
-                      <button
-                        key={credit.customerId || credit.customer_id}
-                        onClick={() => setSelectedDebtCustomer(credit)}
-                        className="w-full text-left p-3 rounded-lg border hover:border-orange-400 hover:bg-orange-50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{credit.customerName || credit.customer_name}</p>
-                            <p className="text-sm text-muted-foreground">{credit.customerPhone || credit.customer_phone || ''}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-600">{formatCurrency(balance)}</p>
-                            <p className="text-xs text-muted-foreground">Deuda pendiente</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
-                  <p className="font-semibold">{selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name}</p>
-                  <p className="text-lg font-bold text-red-600 mt-1">
-                    Deuda: {formatCurrency(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0'))}
+      <Dialog open={showDebtPayment} onOpenChange={(open) => {
+        setShowDebtPayment(open);
+        if (!open) { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); setDebtSearch(''); setDebtPaymentMethod('cash'); }
+      }}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden rounded-2xl shadow-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-orange-700 via-orange-600 to-orange-500 px-6 py-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2.5 rounded-xl shadow-inner">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">Pagar Deuda</h2>
+                  <p className="text-orange-100 text-xs mt-0.5">
+                    {!selectedDebtCustomer
+                      ? `${(pendingCredits as any[]).length} cliente(s) con deuda pendiente`
+                      : `Paso 2 de 2 · Registrar pago`}
                   </p>
                 </div>
+              </div>
+              {selectedDebtCustomer && (
+                <button onClick={() => { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); }}
+                  className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
+                  ← Lista
+                </button>
+              )}
+            </div>
+            {/* Step indicator */}
+            <div className="flex gap-1.5 mt-4">
+              <div className="h-1 flex-1 rounded-full bg-white"></div>
+              <div className={`h-1 flex-1 rounded-full transition-all ${selectedDebtCustomer ? 'bg-white' : 'bg-white/30'}`}></div>
+            </div>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Monto a Pagar (RD$)</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="0.00"
-                    value={debtPaymentAmount}
-                    onChange={(e) => setDebtPaymentAmount(e.target.value)}
-                    className="text-xl font-bold text-center"
+          <div className="p-5">
+            {!selectedDebtCustomer ? (
+              <>
+                {/* Search box */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, teléfono o correo…"
+                    value={debtSearch}
+                    onChange={(e) => setDebtSearch(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-0 focus:border-orange-400 transition-colors"
                   />
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDebtPaymentAmount(String(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0')))}
-                    >
-                      Pagar todo
-                    </Button>
+                  {debtSearch && (
+                    <button onClick={() => setDebtSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Result count */}
+                {debtSearch && (
+                  <p className="text-xs text-gray-400 mb-2 px-1">
+                    {(pendingCredits as any[]).filter((c: any) => {
+                      const q = debtSearch.toLowerCase();
+                      return (c.customerName || c.customer_name || '').toLowerCase().includes(q) ||
+                        (c.customerPhone || c.customer_phone || '').toLowerCase().includes(q) ||
+                        (c.customerEmail || c.customer_email || '').toLowerCase().includes(q);
+                    }).length} resultado(s) para &quot;{debtSearch}&quot;
+                  </p>
+                )}
+
+                {/* Summary totals */}
+                {!debtSearch && (pendingCredits as any[]).length > 0 && (() => {
+                  const totalDebt = (pendingCredits as any[]).reduce((sum: number, c: any) => sum + parseFloat(c.currentBalance || c.current_balance || '0'), 0);
+                  return (
+                    <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
+                      <span className="text-xs font-semibold text-red-600">Total deuda acumulada</span>
+                      <span className="text-base font-extrabold text-red-700">{formatCurrency(totalDebt)}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* Client list */}
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-0.5">
+                  {(() => {
+                    const filtered = (pendingCredits as any[]).filter((c: any) => {
+                      if (!debtSearch) return true;
+                      const q = debtSearch.toLowerCase();
+                      return (c.customerName || c.customer_name || '').toLowerCase().includes(q) ||
+                        (c.customerPhone || c.customer_phone || '').toLowerCase().includes(q) ||
+                        (c.customerEmail || c.customer_email || '').toLowerCase().includes(q);
+                    });
+                    if (filtered.length === 0) return (
+                      <div className="text-center py-12 text-gray-400">
+                        <Users className="w-14 h-14 mx-auto mb-3 opacity-30" />
+                        <p className="font-semibold text-sm">No se encontraron clientes</p>
+                        <p className="text-xs mt-1">Intenta con otro término de búsqueda</p>
+                      </div>
+                    );
+                    return filtered.map((credit: any) => {
+                      const balance = parseFloat(credit.currentBalance || credit.current_balance || '0');
+                      const name = credit.customerName || credit.customer_name || 'Cliente';
+                      const phone = credit.customerPhone || credit.customer_phone || '';
+                      const email = credit.customerEmail || credit.customer_email || '';
+                      const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+                      return (
+                        <button
+                          key={credit.customerId || credit.customer_id}
+                          onClick={() => { setSelectedDebtCustomer(credit); setDebtPaymentAmount(String(balance)); }}
+                          className="w-full text-left rounded-xl border-2 border-gray-200 bg-white hover:border-orange-400 hover:shadow-md transition-all group"
+                        >
+                          <div className="p-3.5 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {/* Avatar with initials */}
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                <span className="text-white font-bold text-xs">{initials}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-800 truncate">{name}</p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {phone && <span className="text-[11px] text-gray-400">📞 {phone}</span>}
+                                  {email && <span className="text-[11px] text-gray-400 truncate max-w-[130px]">✉ {email}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-base font-extrabold text-red-600">{formatCurrency(balance)}</p>
+                              <p className="text-[10px] text-gray-400 font-medium">Deuda pendiente</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                {/* Client summary card */}
+                <div className="rounded-xl overflow-hidden border border-orange-200">
+                  <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm font-semibold text-orange-700">Datos del cliente</span>
+                  </div>
+                  <div className="bg-white px-4 py-3 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <span className="text-white font-bold text-sm">
+                          {(selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name || 'C').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-800 truncate">{selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name}</p>
+                        {(selectedDebtCustomer.customerPhone || selectedDebtCustomer.customer_phone) && (
+                          <p className="text-xs text-gray-500">📞 {selectedDebtCustomer.customerPhone || selectedDebtCustomer.customer_phone}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-gray-400 font-medium">Deuda total</p>
+                      <p className="text-2xl font-extrabold text-red-600">{formatCurrency(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0'))}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold">Método de Pago</p>
+                {/* Amount input */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-sm font-semibold text-gray-700">Monto a pagar</label>
+                    <button
+                      onClick={() => setDebtPaymentAmount(String(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0')))}
+                      className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-lg transition-all"
+                    >
+                      Pagar todo
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">RD$</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      value={debtPaymentAmount}
+                      onChange={(e) => setDebtPaymentAmount(e.target.value)}
+                      className="pl-14 text-2xl font-extrabold text-center rounded-xl h-14 border-2 focus:border-orange-400"
+                    />
+                  </div>
+                  {debtPaymentAmount && parseFloat(debtPaymentAmount) > 0 && (
+                    <div className="mt-2 flex items-center justify-between text-xs px-1">
+                      <span className="text-gray-400">Saldo restante:</span>
+                      <span className={`font-bold ${
+                        parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0') - parseFloat(debtPaymentAmount) <= 0
+                          ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {formatCurrency(Math.max(0, parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0') - parseFloat(debtPaymentAmount)))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment method */}
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Método de pago</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['cash', 'card', 'transfer'] as const).map((method) => (
+                    {([
+                      { key: 'cash', label: 'Efectivo', icon: '💵', desc: 'Pago en físico' },
+                      { key: 'card', label: 'Tarjeta', icon: '💳', desc: 'Débito / Crédito' },
+                      { key: 'transfer', label: 'Transferencia', icon: '🏦', desc: 'Banco / Pago móvil' },
+                    ] as const).map(({ key, label, icon, desc }) => (
                       <button
-                        key={method}
-                        onClick={() => setDebtPaymentMethod(method)}
-                        className={`p-2 rounded-lg text-sm font-semibold transition-all border-2 ${
-                          debtPaymentMethod === method
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-gray-300 bg-white text-gray-600'
+                        key={key}
+                        onClick={() => setDebtPaymentMethod(key)}
+                        className={`p-3 rounded-xl text-sm border-2 transition-all flex flex-col items-center gap-1 ${
+                          debtPaymentMethod === key
+                            ? 'border-orange-500 bg-orange-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-orange-300'
                         }`}
                       >
-                        {method === 'cash' && '💵 Efectivo'}
-                        {method === 'card' && '💳 Tarjeta'}
-                        {method === 'transfer' && '🏦 Transferencia'}
+                        <span className="text-xl">{icon}</span>
+                        <span className={`font-bold text-xs ${debtPaymentMethod === key ? 'text-orange-700' : 'text-gray-700'}`}>{label}</span>
+                        <span className="text-[10px] text-gray-400">{desc}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setSelectedDebtCustomer(null)}>
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); }}>
                     ← Volver
                   </Button>
                   <Button
-                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                    className="flex-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md"
                     onClick={processDebtPayment}
                     disabled={!debtPaymentAmount || parseFloat(debtPaymentAmount) <= 0}
                   >
+                    <DollarSign className="w-4 h-4 mr-1.5" />
                     Procesar Pago
                   </Button>
                 </div>
