@@ -64,7 +64,7 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 const newCustomerSchema = z.object({
   name: z.string().min(2, "El nombre es requerido (mínimo 2 caracteres)"),
   phone: z.string().min(7, "El teléfono es requerido"),
-  email: z.string().email("Email inválido"),
+  email: z.union([z.string().email('Email inválido'), z.literal('')]).optional(),
   birthdayDate: z.string().optional(),
 });
 type NewCustomerFormData = z.infer<typeof newCustomerSchema>;
@@ -84,7 +84,16 @@ function CustomerCombobox({
   onAddNew: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const selected = customers.find((c) => String(c.id) === value);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return customers
+      .filter((c) => c.name.toLowerCase().includes(q) || (c.phone || '').includes(q))
+      .slice(0, 10);
+  }, [search, customers]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -102,49 +111,57 @@ function CustomerCombobox({
               {selected.name} {selected.phone ? `(${selected.phone})` : ''}
             </span>
           ) : (
-            <span className="text-muted-foreground">Buscar cliente...</span>
+            <span className="text-muted-foreground">Escribe para buscar cliente...</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar por nombre o teléfono..." />
-          <CommandList>
-            <CommandEmpty>No se encontró ningún cliente.</CommandEmpty>
-            <CommandGroup heading="Clientes">
-              {customers.map((c) => (
-                <CommandItem
+        <div className="flex flex-col">
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              placeholder="Nombre o teléfono..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto py-1">
+            {search.trim() === '' ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">Escribe para ver clientes sugeridos</p>
+            ) : filtered.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">No se encontró ningún cliente</p>
+            ) : (
+              filtered.map((c) => (
+                <button
                   key={c.id}
-                  value={`${c.name} ${c.phone}`}
-                  onSelect={() => {
-                    onChange(String(c.id));
-                    setOpen(false);
-                  }}
+                  type="button"
+                  onClick={() => { onChange(String(c.id)); setOpen(false); setSearch(''); }}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground',
+                    String(c.id) === value && 'bg-accent',
+                  )}
                 >
-                  <Check className={cn('mr-2 h-4 w-4', String(c.id) === value ? 'opacity-100' : 'opacity-0')} />
-                  <div>
-                    <span className="font-medium">{c.name}</span>
-                    {c.phone && <span className="ml-2 text-xs text-muted-foreground">{c.phone}</span>}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              <CommandItem
-                onSelect={() => {
-                  setOpen(false);
-                  onAddNew();
-                }}
-                className="text-blue-600 font-medium"
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Agregar nuevo cliente
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                  <Check className={cn('h-4 w-4 shrink-0', String(c.id) === value ? 'opacity-100' : 'opacity-0')} />
+                  <span className="font-medium">{c.name}</span>
+                  {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="border-t py-1">
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setSearch(''); onAddNew(); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-blue-600 font-medium hover:bg-accent"
+            >
+              <UserPlus className="h-4 w-4" />
+              Crear nuevo cliente
+            </button>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -1281,7 +1298,7 @@ export default function AppointmentsPage() {
 
               <FormField control={newCustomerForm.control} name="email" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
+                  <FormLabel>Email (opcional)</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="Ej: maria@ejemplo.com" {...field} />
                   </FormControl>

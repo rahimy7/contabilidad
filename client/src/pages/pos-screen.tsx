@@ -208,6 +208,7 @@ export default function POSScreen() {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
+  const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('DOP');
   const [productUnits, setProductUnits] = useState<Record<number, MeasurementUnit[]>>({});
   const [loadingUnits, setLoadingUnits] = useState<Record<number, boolean>>({});
@@ -226,7 +227,7 @@ export default function POSScreen() {
   const [appointmentSearch, setAppointmentSearch] = useState('');
   const [appointmentBillingStep, setAppointmentBillingStep] = useState<'list' | 'pay'>('list');
   const [selectedBillingApt, setSelectedBillingApt] = useState<any>(null);
-  const [aptPaymentMethod, setAptPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
+  const [aptPaymentMethod, setAptPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'credit'>('cash');
 
   // Debt payment state
   const [showDebtPayment, setShowDebtPayment] = useState(false);
@@ -429,8 +430,9 @@ export default function POSScreen() {
     },
   });
 
-  // Fetch today's appointments (pending payment)
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Fetch today's appointments using local date to avoid UTC day shifts.
+  const nowLocal = new Date();
+  const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
   const { data: todayAppointments = [] } = useQuery<any[]>({
     queryKey: ['appointments-today', todayStr],
     queryFn: async () => {
@@ -442,6 +444,11 @@ export default function POSScreen() {
       return response.json();
     },
   });
+
+  const pendingTodayAppointments = useMemo(
+    () => (todayAppointments as any[]).filter((apt: any) => (apt.paymentStatus || apt.payment_status) === 'pending'),
+    [todayAppointments],
+  );
 
   // Fetch customers with pending credit
   const { data: pendingCredits = [] } = useQuery<any[]>({
@@ -469,11 +476,36 @@ export default function POSScreen() {
         body: JSON.stringify(saleData)
       });
       if (!response.ok) throw new Error('Failed to create sale');
-      return response.json();
+      const orderResponse = await response.json();
+
+      // For credit sales, register debt only after order is created successfully.
+      if (saleData.paymentMethod === 'credit') {
+        const createdOrder = (orderResponse as any)?.order || orderResponse;
+        const creditChargeRes = await fetch('/api/credits/charge', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            customerId: saleData.customerId,
+            amount: Number(saleData.totalAmount || 0),
+            orderId: createdOrder?.id,
+            description: 'Venta a crédito - POS',
+          }),
+        });
+
+        if (!creditChargeRes.ok) {
+          throw new Error('Failed to create credit charge');
+        }
+      }
+
+      return orderResponse;
     },
     onSuccess: (orderData) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['credits-pending'] });
 
       // ✅ Preparar datos de factura con datos de la tienda
       const now = new Date();
@@ -482,6 +514,7 @@ export default function POSScreen() {
         date: now.toLocaleDateString('es-DO'),
         time: now.toLocaleTimeString('es-DO'),
         paymentMethod,
+        isCredit: paymentMethod === 'credit',
         items: cart.map(item => {
           const unitPrice = getItemUnitPrice(item);
           // Usar los loyalty points prorrateados por unidad
@@ -818,24 +851,6 @@ export default function POSScreen() {
       })
     } as any;
 
-    // If credit, also create credit charge
-    if (paymentMethod === 'credit') {
-      try {
-        const token = getAuthToken();
-        await fetch('/api/credits/charge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            customerId: selectedCustomerId,
-            amount: calculateTotal(),
-            description: `Venta a crédito - POS`,
-          }),
-        });
-      } catch (e) {
-        console.error('Error creating credit charge:', e);
-      }
-    }
-
     createSaleMutation.mutate(payload);
   };
 
@@ -847,18 +862,19 @@ export default function POSScreen() {
       return;
     }
 
+    const isCreditPayment = aptPaymentMethod === 'credit';
     const token = getAuthToken();
     try {
       // Create order for the appointment
       const orderPayload = {
         customerId: appointment.customerId || appointment.customer_id || 1,
-        status: 'completed',
+        status: isCreditPayment ? 'pending' : 'completed',
         deliveryCost: 0,
         priority: 'normal',
         notes: `Cobro de cita: ${appointment.title}`,
-        paymentMethod: 'cash',
-        paymentStatus: 'paid',
-        receivedAmount: price,
+        paymentMethod: aptPaymentMethod,
+        paymentStatus: isCreditPayment ? 'credit' : 'paid',
+        receivedAmount: isCreditPayment ? 0 : price,
         changeAmount: 0,
         totalAmount: price,
         orderType: 'appointment',
@@ -873,18 +889,35 @@ export default function POSScreen() {
       if (!orderRes.ok) throw new Error('Error creando orden');
       const orderData = await orderRes.json();
 
+      if (isCreditPayment) {
+        const chargeRes = await fetch('/api/credits/charge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            customerId: appointment.customerId || appointment.customer_id,
+            amount: price,
+            orderId: orderData.id,
+            description: `Cargo por cita a crédito: ${appointment.title}`,
+          }),
+        });
+        if (!chargeRes.ok) throw new Error('Error registrando cargo a crédito');
+      }
+
       // Update appointment payment status
-      await fetch(`/api/appointments/${appointment.id}`, {
+      const aptUpdateRes = await fetch(`/api/appointments/${appointment.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          paymentStatus: 'paid',
-          paymentMethod: 'cash',
+          status: 'completed',
+          paymentStatus: isCreditPayment ? 'credit' : 'paid',
+          paymentMethod: aptPaymentMethod,
           orderId: orderData.id,
         }),
       });
+      if (!aptUpdateRes.ok) throw new Error('Error actualizando estado de la cita');
 
       queryClient.invalidateQueries({ queryKey: ['appointments-today'] });
+      queryClient.invalidateQueries({ queryKey: ['credits-pending'] });
 
       // Show invoice
       const now = new Date();
@@ -892,7 +925,8 @@ export default function POSScreen() {
         orderNumber: orderData.orderNumber || `APT-${now.getTime()}`,
         date: now.toLocaleDateString('es-DO'),
         time: now.toLocaleTimeString('es-DO'),
-        paymentMethod: 'cash',
+        paymentMethod: aptPaymentMethod,
+        isCredit: isCreditPayment,
         items: [{
           productName: `Cita: ${appointment.title}`,
           quantity: 1,
@@ -902,7 +936,7 @@ export default function POSScreen() {
         subtotal: price,
         tax: 0,
         total: price,
-        receivedAmount: price,
+        receivedAmount: isCreditPayment ? 0 : price,
         changeAmount: 0,
         storeName: storeSettings?.storeName || 'Tu Tienda',
         storeAddress: storeSettings?.storeAddress,
@@ -915,7 +949,7 @@ export default function POSScreen() {
       setShowAppointmentBilling(false);
       setSelectedAppointment(null);
 
-      alert('✅ Cita cobrada exitosamente');
+      alert(isCreditPayment ? '✅ Cita enviada a crédito exitosamente' : '✅ Cita cobrada exitosamente');
     } catch (error: any) {
       alert(`Error: ${error?.message || 'No se pudo cobrar la cita'}`);
     }
@@ -1128,6 +1162,13 @@ export default function POSScreen() {
             >
               <CalendarDays className="w-4 h-4" />
               Agendar Cita
+            </button>
+            <button
+              onClick={() => setShowWalkInDialog(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-md"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Atender Sin Cita
             </button>
             {/* Appointment billing button */}
             <button
@@ -1767,6 +1808,12 @@ export default function POSScreen() {
         onOpenChange={setShowAppointmentDialog}
       />
 
+      <AppointmentQuickCreateDialog
+        open={showWalkInDialog}
+        onOpenChange={setShowWalkInDialog}
+        mode="walkin"
+      />
+
       {/* 📋 Appointment Billing Dialog */}
       <Dialog open={showAppointmentBilling} onOpenChange={(open) => {
         setShowAppointmentBilling(open);
@@ -1784,7 +1831,7 @@ export default function POSScreen() {
                   <h2 className="text-white font-bold text-lg leading-tight">Cobrar Cita</h2>
                   <p className="text-teal-100 text-xs mt-0.5">
                     {appointmentBillingStep === 'list'
-                      ? `${(todayAppointments as any[]).length} cita(s) disponibles`
+                      ? `${pendingTodayAppointments.length} cita(s) pendientes`
                       : `Paso 2 de 2 · Confirmar cobro`}
                   </p>
                 </div>
@@ -1826,7 +1873,7 @@ export default function POSScreen() {
                 {/* Result count */}
                 {appointmentSearch && (
                   <p className="text-xs text-gray-400 mb-2 px-1">
-                    {(todayAppointments as any[]).filter((apt: any) => {
+                    {pendingTodayAppointments.filter((apt: any) => {
                       const q = appointmentSearch.toLowerCase();
                       const dateStr = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleDateString('es-DO', { day: '2-digit', month: 'long' }) : '';
                       return (apt.customerName || apt.customer_name || '').toLowerCase().includes(q) ||
@@ -1840,7 +1887,7 @@ export default function POSScreen() {
                 {/* Appointment list */}
                 <div className="space-y-2 max-h-[360px] overflow-y-auto pr-0.5">
                   {(() => {
-                    const filtered = (todayAppointments as any[]).filter((apt: any) => {
+                    const filtered = pendingTodayAppointments.filter((apt: any) => {
                       if (!appointmentSearch) return true;
                       const q = appointmentSearch.toLowerCase();
                       const dateStr = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
@@ -1963,11 +2010,12 @@ export default function POSScreen() {
                 {/* Payment method */}
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">Método de pago</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {([
                       { key: 'cash', label: 'Efectivo', icon: '💵', desc: 'Pago en físico' },
                       { key: 'card', label: 'Tarjeta', icon: '💳', desc: 'Débito / Crédito' },
                       { key: 'transfer', label: 'Transferencia', icon: '🏦', desc: 'Banco / Pago móvil' },
+                      { key: 'credit', label: 'Crédito', icon: '🧾', desc: 'Agregar a deuda' },
                     ] as const).map(({ key, label, icon, desc }) => (
                       <button
                         key={key}

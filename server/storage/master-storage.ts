@@ -516,10 +516,19 @@ export class MasterStorageService {
 
   async createCustomer(customerData: any): Promise<any> {
     try {
+      const normalizedBirthdayDate = (() => {
+        const raw = customerData?.birthdayDate;
+        if (raw === undefined || raw === null || raw === '') return null;
+        if (raw instanceof Date) return raw;
+        const parsed = new Date(raw);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      })();
+
       const [newCustomer] = await this.db
         .insert(schema.customers)
         .values({
           ...customerData,
+          birthdayDate: normalizedBirthdayDate,
           storeId: this.storeId,
           createdAt: new Date(),
           updatedAt: new Date()

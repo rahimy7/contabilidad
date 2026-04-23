@@ -23,6 +23,7 @@ interface InvoiceData {
   date: string;
   time: string;
   paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | string;
+  isCredit?: boolean;
   items: InvoiceItem[];
   subtotal: number;
   tax: number;
@@ -73,12 +74,22 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
               />
             </div>
           )}
-          <h1 className="text-3xl font-bold text-emerald-600 mb-2">FACTURA</h1>
+          <h1 className={`text-3xl font-bold mb-2 ${data.isCredit ? 'text-orange-600' : 'text-emerald-600'}`}>
+            {data.isCredit ? 'CONSTANCIA DE DEUDA' : 'FACTURA'}
+          </h1>
           <p className="text-lg font-semibold">{data.storeName || 'TIENDA'}</p>
           {data.storeAddress && <p className="text-sm text-gray-600">{data.storeAddress}</p>}
           {data.storePhone && <p className="text-sm text-gray-600">Tel: {data.storePhone}</p>}
           {data.storeEmail && <p className="text-sm text-gray-600">Email: {data.storeEmail}</p>}
         </div>
+
+        {/* Credit Note Banner */}
+        {data.isCredit && (
+          <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-6 text-center">
+            <p className="text-orange-700 font-bold text-base">⚠ VENTA A CRÉDITO — PENDIENTE DE PAGO</p>
+            <p className="text-orange-600 text-sm mt-1">Este documento es una constancia de deuda. No ha sido cancelado.</p>
+          </div>
+        )}
 
         {/* Invoice Info */}
         <div className="flex justify-between mb-6 text-sm">
@@ -135,9 +146,9 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
                 <span>-RD${data.discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between py-3 border-b-2 border-gray-400 font-bold text-lg">
-              <span>TOTAL:</span>
-              <span className="text-emerald-600">RD${data.total.toFixed(2)}</span>
+            <div className={`flex justify-between py-3 border-b-2 border-gray-400 font-bold text-lg ${data.isCredit ? 'text-orange-600' : ''}`}>
+              <span>{data.isCredit ? 'TOTAL PENDIENTE DE PAGO:' : 'TOTAL:'}</span>
+              <span className={data.isCredit ? 'text-orange-600' : 'text-emerald-600'}>RD${data.total.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -154,11 +165,18 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
 
         {/* Footer */}
         <div className="text-center text-xs text-gray-600 pt-4 border-t border-gray-300">
-          <p>Gracias por su compra</p>
+          {data.isCredit ? (
+            <>
+              <p className="text-orange-600 font-semibold">Este documento NO es un recibo de pago</p>
+              <p className="mt-1">El saldo quedará pendiente hasta su cancelación</p>
+            </>
+          ) : (
+            <p>Gracias por su compra</p>
+          )}
           {data.invoiceFooter && (
             <p className="mt-2 text-gray-700 font-medium">{data.invoiceFooter}</p>
           )}
-          <p className="mt-2">Esta es su comprobante de venta</p>
+          <p className="mt-2">{data.isCredit ? 'Constancia de deuda emitida' : 'Esta es su comprobante de venta'}</p>
           <p className="mt-4 text-gray-400">Impreso: {new Date().toLocaleString('es-DO')}</p>
         </div>
       </div>

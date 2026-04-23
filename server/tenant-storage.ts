@@ -1555,9 +1555,18 @@ async createCustomer(customerData: any) {
       return existingCustomer;
     }
 
+    const normalizedBirthdayDate = (() => {
+      const raw = customerData?.birthdayDate;
+      if (raw === undefined || raw === null || raw === '') return null;
+      if (raw instanceof Date) return raw;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    })();
+
     // 🚀 CREAR NUEVO CLIENTE
     const customerToInsert = {
       ...customerData,
+      birthdayDate: normalizedBirthdayDate,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1598,8 +1607,17 @@ async createCustomer(customerData: any) {
 // 🔄 ALTERNATIVA: Usar UPSERT para mayor robustez
 async createOrUpdateCustomer(customerData: any) {
   try {
+    const normalizedBirthdayDate = (() => {
+      const raw = customerData?.birthdayDate;
+      if (raw === undefined || raw === null || raw === '') return null;
+      if (raw instanceof Date) return raw;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    })();
+
     const customerToInsert = {
       ...customerData,
+      birthdayDate: normalizedBirthdayDate,
       createdAt: new Date(),
       updatedAt: new Date()
     };

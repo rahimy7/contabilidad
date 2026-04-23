@@ -268,11 +268,20 @@ router.post('/customers', authenticateToken, async (req: any, res: any) => {
 
     const db = await getTenantDb(user.storeId);
 
+    const normalizedBirthdayDate = (() => {
+      const raw = req.body?.birthdayDate;
+      if (raw === undefined || raw === null || raw === '') return null;
+      if (raw instanceof Date) return raw;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    })();
+
     // Crear cliente
     const [customer] = await db
       .insert(schema.customers)
       .values({
         ...req.body,
+        birthdayDate: normalizedBirthdayDate,
         storeId: user.storeId,
       })
       .returning();

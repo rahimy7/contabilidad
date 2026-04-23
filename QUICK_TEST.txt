@@ -189,3 +189,39 @@ VALIDACIÓN DE ÉXITO:
 ✅ Base de datos se actualiza correctamente
 
 ═══════════════════════════════════════════════════════════════════════════════════
+
+9) FLUJO POS - ATENDER SIN CITA + COBRAR CITA
+Objetivo: validar que un paciente sin cita previa puede ser atendido y que la cita se guarda para historico y cobro en POS.
+
+Pasos en UI:
+1. Ir a POS.
+2. Click en boton "Atender Sin Cita".
+3. Seleccionar cliente.
+4. Completar servicio/titulo y confirmar que tenga precio mayor a 0.
+5. Guardar con "Registrar atencion".
+6. Click en "Cobrar Cita".
+7. Verificar que la cita recien creada aparece en la lista.
+8. Seleccionar y cobrar.
+
+Esperado:
+- La cita se crea con estado completed y payment_status pending.
+- La cita aparece en el modal "Cobrar Cita" del dia actual.
+- Al cobrar, payment_status cambia a paid y se crea orderType appointment.
+
+Checks de BD recomendados (SQL):
+SELECT id, title, status, payment_status, price, appointment_date
+FROM appointments
+WHERE appointment_date::date = CURRENT_DATE
+ORDER BY id DESC
+LIMIT 10;
+
+SELECT id, order_number, order_type, total_amount, payment_status
+FROM orders
+WHERE order_type = 'appointment'
+ORDER BY id DESC
+LIMIT 10;
+
+Validacion final:
+✅ Se puede atender sin agenda previa desde POS
+✅ Se registra en historico de citas
+✅ Se puede cobrar desde POS sin salir del flujo

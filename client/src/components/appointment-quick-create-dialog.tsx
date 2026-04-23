@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,7 +47,7 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 const newCustomerSchema = z.object({
   name: z.string().min(2, 'El nombre es requerido (mínimo 2 caracteres)'),
   phone: z.string().min(7, 'El teléfono es requerido'),
-  email: z.string().email('Email inválido'),
+  email: z.union([z.string().email('Email inválido'), z.literal('')]).optional(),
   birthdayDate: z.string().optional(),
 });
 type NewCustomerFormData = z.infer<typeof newCustomerSchema>;
@@ -61,6 +61,7 @@ const appointmentFormSchema = z.object({
   appointmentDate: z.string().min(1, 'La fecha es requerida'),
   appointmentTime: z.string().min(1, 'La hora es requerida'),
   appointmentEndTime: z.string().optional(),
+  price: z.string().optional(),
   notes: z.string().optional(),
 });
 type AppointmentFormData = z.infer<typeof appointmentFormSchema>;
@@ -78,10 +79,26 @@ function CustomerCombobox({
   onAddNew: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const selected = customers.find((c) => String(c.id) === value);
+  const trimmedSearch = search.trim().toLowerCase();
+  const suggestions = trimmedSearch.length === 0
+    ? []
+    : customers
+      .filter((c) =>
+        c.name.toLowerCase().includes(trimmedSearch) ||
+        c.phone.toLowerCase().includes(trimmedSearch),
+      )
+      .slice(0, 10);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch('');
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -103,36 +120,49 @@ function CustomerCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Buscar por nombre o teléfono..." />
+          <CommandInput
+            placeholder="Escribe nombre o teléfono para sugerencias..."
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList>
-            <CommandEmpty>No se encontró ningún cliente.</CommandEmpty>
-            <CommandGroup heading="Clientes">
-              {customers.map((c) => (
-                <CommandItem
-                  key={c.id}
-                  value={`${c.name} ${c.phone}`}
-                  onSelect={() => {
-                    onChange(String(c.id));
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn('mr-2 h-4 w-4', String(c.id) === value ? 'opacity-100' : 'opacity-0')}
-                  />
-                  <div>
-                    <span className="font-medium">{c.name}</span>
-                    {c.phone && (
-                      <span className="ml-2 text-xs text-muted-foreground">{c.phone}</span>
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {trimmedSearch.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-muted-foreground">
+                Escribe para ver clientes sugeridos.
+              </div>
+            ) : suggestions.length === 0 ? (
+              <CommandEmpty>No se encontró ningún cliente.</CommandEmpty>
+            ) : (
+              <CommandGroup heading="Sugeridos">
+                {suggestions.map((c) => (
+                  <CommandItem
+                    key={c.id}
+                    value={`${c.name} ${c.phone}`}
+                    onSelect={() => {
+                      onChange(String(c.id));
+                      setOpen(false);
+                      setSearch('');
+                    }}
+                  >
+                    <Check
+                      className={cn('mr-2 h-4 w-4', String(c.id) === value ? 'opacity-100' : 'opacity-0')}
+                    />
+                    <div>
+                      <span className="font-medium">{c.name}</span>
+                      {c.phone && (
+                        <span className="ml-2 text-xs text-muted-foreground">{c.phone}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
             <CommandSeparator />
             <CommandGroup>
               <CommandItem
                 onSelect={() => {
                   setOpen(false);
+                  setSearch('');
                   onAddNew();
                 }}
                 className="text-blue-600 font-medium"
@@ -152,19 +182,27 @@ function CustomerCombobox({
 interface AppointmentQuickCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: 'schedule' | 'walkin';
 }
 
 export function AppointmentQuickCreateDialog({
   open,
   onOpenChange,
+  mode = 'schedule',
 }: AppointmentQuickCreateDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const newCustomerTargetRef = useRef<((val: string) => void) | null>(null);
 
-  // Today's date as default
-  const today = new Date().toISOString().split('T')[0];
+  const getLocalNow = () => {
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return { date, time };
+  };
+
+  const nowDefaults = getLocalNow();
 
   // Queries
   const { data: customers = [] } = useQuery({
@@ -196,9 +234,22 @@ export function AppointmentQuickCreateDialog({
     mutationFn: (data: any) => apiCall('/api/appointments', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments-today'] });
       toast({ title: 'Cita creada', description: 'La cita fue agendada exitosamente.' });
       onOpenChange(false);
-      createForm.reset({ appointmentDate: today, titularId: 'none', serviceTypeId: 'none' });
+      const current = getLocalNow();
+      createForm.reset({
+        customerId: '',
+        titularId: 'none',
+        serviceTypeId: 'none',
+        title: mode === 'walkin' ? 'Atencion sin cita' : '',
+        description: '',
+        appointmentDate: current.date,
+        appointmentTime: mode === 'walkin' ? current.time : '',
+        appointmentEndTime: '',
+        price: '0',
+        notes: '',
+      });
     },
     onError: (err: Error) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -230,14 +281,32 @@ export function AppointmentQuickCreateDialog({
       customerId: '',
       titularId: 'none',
       serviceTypeId: 'none',
-      title: '',
+      title: mode === 'walkin' ? 'Atencion sin cita' : '',
       description: '',
-      appointmentDate: today,
-      appointmentTime: '',
+      appointmentDate: nowDefaults.date,
+      appointmentTime: mode === 'walkin' ? nowDefaults.time : '',
       appointmentEndTime: '',
+      price: '0',
       notes: '',
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+    const current = getLocalNow();
+    createForm.reset({
+      customerId: '',
+      titularId: 'none',
+      serviceTypeId: 'none',
+      title: mode === 'walkin' ? 'Atencion sin cita' : '',
+      description: '',
+      appointmentDate: current.date,
+      appointmentTime: mode === 'walkin' ? current.time : '',
+      appointmentEndTime: '',
+      price: '0',
+      notes: '',
+    });
+  }, [open, mode, createForm]);
 
   const newCustomerForm = useForm<NewCustomerFormData>({
     resolver: zodResolver(newCustomerSchema),
@@ -245,16 +314,22 @@ export function AppointmentQuickCreateDialog({
   });
 
   function handleCreate(data: AppointmentFormData) {
+    const appointmentDate = `${data.appointmentDate}T${data.appointmentTime}:00`;
+    const appointmentEndDate = data.appointmentEndTime
+      ? `${data.appointmentDate}T${data.appointmentEndTime}:00`
+      : null;
+
     createMutation.mutate({
       customerId: parseInt(data.customerId),
       titularId: data.titularId && data.titularId !== 'none' ? parseInt(data.titularId) : null,
       serviceTypeId: data.serviceTypeId && data.serviceTypeId !== 'none' ? parseInt(data.serviceTypeId) : null,
       title: data.title,
       description: data.description || null,
-      appointmentDate: data.appointmentDate,
-      appointmentTime: data.appointmentTime,
-      appointmentEndTime: data.appointmentEndTime || null,
-      status: 'scheduled',
+      appointmentDate,
+      appointmentEndDate,
+      status: mode === 'walkin' ? 'completed' : 'scheduled',
+      price: data.price || '0',
+      paymentStatus: 'pending',
       notes: data.notes || null,
     });
   }
@@ -276,9 +351,13 @@ export function AppointmentQuickCreateDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-primary" />
-              Nueva Cita
+              {mode === 'walkin' ? 'Atender sin cita' : 'Nueva Cita'}
             </DialogTitle>
-            <DialogDescription>Agenda una nueva cita desde el POS</DialogDescription>
+            <DialogDescription>
+              {mode === 'walkin'
+                ? 'Registra la atencion inmediata y guarda la cita en el historico para cobrarla en POS.'
+                : 'Agenda una nueva cita desde el POS'}
+            </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
@@ -343,7 +422,18 @@ export function AppointmentQuickCreateDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Servicio / Programa Especial</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <Select
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        if (val && val !== 'none') {
+                          const svc = (serviceTypes as any[]).find((s: any) => String(s.id) === val);
+                          if (svc && (svc.basePrice || svc.base_price)) {
+                            createForm.setValue('price', String(svc.basePrice || svc.base_price || '0'));
+                          }
+                        }
+                      }}
+                      value={field.value || 'none'}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar servicio..." />
@@ -451,6 +541,20 @@ export function AppointmentQuickCreateDialog({
 
               <FormField
                 control={createForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio de la cita (DOP)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={createForm.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
@@ -468,7 +572,7 @@ export function AppointmentQuickCreateDialog({
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Creando...' : 'Crear Cita'}
+                  {createMutation.isPending ? 'Guardando...' : mode === 'walkin' ? 'Registrar atencion' : 'Crear Cita'}
                 </Button>
               </DialogFooter>
             </form>
@@ -516,9 +620,9 @@ export function AppointmentQuickCreateDialog({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Email (opcional)</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="cliente@email.com" {...field} />
+                      <Input type="email" placeholder="cliente@email.com (opcional)" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
