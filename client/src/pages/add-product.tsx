@@ -161,7 +161,11 @@ interface Product {
   baseUnitId?: number;
 }
 
-const mockBrands = ["Hikvision", "Dahua", "DSC", "Honeywell", "Bosch", "Axis", "Pelco"];
+interface Brand {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
 
 // ✅ FUNCIÓN PARA SANITIZAR DATOS
 const sanitizeProductData = (data: ProductFormData) => {
@@ -214,7 +218,7 @@ export default function EnhancedAddProduct() {
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   
   // Estados para manejo de marcas
-  const [existingBrands, setExistingBrands] = useState<string[]>(mockBrands);
+  const [extraBrands, setExtraBrands] = useState<string[]>([]);
   const [brandInput, setBrandInput] = useState("");
   const [showBrandInput, setShowBrandInput] = useState(false);
 
@@ -242,6 +246,23 @@ export default function EnhancedAddProduct() {
   const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
+
+  const { data: brandsData = [] } = useQuery<Brand[]>({
+    queryKey: ["/api/brands"],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/brands', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const existingBrands = [
+    ...brandsData.filter(b => b.isActive).map(b => b.name),
+    ...extraBrands.filter(b => !brandsData.some(bd => bd.name === b)),
+  ];
 
   const { data: productData, isLoading: loadingProductData, error: productError } = useQuery<Product>({
     queryKey: ["/api/products", productId, initialStoreId],
@@ -1176,7 +1197,7 @@ export default function EnhancedAddProduct() {
                                 onClick={() => {
                                   if (brandInput.trim()) {
                                     const newBrand = brandInput.trim();
-                                    setExistingBrands((prev) => [...prev, newBrand].sort());
+                                    setExtraBrands((prev) => [...prev, newBrand].sort());
                                     field.onChange(newBrand);
                                     setBrandInput("");
                                     setShowBrandInput(false);
@@ -1749,6 +1770,10 @@ export default function EnhancedAddProduct() {
                   unitConversionEnabled: productData?.unitConversionEnabled,
                   baseUnitId: productData?.baseUnitId,
                   stockQuantity: watch('stockQuantity'),
+                  price: watch('price') || productData?.price || '',
+                  currency: watch('currency') || productData?.baseCurrency || productData?.currency || 'DOP',
+                  loyaltyPointsValue: watch('loyaltyPointsValue') || productData?.loyaltyPointsValue || '',
+                  loyaltyPointsPropertyName: watch('loyaltyPointsPropertyName') || productData?.loyaltyPointsPropertyName || '',
                 }}
                 onUpdateProduct={() => {
                   queryClient.invalidateQueries({ queryKey: ["/api/products", productId] });

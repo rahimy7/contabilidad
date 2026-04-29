@@ -63,6 +63,8 @@ import AppointmentsPage from "./pages/appointments";
 import AppointmentServicesPage from "./pages/appointment-services";
 import DoctorDashboard from "./pages/doctor-dashboard";
 import InventoryAdjustmentPage from "./pages/inventory-adjustment";
+import SalesHistoryPage from "./pages/sales-history";
+import CashRegisterPage from "./pages/cash-register";
 
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
@@ -166,7 +168,7 @@ function Router() {
       <Route path="/product-management" component={() => <ProtectedRoute component={ProductManagement} permission="manage_products" />} />
       <Route path="/add-product" component={() => <ProtectedRoute component={AddProduct} permission="manage_products" />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} permission="view_reports" />} />
-      <Route path="/billing" component={() => <ProtectedRoute component={Billing} permission="view_reports" />} />
+      <Route path="/billing" component={() => <ProtectedRoute component={Billing} permission="manage_settings" />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} permission="manage_settings" />} />
       <Route path="/whatsapp-settings" component={() => <ProtectedRoute component={WhatsAppSettings} permission="manage_settings" />} />
       <Route path="/auto-responses" component={() => <ProtectedRoute component={AutoResponses} permission="manage_settings" />} />
@@ -190,6 +192,8 @@ function Router() {
       <Route path="/appointment-services" component={() => <ProtectedRoute component={AppointmentServicesPage} permission="manage_appointments" />} />
       <Route path="/doctor-dashboard" component={() => <ProtectedRoute component={DoctorDashboard} permission="manage_appointments" />} />
       <Route path="/inventory-adjustment" component={() => <ProtectedRoute component={InventoryAdjustmentPage} permission="manage_inventory_adjustments" />} />
+      <Route path="/sales-history" component={() => <ProtectedRoute component={SalesHistoryPage} permission="manage_orders" />} />
+      <Route path="/cash-register" component={() => <ProtectedRoute component={CashRegisterPage} permission="manage_cash_register" />} />
       <Route path="/user-settings" component={UserSettings} />
     </Switch>
   );

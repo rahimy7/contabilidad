@@ -1212,6 +1212,66 @@ export const insertStoreSettingsSchema = makeInsertSchema(storeSettings);
 
 export const insertCustomerHistorySchema = makeInsertSchema(customerHistory);
 
+// ================================
+// CIERRE DE CAJA / CASH REGISTER SESSIONS
+// ================================
+export const cashRegisterSessions = pgTable("cash_register_sessions", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  cashierId: integer("cashier_id").references(() => users.id).notNull(),
+  sessionType: text("session_type").notNull().default("shift"), // 'shift' | 'day'
+  status: text("status").notNull().default("open"), // 'open' | 'closed' | 'approved' | 'rejected'
+
+  // Apertura
+  openingAmount: decimal("opening_amount", { precision: 12, scale: 2 }).default("0"),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  openingNotes: text("opening_notes"),
+
+  // Cierre — reportado por cajera
+  cashReported: decimal("cash_reported", { precision: 12, scale: 2 }),
+  cardReported: decimal("card_reported", { precision: 12, scale: 2 }),
+  transferReported: decimal("transfer_reported", { precision: 12, scale: 2 }),
+  creditReported: decimal("credit_reported", { precision: 12, scale: 2 }),
+  closedAt: timestamp("closed_at"),
+  closedByUserId: integer("closed_by_user_id").references(() => users.id),
+
+  // Calculado por sistema al momento del cierre
+  cashExpected: decimal("cash_expected", { precision: 12, scale: 2 }),
+  cardExpected: decimal("card_expected", { precision: 12, scale: 2 }),
+  transferExpected: decimal("transfer_expected", { precision: 12, scale: 2 }),
+  creditExpected: decimal("credit_expected", { precision: 12, scale: 2 }),
+
+  // Diferencias (positivo = sobrante, negativo = faltante)
+  cashDifference: decimal("cash_difference", { precision: 12, scale: 2 }),
+  cardDifference: decimal("card_difference", { precision: 12, scale: 2 }),
+  transferDifference: decimal("transfer_difference", { precision: 12, scale: 2 }),
+  creditDifference: decimal("credit_difference", { precision: 12, scale: 2 }),
+  totalDifference: decimal("total_difference", { precision: 12, scale: 2 }),
+
+  // Resumen de operaciones
+  totalOrders: integer("total_orders").default(0),
+  totalSalesAmount: decimal("total_sales_amount", { precision: 12, scale: 2 }).default("0"),
+  totalCancellations: integer("total_cancellations").default(0),
+  totalDiscountsAmount: decimal("total_discounts_amount", { precision: 12, scale: 2 }).default("0"),
+  totalExpected: decimal("total_expected", { precision: 12, scale: 2 }),
+  totalReported: decimal("total_reported", { precision: 12, scale: 2 }),
+
+  // Notas de discrepancia (obligatoria si |totalDifference| > umbral)
+  discrepancyNote: text("discrepancy_note"),
+
+  // Aprobación del supervisor
+  approvedByUserId: integer("approved_by_user_id").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCashRegisterSessionSchema = makeInsertSchema(cashRegisterSessions, {}, [
+  "id", "createdAt", "updatedAt", "openedAt",
+]);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -1302,6 +1362,9 @@ export type InsertCartItem = z.infer<typeof insertShoppingCartSchema>;
 
 export type CustomerHistory = typeof customerHistory.$inferSelect;
 export type InsertCustomerHistory = z.infer<typeof insertCustomerHistorySchema>;
+
+export type CashRegisterSession = typeof cashRegisterSessions.$inferSelect;
+export type InsertCashRegisterSession = z.infer<typeof insertCashRegisterSessionSchema>;
 
 export type Trip = typeof trips.$inferSelect;
 export type NewTrip = typeof trips.$inferInsert;

@@ -1619,64 +1619,9 @@ const formatStock = (qty: number | undefined | null): string => {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Tipo de movimiento</Label>
-                        <Select value={movementType} onValueChange={(v: any) => setMovementType(v)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="purchase">Compra (entrada)</SelectItem>
-                            <SelectItem value="sale">Venta (salida)</SelectItem>
-                            <SelectItem value="adjustment">Ajuste</SelectItem>
-                            <SelectItem value="return">DevoluciA3n</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Cantidad</Label>
-                        <Input
-                          type="number"
-                          value={movementQty}
-                          onChange={(e) => setMovementQty(e.target.value)}
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">No. de lote (opcional)</Label>
-                        <Input value={movementLot} onChange={(e) => setMovementLot(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Fecha de vencimiento</Label>
-                        <Input
-                          type="date"
-                          value={movementExpiration}
-                          onChange={(e) => setMovementExpiration(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-xs">Notas</Label>
-                      <Textarea
-                        rows={2}
-                        value={movementNotes}
-                        onChange={(e) => setMovementNotes(e.target.value)}
-                        placeholder="Observaciones del movimiento"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleInventoryMovementSubmit}
-                      disabled={createInventoryMovementMutation.isPending}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      {createInventoryMovementMutation.isPending ? 'Registrando...' : 'Registrar movimiento'}
-                    </Button>
+                    <p className="text-xs text-green-700 bg-green-100 border border-green-300 rounded px-3 py-2">
+                      La modificación de stock se realiza a través de <strong>Ajuste de Inventario</strong> o <strong>Gestión de Compras</strong>.
+                    </p>
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-800">Movimientos recientes</p>

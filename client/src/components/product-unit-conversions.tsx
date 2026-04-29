@@ -52,6 +52,7 @@ import {
   Zap,
   AlertCircle,
   CheckCircle,
+  DollarSign,
 } from 'lucide-react';
 
 // Tipos
@@ -84,6 +85,10 @@ interface Product {
   unitConversionEnabled?: boolean;
   baseUnitId?: number;
   stockQuantity?: number;
+  price?: string;
+  currency?: string;
+  loyaltyPointsValue?: string;
+  loyaltyPointsPropertyName?: string;
 }
 
 // Esquema de validación
@@ -535,6 +540,37 @@ export default function ProductUnitConversions({
     );
   }, [baseUnit, allUnits, conversions]);
 
+  // Calculate price and loyalty points per base unit from conversions
+  const pricePerBaseUnitData = useMemo(() => {
+    if (!product?.baseUnitId || !product?.price) return [];
+    const productPrice = parseFloat(product.price || '0');
+    if (isNaN(productPrice) || productPrice <= 0) return [];
+    const loyaltyPoints = parseFloat(product?.loyaltyPointsValue || '0');
+
+    // Find conversions where targetUnit = baseUnit (e.g., frasco → cápsula)
+    const toBaseConversions = conversions.filter(
+      c => c.targetUnitId === product.baseUnitId && c.isActive,
+    );
+
+    return toBaseConversions
+      .map(conv => {
+        const factor = parseFloat(conv.conversionFactor);
+        if (isNaN(factor) || factor <= 0) return null;
+        return {
+          conv,
+          factor,
+          pricePerUnit: productPrice / factor,
+          pointsPerUnit: loyaltyPoints > 0 ? loyaltyPoints / factor : null,
+        };
+      })
+      .filter(Boolean) as Array<{
+        conv: ProductUnitConversion;
+        factor: number;
+        pricePerUnit: number;
+        pointsPerUnit: number | null;
+      }>;
+  }, [product?.baseUnitId, product?.price, product?.loyaltyPointsValue, conversions]);
+
   if (loadingConversions || loadingUnits) {
     return (
       <Card>
@@ -598,6 +634,45 @@ export default function ProductUnitConversions({
                 </p>
               )}
             </div>
+
+            {/* Precio y Puntos por Unidad Base */}
+            {baseUnit && pricePerBaseUnitData.length > 0 && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <Label className="text-sm font-medium text-green-900 mb-3 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Precio y Puntos por Unidad Base ({baseUnit.symbol})
+                </Label>
+                <div className="space-y-2">
+                  {pricePerBaseUnitData.map(({ conv, factor, pricePerUnit, pointsPerUnit }) => (
+                    <div key={conv.id} className="rounded-md bg-white p-3 border border-green-100 text-sm">
+                      <div className="text-xs text-green-600 mb-2">
+                        1 <strong>{conv.sourceUnit?.symbol}</strong> = {factor} {baseUnit.symbol}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-green-700 font-medium">Precio por 1 {baseUnit.symbol}</span>
+                        <Badge className="bg-green-100 text-green-800 border border-green-300 font-mono">
+                          {product?.currency === 'USD' ? '$' : 'RD$'} {pricePerUnit.toFixed(4)}
+                        </Badge>
+                      </div>
+                      {pointsPerUnit !== null && pointsPerUnit > 0 && (
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-green-600 text-xs">
+                            {product?.loyaltyPointsPropertyName || 'Puntos'} por 1 {baseUnit.symbol}
+                          </span>
+                          <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+                            {pointsPerUnit.toFixed(2)} {product?.loyaltyPointsPropertyName || 'pts'}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-green-600 mt-2 italic">
+                  * Calculado automáticamente: precio del producto (
+                  {product?.currency === 'USD' ? '$' : 'RD$'}{parseFloat(product?.price || '0').toFixed(2)}) ÷ factor de conversión.
+                </p>
+              </div>
+            )}
 
             {/* Quick Setup */}
             {baseUnit && unitsForSetup.length > 0 && (

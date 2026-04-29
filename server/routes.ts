@@ -17,6 +17,7 @@ import purchaseManagementRoutes from './routes/purchase-management-routes';
 import appointmentRoutes from './routes/appointment-routes';
 import inventoryAdjustmentRoutes from './routes/inventory-adjustment-routes';
 import creditRoutes from './routes/credit-routes';
+import cashRegisterRoutes from './routes/cash-register-routes';
 
 // Schema and Types
 import {
@@ -1456,6 +1457,7 @@ app.use('/api', rolesManagementRouter);
 app.use('/api', appointmentRoutes);
   app.use('/api', inventoryAdjustmentRoutes);
   app.use('/api', creditRoutes);
+  app.use('/api', cashRegisterRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================
@@ -3591,6 +3593,17 @@ router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
           console.error(`❌ [LOYALTY] Error revirtiendo puntos:`, loyaltyError);
         }
       }
+
+      // 📦 Revertir movimientos de inventario al anular
+      if (orderData.status === 'cancelled' && previousOrder?.status !== 'cancelled') {
+        try {
+          console.log(`📦 [INVENTORY] Revirtiendo inventario de orden ${id} anulada...`);
+          const invResult = await tenantStorage.reverseOrderInventory(id);
+          console.log(`✅ [INVENTORY] ${invResult.reversed} movimiento(s) revertido(s)`);
+        } catch (invError) {
+          console.error(`❌ [INVENTORY] Error revirtiendo inventario:`, invError);
+        }
+      }
     }
 
     res.json(order);
@@ -3670,6 +3683,17 @@ router.put('/orders/:id/status', authenticateToken, async (req: any, res: any) =
           // No fallar la actualización de la orden
         }
       }
+
+      // 📦 Revertir movimientos de inventario al anular
+      if (status === 'cancelled' && previousOrder?.status !== 'cancelled') {
+        try {
+          console.log(`📦 [INVENTORY] Revirtiendo inventario de orden ${id} anulada...`);
+          const invResult = await tenantStorage.reverseOrderInventory(id);
+          console.log(`✅ [INVENTORY] ${invResult.reversed} movimiento(s) revertido(s)`);
+        } catch (invError) {
+          console.error(`❌ [INVENTORY] Error revirtiendo inventario:`, invError);
+        }
+      }
     }
 
     res.json(order);
@@ -3686,6 +3710,11 @@ router.delete('/orders/:id', authenticateToken, async (req: any, res: any) => {
     
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    // Solo administradores pueden eliminar ventas permanentemente
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Acceso denegado. Solo administradores pueden eliminar ventas.' });
     }
     
     const tenantStorage = await getTenantStorageWithSchema(user);

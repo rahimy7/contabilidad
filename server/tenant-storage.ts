@@ -5641,6 +5641,72 @@ async getUsersByRole(role: string) {
   },
 
   /**
+   * Revierte los movimientos de inventario de una orden anulada.
+   * Crea un movimiento de tipo 'return' por cada movimiento de venta
+   * vinculado a la orden, y restaura el stockQuantity del producto.
+   */
+  async reverseOrderInventory(orderId: number): Promise<{ reversed: number }> {
+    // Obtener todos los movimientos de venta asociados a esta orden
+    const saleMovements = await tenantDb
+      .select()
+      .from(schema.inventoryMovements)
+      .where(and(
+        eq(schema.inventoryMovements.referenceType, 'order'),
+        eq(schema.inventoryMovements.referenceId, orderId),
+        eq(schema.inventoryMovements.storeId, storeId)
+      ));
+
+    let reversed = 0;
+
+    for (const mov of saleMovements) {
+      // Solo revertir movimientos de salida (quantity < 0, tipo 'sale')
+      const qty = parseFloat(mov.quantity as string);
+      if (qty >= 0) continue; // ya es entrada, no revertir
+
+      const returnQty = Math.abs(qty); // positivo = devolver al stock
+
+      // Obtener stock actual del producto
+      const [product] = await tenantDb
+        .select({ stockQuantity: schema.products.stockQuantity })
+        .from(schema.products)
+        .where(eq(schema.products.id, mov.productId))
+        .limit(1);
+
+      if (!product) continue;
+
+      const currentStock = parseFloat(product.stockQuantity as string) || 0;
+      const newStock = currentStock + returnQty;
+
+      // Insertar movimiento de devolución/reversión
+      await tenantDb.insert(schema.inventoryMovements).values({
+        storeId,
+        productId: mov.productId,
+        type: 'return' as const,
+        quantity: returnQty,
+        quantityBefore: currentStock,
+        quantityAfter: newStock,
+        unitId: mov.unitId || null,
+        notes: `Reversión por anulación - Orden #${orderId}`,
+        referenceType: 'order',
+        referenceId: orderId,
+        lotNumber: mov.lotNumber || null,
+        expirationDate: mov.expirationDate || null,
+        createdAt: new Date(),
+        createdBy: null,
+      });
+
+      // Restaurar stock del producto
+      await tenantDb.update(schema.products)
+        .set({ stockQuantity: newStock, updatedAt: new Date() })
+        .where(eq(schema.products.id, mov.productId));
+
+      reversed++;
+    }
+
+    return { reversed };
+  },
+
+  /**
    * Obtiene el balance de puntos de un cliente
    */
   async getCustomerLoyaltyBalance(customerId: number) {
