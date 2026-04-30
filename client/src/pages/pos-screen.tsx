@@ -1003,6 +1003,7 @@ export default function POSScreen() {
         total: amount,
         receivedAmount: amount,
         changeAmount: 0,
+        remainingBalance: parseFloat(paymentData.account?.currentBalance ?? '0'),
         storeName: storeSettings?.storeName || 'Tu Tienda',
         storeAddress: storeSettings?.storeAddress,
         storePhone: storeSettings?.storePhone,

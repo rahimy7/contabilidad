@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import { ensureAppointmentCreditSchema } from '../services/appointment-credit-schema-guard';
@@ -257,6 +257,34 @@ router.post('/credits/payment', authenticateToken, async (req: any, res: any) =>
       })
       .where(eq(schema.customerCreditAccounts.id, account.id))
       .returning();
+
+    // Update paymentStatus on original credit orders (FIFO: oldest first)
+    const creditOrders = await db
+      .select()
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.customerId, customerId),
+        eq(schema.orders.storeId, user.storeId),
+        eq(schema.orders.paymentStatus, 'credit'),
+      ))
+      .orderBy(asc(schema.orders.createdAt));
+
+    let remainingPayment = actualPayment;
+    for (const creditOrder of creditOrders) {
+      if (remainingPayment <= 0) break;
+      const orderTotal = parseFloat(creditOrder.totalAmount ?? '0');
+      if (remainingPayment >= orderTotal) {
+        await db.update(schema.orders)
+          .set({ paymentStatus: 'paid', updatedAt: new Date() })
+          .where(eq(schema.orders.id, creditOrder.id));
+        remainingPayment -= orderTotal;
+      } else {
+        await db.update(schema.orders)
+          .set({ paymentStatus: 'partial', updatedAt: new Date() })
+          .where(eq(schema.orders.id, creditOrder.id));
+        remainingPayment = 0;
+      }
+    }
 
     res.status(201).json({ transaction, account: updatedAccount, order: paymentOrder });
   } catch (error: any) {

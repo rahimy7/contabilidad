@@ -7,10 +7,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, Printer, X } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 
 interface InvoiceItem {
-  productId: number;
+  productId?: number;
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -40,6 +40,7 @@ interface InvoiceData {
   storeEmail?: string;
   logoUrl?: string;
   invoiceFooter?: string;
+  remainingBalance?: number; // Saldo restante tras un pago de deuda
 }
 
 interface InvoiceModalProps {
@@ -186,33 +187,205 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
 
 InvoiceContent.displayName = 'InvoiceContent';
 
+// ============================================================
+// THERMAL RECEIPT (80mm) — used for printing
+// ============================================================
+const ThermalContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
+  ({ data }, ref) => {
+    const isDebtPayment = data.remainingBalance !== undefined;
+    const title = isDebtPayment
+      ? 'RECIBO DE PAGO'
+      : data.isCredit
+      ? 'CONSTANCIA DE DEUDA'
+      : 'FACTURA';
+
+    const row = (label: string, value: string, bold = false): React.ReactNode => (
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '2px', fontWeight: bold ? 'bold' : 'normal' }}>
+        <span>{label}</span>
+        <span>{value}</span>
+      </div>
+    );
+
+    const dashes = <div style={{ borderTop: '1px dashed #000', margin: '5px 0' }} />;
+    const solid  = <div style={{ borderTop: '2px solid #000', margin: '5px 0' }} />;
+
+    const fmt = (n: number) => `RD$${n.toFixed(2)}`;
+    const prevBalance = data.total + (data.remainingBalance ?? 0);
+
+    return (
+      <div ref={ref} style={{
+        width: '76mm',
+        fontFamily: "'Courier New', Courier, monospace",
+        fontSize: '12px',
+        lineHeight: '1.45',
+        color: '#000',
+        backgroundColor: '#fff',
+        padding: '4mm 3mm',
+      }}>
+
+        {/* Store header */}
+        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+          {data.logoUrl && (
+            <img src={data.logoUrl} alt="" style={{ height: '38px', objectFit: 'contain', display: 'block', margin: '0 auto 4px' }} />
+          )}
+          <div style={{ fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>{data.storeName || 'TIENDA'}</div>
+          {data.storeAddress && <div style={{ fontSize: '10px' }}>{data.storeAddress}</div>}
+          {data.storePhone  && <div style={{ fontSize: '10px' }}>Tel: {data.storePhone}</div>}
+          {data.storeEmail  && <div style={{ fontSize: '10px' }}>{data.storeEmail}</div>}
+        </div>
+
+        {dashes}
+
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', letterSpacing: '1px' }}>
+          {title}
+        </div>
+
+        {dashes}
+
+        {/* Order info */}
+        <div style={{ fontSize: '11px', marginBottom: '4px' }}>
+          {row('No:', data.orderNumber)}
+          {row('Fecha:', data.date)}
+          {row('Hora:', data.time)}
+          {row('Metodo:', getPaymentMethodLabel(data.paymentMethod))}
+        </div>
+
+        {dashes}
+
+        {/* Items */}
+        <div style={{ fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderBottom: '1px solid #000', paddingBottom: '3px', marginBottom: '5px' }}>
+            <span>DESCRIPCION</span>
+            <span>TOTAL</span>
+          </div>
+          {data.items.map((item, i) => (
+            <div key={i} style={{ marginBottom: '5px' }}>
+              <div style={{ fontWeight: 'bold', wordBreak: 'break-word' }}>{item.productName}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>{item.quantity} x {fmt(item.unitPrice)}</span>
+                <span style={{ fontWeight: 'bold' }}>{fmt(item.totalPrice)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {solid}
+
+        {/* Subtotals */}
+        {(!isDebtPayment && data.subtotal !== data.total) && row('Subtotal:', fmt(data.subtotal))}
+        {data.tax > 0 && row('ITBIS:', fmt(data.tax))}
+        {!!data.discountAmount && data.discountAmount > 0 &&
+          row(`Descuento (${data.discountPercentage}%):`, `-${fmt(data.discountAmount)}`)}
+
+        {/* Main total */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '15px', margin: '4px 0 6px' }}>
+          <span>{isDebtPayment ? 'PAGO RECIBIDO:' : data.isCredit ? 'DEUDA TOTAL:' : 'TOTAL:'}</span>
+          <span>{fmt(data.total)}</span>
+        </div>
+
+        {/* Cash change */}
+        {data.paymentMethod === 'cash' && !isDebtPayment && data.receivedAmount > 0 && (
+          <>
+            {dashes}
+            {row('Efectivo:', fmt(data.receivedAmount))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 'bold', marginBottom: '2px' }}>
+              <span>Cambio:</span><span>{fmt(data.changeAmount)}</span>
+            </div>
+          </>
+        )}
+
+        {/* Debt payment: balance breakdown */}
+        {isDebtPayment && (
+          <>
+            {dashes}
+            {row('Saldo anterior:', fmt(prevBalance))}
+            {row('Pago aplicado:', `-${fmt(data.total)}`)}
+            {solid}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '15px', marginBottom: '4px' }}>
+              <span>SALDO RESTANTE:</span>
+              <span>{fmt(data.remainingBalance ?? 0)}</span>
+            </div>
+            {(data.remainingBalance ?? 0) <= 0 && (
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px', border: '2px solid #000', padding: '4px', marginTop: '4px', letterSpacing: '1px' }}>
+                *** DEUDA SALDADA COMPLETAMENTE ***
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Loyalty points */}
+        {!!data.totalLoyaltyPoints && data.totalLoyaltyPoints > 0 && (
+          <>
+            {dashes}
+            <div style={{ textAlign: 'center', fontSize: '11px' }}>
+              <div>Puntos acumulados:</div>
+              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                {data.totalLoyaltyPoints.toFixed(2)} {data.loyaltyPointsPropertyName || 'LP'}
+              </div>
+            </div>
+          </>
+        )}
+
+        {dashes}
+
+        {/* Footer */}
+        <div style={{ textAlign: 'center', fontSize: '10px' }}>
+          {data.isCredit && !isDebtPayment && (
+            <div style={{ fontWeight: 'bold', marginBottom: '4px', fontSize: '11px' }}>** PENDIENTE DE PAGO **</div>
+          )}
+          <div style={{ marginBottom: '2px' }}>
+            {isDebtPayment ? 'Gracias por su pago' : 'Gracias por su compra'}
+          </div>
+          {data.invoiceFooter && <div style={{ marginBottom: '2px' }}>{data.invoiceFooter}</div>}
+          <div>{new Date().toLocaleString('es-DO')}</div>
+        </div>
+
+        <div style={{ marginTop: '20px' }} />
+      </div>
+    );
+  }
+);
+
+ThermalContent.displayName = 'ThermalContent';
+
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClose }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const thermalRef  = useRef<HTMLDivElement>(null);
 
+  // Thermal print (80mm roll paper)
   const handlePrint = () => {
-    if (!invoiceRef.current) return;
+    if (!thermalRef.current) return;
 
-    const printWindow = window.open('', '', 'height=800,width=600');
+    const printWindow = window.open('', '_blank', 'height=600,width=400');
     if (!printWindow) return;
 
-    printWindow.document.write('<html><head><title>Factura</title>');
+    printWindow.document.write('<!DOCTYPE html><html><head>');
+    printWindow.document.write('<meta charset="UTF-8">');
+    printWindow.document.write('<title>Recibo</title>');
     printWindow.document.write('<style>');
     printWindow.document.write(`
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; }
+      body {
+        font-family: 'Courier New', Courier, monospace;
+        color: #000;
+        background: #fff;
+        width: 80mm;
+      }
+      img { max-width: 100%; }
+      @page {
+        size: 80mm auto;
+        margin: 0;
+      }
       @media print {
-        body { margin: 0; padding: 0; }
-        .invoice-content { width: 210mm; height: 297mm; }
+        html, body { width: 80mm; margin: 0; padding: 0; }
       }
     `);
     printWindow.document.write('</style></head><body>');
-    printWindow.document.write(invoiceRef.current.innerHTML);
+    printWindow.document.write(thermalRef.current.innerHTML);
     printWindow.document.write('</body></html>');
     printWindow.document.close();
 
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    setTimeout(() => { printWindow.print(); }, 300);
   };
 
   const handleDownloadPDF = async () => {
@@ -242,18 +415,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="flex items-center justify-between">
-            <span>Factura - {data?.orderNumber}</span>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              <X className="w-5 h-5" />
-            </button>
+          <DialogTitle>
+            Factura - {data?.orderNumber}
           </DialogTitle>
           <DialogDescription>
             Comprobante de venta - {data?.date} {data?.time}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Invoice Preview - Scrollable */}
+        {/* Hidden thermal content rendered off-screen for print */}
+        <div style={{ position: 'absolute', left: '-9999px', top: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+          {data && <ThermalContent ref={thermalRef} data={data} />}
+        </div>
+
+        {/* Invoice Preview - Scrollable (A4 layout) */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="bg-gray-50 rounded-lg border">
             {data && <InvoiceContent ref={invoiceRef} data={data} />}
@@ -271,14 +446,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
             className="flex items-center gap-2"
           >
             <Printer className="w-4 h-4" />
-            Imprimir
+            Imprimir Térmica
           </Button>
           <Button
             onClick={handleDownloadPDF}
             className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Descargar PDF
+            PDF A4
           </Button>
         </div>
       </DialogContent>
