@@ -22,7 +22,7 @@ import {
 import {
   Landmark, TrendingUp, TrendingDown, Banknote, CreditCard,
   ArrowRightLeft, Clock, History, CheckCircle2, XCircle,
-  AlertTriangle, RefreshCw, Lock,
+  AlertTriangle, RefreshCw, Lock, DollarSign,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -93,6 +93,7 @@ function PaymentRow({
   reported,
   onReportedChange,
   readOnly = false,
+  highlight = false,
 }: {
   icon: any;
   label: string;
@@ -100,34 +101,57 @@ function PaymentRow({
   reported: number;
   onReportedChange?: (v: number) => void;
   readOnly?: boolean;
+  highlight?: boolean;
 }) {
   const diff = reported - expected;
+  const isEmpty = reported === 0 && !readOnly;
   return (
-    <tr className="border-b last:border-0">
-      <td className="py-3 pr-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <Icon className="h-4 w-4 text-gray-500" />
+    <tr className={`border-b last:border-0 transition-colors ${
+      highlight ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+    }`}>
+      {/* Columna 1: Método */}
+      <td className="py-3 w-40">
+        <div className={`flex items-center gap-2 text-sm font-medium ${
+          highlight ? 'text-emerald-800' : 'text-gray-700'
+        }`}>
+          <Icon className={`h-4 w-4 ${highlight ? 'text-emerald-600' : 'text-gray-500'}`} />
           {label}
+          {highlight && (
+            <span className="ml-1 text-[10px] font-bold text-emerald-600 bg-emerald-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+              ← ingresa
+            </span>
+          )}
         </div>
       </td>
-      <td className="py-3 pr-4 text-right text-sm text-gray-700">{fmt(expected)}</td>
-      <td className="py-3 pr-4">
+      {/* Columna 2: Sistema (esperado) */}
+      <td className="py-3 w-36 text-right text-sm text-gray-700">{fmt(expected)}</td>
+      {/* Columna 3: Cajera reporta */}
+      <td className="py-3 w-44 text-right">
         {readOnly ? (
           <span className="text-sm text-gray-700">{fmt(reported)}</span>
         ) : (
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            className="w-36 text-right"
-            value={reported === 0 ? "" : reported}
-            placeholder="0.00"
-            onChange={(e) => onReportedChange?.(parseFloat(e.target.value) || 0)}
-          />
+          <div className="flex justify-end">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              className={`w-36 text-right transition-all ${
+                highlight && isEmpty
+                  ? 'border-emerald-400 ring-2 ring-emerald-300 bg-white animate-pulse focus:animate-none placeholder-emerald-400'
+                  : highlight
+                  ? 'border-emerald-400 ring-1 ring-emerald-200 bg-white focus:animate-none'
+                  : ''
+              }`}
+              value={reported === 0 ? '' : reported}
+              placeholder={highlight ? '💵 Ingresa monto' : '0.00'}
+              onChange={(e) => onReportedChange?.(parseFloat(e.target.value) || 0)}
+            />
+          </div>
         )}
       </td>
-      <td className={`py-3 text-right text-sm ${diffColor(diff)}`}>
-        {diff > 0 ? "+" : ""}{fmt(diff)}
+      {/* Columna 4: Diferencia */}
+      <td className={`py-3 w-28 text-right text-sm ${diffColor(diff)}`}>
+        {diff > 0 ? '+' : ''}{fmt(diff)}
         {diff > 0 && <TrendingUp className="inline h-3 w-3 ml-1" />}
         {diff < 0 && <TrendingDown className="inline h-3 w-3 ml-1" />}
       </td>
@@ -397,17 +421,31 @@ export default function CashRegisterPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Banner instructivo animado */}
+                  <div className="mb-4 flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
+                    <div className="relative flex-shrink-0">
+                      <div className="absolute inset-0 rounded-full bg-emerald-300 animate-ping opacity-60" />
+                      <div className="relative bg-emerald-500 text-white p-2 rounded-full">
+                        <DollarSign className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800">Registra los montos contados en caja</p>
+                      <p className="text-xs text-emerald-600 mt-0.5">Cuenta el efectivo físico e ingresa el monto en la fila <strong>Efectivo</strong>. Completa los demás métodos según corresponda.</p>
+                    </div>
+                  </div>
+
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-gray-500 text-xs uppercase">
-                        <th className="pb-2 text-left">Método</th>
-                        <th className="pb-2 text-right">Sistema</th>
-                        <th className="pb-2 text-right">Cajera reporta</th>
-                        <th className="pb-2 text-right">Diferencia</th>
+                        <th className="pb-2 text-left w-40">Método</th>
+                        <th className="pb-2 text-right w-36">Sistema</th>
+                        <th className="pb-2 text-right w-44">Cajera reporta</th>
+                        <th className="pb-2 text-right w-28">Diferencia</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <PaymentRow icon={Banknote} label="Efectivo"
+                      <PaymentRow icon={Banknote} label="Efectivo" highlight
                         expected={cashExpected} reported={closeForm.cashReported}
                         onReportedChange={(v) => setCloseForm((p) => ({ ...p, cashReported: v }))} />
                       <PaymentRow icon={CreditCard} label="Tarjeta"
@@ -421,11 +459,11 @@ export default function CashRegisterPage() {
                         onReportedChange={(v) => setCloseForm((p) => ({ ...p, creditReported: v }))} />
                     </tbody>
                     <tfoot>
-                      <tr className="border-t font-bold text-sm">
-                        <td className="pt-3">Total</td>
-                        <td className="pt-3 text-right">{fmt(totalExpected)}</td>
-                        <td className="pt-3 text-right">{fmt(totalReported)}</td>
-                        <td className={`pt-3 text-right ${diffColor(totalDiff)}`}>
+                      <tr className="border-t bg-gray-50 font-bold text-sm">
+                        <td className="pt-3 pb-2 w-40 pl-1">Total</td>
+                        <td className="pt-3 pb-2 w-36 text-right">{fmt(totalExpected)}</td>
+                        <td className="pt-3 pb-2 w-44 text-right">{fmt(totalReported)}</td>
+                        <td className={`pt-3 pb-2 w-28 text-right ${diffColor(totalDiff)}`}>
                           {totalDiff > 0 ? "+" : ""}{fmt(totalDiff)}
                         </td>
                       </tr>

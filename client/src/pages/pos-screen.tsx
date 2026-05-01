@@ -217,9 +217,23 @@ export default function POSScreen() {
   const [discountPercentage, setDiscountPercentage] = useState('');
 
   // Customer & Credit state
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number>(1);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [savingNewCustomer, setSavingNewCustomer] = useState(false);
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
+
+  // Customer profile state
+  const [showCustomerProfile, setShowCustomerProfile] = useState(false);
+  const [profileOrders, setProfileOrders] = useState<any[]>([]);
+  const [loadingProfileOrders, setLoadingProfileOrders] = useState(false);
+  const [profileSelectedOrder, setProfileSelectedOrder] = useState<any>(null);
+  const [profileOrderItems, setProfileOrderItems] = useState<any[]>([]);
+  const [loadingOrderItems, setLoadingOrderItems] = useState(false);
 
   // Appointment billing state
   const [showAppointmentBilling, setShowAppointmentBilling] = useState(false);
@@ -538,6 +552,9 @@ export default function POSScreen() {
         changeAmount: calculateChange(),
         totalLoyaltyPoints: calculateTotalLoyaltyPoints(),
         loyaltyPointsPropertyName: getLoyaltyPropertyName(),
+        // 👤 Datos del cliente
+        customerName: selectedCustomer?.name,
+        customerPhone: selectedCustomer?.phone,
         // 🏪 Datos de la tienda desde configuración
         storeName: storeSettings?.storeName || 'Tu Tienda',
         storeAddress: storeSettings?.storeAddress,
@@ -784,6 +801,11 @@ export default function POSScreen() {
       alert('Carrito Vacío - Agrega productos para continuar');
       return;
     }
+    if (!selectedCustomerId) {
+      alert('Selecciona un cliente antes de procesar el pago');
+      setShowCustomerPicker(true);
+      return;
+    }
     setShowPaymentModal(true);
   };
 
@@ -805,7 +827,7 @@ export default function POSScreen() {
     }
 
     // Credit sale requires customer selection
-    if (paymentMethod === 'credit' && selectedCustomerId === 1) {
+    if (paymentMethod === 'credit' && !selectedCustomerId) {
       alert('Selecciona un cliente para ventas a crédito');
       return;
     }
@@ -814,7 +836,7 @@ export default function POSScreen() {
     const discAmt = calculateDiscountAmount();
 
     const payload: Order = {
-      customerId: selectedCustomerId,
+      customerId: selectedCustomerId!,
       status: paymentMethod === 'credit' ? 'pending' : 'completed',
       deliveryCost: 0,
       priority: 'normal',
@@ -938,6 +960,8 @@ export default function POSScreen() {
         total: price,
         receivedAmount: isCreditPayment ? 0 : price,
         changeAmount: 0,
+        customerName: appointment.customerName || appointment.customer_name,
+        customerPhone: appointment.customerPhone || appointment.customer_phone,
         storeName: storeSettings?.storeName || 'Tu Tienda',
         storeAddress: storeSettings?.storeAddress,
         storePhone: storeSettings?.storePhone,
@@ -1030,7 +1054,8 @@ export default function POSScreen() {
     setSearchQuery('');
     setSelectedCategory('Todos');
     setDiscountPercentage('');
-    setSelectedCustomerId(1);
+    setSelectedCustomerId(null);
+    setSelectedCustomer(null);
   };
 
   // formatCurrency is provided by useCurrencyConversion hook
@@ -1260,6 +1285,61 @@ export default function POSScreen() {
             )}
           </div>
 
+          {/* Customer selector block */}
+          <div className={`border-b ${selectedCustomer ? 'bg-blue-50' : 'bg-amber-50'}`}>
+            <div className="px-3 pt-1.5 pb-0.5 flex items-center gap-1">
+              <Users className={`w-3 h-3 ${selectedCustomer ? 'text-blue-400' : 'text-amber-400'}`} />
+              <span className={`text-[10px] font-semibold uppercase tracking-wide ${selectedCustomer ? 'text-blue-400' : 'text-amber-500'}`}>
+                Cliente
+              </span>
+            </div>
+            <div className="px-3 pb-2 flex items-center gap-2">
+              {selectedCustomer ? (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-blue-800 truncate">{selectedCustomer.name}</p>
+                    {selectedCustomer.phone && <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setLoadingProfileOrders(true);
+                      setProfileOrders([]);
+                      setProfileSelectedOrder(null);
+                      setProfileOrderItems([]);
+                      setShowCustomerProfile(true);
+                      const token = getAuthToken();
+                      fetch(`/api/orders?customerId=${selectedCustomer.id}&limit=50`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      })
+                        .then(r => r.ok ? r.json() : [])
+                        .then(data => setProfileOrders(Array.isArray(data) ? data : (data?.orders ?? [])))
+                        .catch(() => setProfileOrders([]))
+                        .finally(() => setLoadingProfileOrders(false));
+                    }}
+                    className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-sm"
+                    title="Ver perfil completo del cliente"
+                  >
+                    <Users className="w-3 h-3" />
+                    Ver perfil
+                  </button>
+                  <button
+                    onClick={() => setShowCustomerPicker(true)}
+                    className="flex-shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium px-1"
+                  >
+                    cambiar
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowCustomerPicker(true)}
+                  className="flex-1 flex items-center gap-2 text-left"
+                >
+                  <p className="text-sm font-semibold text-amber-700">Seleccionar cliente *</p>
+                </button>
+              )}
+            </div>
+          </div>
+
           {cart.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
               <ShoppingCart className="w-16 h-16 mb-4" />
@@ -1457,32 +1537,18 @@ export default function POSScreen() {
 
             {/* Customer Selection for Credit */}
             {paymentMethod === 'credit' && (
-              <div className="space-y-3">
-                <p className="font-semibold text-gray-900">Seleccionar Cliente</p>
-                <Input
-                  placeholder="Buscar cliente por nombre..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                />
-                <div className="max-h-40 overflow-y-auto space-y-1 border rounded-lg p-2">
-                  {(customers as any[])
-                    .filter((c: any) => c.id !== 1 && (!customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase())))
-                    .slice(0, 10)
-                    .map((c: any) => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setSelectedCustomerId(c.id); setCustomerSearch(c.name); }}
-                        className={`w-full text-left p-2 rounded text-sm transition-colors ${
-                          selectedCustomerId === c.id
-                            ? 'bg-primary/10 text-primary font-semibold'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="font-medium">{c.name}</span>
-                        {c.phone && <span className="text-muted-foreground ml-2 text-xs">{c.phone}</span>}
-                      </button>
-                    ))}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-blue-800">{selectedCustomer?.name}</p>
+                  {selectedCustomer?.phone && <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>}
                 </div>
+                <button
+                  onClick={() => { setShowPaymentModal(false); setShowCustomerPicker(true); }}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  cambiar
+                </button>
               </div>
             )}
 
@@ -1792,6 +1858,371 @@ export default function POSScreen() {
                 {keypadMode === 'add' ? 'Agregar al carrito' : 'Confirmar'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 👤 Customer Picker Modal */}
+      <Dialog open={showCustomerPicker} onOpenChange={(open) => {
+        setShowCustomerPicker(open);
+        if (!open) { setCustomerSearch(''); setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Seleccionar Cliente
+            </DialogTitle>
+            <DialogDescription>Busca un cliente existente o crea uno nuevo</DialogDescription>
+          </DialogHeader>
+
+          {!showNewCustomerForm ? (
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  autoFocus
+                  placeholder="Buscar por nombre o teléfono..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg p-2">
+                {(customers as any[])
+                  .filter((c: any) => c.id !== 1 && (!customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch)))
+                  .slice(0, 15)
+                  .map((c: any) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedCustomerId(c.id);
+                        setSelectedCustomer(c);
+                        setShowCustomerPicker(false);
+                        setCustomerSearch('');
+                      }}
+                      className={`w-full text-left p-2.5 rounded-lg text-sm transition-colors flex items-center gap-3 ${
+                        selectedCustomerId === c.id ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                        {c.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{c.name}</p>
+                        {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
+                      </div>
+                      {selectedCustomerId === c.id && <span className="text-primary text-xs">✓</span>}
+                    </button>
+                  ))}
+                {(customers as any[]).filter((c: any) => c.id !== 1 && (!customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch))).length === 0 && (
+                  <p className="text-center text-sm text-gray-400 py-4">No se encontraron clientes</p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                className="w-full border-dashed border-primary text-primary hover:bg-primary/5"
+                onClick={() => setShowNewCustomerForm(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Crear nuevo cliente
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-700">Nuevo cliente</p>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
+                <Input
+                  autoFocus
+                  placeholder="Nombre completo"
+                  value={newCustomerName}
+                  onChange={(e) => setNewCustomerName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono *</label>
+                <Input
+                  placeholder="Ej: 809-555-1234"
+                  value={newCustomerPhone}
+                  onChange={(e) => setNewCustomerPhone(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => { setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-primary text-white"
+                  disabled={!newCustomerName.trim() || !newCustomerPhone.trim() || savingNewCustomer}
+                  onClick={async () => {
+                    setSavingNewCustomer(true);
+                    try {
+                      const token = getAuthToken();
+                      const res = await fetch('/api/customers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ name: newCustomerName.trim(), phone: newCustomerPhone.trim() }),
+                      });
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Error al crear cliente');
+                      }
+                      const newCustomer = await res.json();
+                      queryClient.invalidateQueries({ queryKey: ['customers'] });
+                      setSelectedCustomerId(newCustomer.id);
+                      setSelectedCustomer(newCustomer);
+                      setShowCustomerPicker(false);
+                      setShowNewCustomerForm(false);
+                      setNewCustomerName('');
+                      setNewCustomerPhone('');
+                    } catch (err: any) {
+                      alert(err.message || 'No se pudo crear el cliente');
+                    } finally {
+                      setSavingNewCustomer(false);
+                    }
+                  }}
+                >
+                  {savingNewCustomer ? 'Guardando...' : 'Guardar cliente'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 👤 Customer Profile Dialog */}
+      <Dialog open={showCustomerProfile} onOpenChange={(open) => {
+        setShowCustomerProfile(open);
+        if (!open) { setProfileSelectedOrder(null); setProfileOrderItems([]); }
+      }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 py-5 flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-xl shadow-inner">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-white font-bold text-xl leading-tight truncate">{selectedCustomer?.name}</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  {selectedCustomer?.phone && (
+                    <span className="text-blue-100 text-sm">📞 {selectedCustomer.phone}</span>
+                  )}
+                  {selectedCustomer?.email && (
+                    <span className="text-blue-100 text-sm">✉️ {selectedCustomer.email}</span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-blue-200 text-xs">Compras totales</p>
+                <p className="text-white font-bold text-xl">
+                  {loadingProfileOrders ? '...' : profileOrders.length}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {!profileSelectedOrder ? (
+              /* Order list */
+              <div className="flex-1 overflow-y-auto p-5">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Historial de Compras</h3>
+                {loadingProfileOrders ? (
+                  <div className="flex items-center justify-center py-10 text-gray-400">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-sm">Cargando compras...</p>
+                    </div>
+                  </div>
+                ) : profileOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                    <ShoppingCart className="w-12 h-12 mb-3 opacity-40" />
+                    <p className="font-semibold">Sin compras registradas</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {profileOrders.map((order: any) => {
+                      const orderDate = order.createdAt ? new Date(order.createdAt) : null;
+                      const total = parseFloat(order.totalAmount || order.total_amount || '0');
+                      const method = order.paymentMethod || order.payment_method || '';
+                      const status = order.status || '';
+                      const methodLabel: Record<string, string> = { cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' };
+                      const statusColor: Record<string, string> = { completed: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', cancelled: 'bg-red-100 text-red-700' };
+                      return (
+                        <button
+                          key={order.id}
+                          onClick={() => {
+                            setProfileSelectedOrder(order);
+                            setLoadingOrderItems(true);
+                            setProfileOrderItems([]);
+                            const token = getAuthToken();
+                            fetch(`/api/orders/${order.id}`, {
+                              headers: { 'Authorization': `Bearer ${token}` }
+                            })
+                              .then(r => r.ok ? r.json() : null)
+                              .then(data => {
+                                if (data) {
+                                  const items = data.items || data.orderItems || [];
+                                  setProfileOrderItems(items);
+                                  setProfileSelectedOrder(data);
+                                }
+                              })
+                              .catch(() => {})
+                              .finally(() => setLoadingOrderItems(false));
+                          }}
+                          className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                        >
+                          <div className="bg-blue-100 text-blue-600 rounded-lg p-2 flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <Receipt className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm text-gray-900">{order.orderNumber || `#${order.id}`}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[status] || 'bg-gray-100 text-gray-600'}`}>
+                                {status === 'completed' ? 'Completado' : status === 'pending' ? 'Pendiente' : status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {orderDate && <span className="text-xs text-gray-500">{orderDate.toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                              <span className="text-xs text-gray-500">{methodLabel[method] || method}</span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-blue-700">{formatCurrency(total)}</p>
+                            <p className="text-xs text-gray-400 group-hover:text-blue-500">Ver detalle →</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Order detail */
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => { setProfileSelectedOrder(null); setProfileOrderItems([]); }}
+                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                  >
+                    ← Volver al historial
+                  </button>
+                </div>
+
+                {/* Order header */}
+                <div className="rounded-xl border border-blue-200 overflow-hidden mb-4">
+                  <div className="bg-blue-50 px-4 py-3 border-b border-blue-200">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="font-bold text-gray-900">{profileSelectedOrder.orderNumber || `#${profileSelectedOrder.id}`}</p>
+                        {profileSelectedOrder.createdAt && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {new Date(profileSelectedOrder.createdAt).toLocaleDateString('es-DO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                            {' · '}
+                            {new Date(profileSelectedOrder.createdAt).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-blue-700">
+                          {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {({ cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' } as any)[profileSelectedOrder.paymentMethod || profileSelectedOrder.payment_method] || profileSelectedOrder.paymentMethod}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subtotals */}
+                  <div className="bg-white px-4 py-3 grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-gray-500">Subtotal</p>
+                      <p className="font-semibold text-sm">{formatCurrency(parseFloat(profileSelectedOrder.subtotalAmount || profileSelectedOrder.subtotal_amount || '0'))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Descuento</p>
+                      <p className="font-semibold text-sm text-orange-600">
+                        {profileSelectedOrder.discountPercentage ? `${profileSelectedOrder.discountPercentage}%` : '-'}
+                        {profileSelectedOrder.discountAmount ? ` (-${formatCurrency(parseFloat(profileSelectedOrder.discountAmount))})` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">ITBIS</p>
+                      <p className="font-semibold text-sm">{formatCurrency(0)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Artículos</h4>
+                {loadingOrderItems ? (
+                  <div className="flex items-center justify-center py-6 text-gray-400">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+                    <span className="text-sm">Cargando artículos...</span>
+                  </div>
+                ) : profileOrderItems.length === 0 ? (
+                  /* Órdenes de citas/servicios no tienen items — mostrar descripción */
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-xl border border-teal-200">
+                      <div className="bg-teal-100 rounded-lg p-2 flex-shrink-0">
+                        <Receipt className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-900">
+                          {profileSelectedOrder.notes || profileSelectedOrder.description || 'Servicio / Cita'}
+                        </p>
+                        <p className="text-xs text-teal-600 mt-0.5 capitalize">
+                          {profileSelectedOrder.orderType === 'appointment' ? 'Cobro de cita' : profileSelectedOrder.orderType || 'Servicio'}
+                        </p>
+                      </div>
+                      <p className="font-bold text-gray-900 flex-shrink-0">
+                        {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                      <span className="font-bold text-white text-sm">TOTAL</span>
+                      <span className="font-bold text-white text-lg">
+                        {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {profileOrderItems.map((item: any, idx: number) => {
+                      const name = item.productName || item.product_name || item.product?.name || `Producto #${item.productId || item.product_id}`;
+                      const qty = item.quantity || 1;
+                      const unitPrice = parseFloat(item.unitPrice || item.unit_price || '0');
+                      const total = parseFloat(item.totalPrice || item.total_price || String(unitPrice * qty));
+                      return (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                          <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
+                            <Package className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 truncate">{name}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {qty} × {formatCurrency(unitPrice)}
+                              {item.unitSymbol || item.unit_symbol ? ` / ${item.unitSymbol || item.unit_symbol}` : ''}
+                            </p>
+                          </div>
+                          <p className="font-bold text-gray-900 flex-shrink-0">{formatCurrency(total)}</p>
+                        </div>
+                      );
+                    })}
+                    {/* Grand total row */}
+                    <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                      <span className="font-bold text-white text-sm">TOTAL</span>
+                      <span className="font-bold text-white text-lg">
+                        {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

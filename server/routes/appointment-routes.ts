@@ -202,7 +202,7 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
 
     const db = await getTenantDb(user.storeId);
 
-    const { status, startDate, endDate } = req.query;
+    const { status, startDate, endDate, customerId } = req.query;
 
     let conditions = [eq(schema.appointments.storeId, user.storeId)];
 
@@ -214,6 +214,9 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
     }
     if (endDate) {
       conditions.push(lte(schema.appointments.appointmentDate, new Date(endDate as string)));
+    }
+    if (customerId) {
+      conditions.push(eq(schema.appointments.customerId, parseInt(customerId as string)));
     }
 
     const appointments = await db

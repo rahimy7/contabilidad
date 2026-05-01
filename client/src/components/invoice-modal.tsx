@@ -41,6 +41,8 @@ interface InvoiceData {
   logoUrl?: string;
   invoiceFooter?: string;
   remainingBalance?: number; // Saldo restante tras un pago de deuda
+  customerName?: string;
+  customerPhone?: string;
 }
 
 interface InvoiceModalProps {
@@ -98,6 +100,9 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
             <p><span className="font-semibold">Número:</span> {data.orderNumber}</p>
             <p><span className="font-semibold">Fecha:</span> {data.date}</p>
             <p><span className="font-semibold">Hora:</span> {data.time}</p>
+            {data.customerName && (
+              <p><span className="font-semibold">Cliente:</span> {data.customerName}{data.customerPhone ? ` · ${data.customerPhone}` : ''}</p>
+            )}
           </div>
           <div className="text-right">
             <p><span className="font-semibold">Método Pago:</span> {getPaymentMethodLabel(data.paymentMethod)}</p>
@@ -248,6 +253,8 @@ const ThermalContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
           {row('Fecha:', data.date)}
           {row('Hora:', data.time)}
           {row('Metodo:', getPaymentMethodLabel(data.paymentMethod))}
+          {data.customerName && row('Cliente:', data.customerName)}
+          {data.customerPhone && row('Tel:', data.customerPhone)}
         </div>
 
         {dashes}

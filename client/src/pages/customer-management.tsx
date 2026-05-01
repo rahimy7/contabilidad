@@ -21,6 +21,9 @@ import {
   Plus,
   Link2,
   X,
+  Package,
+  Receipt,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,6 +85,346 @@ type CustomerStats = {
   typeDistribution: Array<{ typeId?: number; typeName?: string; count: number }>;
 };
 
+// ─────────────────────────────────────────────
+// Customer Profile Tabs Component
+// ─────────────────────────────────────────────
+function CustomerProfileTabs({ customer }: { customer: Customer }) {
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+
+  // Order detail drill-down state
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const { data: orders = [], isLoading: loadingOrders } = useQuery<any[]>({
+    queryKey: ['customer-orders', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders?customerId=${customer.id}&limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data.orders ?? []);
+    },
+  });
+
+  const { data: appointments = [], isLoading: loadingApts } = useQuery<any[]>({
+    queryKey: ['customer-appointments', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/appointments?customerId=${customer.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: customerDetail } = useQuery<any>({
+    queryKey: ['customer-detail', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customer.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const fmt = (n: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(n);
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-DO') : '—';
+  const fmtDateTime = (d: string | null) => d ? new Date(d).toLocaleString('es-DO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const paymentLabels: Record<string, string> = { cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' };
+  const statusLabels: Record<string, string> = { completed: 'Completada', pending: 'Pendiente', cancelled: 'Cancelada', scheduled: 'Programada', confirmed: 'Confirmada', no_show: 'No asistió' };
+  const statusColors: Record<string, string> = { completed: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', cancelled: 'bg-red-100 text-red-800', scheduled: 'bg-blue-100 text-blue-800', confirmed: 'bg-teal-100 text-teal-800', no_show: 'bg-gray-100 text-gray-600' };
+
+  const loyaltyTxs: any[] = customerDetail?.recentTransactions ?? [];
+  const loyaltyBalance = customerDetail?.loyaltyBalance ?? customer.loyaltyBalance;
+
+  const openOrderDetail = (order: any) => {
+    setSelectedOrder(order);
+    setLoadingItems(true);
+    setOrderItems([]);
+    fetch(`/api/orders/${order.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setOrderItems(data.items || data.orderItems || []);
+          setSelectedOrder(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingItems(false));
+  };
+
+  return (
+    <div className="flex-1 overflow-hidden flex flex-col">
+      {/* Stats header */}
+      <div className="grid grid-cols-3 gap-3 mb-4 flex-shrink-0">
+        <div className="bg-blue-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-blue-700">{customer.totalOrders || orders.length}</p>
+          <p className="text-xs text-blue-600 font-medium">Compras</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3 text-center">
+          <p className="text-lg font-bold text-green-700">{fmt(parseFloat(customer.totalSpent || '0'))}</p>
+          <p className="text-xs text-green-600 font-medium">Total gastado</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-amber-700">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(0)}</p>
+          <p className="text-xs text-amber-600 font-medium">{loyaltyBalance?.pointsPropertyName || 'Puntos'}</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="orders" className="flex-1 overflow-hidden flex flex-col">
+        <TabsList className="flex-shrink-0">
+          <TabsTrigger value="orders">Compras ({orders.length})</TabsTrigger>
+          <TabsTrigger value="appointments">Citas ({appointments.length})</TabsTrigger>
+          <TabsTrigger value="loyalty">Lealtad</TabsTrigger>
+          <TabsTrigger value="info">Datos</TabsTrigger>
+        </TabsList>
+
+        {/* Compras */}
+        <TabsContent value="orders" className="flex-1 overflow-y-auto mt-2">
+          {selectedOrder ? (
+            /* ── Detalle de orden ── */
+            <div>
+              <button
+                onClick={() => { setSelectedOrder(null); setOrderItems([]); }}
+                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-semibold mb-3"
+              >
+                ← Volver al historial
+              </button>
+
+              {/* Order header card */}
+              <div className="rounded-xl border border-blue-200 overflow-hidden mb-4">
+                <div className="bg-blue-50 px-4 py-3 border-b border-blue-200 flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="font-bold text-gray-900">{selectedOrder.orderNumber || `#${selectedOrder.id}`}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{fmtDateTime(selectedOrder.createdAt)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-blue-700">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</p>
+                    <p className="text-xs text-gray-500">{paymentLabels[selectedOrder.paymentMethod || selectedOrder.payment_method] || selectedOrder.paymentMethod}</p>
+                  </div>
+                </div>
+                <div className="bg-white px-4 py-3 grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-gray-500">Subtotal</p>
+                    <p className="font-semibold text-sm">{fmt(parseFloat(selectedOrder.subtotalAmount || selectedOrder.subtotal_amount || '0'))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Descuento</p>
+                    <p className="font-semibold text-sm text-orange-600">
+                      {selectedOrder.discountPercentage ? `${selectedOrder.discountPercentage}%` : '—'}
+                      {selectedOrder.discountAmount && parseFloat(selectedOrder.discountAmount) > 0 ? ` (-${fmt(parseFloat(selectedOrder.discountAmount))})` : ''}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Estado</p>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[selectedOrder.status] || 'bg-gray-100 text-gray-600'}`}>
+                      {statusLabels[selectedOrder.status] || selectedOrder.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items */}
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Artículos</p>
+              {loadingItems ? (
+                <div className="flex items-center justify-center py-6 text-gray-400">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+                  <span className="text-sm">Cargando artículos...</span>
+                </div>
+              ) : orderItems.length === 0 ? (
+                /* Órdenes de citas/servicios no tienen items — mostrar descripción */
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-xl border border-teal-200">
+                    <div className="bg-teal-100 rounded-lg p-2 flex-shrink-0">
+                      <Receipt className="w-4 h-4 text-teal-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-900">
+                        {selectedOrder.notes || selectedOrder.description || 'Servicio / Cita'}
+                      </p>
+                      <p className="text-xs text-teal-600 mt-0.5 capitalize">
+                        {selectedOrder.orderType === 'appointment' ? 'Cobro de cita' : selectedOrder.orderType || 'Servicio'}
+                      </p>
+                    </div>
+                    <p className="font-bold text-gray-900 flex-shrink-0">
+                      {fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                    <span className="font-bold text-white text-sm">TOTAL</span>
+                    <span className="font-bold text-white text-base">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {orderItems.map((item: any, idx: number) => {
+                    const name = item.productName || item.product_name || item.product?.name || `Producto #${item.productId || item.product_id}`;
+                    const qty = item.quantity || 1;
+                    const unitPrice = parseFloat(item.unitPrice || item.unit_price || '0');
+                    const total = parseFloat(item.totalPrice || item.total_price || String(unitPrice * qty));
+                    return (
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
+                          <Package className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 truncate">{name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {qty} × {fmt(unitPrice)}
+                            {item.unitSymbol || item.unit_symbol ? ` / ${item.unitSymbol || item.unit_symbol}` : ''}
+                          </p>
+                        </div>
+                        <p className="font-bold text-gray-900 flex-shrink-0">{fmt(total)}</p>
+                      </div>
+                    );
+                  })}
+                  {/* Total row */}
+                  <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                    <span className="font-bold text-white text-sm">TOTAL</span>
+                    <span className="font-bold text-white text-base">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── Lista de órdenes ── */
+            <>
+              {loadingOrders ? (
+                <p className="text-center text-sm text-gray-400 py-6">Cargando...</p>
+              ) : orders.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-6">Sin compras registradas</p>
+              ) : (
+                <div className="space-y-2">
+                  {orders.map((o: any) => (
+                    <button
+                      key={o.id}
+                      onClick={() => openOrderDetail(o)}
+                      className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                    >
+                      <div className="bg-blue-100 text-blue-600 rounded-lg p-2 flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <Receipt className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-gray-900">{o.orderNumber || `#${o.id}`}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[o.status] || 'bg-gray-100 text-gray-600'}`}>
+                            {statusLabels[o.status] || o.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs text-gray-500">{fmtDate(o.createdAt)}</span>
+                          <span className="text-xs text-gray-500">{paymentLabels[o.paymentMethod] || o.paymentMethod}</span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-blue-700">{fmt(parseFloat(o.totalAmount || '0'))}</p>
+                        <p className="text-xs text-gray-400 group-hover:text-blue-500">Ver detalle →</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* Citas */}
+        <TabsContent value="appointments" className="flex-1 overflow-y-auto mt-2">
+          {loadingApts ? <p className="text-center text-sm text-gray-400 py-6">Cargando...</p> : appointments.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-6">Sin citas registradas</p>
+          ) : (
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="py-2 pr-2">Fecha</th>
+                  <th className="py-2 pr-2">Cita</th>
+                  <th className="py-2 pr-2">Servicio</th>
+                  <th className="py-2 pr-2">Estado</th>
+                  <th className="py-2 text-right">Precio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments.map((a: any) => (
+                  <tr key={a.id} className="border-b hover:bg-gray-50">
+                    <td className="py-1.5 pr-2 text-gray-600">{a.appointmentDate ? new Date(a.appointmentDate).toLocaleDateString('es-DO') : '—'}</td>
+                    <td className="py-1.5 pr-2 font-semibold truncate max-w-[120px]">{a.title}</td>
+                    <td className="py-1.5 pr-2 text-gray-500">{a.serviceTypeName || '—'}</td>
+                    <td className="py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${statusColors[a.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[a.status] || a.status}</span></td>
+                    <td className="py-1.5 text-right font-bold">{fmt(parseFloat(a.price || '0'))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </TabsContent>
+
+        {/* Lealtad */}
+        <TabsContent value="loyalty" className="flex-1 overflow-y-auto mt-2 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-amber-50 rounded-lg p-3">
+              <p className="text-xs text-amber-600 font-medium">Saldo actual</p>
+              <p className="text-xl font-bold text-amber-700">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(2)} {loyaltyBalance?.pointsPropertyName || 'LP'}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3">
+              <p className="text-xs text-green-600 font-medium">Total acumulado</p>
+              <p className="text-xl font-bold text-green-700">{parseFloat(loyaltyBalance?.totalPointsEarned || '0').toFixed(2)}</p>
+            </div>
+          </div>
+          {loyaltyTxs.length > 0 ? (
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="py-2 pr-2">Fecha</th>
+                  <th className="py-2 pr-2">Tipo</th>
+                  <th className="py-2 pr-2">Descripción</th>
+                  <th className="py-2 text-right">Puntos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loyaltyTxs.map((tx: any) => (
+                  <tr key={tx.id} className="border-b hover:bg-gray-50">
+                    <td className="py-1.5 pr-2 text-gray-600">{fmtDate(tx.createdAt)}</td>
+                    <td className="py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${tx.type === 'earned' ? 'bg-green-100 text-green-700' : tx.type === 'redeemed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{tx.type}</span></td>
+                    <td className="py-1.5 pr-2 text-gray-600 truncate max-w-[140px]">{tx.description}</td>
+                    <td className={`py-1.5 text-right font-bold ${parseFloat(tx.points) >= 0 ? 'text-green-700' : 'text-red-700'}`}>{parseFloat(tx.points) >= 0 ? '+' : ''}{parseFloat(tx.points).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="text-center text-sm text-gray-400 py-4">Sin transacciones de lealtad</p>}
+        </TabsContent>
+
+        {/* Datos del cliente */}
+        <TabsContent value="info" className="flex-1 overflow-y-auto mt-2">
+          <div className="space-y-2 text-sm">
+            {[
+              { label: 'Nombre', value: customer.name },
+              { label: 'Teléfono', value: customer.phone },
+              { label: 'Email', value: customer.email },
+              { label: 'Dirección', value: customer.address },
+              { label: 'Categoría', value: customer.category },
+              { label: 'Tipo', value: customer.customerType?.name },
+              { label: 'VIP', value: customer.isVip ? 'Sí' : 'No' },
+              { label: 'Activo', value: customer.isActive ? 'Sí' : 'No' },
+              { label: 'Registro', value: fmtDate(customer.registrationDate) },
+              { label: 'Último contacto', value: customer.lastContact ? fmtDate(customer.lastContact) : '—' },
+            ].map(({ label, value }) => value ? (
+              <div key={label} className="flex gap-3 py-1 border-b border-gray-100">
+                <span className="text-gray-500 w-32 flex-shrink-0">{label}</span>
+                <span className="font-medium text-gray-800">{value}</span>
+              </div>
+            ) : null)}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 export default function CustomerManagement() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,6 +456,10 @@ export default function CustomerManagement() {
   const [selectedParent, setSelectedParent] = useState<{ id: number; name: string } | null>(null);
   const [showParentDropdown, setShowParentDropdown] = useState(false);
   const parentSearchRef = useRef<HTMLDivElement>(null);
+
+  // Profile dialog state
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [profileCustomer, setProfileCustomer] = useState<Customer | null>(null);
 
   // Fetch customer stats
   const { data: stats } = useQuery<CustomerStats>({
@@ -629,9 +976,9 @@ export default function CustomerManagement() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {customer.creditBalance && parseFloat(customer.creditBalance) > 0 ? (
+                          {(customer as any).creditBalance && parseFloat((customer as any).creditBalance) > 0 ? (
                             <span className="text-sm font-semibold text-red-600">
-                              RD$ {parseFloat(customer.creditBalance).toFixed(2)}
+                              RD$ {parseFloat((customer as any).creditBalance).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-sm">Sin deuda</span>
@@ -643,12 +990,22 @@ export default function CustomerManagement() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => { setProfileCustomer(customer); setShowProfileDialog(true); }}
+                              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 h-auto"
+                              title="Ver perfil completo"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Ver perfil
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleOpenEditCustomer(customer)}
                               title="Editar cliente"
+                              className="h-8 w-8 p-0"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -656,7 +1013,7 @@ export default function CustomerManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteCustomer(customer.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                               title="Eliminar cliente"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -672,6 +1029,43 @@ export default function CustomerManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 👤 Customer Profile Dialog */}
+      <Dialog open={showProfileDialog} onOpenChange={(open) => { setShowProfileDialog(open); if (!open) setProfileCustomer(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 py-5 flex-shrink-0 rounded-t-2xl">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-xl shadow-inner">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-white font-bold text-xl leading-tight truncate">{profileCustomer?.name || 'Perfil del Cliente'}</h2>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {profileCustomer?.phone && (
+                    <span className="text-blue-100 text-sm flex items-center gap-1"><Phone className="w-3 h-3" />{profileCustomer.phone}</span>
+                  )}
+                  {profileCustomer?.email && (
+                    <span className="text-blue-100 text-sm flex items-center gap-1"><Mail className="w-3 h-3" />{profileCustomer.email}</span>
+                  )}
+                  {profileCustomer?.isVip && (
+                    <span className="bg-purple-400/30 text-white text-xs px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Star className="w-3 h-3" />VIP</span>
+                  )}
+                </div>
+              </div>
+              {profileCustomer?.category && (
+                <div className="text-right flex-shrink-0">
+                  <p className="text-blue-200 text-xs">Categoría</p>
+                  <p className="text-white font-bold capitalize">{profileCustomer.category}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden flex flex-col p-5 min-h-0">
+            {profileCustomer && <CustomerProfileTabs customer={profileCustomer} />}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Customer Type Dialog */}
       <Dialog open={showCustomerTypeDialog} onOpenChange={setShowCustomerTypeDialog}>

@@ -353,9 +353,9 @@ export default function AppointmentsPage() {
   // Handlers
   // ================================
   function handleCreate(data: AppointmentFormData) {
-    const appointmentDate = `${data.appointmentDate}T${data.appointmentTime}:00`;
+    const appointmentDate = new Date(`${data.appointmentDate}T${data.appointmentTime}:00`).toISOString();
     const appointmentEndDate = data.appointmentEndTime
-      ? `${data.appointmentDate}T${data.appointmentEndTime}:00`
+      ? new Date(`${data.appointmentDate}T${data.appointmentEndTime}:00`).toISOString()
       : undefined;
 
     createMutation.mutate({
@@ -376,9 +376,9 @@ export default function AppointmentsPage() {
   function handleEdit(data: AppointmentFormData) {
     if (!selectedAppointment) return;
 
-    const appointmentDate = `${data.appointmentDate}T${data.appointmentTime}:00`;
+    const appointmentDate = new Date(`${data.appointmentDate}T${data.appointmentTime}:00`).toISOString();
     const appointmentEndDate = data.appointmentEndTime
-      ? `${data.appointmentDate}T${data.appointmentEndTime}:00`
+      ? new Date(`${data.appointmentDate}T${data.appointmentEndTime}:00`).toISOString()
       : undefined;
 
     updateMutation.mutate({
