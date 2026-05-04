@@ -713,6 +713,11 @@ router.get('/inventory-movements', authenticateToken, async (req: any, res: any)
 
     const conditions = [eq(schema.inventoryMovements.storeId, user.storeId)];
 
+    // Excluir movimientos de productos tipo servicio (no manejan stock)
+    conditions.push(
+      sql`(${schema.products.type} IS NULL OR ${schema.products.type} != 'service')`
+    );
+
     if (productId) {
       conditions.push(eq(schema.inventoryMovements.productId, parseInt(productId as string)));
     }
@@ -749,6 +754,7 @@ router.get('/inventory-stock', authenticateToken, async (req: any, res: any) => 
     const db = await getTenantDb(user.storeId);
 
     // Obtener todos los movimientos con lote, producto y unidades
+    // Excluir productos tipo servicio (no manejan inventario)
     const movements = await db
       .select({
         id: schema.inventoryMovements.id,
@@ -766,7 +772,12 @@ router.get('/inventory-stock', authenticateToken, async (req: any, res: any) => 
       })
       .from(schema.inventoryMovements)
       .leftJoin(schema.products, eq(schema.inventoryMovements.productId, schema.products.id))
-      .where(eq(schema.inventoryMovements.storeId, user.storeId))
+      .where(
+        and(
+          eq(schema.inventoryMovements.storeId, user.storeId),
+          sql`(${schema.products.type} IS NULL OR ${schema.products.type} != 'service')`
+        )
+      )
       .orderBy(schema.inventoryMovements.id); // Ordenar por ID para FIFO
 
     // Obtener conversiones de unidades

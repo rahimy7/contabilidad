@@ -65,7 +65,7 @@ export default function PricingCalculator({
       customerLocation?.longitude
     ],
     queryFn: () => {
-      if (product.category !== "service") return null;
+      if ((product as any).type !== "service" && product.category !== "service") return null;
       return apiRequest("POST", `/api/services/${product.id}/calculate-price`, {
         installationComplexity,
         partsNeeded,
@@ -73,11 +73,12 @@ export default function PricingCalculator({
         customerLongitude: customerLocation?.longitude
       });
     },
-    enabled: product.category === "service",
+    enabled: (product as any).type === "service" || product.category === "service",
   });
 
   useEffect(() => {
-    if (product.category === "product") {
+    const isService = (product as any).type === "service" || product.category === "service";
+    if (!isService) {
       // For products: base price + delivery
       const basePrice = parseFloat(product.price) * quantity;
       const deliveryCost = deliveryInfo?.cost || 0;
@@ -93,7 +94,7 @@ export default function PricingCalculator({
 
       setPricing(calculatedPricing);
       onPricingUpdate(calculatedPricing);
-    } else if (product.category === "service" && servicePricing) {
+    } else if (isService && servicePricing) {
       // For services: use calculated service pricing
       const basePrice = servicePricing.basePrice * quantity;
       const installationCost = servicePricing.installationCost * quantity;
@@ -139,8 +140,8 @@ export default function PricingCalculator({
             <Calculator className="h-5 w-5 mr-2" />
             Desglose de Precios
           </span>
-          <Badge variant={product.category === "service" ? "default" : "secondary"}>
-            {product.category === "service" ? "Servicio" : "Producto"}
+          <Badge variant={(product as any).type === "service" || product.category === "service" ? "default" : "secondary"}>
+            {(product as any).type === "service" || product.category === "service" ? "Servicio" : "Producto"}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -154,7 +155,7 @@ export default function PricingCalculator({
         </div>
 
         {/* Service-specific pricing */}
-        {product.category === "service" && (
+        {((product as any).type === "service" || product.category === "service") && (
           <>
             {pricing.installationCost > 0 && (
               <div className="flex justify-between items-center">

@@ -10,12 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useLocation } from 'wouter';
 import { InvoiceModal } from '@/components/invoice-modal';
 import { AppointmentQuickCreateDialog } from '@/components/appointment-quick-create-dialog';
+import { ServiceRibbon, isServiceProduct } from '@/components/service-ribbon';
 
 type Product = {
   id: number;
   name: string;
   price: string;
   category: string;
+  type?: string; // 'product' | 'service'
   description: string;
   stockQuantity?: number;
   isActive: boolean;
@@ -719,6 +721,8 @@ export default function POSScreen() {
   // Helper: lee stockQuantity sin importar si viene snake_case o camelCase del API
   const getProductStock = (product: Product | null): number | null => {
     if (!product) return null;
+    // Los servicios no manejan stock
+    if (product.type === 'service') return null;
     const raw = product.stockQuantity ?? (product as any).stock_quantity;
     if (raw === undefined || raw === null) return null;
     const n = Number(raw);
@@ -1228,9 +1232,10 @@ export default function POSScreen() {
                   return (
                     <Card
                       key={product.id}
-                      className="cursor-pointer hover:shadow-lg transition-all border-2 border-primary/30 hover:border-primary"
+                      className="cursor-pointer hover:shadow-lg transition-all border-2 border-primary/30 hover:border-primary relative overflow-hidden"
                       onClick={() => openKeypadForProduct(product)}
                     >
+                      {isServiceProduct(product) && <ServiceRibbon size="sm" />}
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                           {imageUrl ? (

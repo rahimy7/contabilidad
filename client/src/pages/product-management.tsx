@@ -60,6 +60,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
+import { ServiceRibbon, isServiceProduct } from '@/components/service-ribbon';
 
 const getAuthToken = () => localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
 
@@ -146,6 +147,7 @@ export default function ImprovedProductManagement() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterType, setFilterType] = useState("all");
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>('create');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -744,9 +746,10 @@ useEffect(() => {
       (product.sku || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = filterCategory === "all" || product.category === filterCategory;
+    const matchesType = filterType === "all" || product.type === filterType;
     const isActive = product.isActive !== false;
     
-    return matchesSearch && matchesCategory && isActive;
+    return matchesSearch && matchesCategory && matchesType && isActive;
   });
 
   // Función de formateo de moneda - ACTUALIZADA
@@ -929,6 +932,16 @@ const formatStock = (qty: number | undefined | null): string => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="product">📦 Producto</SelectItem>
+                <SelectItem value="service">🛠️ Servicio</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -937,7 +950,8 @@ const formatStock = (qty: number | undefined | null): string => {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => (
-            <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
+              {isServiceProduct(product) && <ServiceRibbon />}
               <CardHeader className="pb-4">
                 {/* Imagen del producto */}
                 <div className="w-full h-48 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
@@ -1018,14 +1032,19 @@ const formatStock = (qty: number | undefined | null): string => {
                 )}
 
                 <div className="flex items-center justify-between">
-                  {(product.stock_quantity ?? 0) < 0 ? (
-                    <span className="text-sm font-semibold text-white bg-red-600 px-2 py-0.5 rounded">
-                      Stock: {formatStock(product.stock_quantity)}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-gray-600">
-                      Stock: {formatStock(product.stock_quantity)}
-                    </span>
+                  {!isServiceProduct(product) && (
+                    (product.stock_quantity ?? 0) < 0 ? (
+                      <span className="text-sm font-semibold text-white bg-red-600 px-2 py-0.5 rounded">
+                        Stock: {formatStock(product.stock_quantity)}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-600">
+                        Stock: {formatStock(product.stock_quantity)}
+                      </span>
+                    )
+                  )}
+                  {isServiceProduct(product) && (
+                    <span className="text-xs text-blue-600 font-medium">Sin inventario</span>
                   )}
                   <div className="flex gap-1">
                     <Button
@@ -1065,7 +1084,8 @@ const formatStock = (qty: number | undefined | null): string => {
           <CardContent>
             <div className="space-y-4">
               {filteredProducts.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg relative overflow-hidden">
+                  {isServiceProduct(product) && <ServiceRibbon size="sm" />}
                   <div className="flex items-center space-x-4">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                       {getProductMainImage(product) ? (
@@ -1099,7 +1119,9 @@ const formatStock = (qty: number | undefined | null): string => {
                         {(product.stock_quantity ?? 0) < 0 ? (
                           <Badge className="bg-red-600 text-white border-red-600">Stock: {formatStock(product.stock_quantity)}</Badge>
                         ) : (
-                          <Badge variant="outline">Stock: {formatStock(product.stock_quantity)}</Badge>
+                          !isServiceProduct(product)
+                            ? <Badge variant="outline">Stock: {formatStock(product.stock_quantity)}</Badge>
+                            : <Badge variant="secondary" className="text-blue-700 bg-blue-50">Sin inventario</Badge>
                         )}
                         {product.sku && (
                           <Badge variant="outline" className="font-mono text-xs">
@@ -1619,6 +1641,12 @@ const formatStock = (qty: number | undefined | null): string => {
                       </Badge>
                     </div>
 
+                    {isServiceProduct(selectedProduct || {} as Product) ? (
+                      <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+                        🛠️ Este es un <strong>servicio</strong>. Los servicios no manejan stock ni movimientos de inventario.
+                      </div>
+                    ) : (
+                    <>
                     <p className="text-xs text-green-700 bg-green-100 border border-green-300 rounded px-3 py-2">
                       La modificación de stock se realiza a través de <strong>Ajuste de Inventario</strong> o <strong>Gestión de Compras</strong>.
                     </p>
@@ -1647,6 +1675,8 @@ const formatStock = (qty: number | undefined | null): string => {
                         ))}
                       </div>
                     </div>
+                    </>
+                    )}
                   </div>
 
                   {selectedProduct?.specifications && (

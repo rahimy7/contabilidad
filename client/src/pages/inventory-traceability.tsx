@@ -155,7 +155,7 @@ export default function InventoryTraceability() {
     enabled: !!selectedProduct,
   });
 
-  // Filter stock by search query
+  // Filter stock by search query — exclude services
   const filteredStock = stockData.filter((product) => {
     const matchesSearch =
       product.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,6 +163,9 @@ export default function InventoryTraceability() {
       product.barcode?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
+
+  // Products for filter dropdown — exclude services
+  const tangibleProducts = (products as any[]).filter((p: any) => p.type !== 'service');
 
   // Filter movements by search query
   const filteredMovements = movements.filter((movement) => {
@@ -633,7 +636,7 @@ export default function InventoryTraceability() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Todos los Productos</option>
-            {products.map((product) => (
+            {tangibleProducts.map((product: any) => (
               <option key={product.id} value={product.id}>
                 {product.name} {product.sku ? `(${product.sku})` : ""}
               </option>

@@ -254,11 +254,12 @@ export default function Reports() {
     return Object.values(salesByProduct).sort((a, b) => b.quantity - a.quantity);
   }, [products, orders]);
 
-  // Zero stock products (productos con stock en cero)
+  // Zero stock products (productos con stock en cero) — excluye servicios
   const zeroStockProducts = React.useMemo(() => {
     if (!Array.isArray(products)) return [];
 
     return products.filter((product: any) => {
+      if (product.type === 'service') return false; // Servicios no manejan stock
       const stock = parseInt(product.stock_quantity) || 0;
       return stock === 0;
     }).map((product: any) => ({
@@ -269,7 +270,7 @@ export default function Reports() {
     }));
   }, [products]);
 
-  // Inventory metrics
+  // Inventory metrics — excluye servicios del conteo de stock
   const inventoryMetrics = React.useMemo(() => {
     if (!Array.isArray(products)) {
       return {
@@ -282,14 +283,15 @@ export default function Reports() {
       };
     }
 
-    const totalProducts = products.length;
-    const totalStock = products.reduce((sum: number, p: any) => sum + (parseInt(p.stock_quantity) || 0), 0);
-    const zeroStockCount = products.filter((p: any) => (parseInt(p.stock_quantity) || 0) === 0).length;
-    const lowStockCount = products.filter((p: any) => {
+    const tangibleProducts = products.filter((p: any) => p.type !== 'service');
+    const totalProducts = tangibleProducts.length;
+    const totalStock = tangibleProducts.reduce((sum: number, p: any) => sum + (parseInt(p.stock_quantity) || 0), 0);
+    const zeroStockCount = tangibleProducts.filter((p: any) => (parseInt(p.stock_quantity) || 0) === 0).length;
+    const lowStockCount = tangibleProducts.filter((p: any) => {
       const stock = parseInt(p.stock_quantity) || 0;
       return stock > 0 && stock <= 10;
     }).length;
-    const totalInventoryValue = products.reduce((sum: number, p: any) =>
+    const totalInventoryValue = tangibleProducts.reduce((sum: number, p: any) =>
       sum + ((parseInt(p.stock_quantity) || 0) * (parseFloat(p.price) || 0)), 0);
     const averageStockPerProduct = totalProducts > 0 ? Math.round(totalStock / totalProducts) : 0;
 
@@ -816,8 +818,8 @@ export default function Reports() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">${product.revenue.toLocaleString('es-MX')}</div>
-                      <Badge variant={product.category === "service" ? "secondary" : "default"}>
-                        {product.category === "service" ? "Servicio" : "Producto"}
+                      <Badge variant={product.category === "service" || (product as any).type === 'service' ? "secondary" : "default"}>
+                        {(product as any).type === 'service' || product.category === "service" ? "Servicio" : "Producto"}
                       </Badge>
                     </div>
                   </div>

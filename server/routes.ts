@@ -598,12 +598,14 @@ const createProductHandler = async (req: any, res: any) => {
     };
 
     // ✅ CONSTRUCCIÓN EXPLÍCITA DE PRODUCTDATA CON ARRAYS NORMALIZADOS
+    const isService = req.body.type === 'service';
     const productData = {
       name: req.body.name.trim(),
       description: req.body.description || '',
       price: req.body.price || '0.00',
       baseCurrency: requestedCurrency.toUpperCase(), // ✅ AGREGADO: Campo de moneda
       category: req.body.category || 'general',
+      type: isService ? 'service' : 'product', // ✅ Tipo: 'product' | 'service'
       status: req.body.status || 'active',
       imageUrl: req.body.imageUrl || null,
       images: normalizeArrayField(req.body.images),    // ✅ NORMALIZADO
@@ -615,13 +617,14 @@ const createProductHandler = async (req: any, res: any) => {
       features: normalizeArrayField(req.body.features), // ✅ NORMALIZADO - CRÍTICO
       warranty: req.body.warranty || null,
       availability: req.body.availability || 'in_stock',
-      stockQuantity: parseInt(req.body.stockQuantity) || 0,
-      minQuantity: parseInt(req.body.minQuantity) || 1,
-      maxQuantity: req.body.maxQuantity ? parseInt(req.body.maxQuantity) : null,
-      lotNumber: req.body.lotNumber || null, // ✅ Número de lote
-      expirationDate: req.body.expirationDate || null, // ✅ Fecha de vencimiento
-      weight: req.body.weight || null,
-      dimensions: req.body.dimensions || null,
+      // Servicios no manejan stock — siempre 0
+      stockQuantity: isService ? 0 : (parseInt(req.body.stockQuantity) || 0),
+      minQuantity: isService ? 0 : (parseInt(req.body.minQuantity) || 1),
+      maxQuantity: isService ? null : (req.body.maxQuantity ? parseInt(req.body.maxQuantity) : null),
+      lotNumber: isService ? null : (req.body.lotNumber || null), // Servicios sin lote
+      expirationDate: isService ? null : (req.body.expirationDate || null), // Servicios sin vencimiento
+      weight: isService ? null : (req.body.weight || null),
+      dimensions: isService ? null : (req.body.dimensions || null),
       tags: normalizeArrayField(req.body.tags),        // ✅ NORMALIZADO - CRÍTICO
       salePrice: req.body.salePrice || null,
       isPromoted: Boolean(req.body.isPromoted),
@@ -703,6 +706,19 @@ const updateProductHandler = async (req: any, res: any) => {
     // ✅ NUEVA VALIDACIÓN DE MONEDA SI SE ESTÁ ACTUALIZANDO
     const supportedCurrencies = ['USD', 'DOP'];
     let updateData = { ...req.body, updatedAt: new Date() };
+
+    // ✅ Normalizar tipo de producto
+    if (updateData.type !== undefined) {
+      updateData.type = updateData.type === 'service' ? 'service' : 'product';
+      // Si se cambia a servicio, limpiar campos de stock/inventario
+      if (updateData.type === 'service') {
+        updateData.stockQuantity = 0;
+        updateData.minQuantity = 0;
+        updateData.maxQuantity = null;
+        updateData.lotNumber = null;
+        updateData.expirationDate = null;
+      }
+    }
 
     // Si se está actualizando la moneda, validarla
     if (req.body.baseCurrency || req.body.currency) {
@@ -3337,7 +3353,18 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
   try {
     const user = req.user as AuthUser;
     const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId) : user.storeId;
-    const orderData = { ...req.body, storeId };
+
+    // Para ventas POS (orderType === 'sale') siempre guardamos quién creó la orden
+    // en assignedUserId para poder filtrar por cajero en el cierre de caja.
+    // Solo se aplica cuando el frontend no envió ya un assignedUserId.
+    const createdByUserId =
+      req.body.orderType === 'sale' && !req.body.assignedUserId ? user.id : undefined;
+
+    const orderData = {
+      ...req.body,
+      storeId,
+      ...(createdByUserId ? { assignedUserId: createdByUserId } : {}),
+    };
     
     const tenantStorage = await getTenantStorageWithSchema(user);
     

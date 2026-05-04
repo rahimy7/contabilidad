@@ -1274,6 +1274,7 @@ export default function EnhancedAddProduct() {
                     />
                   </div>
 
+                  {watch('type') !== 'service' && (
                   <div>
                     <Label htmlFor="stock">Stock Inicial</Label>
                     <Input
@@ -1284,6 +1285,7 @@ export default function EnhancedAddProduct() {
                       min="0"
                     />
                   </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1634,60 +1636,66 @@ export default function EnhancedAddProduct() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="availability">Disponibilidad</Label>
-                  <Controller
-                    name="availability"
-                    control={control}
-                    render={({ field }) => (
-                      <Select value={field.value || "in_stock"} onValueChange={field.onChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar disponibilidad" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in_stock">En Stock</SelectItem>
-                          <SelectItem value="out_of_stock">Agotado</SelectItem>
-                          <SelectItem value="on_order">Por Encargo</SelectItem>
-                          <SelectItem value="discontinued">Descontinuado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                {watch('type') === 'service' ? (
+                  <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+                    🛠️ Los servicios no manejan inventario. Los campos de stock, lote, vencimiento, peso y dimensiones no aplican.
+                  </div>
+                ) : (
+                  <>
                   <div>
-                    <Label htmlFor="stockQuantity">Cantidad en Stock</Label>
-                    <Input
-                      id="stockQuantity"
-                      type="number"
-                      {...register("stockQuantity", { valueAsNumber: true })}
-                      placeholder="0"
-                      min="0"
+                    <Label htmlFor="availability">Disponibilidad</Label>
+                    <Controller
+                      name="availability"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value || "in_stock"} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar disponibilidad" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in_stock">En Stock</SelectItem>
+                            <SelectItem value="out_of_stock">Agotado</SelectItem>
+                            <SelectItem value="on_order">Por Encargo</SelectItem>
+                            <SelectItem value="discontinued">Descontinuado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="stockQuantity">Cantidad en Stock</Label>
+                      <Input
+                        id="stockQuantity"
+                        type="number"
+                        {...register("stockQuantity", { valueAsNumber: true })}
+                        placeholder="0"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="minQuantity">Cantidad Mínima</Label>
+                      <Input
+                        id="minQuantity"
+                        type="number"
+                        {...register("minQuantity", { valueAsNumber: true })}
+                        placeholder="1"
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="minQuantity">Cantidad Mínima</Label>
+                    <Label htmlFor="maxQuantity">Cantidad Máxima</Label>
                     <Input
-                      id="minQuantity"
+                      id="maxQuantity"
                       type="number"
-                      {...register("minQuantity", { valueAsNumber: true })}
-                      placeholder="1"
-                   
+                      {...register("maxQuantity", { valueAsNumber: true })}
+                      placeholder="Sin límite"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="maxQuantity">Cantidad Máxima</Label>
-                  <Input
-                    id="maxQuantity"
-                    type="number"
-                    {...register("maxQuantity", { valueAsNumber: true })}
-                    placeholder="Sin límite"
-               
-                  />
-                </div>
+                  </>
+                )}
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">

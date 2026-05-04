@@ -117,9 +117,11 @@ export default function InventoryAdjustmentPage() {
 
   const filteredProducts = useMemo(
     () =>
-      (products as any[]).filter((p: any) =>
-        !search || p.name?.toLowerCase().includes(search.toLowerCase())
-      ),
+      (products as any[]).filter((p: any) => {
+        // Los servicios no manejan inventario, excluirlos del ajuste
+        if (p.type === 'service') return false;
+        return !search || p.name?.toLowerCase().includes(search.toLowerCase());
+      }),
     [products, search]
   );
 

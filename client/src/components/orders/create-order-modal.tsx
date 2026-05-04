@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Package, User } from "lucide-react";
 import { Product, Customer } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { ServiceRibbon, isServiceProduct } from "@/components/service-ribbon";
 
 const createOrderSchema = z.object({
   customerId: z.number(),
@@ -369,7 +370,8 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
               {Array.isArray(products) && products.map((product: Product) => {
                 const orderItem = orderItems.find(item => item.productId === product.id);
                 return (
-                  <Card key={product.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <Card key={product.id} className="cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden">
+                    {isServiceProduct(product as any) && <ServiceRibbon size="sm" />}
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1">
@@ -380,8 +382,8 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
                             <h4 className="font-medium text-sm">{product.name}</h4>
                             <p className="text-xs text-gray-500 mt-1">{product.description}</p>
                             <div className="flex items-center space-x-2 mt-2">
-                              <Badge variant={product.category === "service" ? "secondary" : "default"} className="text-xs">
-                                {product.category === "service" ? "Servicio" : "Producto"}
+                              <Badge variant={(product as any).type === 'service' || product.category === "service" ? "secondary" : "default"} className="text-xs">
+                                {(product as any).type === 'service' || product.category === "service" ? "Servicio" : "Producto"}
                               </Badge>
                               <span className="text-sm font-semibold text-primary">
                                 ${parseFloat(product.price).toLocaleString('es-MX')}

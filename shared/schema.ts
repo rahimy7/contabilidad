@@ -407,7 +407,8 @@ export const products = pgTable("products", {
   description: text("description"),
    baseCurrency: text("base_currency").notNull(), // 'USD', 'DOP'
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  category: text("category").notNull(), // 'product', 'service'
+  category: text("category").notNull(), // Categoría libre (ej: cocina, electrónica, etc.)
+  type: text("type").notNull().default("product"), // 'product' | 'service' — los servicios no manejan stock
   status: text("status").notNull().default("active"), // 'active', 'inactive'
   // Catalog functionality
   imageUrl: text("image_url"),
@@ -1115,6 +1116,7 @@ export const insertProductUnitConversionSchema = makeInsertSchema(productUnitCon
 }, ["id", "createdAt", "updatedAt"]);
 
 export const insertProductSchema = makeInsertSchema(products, {
+  type: z.enum(['product', 'service']).optional(),
   loyaltyPointsPropertyName: z.string().optional(),
   loyaltyPointsValue: z.string().refine(val => val === undefined || !isNaN(parseFloat(val)), "Loyalty points value must be a valid number").optional(),
   lotNumber: z.string().optional(),

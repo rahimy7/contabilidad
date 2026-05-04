@@ -863,6 +863,11 @@ async getStoreLocation(storeId: number): Promise<any | null> {
         throw new Error(`Producto ${productId} no encontrado`);
       }
 
+      // Los servicios no manejan stock ni movimientos de inventario
+      if ((product as any).type === 'service') {
+        throw new Error(`El producto "${product.name}" es un servicio y no maneja inventario.`);
+      }
+
       const currentStock = product.stockQuantity || 0;
 
       let delta = quantity;
@@ -5324,20 +5329,23 @@ async getUsersByRole(role: string) {
           }
         }
 
-        // Validar stock disponible (en unidad base)
+        // Validar stock disponible (en unidad base) — SOLO para productos tangibles
+        const isServiceProduct = (product as any).type === 'service';
         const availableStock = product.stockQuantity || 0;
-        if (availableStock < quantityInBaseUnit) {
+        if (!isServiceProduct && availableStock < quantityInBaseUnit) {
           throw new Error(
             `Stock insuficiente para producto "${product.name}". ` +
             `Disponible: ${availableStock}, Requerido: ${quantityInBaseUnit}`
           );
         }
 
-        // Guardar para actualizar stock después
-        stockUpdates.push({
-          productId: product.id,
-          quantityToReduce: quantityInBaseUnit,
-        });
+        // Guardar para actualizar stock después (solo productos tangibles)
+        if (!isServiceProduct) {
+          stockUpdates.push({
+            productId: product.id,
+            quantityToReduce: quantityInBaseUnit,
+          });
+        }
 
         // Preparar item procesado
         processedItems.push({
@@ -5404,8 +5412,16 @@ async getUsersByRole(role: string) {
       await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
       console.log(`✅ ${itemsWithOrderId.length} items inserted`);
 
-      // Paso 5.5: Registrar movimientos de inventario (salidas por venta)
+      // Paso 5.5: Registrar movimientos de inventario (salidas por venta) — solo productos tangibles
       for (const item of itemsWithOrderId) {
+        // Buscar el tipo de producto en el resultado de processedItems
+        const productIdToCheck = item.productId;
+        const [prodForCheck] = await tenantDb.select({ type: (schema.products as any).type })
+          .from(schema.products)
+          .where(eq(schema.products.id, productIdToCheck))
+          .limit(1)
+          .catch(() => [{ type: 'product' }]);
+        if ((prodForCheck as any)?.type === 'service') continue; // Servicios sin inventario
         try {
           await tenantDb.insert(schema.inventoryMovements).values({
             storeId,
