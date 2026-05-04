@@ -1,7 +1,7 @@
 // client/src/pages/pos-screen.tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft, CalendarDays, Percent, CreditCard, Users, Receipt } from 'lucide-react';
+import { Plus, Trash2, Search, Barcode, X, ShoppingCart, DollarSign, Package, ArrowLeft, CalendarDays, Percent, CreditCard, Users, Receipt, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useLocation } from 'wouter';
 import { InvoiceModal } from '@/components/invoice-modal';
 import { AppointmentQuickCreateDialog } from '@/components/appointment-quick-create-dialog';
 import { ServiceRibbon, isServiceProduct } from '@/components/service-ribbon';
+import { CashWithdrawalDialog } from '@/components/pos/cash-withdrawal-dialog';
 
 type Product = {
   id: number;
@@ -251,6 +252,8 @@ export default function POSScreen() {
   const [debtPaymentAmount, setDebtPaymentAmount] = useState('');
   const [debtPaymentMethod, setDebtPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [debtSearch, setDebtSearch] = useState('');
+  // Cash withdrawal state
+  const [showCashWithdrawal, setShowCashWithdrawal] = useState(false);
   // Numeric keypad modal state
   const [showKeypadModal, setShowKeypadModal] = useState(false);
   const [keypadProduct, setKeypadProduct] = useState<Product | null>(null);
@@ -1215,6 +1218,14 @@ export default function POSScreen() {
             >
               <CreditCard className="w-4 h-4" />
               Pagar Deuda
+            </button>
+            {/* Cash withdrawal button */}
+            <button
+              onClick={() => setShowCashWithdrawal(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-red-700 text-white hover:bg-red-800 active:scale-95 transition-all shadow-md"
+            >
+              <TrendingDown className="w-4 h-4" />
+              Retiro de Caja
             </button>
           </div>
 
@@ -2731,6 +2742,12 @@ export default function POSScreen() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Cash Withdrawal Dialog */}
+      <CashWithdrawalDialog
+        open={showCashWithdrawal}
+        onClose={() => setShowCashWithdrawal(false)}
+        storeName={storeSettings?.storeName}
+      />
     </div>
   );
 }

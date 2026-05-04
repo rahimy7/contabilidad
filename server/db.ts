@@ -60,7 +60,11 @@ pool.on('error', (err) => {
   }
 });
 
-pool.on('connect', () => {
+pool.on('connect', (client) => {
+  // Forzar zona horaria República Dominicana en cada sesión PostgreSQL
+  client.query("SET timezone = 'America/Santo_Domingo'").catch((err) => {
+    console.error('⚠️ Error setting DB timezone:', err.message);
+  });
   console.log('✅ Nueva conexión Neon establecida');
 });
 

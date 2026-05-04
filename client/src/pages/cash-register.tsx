@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fmtDateTime, fmtDate as fmtDateDR, fmtDayMonth, nowDR, DR_TZ } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -29,6 +30,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { CloseWizard } from "@/components/cash-register/close-wizard";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ const fmt = (value: string | number | null | undefined, currency = "DOP") => {
 const fmtDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleString("es-DO", {
+    timeZone: DR_TZ,
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -125,10 +128,10 @@ function buildClosingThermalTicket(s: any): string {
   t += LEFT;
   t += BOLD_ON + 'Cajera: '    + BOLD_OFF + (s.cashierName ?? '—') + '\n';
   t += BOLD_ON + 'Apertura: '  + BOLD_OFF +
-       new Date(s.openedAt).toLocaleString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '\n';
+       new Date(s.openedAt).toLocaleString('es-DO', { timeZone: DR_TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '\n';
   if (s.closedAt) {
     t += BOLD_ON + 'Cierre:   ' + BOLD_OFF +
-         new Date(s.closedAt).toLocaleString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '\n';
+         new Date(s.closedAt).toLocaleString('es-DO', { timeZone: DR_TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '\n';
   }
   t += BOLD_ON + 'Fondo: ' + BOLD_OFF + 'RD$ ' + fmtNum(s.openingAmount) + '\n';
   t += LINE + '\n';
@@ -159,6 +162,12 @@ function buildClosingThermalTicket(s: any): string {
   t += pad32('Ventas:',       'RD$' + fmtNum(s.totalSalesAmount)) + '\n';
   t += pad32('Descuentos:',   'RD$' + fmtNum(s.totalDiscountsAmount)) + '\n';
   t += pad32('Cancelaciones:', String(s.totalCancellations ?? 0)) + '\n';
+  if (s.cashWithdrawalsTotal && parseFloat(s.cashWithdrawalsTotal) > 0) {
+    t += LINE + '\n';
+    t += CENTER + BOLD_ON + 'RETIROS DE EFECTIVO\n' + BOLD_OFF + LEFT;
+    t += pad32('Cantidad:', String(s.cashWithdrawalsCount ?? 0)) + '\n';
+    t += pad32('Total retirado:', '-RD$' + fmtNum(s.cashWithdrawalsTotal)) + '\n';
+  }
   t += LINE + '\n';
   const stLabels: Record<string, string> = {
     approved: 'APROBADO', closed: 'PENDIENTE APROBACION', rejected: 'RECHAZADO',
@@ -208,8 +217,8 @@ function buildClosingNormalHtml(s: any): string {
         <td style="width:50%;padding-bottom:8px"><strong>Estado:</strong>
           <span style="color:${stColor[st]};font-weight:700">${stLabel[st] ?? st}</span></td>
       </tr><tr>
-        <td style="padding-bottom:8px"><strong>Apertura:</strong> ${new Date(s.openedAt).toLocaleString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-        <td style="padding-bottom:8px"><strong>Cierre:</strong> ${s.closedAt ? new Date(s.closedAt).toLocaleString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+        <td style="padding-bottom:8px"><strong>Apertura:</strong> ${new Date(s.openedAt).toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+        <td style="padding-bottom:8px"><strong>Cierre:</strong> ${s.closedAt ? new Date(s.closedAt).toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
       </tr><tr>
         <td><strong>Fondo inicial:</strong> RD$ ${fmtNum(s.openingAmount)}</td><td></td>
       </tr>
@@ -240,9 +249,17 @@ function buildClosingNormalHtml(s: any): string {
         <td style="padding:8px 0"><strong>Descuentos:</strong> RD$ ${fmtNum(s.totalDiscountsAmount)}</td>
       </tr>
     </table>
+    ${s.cashWithdrawalsTotal && parseFloat(s.cashWithdrawalsTotal) > 0 ? `
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:10px;border-bottom:2px solid #dc2626;padding-bottom:6px;color:#dc2626">Retiros de Efectivo</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
+      <tr>
+        <td style="padding:8px 0;width:50%"><strong>Cantidad de retiros:</strong> ${s.cashWithdrawalsCount ?? 0}</td>
+        <td style="padding:8px 0;color:#dc2626;font-weight:700"><strong>Total retirado:</strong> −RD$ ${fmtNum(s.cashWithdrawalsTotal)}</td>
+      </tr>
+    </table>` : ''}
     ${s.discrepancyNote ? `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:12px;margin-bottom:16px"><strong>⚠ Nota de discrepancia:</strong><br>${s.discrepancyNote}</div>` : ''}
     ${s.rejectionReason  ? `<div style="background:#fee2e2;border:1px solid #f87171;border-radius:6px;padding:12px;margin-bottom:16px"><strong>Motivo de rechazo:</strong><br>${s.rejectionReason}</div>` : ''}
-    <p style="text-align:center;color:#9ca3af;font-size:11px;border-top:1px solid #e5e7eb;padding-top:12px">Impreso el ${new Date().toLocaleString('es-DO')}</p>
+    <p style="text-align:center;color:#9ca3af;font-size:11px;border-top:1px solid #e5e7eb;padding-top:12px">Impreso el ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}</p>
   </div></body></html>`;
 }
 
@@ -255,7 +272,7 @@ function buildMonthlyThermalTicket(data: any): string {
   t += LINE + '\n';
   t += LEFT + 'Fecha  Ords      Ventas\n' + LINE + '\n';
   for (const d of (data.days ?? [])) {
-    const dayStr  = new Date(d.date + 'T00:00:00').toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit' });
+    const dayStr  = new Date(d.date + 'T00:00:00').toLocaleDateString('es-DO', { timeZone: 'America/Santo_Domingo', day: '2-digit', month: '2-digit' });
     const ordStr  = String(d.totalOrders).padStart(4);
     const saleStr = ('RD$' + fmtNum(d.totalSales)).padStart(15);
     t += dayStr + ordStr + ' ' + saleStr + '\n';
@@ -281,7 +298,7 @@ function buildMonthlyNormalHtml(data: any): string {
   const sign = (v: number) => v >= 0 ? '+' : '';
 
   const bodyRows = (data.days ?? []).map((d: any) => `<tr>
-    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${new Date(d.date + 'T00:00:00').toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${new Date(d.date + 'T00:00:00').toLocaleDateString('es-DO', { timeZone: 'America/Santo_Domingo', day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
     <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">${d.sessionCount}</td>
     <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">${d.totalOrders}</td>
     <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right">RD$ ${fmtNum(d.totalSales)}</td>
@@ -324,7 +341,7 @@ function buildMonthlyNormalHtml(data: any): string {
       <strong>Descuentos del mes:</strong> RD$ ${fmtNum(tt?.totalDiscounts ?? 0)} &nbsp;&nbsp;
       <strong>Cancelaciones:</strong> ${tt?.totalCancellations ?? 0}
     </p>
-    <p style="text-align:center;color:#9ca3af;font-size:11px;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px">Impreso el ${new Date().toLocaleString('es-DO')}</p>
+    <p style="text-align:center;color:#9ca3af;font-size:11px;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px">Impreso el ${new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' })}</p>
   </div></body></html>`;
 }
 
@@ -413,10 +430,13 @@ export default function CashRegisterPage() {
 
   // Form state: cierre
   const [closeForm, setCloseForm] = useState({
+    openingAmount: 0,
     cashReported: 0, cardReported: 0, transferReported: 0, creditReported: 0,
     discrepancyNote: "", closingNotes: "",
   });
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showCloseWizard, setShowCloseWizard] = useState(false);
+  const [closeMode, setCloseMode] = useState<'wizard' | 'manual'>('wizard');
 
   // Closure scope: 'general' = caja general (dia), 'user' = por cajero (turno)
   const [closureScope, setClosureScope] = useState<'general' | 'user'>('general');
@@ -488,7 +508,7 @@ export default function CashRegisterPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/cash-register/sessions/current-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cash-register/sessions"] });
       setShowCloseConfirm(false);
-      setCloseForm({ cashReported: 0, cardReported: 0, transferReported: 0, creditReported: 0, discrepancyNote: "", closingNotes: "" });
+      setCloseForm({ openingAmount: 0, cashReported: 0, cardReported: 0, transferReported: 0, creditReported: 0, discrepancyNote: "", closingNotes: "" });
       const desc = closureScope === 'user'
         ? "El cierre de turno queda pendiente de aprobación."
         : "El cierre general queda pendiente de aprobación del supervisor.";
@@ -608,7 +628,8 @@ export default function CashRegisterPage() {
   const selectedCashierUser = storeUsers.find((u: any) => String(u.id) === selectedCashierId);
   const sessions: any[] = histData?.sessions ?? [];
 
-  const cashExpected     = parseFloat(stats?.cashTotal     ?? "0");
+  const cashSalesNet     = parseFloat(stats?.cashTotal     ?? "0"); // ventas efectivo - retiros
+  const cashExpected     = closeForm.openingAmount + cashSalesNet;  // gaveta = fondo + ventas - retiros
   const cardExpected     = parseFloat(stats?.cardTotal     ?? "0");
   const transferExpected = parseFloat(stats?.transferTotal ?? "0");
   const creditExpected   = parseFloat(stats?.creditTotal   ?? "0");
@@ -651,92 +672,31 @@ export default function CashRegisterPage() {
         {/* ════════════════ NUEVO CIERRE ════════════════ */}
         <TabsContent value="current" className="space-y-4 mt-4">
 
-          {/* Tipo de cierre */}
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tipo de cierre</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setClosureScope('general'); setSelectedCashierId(''); }}
-                  className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                    closureScope === 'general'
-                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-300'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className={`rounded-full p-2 ${
-                    closureScope === 'general' ? 'bg-blue-100' : 'bg-gray-100'
-                  }`}>
-                    <Landmark className={`h-4 w-4 ${
-                      closureScope === 'general' ? 'text-blue-600' : 'text-gray-500'
-                    }`} />
-                  </div>
-                  <div>
-                    <p className={`text-sm font-semibold ${
-                      closureScope === 'general' ? 'text-blue-800' : 'text-gray-700'
-                    }`}>Caja General</p>
-                    <p className="text-xs text-gray-400">Todas las ventas del día</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setClosureScope('user')}
-                  className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                    closureScope === 'user'
-                      ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-300'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className={`rounded-full p-2 ${
-                    closureScope === 'user' ? 'bg-purple-100' : 'bg-gray-100'
-                  }`}>
-                    <User className={`h-4 w-4 ${
-                      closureScope === 'user' ? 'text-purple-600' : 'text-gray-500'
-                    }`} />
-                  </div>
-                  <div>
-                    <p className={`text-sm font-semibold ${
-                      closureScope === 'user' ? 'text-purple-800' : 'text-gray-700'
-                    }`}>Por Cajero</p>
-                    <p className="text-xs text-gray-400">Cierre de turno individual</p>
-                  </div>
-                </button>
-              </div>
-
-              {/* Cashier selector (visible only in 'user' mode) */}
-              {closureScope === 'user' && (
-                <div className="mt-4 space-y-1">
-                  <Label className="text-xs text-gray-500">Cajero / Empleado</Label>
-                  <Select
-                    value={selectedCashierId}
-                    onValueChange={(v) => setSelectedCashierId(v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona el cajero..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {storeUsers.map((u: any) => (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          <span className="flex items-center gap-2">
-                            <Users className="h-3 w-3" />
-                            {u.name}
-                            {u.role && (
-                              <span className="text-xs text-gray-400 ml-1">({u.role})</span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {closureScope === 'user' && !selectedCashierId && (
-                    <p className="text-xs text-amber-600 mt-1">Selecciona un cajero para ver su turno.</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Toggle: modo de cierre */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+            <button
+              type="button"
+              onClick={() => setCloseMode('wizard')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                closeMode === 'wizard'
+                  ? 'bg-white shadow text-blue-700'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              ✨ Asistido
+            </button>
+            <button
+              type="button"
+              onClick={() => setCloseMode('manual')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                closeMode === 'manual'
+                  ? 'bg-white shadow text-blue-700'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              📋 Manual
+            </button>
+          </div>
 
           {/* Período del cierre */}
           <Card>
@@ -797,6 +757,126 @@ export default function CashRegisterPage() {
             ))}
           </div>
 
+          {/* Retiros del período */}
+          {stats && parseFloat(stats.cashWithdrawalsTotal ?? "0") > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="h-5 w-5 text-red-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800">
+                        Retiros de Efectivo del Período ({stats.cashWithdrawalsCount ?? 0})
+                      </p>
+                      <p className="text-xs text-red-600 mt-0.5">
+                        Ventas efectivo: {fmt(stats.cashTotalGross ?? "0")} − Retiros: {fmt(stats.cashWithdrawalsTotal)} = Efectivo esperado: {fmt(stats.cashTotal)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold text-red-700">−{fmt(stats.cashWithdrawalsTotal)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {closeMode === 'wizard' ? (
+          /* CTA: Iniciar cierre asistido */
+          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-600 text-white rounded-full p-3 shadow-lg">
+                    <Landmark className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-gray-900">Cierre de Caja Asistido</p>
+                    <p className="text-xs text-gray-600">
+                      Te guiaré paso a paso por el cierre. Selecciona el tipo, ingresa el fondo inicial y los montos contados.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 shadow-md"
+                  onClick={() => setShowCloseWizard(true)}
+                >
+                  Iniciar Cierre
+                  <CheckCircle2 className="h-5 w-5 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          ) : (
+          /* MODO MANUAL: tipo de cierre + tabla de cuadre tradicional */
+          <>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tipo de cierre</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setClosureScope('general'); setSelectedCashierId(''); }}
+                  className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
+                    closureScope === 'general'
+                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-300'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className={`rounded-full p-2 ${closureScope === 'general' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                    <Landmark className={`h-4 w-4 ${closureScope === 'general' ? 'text-blue-600' : 'text-gray-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${closureScope === 'general' ? 'text-blue-800' : 'text-gray-700'}`}>Caja General</p>
+                    <p className="text-xs text-gray-400">Todas las ventas del día</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setClosureScope('user')}
+                  className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
+                    closureScope === 'user'
+                      ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-300'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className={`rounded-full p-2 ${closureScope === 'user' ? 'bg-purple-100' : 'bg-gray-100'}`}>
+                    <User className={`h-4 w-4 ${closureScope === 'user' ? 'text-purple-600' : 'text-gray-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${closureScope === 'user' ? 'text-purple-800' : 'text-gray-700'}`}>Por Cajero</p>
+                    <p className="text-xs text-gray-400">Cierre de turno individual</p>
+                  </div>
+                </button>
+              </div>
+
+              {closureScope === 'user' && (
+                <div className="mt-4 space-y-1">
+                  <Label className="text-xs text-gray-500">Cajero / Empleado</Label>
+                  <Select value={selectedCashierId} onValueChange={(v) => setSelectedCashierId(v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el cajero..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {storeUsers.map((u: any) => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          <span className="flex items-center gap-2">
+                            <Users className="h-3 w-3" />
+                            {u.name}
+                            {u.role && (<span className="text-xs text-gray-400 ml-1">({u.role})</span>)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!selectedCashierId && (
+                    <p className="text-xs text-amber-600 mt-1">Selecciona un cajero para ver su turno.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Tabla de pagos por método */}
           <Card>
             <CardHeader>
@@ -806,58 +886,66 @@ export default function CashRegisterPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Banner instructivo */}
-              <div className="mb-4 flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
-                <div className="relative flex-shrink-0">
-                  <div className="absolute inset-0 rounded-full bg-emerald-300 animate-ping opacity-60" />
-                  <div className="relative bg-emerald-500 text-white p-2 rounded-full">
-                    <DollarSign className="h-4 w-4" />
+              {/* Fondo inicial */}
+              <div className="mb-4 p-3 rounded-xl border-2 border-blue-200 bg-blue-50">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Banknote className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Fondo inicial de caja</p>
+                      <p className="text-xs text-blue-600">Monto en efectivo con que se inició la caja.</p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-emerald-800">Registra los montos contados en caja</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">Cuenta el efectivo físico e ingresa el monto en la fila <strong>Efectivo</strong>.</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-blue-700 font-medium">RD$</span>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      className="w-36 text-right font-bold text-blue-900 bg-white border-blue-300 focus:border-blue-500"
+                      value={closeForm.openingAmount || ""}
+                      onChange={(e) => setCloseForm((p) => ({ ...p, openingAmount: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-gray-500 text-xs uppercase">
-                    <th className="pb-2 text-left">Método</th>
-                    <th className="pb-2 text-right px-4">Sistema (Esperado)</th>
-                    <th className="pb-2 text-right pl-4">Cajera reporta</th>
-                    <th className="pb-2 text-right pl-4">Diferencia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <PaymentRow icon={Banknote} label="Efectivo" highlight
-                    expected={cashExpected} reported={closeForm.cashReported}
-                    onReportedChange={(v) => setCloseForm((p) => ({ ...p, cashReported: v }))} />
-                  <PaymentRow icon={CreditCard} label="Tarjeta"
-                    expected={cardExpected} reported={closeForm.cardReported}
-                    onReportedChange={(v) => setCloseForm((p) => ({ ...p, cardReported: v }))} />
-                  <PaymentRow icon={ArrowRightLeft} label="Transferencia"
-                    expected={transferExpected} reported={closeForm.transferReported}
-                    onReportedChange={(v) => setCloseForm((p) => ({ ...p, transferReported: v }))} />
-                  <PaymentRow icon={Clock} label="Crédito"
-                    expected={creditExpected} reported={closeForm.creditReported}
-                    onReportedChange={(v) => setCloseForm((p) => ({ ...p, creditReported: v }))} />
-                </tbody>
-                <tfoot>
-                  <tr className="border-t bg-gray-50 font-bold text-sm">
-                    <td className="pt-3 pb-2 pl-1">Total</td>
-                    <td className="pt-3 pb-2 text-right px-4 whitespace-nowrap">{fmt(totalExpected)}</td>
-                    <td className="pt-3 pb-2 text-right pl-4 whitespace-nowrap">{fmt(totalReported)}</td>
-                    <td className={`pt-3 pb-2 text-right pl-4 whitespace-nowrap ${diffColor(totalDiff)}`}>
-                      {totalDiff > 0 ? "+" : ""}{fmt(totalDiff)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-gray-500 text-xs uppercase">
+                      <th className="pb-2 text-left">Método</th>
+                      <th className="pb-2 text-right px-4">Sistema (Esperado)</th>
+                      <th className="pb-2 text-right pl-4">Cajera reporta</th>
+                      <th className="pb-2 text-right pl-4">Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <PaymentRow icon={Banknote} label="Efectivo" highlight
+                      expected={cashExpected} reported={closeForm.cashReported}
+                      onReportedChange={(v) => setCloseForm((p) => ({ ...p, cashReported: v }))} />
+                    <PaymentRow icon={CreditCard} label="Tarjeta"
+                      expected={cardExpected} reported={closeForm.cardReported}
+                      onReportedChange={(v) => setCloseForm((p) => ({ ...p, cardReported: v }))} />
+                    <PaymentRow icon={ArrowRightLeft} label="Transferencia"
+                      expected={transferExpected} reported={closeForm.transferReported}
+                      onReportedChange={(v) => setCloseForm((p) => ({ ...p, transferReported: v }))} />
+                    <PaymentRow icon={Clock} label="Crédito"
+                      expected={creditExpected} reported={closeForm.creditReported}
+                      onReportedChange={(v) => setCloseForm((p) => ({ ...p, creditReported: v }))} />
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t bg-gray-50 font-bold text-sm">
+                      <td className="pt-3 pb-2 pl-1">Total</td>
+                      <td className="pt-3 pb-2 text-right px-4 whitespace-nowrap">{fmt(totalExpected)}</td>
+                      <td className="pt-3 pb-2 text-right pl-4 whitespace-nowrap">{fmt(totalReported)}</td>
+                      <td className={`pt-3 pb-2 text-right pl-4 whitespace-nowrap ${diffColor(totalDiff)}`}>
+                        {totalDiff > 0 ? "+" : ""}{fmt(totalDiff)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
 
-              {/* Nota de discrepancia */}
               {needsNote && (
                 <div className="mt-4 p-3 rounded-md bg-amber-50 border border-amber-200 flex gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
@@ -874,7 +962,6 @@ export default function CashRegisterPage() {
                 </div>
               )}
 
-              {/* Notas de cierre opcionales */}
               <div className="mt-4 space-y-1">
                 <Label className="text-xs text-gray-500">Notas de cierre (opcional)</Label>
                 <Textarea
@@ -897,6 +984,8 @@ export default function CashRegisterPage() {
               </Button>
             </CardContent>
           </Card>
+          </>
+          )}
         </TabsContent>
 
         {/* ════════════════ HISTORIAL ════════════════ */}
@@ -1169,6 +1258,7 @@ export default function CashRegisterPage() {
                             <TableRow key={d.date}>
                               <TableCell className="text-sm font-medium">
                                 {new Date(d.date + "T00:00:00").toLocaleDateString("es-DO", {
+                                  timeZone: 'America/Santo_Domingo',
                                   weekday: "short", day: "2-digit", month: "short",
                                 })}
                               </TableCell>
@@ -1208,7 +1298,27 @@ export default function CashRegisterPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ── Modal confirmar cierre ── */}
+      {/* ── Wizard de Cierre Asistido ── */}
+      <CloseWizard
+        open={showCloseWizard}
+        onOpenChange={setShowCloseWizard}
+        storeUsers={storeUsers}
+        stats={stats}
+        isLoadingStats={loadingCurrent}
+        onCashierChange={(cid) => {
+          if (cid) {
+            setClosureScope('user');
+            setSelectedCashierId(cid);
+          } else {
+            setClosureScope('general');
+            setSelectedCashierId('');
+          }
+        }}
+        onSubmit={(payload) => closeMutation.mutate(payload)}
+        isPending={closeMutation.isPending}
+      />
+
+      {/* ── Modal confirmar cierre (modo manual) ── */}
       <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -1217,9 +1327,8 @@ export default function CashRegisterPage() {
             </DialogTitle>
             <DialogDescription>
               {closureScope === 'user' && selectedCashierUser
-                ? `Se registrará el cierre de turno de ${selectedCashierUser.name}. Los montos no podrán modificarse.`
-                : 'Se registrará un nuevo cierre general. Los montos no podrán modificarse una vez confirmados.'
-              }
+                ? `Se registrará el cierre de turno de ${selectedCashierUser.name}.`
+                : 'Se registrará un nuevo cierre general. Los montos no podrán modificarse.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1231,11 +1340,15 @@ export default function CashRegisterPage() {
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-500">Total esperado (sistema)</span>
+              <span className="text-gray-500">Fondo inicial</span>
+              <span className="font-medium text-blue-700">{fmt(closeForm.openingAmount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Total esperado</span>
               <span className="font-medium">{fmt(totalExpected)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Total reportado (cajera)</span>
+              <span className="text-gray-500">Total reportado</span>
               <span className="font-medium">{fmt(totalReported)}</span>
             </div>
             <div className="flex justify-between border-t pt-2 font-semibold">
@@ -1255,6 +1368,7 @@ export default function CashRegisterPage() {
               disabled={closeMutation.isPending}
               onClick={() =>
                 closeMutation.mutate({
+                  openingAmount:    closeForm.openingAmount,
                   cashReported:     closeForm.cashReported,
                   cardReported:     closeForm.cardReported,
                   transferReported: closeForm.transferReported,

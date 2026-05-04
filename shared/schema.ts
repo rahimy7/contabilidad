@@ -1274,6 +1274,28 @@ export const insertCashRegisterSessionSchema = makeInsertSchema(cashRegisterSess
   "id", "createdAt", "updatedAt", "openedAt",
 ]);
 
+// ─── Cash Withdrawals ─────────────────────────────────────────────────────────
+export const cashWithdrawals = pgTable("cash_withdrawals", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  cashierId: integer("cashier_id").references(() => users.id).notNull(),
+  authorizedByUserId: integer("authorized_by_user_id").references(() => users.id).notNull(),
+  concept: text("concept").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("DOP"),
+  notes: text("notes"),
+  sessionType: text("session_type").notNull().default("day"), // 'day' | 'shift'
+  voided: boolean("voided").notNull().default(false),
+  voidedAt: timestamp("voided_at"),
+  voidedByUserId: integer("voided_by_user_id").references(() => users.id),
+  voidReason: text("void_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCashWithdrawalSchema = makeInsertSchema(cashWithdrawals, {}, [
+  "id", "createdAt",
+]);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -1367,6 +1389,9 @@ export type InsertCustomerHistory = z.infer<typeof insertCustomerHistorySchema>;
 
 export type CashRegisterSession = typeof cashRegisterSessions.$inferSelect;
 export type InsertCashRegisterSession = z.infer<typeof insertCashRegisterSessionSchema>;
+
+export type CashWithdrawal = typeof cashWithdrawals.$inferSelect;
+export type InsertCashWithdrawal = z.infer<typeof insertCashWithdrawalSchema>;
 
 export type Trip = typeof trips.$inferSelect;
 export type NewTrip = typeof trips.$inferInsert;

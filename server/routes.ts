@@ -18,6 +18,7 @@ import appointmentRoutes from './routes/appointment-routes';
 import inventoryAdjustmentRoutes from './routes/inventory-adjustment-routes';
 import creditRoutes from './routes/credit-routes';
 import cashRegisterRoutes from './routes/cash-register-routes';
+import cashWithdrawalsRoutes from './routes/cash-withdrawals-routes';
 
 // Schema and Types
 import {
@@ -1474,6 +1475,7 @@ app.use('/api', appointmentRoutes);
   app.use('/api', inventoryAdjustmentRoutes);
   app.use('/api', creditRoutes);
   app.use('/api', cashRegisterRoutes);
+  app.use('/api', cashWithdrawalsRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================

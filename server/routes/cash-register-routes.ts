@@ -26,7 +26,7 @@ async function getPeriodStart(db: any, storeId: number, cashierId?: number): Pro
         AND session_type = 'shift'
         AND status    IN ('closed', 'approved', 'rejected')
         AND closed_at IS NOT NULL
-        AND DATE(closed_at AT TIME ZONE 'UTC') = CURRENT_DATE
+        AND DATE(closed_at) = CURRENT_DATE
     `);
   } else {
     result = await db.execute(sql`
@@ -36,13 +36,14 @@ async function getPeriodStart(db: any, storeId: number, cashierId?: number): Pro
         AND session_type = 'day'
         AND status    IN ('closed', 'approved', 'rejected')
         AND closed_at IS NOT NULL
-        AND DATE(closed_at AT TIME ZONE 'UTC') = CURRENT_DATE
+        AND DATE(closed_at) = CURRENT_DATE
     `);
   }
   const lastClosed = result.rows[0]?.last_closed;
   if (lastClosed) return new Date(lastClosed);
+  // Sin cierres hoy: usar medianoche local como inicio
   const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
   return today;
 }
 
@@ -105,6 +106,7 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
                  AND cashier_id  = ${cashierId}
                  AND session_type = 'shift'
                  AND status IN ('closed', 'approved', 'rejected')
+                 AND closed_at IS NOT NULL
                  AND DATE(closed_at) = CURRENT_DATE
               ),
               CURRENT_DATE::timestamp
@@ -119,7 +121,13 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
             COALESCE(SUM(CASE WHEN o.payment_method = 'transfer' THEN o.total_amount ELSE 0 END)::numeric, 0) AS transfer_total,
             COALESCE(SUM(CASE WHEN o.payment_method = 'credit'   THEN o.total_amount ELSE 0 END)::numeric, 0) AS credit_total,
             COALESCE(SUM(o.discount_amount)::numeric, 0)                                                      AS total_discounts,
-            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations
+            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations,
+            COALESCE((SELECT SUM(w.amount)::numeric FROM cash_withdrawals w
+                      WHERE w.store_id = ${storeId} AND w.cashier_id = ${cashierId}
+                        AND w.voided = FALSE AND w.created_at >= p.period_start), 0) AS cash_withdrawals_total,
+            COALESCE((SELECT COUNT(w.id)::int FROM cash_withdrawals w
+                      WHERE w.store_id = ${storeId} AND w.cashier_id = ${cashierId}
+                        AND w.voided = FALSE AND w.created_at >= p.period_start), 0) AS cash_withdrawals_count
           FROM period p
           LEFT JOIN orders o
             ON  o.store_id          = ${storeId}
@@ -137,6 +145,7 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
                WHERE store_id    = ${storeId}
                  AND session_type = 'day'
                  AND status IN ('closed', 'approved', 'rejected')
+                 AND closed_at IS NOT NULL
                  AND DATE(closed_at) = CURRENT_DATE
               ),
               CURRENT_DATE::timestamp
@@ -151,7 +160,13 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
             COALESCE(SUM(CASE WHEN o.payment_method = 'transfer' THEN o.total_amount ELSE 0 END)::numeric, 0) AS transfer_total,
             COALESCE(SUM(CASE WHEN o.payment_method = 'credit'   THEN o.total_amount ELSE 0 END)::numeric, 0) AS credit_total,
             COALESCE(SUM(o.discount_amount)::numeric, 0)                                                      AS total_discounts,
-            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations
+            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations,
+            COALESCE((SELECT SUM(w.amount)::numeric FROM cash_withdrawals w
+                      WHERE w.store_id = ${storeId} AND w.voided = FALSE
+                        AND w.created_at >= p.period_start), 0) AS cash_withdrawals_total,
+            COALESCE((SELECT COUNT(w.id)::int FROM cash_withdrawals w
+                      WHERE w.store_id = ${storeId} AND w.voided = FALSE
+                        AND w.created_at >= p.period_start), 0) AS cash_withdrawals_count
           FROM period p
           LEFT JOIN orders o
             ON  o.store_id       = ${storeId}
@@ -162,6 +177,8 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
         `);
 
     const s = statsResult.rows[0] as any;
+    const cashWithdrawalsTotal = parseFloat(s?.cash_withdrawals_total ?? '0');
+    const cashTotalGross = parseFloat(s?.cash_total ?? '0');
 
     return res.json({
       periodStart:    s?.period_start ?? null,
@@ -169,14 +186,17 @@ router.get('/cash-register/sessions/current-stats', authenticateToken, async (re
       closuresToday,
       cashierId:      cashierId ?? null,
       stats: {
-        totalOrders:        s?.total_orders        ?? 0,
-        totalSales:         s?.total_sales         ?? '0',
-        cashTotal:          s?.cash_total          ?? '0',
-        cardTotal:          s?.card_total          ?? '0',
-        transferTotal:      s?.transfer_total      ?? '0',
-        creditTotal:        s?.credit_total        ?? '0',
-        totalDiscounts:     s?.total_discounts     ?? '0',
-        totalCancellations: s?.total_cancellations ?? 0,
+        totalOrders:           s?.total_orders        ?? 0,
+        totalSales:            s?.total_sales         ?? '0',
+        cashTotal:             Math.max(0, cashTotalGross - cashWithdrawalsTotal).toString(),
+        cashTotalGross:        cashTotalGross.toString(),
+        cardTotal:             s?.card_total          ?? '0',
+        transferTotal:         s?.transfer_total      ?? '0',
+        creditTotal:           s?.credit_total        ?? '0',
+        totalDiscounts:        s?.total_discounts     ?? '0',
+        totalCancellations:    s?.total_cancellations ?? 0,
+        cashWithdrawalsTotal:  cashWithdrawalsTotal.toString(),
+        cashWithdrawalsCount:  s?.cash_withdrawals_count ?? 0,
       },
     });
   } catch (error) {
@@ -306,6 +326,7 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
       cardReported:     z.number().min(0).default(0),
       transferReported: z.number().min(0).default(0),
       creditReported:   z.number().min(0).default(0),
+      openingAmount:    z.number().min(0).default(0),
       discrepancyNote:  z.string().optional(),
       closingNotes:     z.string().optional(),
       sessionType:      z.enum(['day', 'shift']).default('day'),
@@ -321,8 +342,8 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
     const db = await getTenantDb(user.storeId);
 
     // ─── Calcular período y estadísticas en SQL para evitar timezone issues ──
-    // CURRENT_DATE::timestamp y DATE(closed_at)=CURRENT_DATE trabajan con
-    // TIMESTAMP WITHOUT TZ, igual que los campos created_at / closed_at del esquema.
+    // El período del nuevo cierre va desde el ÚLTIMO cierre DE HOY hasta ahora.
+    // Si no hay cierres hoy, comienza desde medianoche local (CURRENT_DATE).
     const statsResult = body.sessionType === 'shift'
       ? await db.execute(sql`
           WITH period AS (
@@ -333,6 +354,7 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
                  AND cashier_id  = ${sessionCashierId}
                  AND session_type = 'shift'
                  AND status IN ('closed', 'approved', 'rejected')
+                 AND closed_at IS NOT NULL
                  AND DATE(closed_at) = CURRENT_DATE
               ),
               CURRENT_DATE::timestamp
@@ -348,7 +370,13 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
             COUNT(o.id)::int                                                                                   AS total_orders,
             COALESCE(SUM(o.total_amount)::numeric, 0)                                                         AS total_sales,
             COALESCE(SUM(o.discount_amount)::numeric, 0)                                                      AS total_discounts,
-            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations
+            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations,
+            COALESCE((SELECT SUM(w.amount)::numeric FROM cash_withdrawals w
+                      WHERE w.store_id = ${user.storeId} AND w.cashier_id = ${sessionCashierId}
+                        AND w.voided = FALSE AND w.created_at >= p.period_start), 0) AS cash_withdrawals_total,
+            COALESCE((SELECT COUNT(w.id)::int FROM cash_withdrawals w
+                      WHERE w.store_id = ${user.storeId} AND w.cashier_id = ${sessionCashierId}
+                        AND w.voided = FALSE AND w.created_at >= p.period_start), 0) AS cash_withdrawals_count
           FROM period p
           LEFT JOIN orders o
             ON  o.store_id          = ${user.storeId}
@@ -366,6 +394,7 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
                WHERE store_id    = ${user.storeId}
                  AND session_type = 'day'
                  AND status IN ('closed', 'approved', 'rejected')
+                 AND closed_at IS NOT NULL
                  AND DATE(closed_at) = CURRENT_DATE
               ),
               CURRENT_DATE::timestamp
@@ -381,7 +410,13 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
             COUNT(o.id)::int                                                                                   AS total_orders,
             COALESCE(SUM(o.total_amount)::numeric, 0)                                                         AS total_sales,
             COALESCE(SUM(o.discount_amount)::numeric, 0)                                                      AS total_discounts,
-            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations
+            COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END)::int                                           AS total_cancellations,
+            COALESCE((SELECT SUM(w.amount)::numeric FROM cash_withdrawals w
+                      WHERE w.store_id = ${user.storeId} AND w.voided = FALSE
+                        AND w.created_at >= p.period_start), 0) AS cash_withdrawals_total,
+            COALESCE((SELECT COUNT(w.id)::int FROM cash_withdrawals w
+                      WHERE w.store_id = ${user.storeId} AND w.voided = FALSE
+                        AND w.created_at >= p.period_start), 0) AS cash_withdrawals_count
           FROM period p
           LEFT JOIN orders o
             ON  o.store_id       = ${user.storeId}
@@ -392,11 +427,19 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
         `);
 
     const s = statsResult.rows[0] as any;
-    // Use NOW() from DB for closedAt to keep everything in the same timestamp domain
+    // ⚠️ openedAt / closedAt se insertan vía SQL templates para que usen
+    // directamente el wall-clock del DB (zona horaria de sesión = DR).
+    // Evita el roundtrip de JS Date que puede aplicar offsets incorrectos
+    // si el TZ de Node no coincide con el de la BD.
+    const periodStartSql = sql`${s.period_start}::timestamp`;
+    const periodEndSql   = sql`NOW()::timestamp`;
+    // Versión Date para devolver al cliente (informativa, no se almacena)
     const periodStart = s?.period_start ? new Date(s.period_start) : new Date();
-    const periodEnd   = new Date(); // always use JS now for closedAt (DB inserts as UTC)
+    const periodEnd   = new Date();
 
-    const cashExpected     = parseFloat(s.cash_expected);
+    const cashWithdrawalsTotal = parseFloat(s.cash_withdrawals_total ?? '0');
+    // cashExpected = fondo inicial + ventas en efectivo - retiros (lo que debería haber en gaveta)
+    const cashExpected     = Math.max(0, body.openingAmount + parseFloat(s.cash_expected) - cashWithdrawalsTotal);
     const cardExpected     = parseFloat(s.card_expected);
     const transferExpected = parseFloat(s.transfer_expected);
     const creditExpected   = parseFloat(s.credit_expected);
@@ -421,9 +464,9 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
         closedByUserId:       user.id,
         sessionType:          body.sessionType,
         status:               'closed',
-        openedAt:             periodStart,   // inicio del período cubierto
-        closedAt:             periodEnd,
-        openingAmount:        '0',
+        openedAt:             periodStartSql as any,  // raw SQL: período desde último cierre / inicio de día
+        closedAt:             periodEndSql as any,    // raw SQL: NOW() del DB (zona horaria de sesión)
+        openingAmount:        body.openingAmount.toString(),
         openingNotes:         body.closingNotes,
         cashReported:         body.cashReported.toString(),
         cardReported:         body.cardReported.toString(),
@@ -448,7 +491,13 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
       })
       .returning();
 
-    return res.status(201).json({ session: newSession });
+    return res.status(201).json({
+      session: {
+        ...newSession,
+        cashWithdrawalsTotal: cashWithdrawalsTotal.toString(),
+        cashWithdrawalsCount: s.cash_withdrawals_count ?? 0,
+      },
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Datos inválidos', details: error.errors });
@@ -488,9 +537,15 @@ router.put('/cash-register/sessions/:id/approve', authenticateToken, async (req:
       .set({
         status: 'approved',
         approvedByUserId: user.id,
-        approvedAt: new Date(),
-        updatedAt: new Date(),
+        approvedAt: sql`NOW()::timestamp` as any,
+        updatedAt:  sql`NOW()::timestamp` as any,
       })
+      .where(
+        and(
+          eq(schema.cashRegisterSessions.id, sessionId),
+          eq(schema.cashRegisterSessions.storeId, user.storeId),
+        ),
+      )
       .returning();
 
     return res.json({ session: updated });
@@ -533,8 +588,14 @@ router.put('/cash-register/sessions/:id/reject', authenticateToken, async (req: 
       .set({
         status: 'rejected',
         rejectionReason: body.rejectionReason,
-        updatedAt: new Date(),
+        updatedAt: sql`NOW()::timestamp` as any,
       })
+      .where(
+        and(
+          eq(schema.cashRegisterSessions.id, sessionId),
+          eq(schema.cashRegisterSessions.storeId, user.storeId),
+        ),
+      )
       .returning();
 
     return res.json({ session: updated });

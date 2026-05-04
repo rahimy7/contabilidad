@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
-dotenv.config()
+dotenv.config();
+// Zona horaria: República Dominicana (UTC-4, sin DST)
+if (!process.env.TZ) process.env.TZ = 'America/Santo_Domingo';
 // Agregar al inicio del archivo
 import { getTenantStorageWithSchema } from './routes.ts';
 import { StorageFactory } from './storage/storage-factory.js';

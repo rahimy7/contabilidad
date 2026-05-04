@@ -9,6 +9,7 @@ restartPolicyType = "on_failure"
 
 [variables]
 NODE_ENV = "production"
+TZ = "America/Santo_Domingo"
 
 # Railway automaticamente proporciona la variable PORT
 # No la definimos aquí para que use el puerto asignado dinámicamente
