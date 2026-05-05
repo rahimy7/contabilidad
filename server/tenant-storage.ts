@@ -665,6 +665,18 @@ async deleteOrder(id: number) {
   }
 },
 
+async getCreditTransactionByOrderId(orderId: number) {
+  try {
+    const [txn] = await tenantDb.select()
+      .from(schema.creditTransactions)
+      .where(eq(schema.creditTransactions.orderId, orderId))
+      .limit(1);
+    return txn || null;
+  } catch {
+    return null;
+  }
+},
+
 
 async getOrderItems(orderId: number) {
   return await this.db.select()

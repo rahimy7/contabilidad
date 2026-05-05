@@ -449,14 +449,17 @@ export default function POSScreen() {
     },
   });
 
-  // Fetch today's appointments using local date to avoid UTC day shifts.
+  // Fetch pending-payment appointments (last 90 days + future) so past unpaid appointments are also billable.
   const nowLocal = new Date();
   const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
+  const billingStartDate = new Date(nowLocal);
+  billingStartDate.setDate(billingStartDate.getDate() - 90);
+  const billingStartStr = `${billingStartDate.getFullYear()}-${String(billingStartDate.getMonth() + 1).padStart(2, '0')}-${String(billingStartDate.getDate()).padStart(2, '0')}`;
   const { data: todayAppointments = [] } = useQuery<any[]>({
-    queryKey: ['appointments-today', todayStr],
+    queryKey: ['appointments-pending-billing', billingStartStr],
     queryFn: async () => {
       const token = getAuthToken();
-      const response = await fetch(`/api/appointments/by-date/${todayStr}`, {
+      const response = await fetch(`/api/appointments?startDate=${billingStartStr}T00:00:00`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) return [];
@@ -2279,7 +2282,7 @@ export default function POSScreen() {
                   <h2 className="text-white font-bold text-lg leading-tight">Cobrar Cita</h2>
                   <p className="text-teal-100 text-xs mt-0.5">
                     {appointmentBillingStep === 'list'
-                      ? `${pendingTodayAppointments.length} cita(s) pendientes`
+                      ? `${pendingTodayAppointments.length} cita(s) sin cobrar`
                       : `Paso 2 de 2 · Confirmar cobro`}
                   </p>
                 </div>

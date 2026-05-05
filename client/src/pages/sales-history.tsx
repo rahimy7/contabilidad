@@ -65,6 +65,8 @@ type SaleOrder = {
   loyaltyPointsTotal?: string;
   loyaltyPointsPropertyName?: string;
   notes?: string | null;
+  creditBalanceBefore?: string | null;
+  creditBalanceAfter?: string | null;
   createdAt: string;
   updatedAt: string;
   storeId: number;
@@ -540,6 +542,10 @@ export default function SalesHistoryPage() {
           totalPrice: total,
         }];
 
+    const remainingBalance = order.orderType === 'credit_payment' && order.creditBalanceAfter != null
+      ? parseFloat(order.creditBalanceAfter)
+      : undefined;
+
     setInvoiceData({
       orderNumber: order.orderNumber,
       date: fmtDate(date.toISOString()),
@@ -547,6 +553,7 @@ export default function SalesHistoryPage() {
       paymentMethod: order.paymentMethod || 'cash',
       isCredit: order.paymentMethod === 'credit' || order.paymentStatus === 'credit',
       items: displayItems,
+      remainingBalance,
       subtotal,
       tax: 0,
       discountPercentage: discountPct,

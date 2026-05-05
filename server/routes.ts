@@ -3050,6 +3050,19 @@ router.get('/customers/search', authenticateToken, async (req: any, res: any) =>
           console.log(`ℹ️ No items found for order ${order.id}`);
         }
         const totalItems = items.length;
+
+        // Para pagos de deuda, obtener balances de la transacción de crédito
+        let creditBalanceBefore: string | null = null;
+        let creditBalanceAfter: string | null = null;
+        if (order.orderType === 'credit_payment') {
+          try {
+            const txn = await tenantStorage.getCreditTransactionByOrderId(order.id);
+            if (txn) {
+              creditBalanceBefore = txn.balanceBefore;
+              creditBalanceAfter = txn.balanceAfter;
+            }
+          } catch {}
+        }
         
         // Obtener información del viaje si existe
         let tripNumber = null;
@@ -3095,6 +3108,8 @@ customerLocation: {
           discountPercentage: order.discountPercentage || '0',
           receivedAmount: order.receivedAmount,
           changeAmount: order.changeAmount || '0',
+          creditBalanceBefore,
+          creditBalanceAfter,
           description: order.description,
           notes: order.notes,
           createdAt: order.createdAt,
