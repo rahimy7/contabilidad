@@ -64,6 +64,7 @@ type SaleOrder = {
   changeAmount?: string;
   loyaltyPointsTotal?: string;
   loyaltyPointsPropertyName?: string;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
   storeId: number;
@@ -524,19 +525,28 @@ export default function SalesHistoryPage() {
 
     const date = new Date(order.createdAt);
 
+    const displayItems = order.items.length > 0
+      ? order.items.map((item) => ({
+          productId: item.productId,
+          productName: item.product?.name || `Producto #${item.productId}`,
+          quantity: item.quantity,
+          unitPrice: parseFloat(item.unitPrice),
+          totalPrice: parseFloat(item.totalPrice),
+        }))
+      : [{
+          productName: order.notes || `Orden ${order.orderNumber}`,
+          quantity: 1,
+          unitPrice: total,
+          totalPrice: total,
+        }];
+
     setInvoiceData({
       orderNumber: order.orderNumber,
       date: fmtDate(date.toISOString()),
       time: fmtTime(date.toISOString()),
       paymentMethod: order.paymentMethod || 'cash',
       isCredit: order.paymentMethod === 'credit' || order.paymentStatus === 'credit',
-      items: order.items.map((item) => ({
-        productId: item.productId,
-        productName: item.product?.name || `Producto #${item.productId}`,
-        quantity: item.quantity,
-        unitPrice: parseFloat(item.unitPrice),
-        totalPrice: parseFloat(item.totalPrice),
-      })),
+      items: displayItems,
       subtotal,
       tax: 0,
       discountPercentage: discountPct,
