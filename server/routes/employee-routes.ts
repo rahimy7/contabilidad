@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticateToken, requireAdmin } from '../authMiddleware';
 import bcrypt from 'bcryptjs';
-import { getTenantStorageWithSchema } from 'server/routes';
+import { getTenantStorageWithSchema } from '../routes';
 import { getTenantDb } from '../multi-tenant-db';
 import { users } from '../../shared/schema';
 import { eq } from 'drizzle-orm';

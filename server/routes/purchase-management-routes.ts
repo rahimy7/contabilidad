@@ -186,8 +186,7 @@ router.get('/purchase-orders', authenticateToken, async (req: any, res: any) => 
       .leftJoin(
         schema.suppliers,
         eq(schema.purchaseOrders.supplierId, schema.suppliers.id)
-      )
-      .$dynamic();
+      );
 
     // Aplicar filtros
     const conditions = [eq(schema.purchaseOrders.storeId, user.storeId)];
@@ -708,8 +707,7 @@ router.get('/inventory-movements', authenticateToken, async (req: any, res: any)
       .leftJoin(
         schema.suppliers,
         eq(schema.inventoryMovements.supplierId, schema.suppliers.id)
-      )
-      .$dynamic();
+      );
 
     const conditions = [eq(schema.inventoryMovements.storeId, user.storeId)];
 

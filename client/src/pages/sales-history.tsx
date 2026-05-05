@@ -4,8 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Receipt, Search, Eye, Ban, Trash2, ChevronDown, ChevronUp,
   Calendar, CreditCard, User, Package, Loader2, AlertTriangle,
-  TrendingDown, Printer, FileText, ShieldCheck
+  TrendingDown, Printer, FileText, ShieldCheck, BarChart2, FileSpreadsheet, FileDown
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -140,6 +143,12 @@ export default function SalesHistoryPage() {
   const [wVoidUser, setWVoidUser]       = useState('');
   const [wVoidPass, setWVoidPass]       = useState('');
 
+  // Report dialog
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [reportOpen, setReportOpen]   = useState(false);
+  const [reportFrom, setReportFrom]   = useState(todayStr);
+  const [reportTo, setReportTo]       = useState(todayStr);
+
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data: storeSettings } = useQuery<any>({
     queryKey: ['store-settings'],
@@ -205,6 +214,39 @@ export default function SalesHistoryPage() {
     };
   }, [filtered]);
 
+  // Report data (filtered by date range, non-cancelled)
+  const reportOrders = useMemo(() => {
+    return sales.filter((o) => {
+      if (o.status === 'cancelled') return false;
+      const d = o.createdAt.split('T')[0];
+      if (reportFrom && d < reportFrom) return false;
+      if (reportTo && d > reportTo) return false;
+      return true;
+    });
+  }, [sales, reportFrom, reportTo]);
+
+  const reportProducts = useMemo(() => {
+    const map = new Map<number, { name: string; qty: number; total: number }>();
+    reportOrders.forEach((o) => {
+      o.items.forEach((item) => {
+        const existing = map.get(item.productId);
+        const qty = Number(item.quantity);
+        const total = parseFloat(item.totalPrice);
+        if (existing) {
+          existing.qty += qty;
+          existing.total += total;
+        } else {
+          map.set(item.productId, {
+            name: item.product?.name || `Producto #${item.productId}`,
+            qty,
+            total,
+          });
+        }
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [reportOrders]);
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const voidMutation = useMutation({
@@ -259,6 +301,218 @@ export default function SalesHistoryPage() {
   });
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleReportToday = () => {
+    const t = new Date().toISOString().split('T')[0];
+    setReportFrom(t);
+    setReportTo(t);
+  };
+
+  const handlePrintReport = () => {
+    const period = reportFrom === reportTo ? reportFrom : `${reportFrom} al ${reportTo}`;
+    const generated = new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' });
+    const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const totalSubtotal = reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0);
+    const totalDiscount = reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0);
+    const totalQty = reportProducts.reduce((s, p) => s + p.qty, 0);
+    const totalProdRevenue = reportProducts.reduce((s, p) => s + p.total, 0);
+
+    const salesRows = reportOrders.map((o) => `
+      <tr>
+        <td>${o.orderNumber}</td>
+        <td>${fmtDateTime(o.createdAt)}</td>
+        <td>${o.customer.name}</td>
+        <td>${PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—'}</td>
+        <td class="num">${formatCurrency(o.subtotalAmount || o.totalAmount)}</td>
+        <td class="num">${parseFloat(o.discountAmount || '0') > 0 ? formatCurrency(o.discountAmount) : '—'}</td>
+        <td class="num bold">${formatCurrency(o.totalAmount)}</td>
+      </tr>`).join('');
+
+    const productRows = reportProducts.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${p.name}</td>
+        <td class="num">${p.qty}</td>
+        <td class="num">${formatCurrency(p.total / p.qty)}</td>
+        <td class="num bold">${formatCurrency(p.total)}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    <title>Reporte de Ventas — ${period}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 20px; }
+      h1 { font-size: 18px; color: #1e3a8a; margin-bottom: 4px; }
+      h2 { font-size: 14px; color: #065f46; margin: 24px 0 8px; }
+      .meta { color: #555; font-size: 10px; margin-bottom: 16px; }
+      .stats { display: flex; gap: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+      .stat { text-align: center; }
+      .stat .val { font-size: 18px; font-weight: 700; color: #065f46; }
+      .stat .lbl { font-size: 9px; color: #6b7280; text-transform: uppercase; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+      th { background: #1e3a8a; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+      td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+      tr:nth-child(even) td { background: #f9fafb; }
+      .num { text-align: right; }
+      .bold { font-weight: 700; }
+      tfoot td { background: #f0fdf4 !important; font-weight: 700; color: #065f46; border-top: 2px solid #bbf7d0; }
+      h2.products { color: #1e40af; }
+      th.products-h { background: #065f46; }
+      .page-break { page-break-before: always; }
+      @media print { body { padding: 10px; } button { display: none; } }
+    </style></head><body>
+    <h1>Reporte de Ventas</h1>
+    <p class="meta">Período: <strong>${period}</strong> &nbsp;·&nbsp; Generado: ${generated}</p>
+    <div class="stats">
+      <div class="stat"><div class="val">${reportOrders.length}</div><div class="lbl">Ventas</div></div>
+      <div class="stat"><div class="val">${formatCurrency(totalSubtotal)}</div><div class="lbl">Subtotal</div></div>
+      <div class="stat"><div class="val">${formatCurrency(totalDiscount)}</div><div class="lbl">Descuentos</div></div>
+      <div class="stat"><div class="val">${formatCurrency(totalRevenue)}</div><div class="lbl">Total ingresos</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Factura</th><th>Fecha y Hora</th><th>Cliente</th><th>Método</th><th>Subtotal</th><th>Descuento</th><th>Total</th></tr></thead>
+      <tbody>${salesRows}</tbody>
+      <tfoot><tr><td></td><td></td><td></td><td>${reportOrders.length} ventas</td><td class="num">${formatCurrency(totalSubtotal)}</td><td class="num">${formatCurrency(totalDiscount)}</td><td class="num">${formatCurrency(totalRevenue)}</td></tr></tfoot>
+    </table>
+    <div class="page-break"></div>
+    <h2>Productos Vendidos</h2>
+    <table>
+      <thead><tr><th style="background:#065f46">#</th><th style="background:#065f46">Producto</th><th style="background:#065f46" class="num">Cant.</th><th style="background:#065f46" class="num">Precio Unit. Prom.</th><th style="background:#065f46" class="num">Total Vendido</th></tr></thead>
+      <tbody>${productRows}</tbody>
+      <tfoot><tr><td></td><td>TOTALES</td><td class="num">${totalQty}</td><td></td><td class="num">${formatCurrency(totalProdRevenue)}</td></tr></tfoot>
+    </table>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=1000,height=750');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  };
+
+  const handleExportReportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const period = reportFrom === reportTo ? reportFrom : `${reportFrom} al ${reportTo}`;
+    const generated = new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' });
+
+    // ── Page 1: Sales ───────────────────────────────────────────────────────
+    doc.setFontSize(18);
+    doc.setTextColor(30, 64, 175);
+    doc.text('Reporte de Ventas', 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Período: ${period}`, 14, 23);
+    doc.text(`Generado: ${generated}`, 14, 29);
+
+    const salesBody = reportOrders.map((o) => [
+      o.orderNumber,
+      fmtDateTime(o.createdAt),
+      o.customer.name,
+      PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—',
+      formatCurrency(o.subtotalAmount || o.totalAmount),
+      parseFloat(o.discountAmount || '0') > 0 ? `-${formatCurrency(o.discountAmount)}` : '—',
+      formatCurrency(o.totalAmount),
+    ]);
+
+    const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+
+    autoTable(doc, {
+      head: [['# Factura', 'Fecha y Hora', 'Cliente', 'Método de Pago', 'Subtotal', 'Descuento', 'Total']],
+      body: salesBody,
+      startY: 34,
+      foot: [['', '', '', `${reportOrders.length} ventas`, '', 'TOTAL', formatCurrency(totalRevenue)]],
+      footStyles: { fontStyle: 'bold', fillColor: [240, 253, 244], textColor: [21, 128, 61] },
+      headStyles: { fillColor: [30, 64, 175], textColor: 255 },
+      styles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+    });
+
+    // ── Page 2: Products ────────────────────────────────────────────────────
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(5, 150, 105);
+    doc.text('Productos Vendidos', 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Período: ${period}`, 14, 23);
+    doc.text(`Generado: ${generated}`, 14, 29);
+
+    const totalQty = reportProducts.reduce((s, p) => s + p.qty, 0);
+    const totalProdRevenue = reportProducts.reduce((s, p) => s + p.total, 0);
+
+    const productsBody = reportProducts.map((p, i) => [
+      i + 1,
+      p.name,
+      p.qty,
+      formatCurrency(p.total / p.qty),
+      formatCurrency(p.total),
+    ]);
+
+    autoTable(doc, {
+      head: [['#', 'Producto', 'Cant. Total', 'Precio Unit. Prom.', 'Total Vendido']],
+      body: productsBody,
+      startY: 34,
+      foot: [['', 'TOTALES', totalQty, '', formatCurrency(totalProdRevenue)]],
+      footStyles: { fontStyle: 'bold', fillColor: [240, 253, 244], textColor: [21, 128, 61] },
+      headStyles: { fillColor: [5, 150, 105], textColor: 255 },
+      styles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+    });
+
+    doc.save(`reporte-ventas_${reportFrom}_${reportTo}.pdf`);
+  };
+
+  const handleExportReportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    const period = reportFrom === reportTo ? reportFrom : `${reportFrom} al ${reportTo}`;
+
+    // ── Sheet 1: Ventas ─────────────────────────────────────────────────────
+    const salesHeader = ['# Factura', 'Fecha y Hora', 'Cliente', 'Método de Pago', 'Subtotal (DOP)', 'Descuento (DOP)', 'Total (DOP)'];
+    const salesRows: any[][] = reportOrders.map((o) => [
+      o.orderNumber,
+      fmtDateTime(o.createdAt),
+      o.customer.name,
+      PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—',
+      parseFloat(o.subtotalAmount || o.totalAmount),
+      parseFloat(o.discountAmount || '0'),
+      parseFloat(o.totalAmount),
+    ]);
+    const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    salesRows.push(['', '', '', `${reportOrders.length} ventas`, '', 'TOTAL', Math.round(totalRevenue * 100) / 100]);
+
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      [`Reporte de Ventas — ${period}`],
+      [],
+      salesHeader,
+      ...salesRows,
+    ]);
+    ws1['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Ventas');
+
+    // ── Sheet 2: Productos ──────────────────────────────────────────────────
+    const productsHeader = ['#', 'Producto', 'Cantidad Total', 'Precio Unit. Prom. (DOP)', 'Total Vendido (DOP)'];
+    const totalQty = reportProducts.reduce((s, p) => s + p.qty, 0);
+    const totalProdRevenue = reportProducts.reduce((s, p) => s + p.total, 0);
+    const productsRows: any[][] = reportProducts.map((p, i) => [
+      i + 1,
+      p.name,
+      p.qty,
+      Math.round((p.total / p.qty) * 100) / 100,
+      Math.round(p.total * 100) / 100,
+    ]);
+    productsRows.push(['', 'TOTALES', totalQty, '', Math.round(totalProdRevenue * 100) / 100]);
+
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      [`Productos Vendidos — ${period}`],
+      [],
+      productsHeader,
+      ...productsRows,
+    ]);
+    ws2['!cols'] = [{ wch: 6 }, { wch: 40 }, { wch: 16 }, { wch: 24 }, { wch: 22 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Productos');
+
+    XLSX.writeFile(wb, `reporte-ventas_${reportFrom}_${reportTo}.xlsx`);
+  };
 
   const handleViewInvoice = (order: SaleOrder) => {
     const total = parseFloat(order.totalAmount || '0');
@@ -337,6 +591,14 @@ export default function SalesHistoryPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Facturas y retiros del punto de venta</p>
           </div>
         </div>
+        <Button
+          variant="outline"
+          className="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+          onClick={() => setReportOpen(true)}
+        >
+          <BarChart2 className="h-4 w-4" />
+          Reporte de Ventas
+        </Button>
       </div>
 
       {/* Stats */}
@@ -746,8 +1008,7 @@ export default function SalesHistoryPage() {
       </Dialog>
 
       {/* ── Withdrawal Void Dialog ─────────────────────────────────────────── */}
-      <Dialog open={wVoidOpen} onOpenChange={(o) => { if (!o) { setWVoidOpen(false); setWVoidTarget(null); setWVoidReason(''); setWVoidUser(''); setWVoidPass(''); } }}>
-        <DialogContent className="max-w-sm">
+      <Dialog open={wVoidOpen} onOpenChange={(o) => { if (!o) { setWVoidOpen(false); setWVoidTarget(null); setWVoidReason(''); setWVoidUser(''); setWVoidPass(''); } }}>        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Ban className="h-5 w-5 text-orange-500" />
@@ -789,6 +1050,193 @@ export default function SalesHistoryPage() {
                 : 'Anular Retiro'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Report Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-[95vw] w-full h-[92vh] flex flex-col p-0 gap-0">
+          {/* Header bar — two rows */}
+          <div className="px-6 pt-4 pb-3 border-b shrink-0 space-y-3">
+            {/* Row 1: title */}
+            <div className="flex items-center gap-2 pr-10">
+              <BarChart2 className="h-5 w-5 text-blue-600 shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Reporte de Ventas</h2>
+            </div>
+            {/* Row 2: date pickers + action buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-gray-500 whitespace-nowrap">Desde</Label>
+                <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="h-8 text-sm w-36" />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-gray-500 whitespace-nowrap">Hasta</Label>
+                <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="h-8 text-sm w-36" />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleReportToday} className="h-8">
+                <Calendar className="h-3 w-3 mr-1" />Hoy
+              </Button>
+              <div className="h-5 w-px bg-gray-200 mx-1" />
+              <Button size="sm" variant="outline" className="h-8 border-gray-400 gap-1" disabled={reportOrders.length === 0} onClick={handlePrintReport}>
+                <Printer className="h-3 w-3" />Imprimir
+              </Button>
+              <Button size="sm" className="h-8 bg-red-600 hover:bg-red-700 text-white gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportPDF}>
+                <FileDown className="h-3 w-3" />PDF
+              </Button>
+              <Button size="sm" className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportExcel}>
+                <FileSpreadsheet className="h-3 w-3" />Excel
+              </Button>
+            </div>
+          </div>
+
+          {/* Report body — scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            {reportOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <BarChart2 className="h-12 w-12 mb-3 opacity-30" />
+                <p className="text-lg font-medium">Sin ventas en este período</p>
+                <p className="text-sm">Selecciona otro rango de fechas.</p>
+              </div>
+            ) : (
+              <>
+                {/* ── Summary cards ─────────────────────────────────────── */}
+                {(() => {
+                  const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+                  const totalSubtotal = reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0);
+                  const totalDiscount = reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0);
+                  const byMethod: Record<string, number> = {};
+                  reportOrders.forEach((o) => {
+                    const m = PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—';
+                    byMethod[m] = (byMethod[m] || 0) + parseFloat(o.totalAmount || '0');
+                  });
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-2xl font-bold text-blue-600">{reportOrders.length}</p>
+                          <p className="text-xs text-gray-500">Ventas</p>
+                        </CardContent></Card>
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-xl font-bold text-gray-700">{formatCurrency(totalSubtotal)}</p>
+                          <p className="text-xs text-gray-500">Subtotal</p>
+                        </CardContent></Card>
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-xl font-bold text-orange-500">{formatCurrency(totalDiscount)}</p>
+                          <p className="text-xs text-gray-500">Descuentos</p>
+                        </CardContent></Card>
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</p>
+                          <p className="text-xs text-gray-500">Total ingresos</p>
+                        </CardContent></Card>
+                      </div>
+                      {/* By payment method */}
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(byMethod).map(([method, amt]) => (
+                          <div key={method} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border rounded-lg px-3 py-2 text-sm">
+                            <CreditCard className="h-3 w-3 text-gray-400" />
+                            <span className="text-gray-600 dark:text-gray-300">{method}:</span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(amt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* ── Sales table ───────────────────────────────────────── */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-blue-500" />
+                    Listado de Ventas
+                  </h3>
+                  <div className="rounded-lg border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-blue-700 text-white text-xs">
+                          <th className="text-left px-3 py-2">Factura</th>
+                          <th className="text-left px-3 py-2">Fecha y Hora</th>
+                          <th className="text-left px-3 py-2">Cliente</th>
+                          <th className="text-left px-3 py-2">Método</th>
+                          <th className="text-right px-3 py-2">Subtotal</th>
+                          <th className="text-right px-3 py-2">Descuento</th>
+                          <th className="text-right px-3 py-2">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportOrders.map((o, i) => (
+                          <tr key={o.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
+                            <td className="px-3 py-2 font-medium text-blue-700">{o.orderNumber}</td>
+                            <td className="px-3 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDateTime(o.createdAt)}</td>
+                            <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{o.customer.name}</td>
+                            <td className="px-3 py-2 text-gray-500">{PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—'}</td>
+                            <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-200">{formatCurrency(o.subtotalAmount || o.totalAmount)}</td>
+                            <td className="px-3 py-2 text-right text-orange-500">
+                              {parseFloat(o.discountAmount || '0') > 0 ? `-${formatCurrency(o.discountAmount)}` : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(o.totalAmount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-emerald-50 dark:bg-emerald-900/30 font-bold text-emerald-700 dark:text-emerald-300 border-t-2 border-emerald-200">
+                          <td className="px-3 py-2" colSpan={4}>{reportOrders.length} ventas</td>
+                          <td className="px-3 py-2 text-right">
+                            {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0))}
+                          </td>
+                          <td className="px-3 py-2 text-right text-orange-600">
+                            {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0))}
+                          </td>
+                          <td className="px-3 py-2 text-right text-emerald-600">
+                            {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* ── Products table ────────────────────────────────────── */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-emerald-600" />
+                    Productos Vendidos
+                  </h3>
+                  <div className="rounded-lg border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-emerald-700 text-white text-xs">
+                          <th className="text-left px-3 py-2">#</th>
+                          <th className="text-left px-3 py-2">Producto</th>
+                          <th className="text-right px-3 py-2">Cantidad</th>
+                          <th className="text-right px-3 py-2">Precio Unit. Prom.</th>
+                          <th className="text-right px-3 py-2">Total Vendido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportProducts.map((p, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
+                            <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                            <td className="px-3 py-2 text-gray-800 dark:text-gray-100 font-medium">{p.name}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-blue-600">{p.qty}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(p.total / p.qty)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(p.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-emerald-50 dark:bg-emerald-900/30 font-bold text-emerald-700 dark:text-emerald-300 border-t-2 border-emerald-200">
+                          <td className="px-3 py-2" colSpan={2}>TOTALES</td>
+                          <td className="px-3 py-2 text-right">{reportProducts.reduce((s, p) => s + p.qty, 0)}</td>
+                          <td></td>
+                          <td className="px-3 py-2 text-right">{formatCurrency(reportProducts.reduce((s, p) => s + p.total, 0))}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
