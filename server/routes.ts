@@ -3402,21 +3402,8 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
       customData: { source: 'manual_creation' }
     });
     
-    // Items
+    // Items - createOrder ya insertó los items, solo registrar movimientos de inventario
     if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
-      try {
-        for (const item of req.body.items) {
-          if (tenantStorage.createOrderItem) {
-            await tenantStorage.createOrderItem({
-              orderId: order.id,
-              ...item
-            });
-          }
-        }
-      } catch (itemError) {
-        console.warn('⚠️ Could not create order items:', itemError);
-      }
-
       // ✅ REGISTRAR MOVIMIENTOS DE INVENTARIO POR CADA ITEM VENDIDO (FIFO por lotes)
       for (const item of req.body.items) {
         try {

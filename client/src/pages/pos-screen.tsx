@@ -199,8 +199,15 @@ export default function POSScreen() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  // State
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // State - cart persisted in localStorage
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pos_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [skuQuery, setSkuQuery] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -219,9 +226,23 @@ export default function POSScreen() {
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState('');
 
-  // Customer & Credit state
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  // Customer & Credit state - persisted in localStorage
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('pos_customer_id');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('pos_customer');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
@@ -259,6 +280,25 @@ export default function POSScreen() {
   const [keypadProduct, setKeypadProduct] = useState<Product | null>(null);
   const [keypadMode, setKeypadMode] = useState<'add' | 'edit'>('add');
   const [keypadValue, setKeypadValue] = useState('');
+
+  // Persist cart and customer to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('pos_cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  useEffect(() => {
+    try {
+      if (selectedCustomerId !== null) {
+        localStorage.setItem('pos_customer_id', JSON.stringify(selectedCustomerId));
+        localStorage.setItem('pos_customer', JSON.stringify(selectedCustomer));
+      } else {
+        localStorage.removeItem('pos_customer_id');
+        localStorage.removeItem('pos_customer');
+      }
+    } catch {}
+  }, [selectedCustomerId, selectedCustomer]);
 
   const getBaseUnitId = (product: Product) => {
     return product.baseUnitId ?? (product as any).base_unit_id ?? undefined;
@@ -1066,6 +1106,11 @@ export default function POSScreen() {
     setDiscountPercentage('');
     setSelectedCustomerId(null);
     setSelectedCustomer(null);
+    try {
+      localStorage.removeItem('pos_cart');
+      localStorage.removeItem('pos_customer_id');
+      localStorage.removeItem('pos_customer');
+    } catch {}
   };
 
   // formatCurrency is provided by useCurrencyConversion hook
