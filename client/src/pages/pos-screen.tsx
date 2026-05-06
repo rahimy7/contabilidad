@@ -281,12 +281,14 @@ export default function POSScreen() {
   const [keypadMode, setKeypadMode] = useState<'add' | 'edit'>('add');
   const [keypadValue, setKeypadValue] = useState('');
 
-  // Persist cart and customer to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('pos_cart', JSON.stringify(cart));
-    } catch {}
-  }, [cart]);
+  // Wrapper that updates cart state AND persists to localStorage synchronously
+  const persistCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    setCart(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('pos_cart', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     try {
@@ -394,7 +396,7 @@ export default function POSScreen() {
     const baseLoyaltyPoints = product.loyaltyPointsValue ? parseFloat(product.loyaltyPointsValue.toString()) : 0;
     const loyaltyPointsForUnit = baseLoyaltyPoints * conversionFactor;
 
-    setCart(prev =>
+    persistCart(prev =>
       prev.map(item =>
         item.product.id === product.id
           ? {
@@ -661,7 +663,7 @@ export default function POSScreen() {
     const basePrice = getBasePrice(product);
     const baseLoyaltyPoints = product.loyaltyPointsValue ? parseFloat(product.loyaltyPointsValue.toString()) : 0;
 
-    setCart(prevCart => {
+    persistCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
       if (existingItem) {
         return prevCart.map(item =>
@@ -777,9 +779,9 @@ export default function POSScreen() {
 
   const updateQuantity = (productId: number, quantity: number) => {
     if (quantity <= 0) {
-      setCart(prev => prev.filter(item => item.product.id !== productId));
+      persistCart(prev => prev.filter(item => item.product.id !== productId));
     } else {
-      setCart(prev => prev.map(item =>
+      persistCart(prev => prev.map(item =>
         item.product.id === productId
           ? { ...item, quantity }
           : item
@@ -788,12 +790,12 @@ export default function POSScreen() {
   };
 
   const removeFromCart = (productId: number) => {
-    setCart(cart.filter(item => item.product.id !== productId));
+    persistCart(cart.filter(item => item.product.id !== productId));
   };
 
   const clearCart = () => {
     if (confirm('¿Estás seguro de eliminar todos los productos?')) {
-      setCart([]);
+      persistCart([]);
     }
   };
 
