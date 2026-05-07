@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { fmtDateTime, fmtDate, fmtTime } from '@/lib/date-utils';
+import { useState, useMemo, useEffect } from 'react';
+import { fmtDateTime, fmtDate, fmtTime, DR_TZ } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Receipt, Search, Eye, Ban, Trash2, ChevronDown, ChevronUp,
@@ -115,11 +115,16 @@ export default function SalesHistoryPage() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
+  const todayDR = new Date().toLocaleDateString('en-CA', { timeZone: DR_TZ });
+
   // ── State ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'ventas' | 'retiros'>('ventas');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState(todayDR);
+  const [dateTo, setDateTo] = useState(todayDR);
+  const [currentPage, setCurrentPage] = useState(1);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   // Withdrawal filters
@@ -147,10 +152,9 @@ export default function SalesHistoryPage() {
   const [wVoidPass, setWVoidPass]       = useState('');
 
   // Report dialog
-  const todayStr = new Date().toISOString().split('T')[0];
   const [reportOpen, setReportOpen]   = useState(false);
-  const [reportFrom, setReportFrom]   = useState(todayStr);
-  const [reportTo, setReportTo]       = useState(todayStr);
+  const [reportFrom, setReportFrom]   = useState(todayDR);
+  const [reportTo, setReportTo]       = useState(todayDR);
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data: storeSettings } = useQuery<any>({
@@ -160,7 +164,13 @@ export default function SalesHistoryPage() {
   });
 
   const { data: allOrders = [], isLoading } = useQuery<SaleOrder[]>({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', dateFrom, dateTo],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('startDate', dateFrom);
+      if (dateTo)   params.set('endDate',   dateTo);
+      return apiRequest('GET', `/api/orders?${params.toString()}`);
+    },
     staleTime: 30_000,
   });
 
@@ -185,6 +195,43 @@ export default function SalesHistoryPage() {
   });
   const withdrawals: any[] = withdrawalsData?.withdrawals ?? [];
 
+  // Stats withdrawals: always-enabled, uses same dateFrom/dateTo as sales filter
+  const { data: statsWithdrawalsData } = useQuery<any>({
+    queryKey: ['/api/cash-withdrawals/stats', dateFrom, dateTo],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('startDate', dateFrom);
+      if (dateTo)   params.set('endDate', dateTo);
+      const res = await fetch(`/api/cash-withdrawals?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Error al obtener retiros');
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+  const statsWithdrawals: any[] = (statsWithdrawalsData?.withdrawals ?? []).filter((w: any) => !w.voided);
+
+  // Report withdrawals: uses reportFrom/reportTo, fetched when report dialog is open
+  const { data: reportWithdrawalsData } = useQuery<any>({
+    queryKey: ['/api/cash-withdrawals/report', reportFrom, reportTo],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const params = new URLSearchParams();
+      if (reportFrom) params.set('startDate', reportFrom);
+      if (reportTo)   params.set('endDate', reportTo);
+      const res = await fetch(`/api/cash-withdrawals?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Error al obtener retiros');
+      return res.json();
+    },
+    enabled: reportOpen,
+    staleTime: 30_000,
+  });
+  const reportWithdrawals: any[] = (reportWithdrawalsData?.withdrawals ?? []).filter((w: any) => !w.voided);
+
   // Filter only POS / sale orders (exclude pure delivery orders without payment)
   const sales = useMemo(() => {
     return allOrders.filter(
@@ -207,15 +254,36 @@ export default function SalesHistoryPage() {
     });
   }, [sales, search, statusFilter, paymentFilter]);
 
+  const PAGE_SIZE = 20;
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, paymentFilter]);
+
   // Summary stats
   const stats = useMemo(() => {
     const active = filtered.filter((o) => o.status !== 'cancelled');
+    const realRevenue = active
+      .filter((o) => o.paymentMethod !== 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const creditRevenue = active
+      .filter((o) => o.paymentMethod === 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const withdrawalsTotal = statsWithdrawals
+      .reduce((s: number, w: any) => s + parseFloat(w.amount || '0'), 0);
     return {
       total: filtered.length,
-      revenue: active.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0),
+      revenue: realRevenue + creditRevenue,
+      realRevenue,
+      creditRevenue,
+      withdrawalsTotal,
       cancelled: filtered.filter((o) => o.status === 'cancelled').length,
     };
-  }, [filtered]);
+  }, [filtered, statsWithdrawals]);
 
   // Report data (filtered by date range, non-cancelled)
   const reportOrders = useMemo(() => {
@@ -320,6 +388,37 @@ export default function SalesHistoryPage() {
     const totalQty = reportProducts.reduce((s, p) => s + p.qty, 0);
     const totalProdRevenue = reportProducts.reduce((s, p) => s + p.total, 0);
 
+    // Breakdown by payment method
+    const byMethod: Record<string, number> = {};
+    reportOrders.forEach((o) => {
+      const m = PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—';
+      byMethod[m] = (byMethod[m] || 0) + parseFloat(o.totalAmount || '0');
+    });
+    const realRevenue = reportOrders
+      .filter((o) => o.paymentMethod !== 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const creditRevenue = reportOrders
+      .filter((o) => o.paymentMethod === 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+
+    // Withdrawals
+    const totalWithdrawals = reportWithdrawals.reduce((s, w) => s + parseFloat(w.amount || '0'), 0);
+    const netIncome = realRevenue - totalWithdrawals;
+
+    const methodRows = Object.entries(byMethod)
+      .map(([m, amt]) => `<tr><td>${m}</td><td class="num bold">${formatCurrency(amt)}</td></tr>`)
+      .join('');
+
+    const withdrawalRows = reportWithdrawals.length > 0
+      ? reportWithdrawals.map((w) => `
+        <tr>
+          <td>${fmtDateTime(w.createdAt)}</td>
+          <td>${w.concept}</td>
+          <td>${w.cashierName ?? '—'}</td>
+          <td class="num bold" style="color:#dc2626">${formatCurrency(w.amount)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" style="text-align:center;color:#9ca3af">Sin retiros en este período</td></tr>';
+
     const salesRows = reportOrders.map((o) => `
       <tr>
         <td>${o.orderNumber}</td>
@@ -348,10 +447,19 @@ export default function SalesHistoryPage() {
       h1 { font-size: 18px; color: #1e3a8a; margin-bottom: 4px; }
       h2 { font-size: 14px; color: #065f46; margin: 24px 0 8px; }
       .meta { color: #555; font-size: 10px; margin-bottom: 16px; }
-      .stats { display: flex; gap: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+      .stats { display: flex; gap: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
       .stat { text-align: center; }
       .stat .val { font-size: 18px; font-weight: 700; color: #065f46; }
       .stat .lbl { font-size: 9px; color: #6b7280; text-transform: uppercase; }
+      .summary-box { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+      .summary-section { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; }
+      .summary-section h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; letter-spacing: .05em; }
+      .summary-section table { margin: 0; }
+      .summary-section td { padding: 3px 4px; border: none; font-size: 11px; }
+      .summary-section tfoot td { background: #f9fafb !important; border-top: 1px solid #e5e7eb !important; color: #111 !important; }
+      .net-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+      .net-box .net-label { font-size: 11px; font-weight: 600; color: #1e40af; }
+      .net-box .net-val { font-size: 16px; font-weight: 800; color: #1e40af; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
       th { background: #1e3a8a; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
       td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
@@ -370,7 +478,35 @@ export default function SalesHistoryPage() {
       <div class="stat"><div class="val">${reportOrders.length}</div><div class="lbl">Ventas</div></div>
       <div class="stat"><div class="val">${formatCurrency(totalSubtotal)}</div><div class="lbl">Subtotal</div></div>
       <div class="stat"><div class="val">${formatCurrency(totalDiscount)}</div><div class="lbl">Descuentos</div></div>
-      <div class="stat"><div class="val">${formatCurrency(totalRevenue)}</div><div class="lbl">Total ingresos</div></div>
+      <div class="stat"><div class="val">${formatCurrency(realRevenue)}</div><div class="lbl">Ingresos reales</div></div>
+      <div class="stat"><div class="val" style="color:#3b82f6">${formatCurrency(creditRevenue)}</div><div class="lbl">Créditos</div></div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-section">
+        <h3>Desglose por método de pago</h3>
+        <table><tbody>${methodRows}</tbody>
+          <tfoot><tr><td><strong>Total</strong></td><td class="num bold">${formatCurrency(totalRevenue)}</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="summary-section">
+        <h3>Retiros de caja (${reportWithdrawals.length})</h3>
+        <table>
+          <thead><tr><th style="background:#7f1d1d">Fecha</th><th style="background:#7f1d1d">Concepto</th><th style="background:#7f1d1d">Cajero</th><th style="background:#7f1d1d" class="num">Monto</th></tr></thead>
+          <tbody>${withdrawalRows}</tbody>
+          <tfoot><tr><td colspan="3"><strong>Total retiros</strong></td><td class="num bold" style="color:#dc2626">${formatCurrency(totalWithdrawals)}</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="summary-section" style="display:flex;flex-direction:column;justify-content:space-between">
+        <h3>Resumen financiero</h3>
+        <table><tbody>
+          <tr><td>Ingresos reales</td><td class="num bold" style="color:#059669">${formatCurrency(realRevenue)}</td></tr>
+          <tr><td>Créditos</td><td class="num bold" style="color:#3b82f6">${formatCurrency(creditRevenue)}</td></tr>
+          <tr><td>Total ventas</td><td class="num bold">${formatCurrency(totalRevenue)}</td></tr>
+          <tr><td>Retiros de caja</td><td class="num bold" style="color:#dc2626">−${formatCurrency(totalWithdrawals)}</td></tr>
+        </tbody>
+        <tfoot><tr><td><strong>Ingreso neto efectivo</strong></td><td class="num bold" style="color:#1d4ed8">${formatCurrency(netIncome)}</td></tr></tfoot>
+        </table>
+      </div>
     </div>
     <table>
       <thead><tr><th>Factura</th><th>Fecha y Hora</th><th>Cliente</th><th>Método</th><th>Subtotal</th><th>Descuento</th><th>Total</th></tr></thead>
@@ -398,10 +534,57 @@ export default function SalesHistoryPage() {
     const period = reportFrom === reportTo ? reportFrom : `${reportFrom} al ${reportTo}`;
     const generated = new Date().toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo' });
 
-    // ── Page 1: Sales ───────────────────────────────────────────────────────
+    // ── Calculated totals ────────────────────────────────────────────────────
+    const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const totalSubtotal = reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0);
+    const totalDiscount = reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0);
+    const pdfRealRevenue = reportOrders
+      .filter((o) => o.paymentMethod !== 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const pdfCreditRevenue = reportOrders
+      .filter((o) => o.paymentMethod === 'credit')
+      .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+    const pdfWithdrawalsTotal = reportWithdrawals.reduce((s, w) => s + parseFloat(w.amount || '0'), 0);
+    const pdfNetIncome = pdfRealRevenue - pdfWithdrawalsTotal;
+
+    // ── Page 1: Summary ───────────────────────────────────────────────────────
     doc.setFontSize(18);
     doc.setTextColor(30, 64, 175);
     doc.text('Reporte de Ventas', 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Período: ${period}`, 14, 23);
+    doc.text(`Generado: ${generated}`, 14, 29);
+
+    // Summary stats row
+    autoTable(doc, {
+      head: [['Ventas', 'Subtotal', 'Descuentos', 'Ingresos reales', 'Créditos', 'Retiros caja', 'Ingreso neto efectivo']],
+      body: [[
+        reportOrders.length,
+        formatCurrency(totalSubtotal),
+        formatCurrency(totalDiscount),
+        formatCurrency(pdfRealRevenue),
+        formatCurrency(pdfCreditRevenue),
+        `−${formatCurrency(pdfWithdrawalsTotal)}`,
+        formatCurrency(pdfNetIncome),
+      ]],
+      startY: 34,
+      headStyles: { fillColor: [30, 64, 175], textColor: 255, fontSize: 8 },
+      bodyStyles: { fontStyle: 'bold', fontSize: 9, halign: 'center' },
+      columnStyles: {
+        0: { textColor: [37, 99, 235] },
+        3: { textColor: [5, 150, 105] },
+        4: { textColor: [59, 130, 246] },
+        5: { textColor: [220, 38, 38] },
+        6: { textColor: [29, 78, 216] },
+      },
+    });
+
+    // ── Page 2: Sales table ───────────────────────────────────────────────────
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(30, 64, 175);
+    doc.text('Listado de Ventas', 14, 16);
     doc.setFontSize(9);
     doc.setTextColor(80, 80, 80);
     doc.text(`Período: ${period}`, 14, 23);
@@ -417,8 +600,6 @@ export default function SalesHistoryPage() {
       formatCurrency(o.totalAmount),
     ]);
 
-    const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
-
     autoTable(doc, {
       head: [['# Factura', 'Fecha y Hora', 'Cliente', 'Método de Pago', 'Subtotal', 'Descuento', 'Total']],
       body: salesBody,
@@ -430,7 +611,7 @@ export default function SalesHistoryPage() {
       alternateRowStyles: { fillColor: [249, 250, 251] },
     });
 
-    // ── Page 2: Products ────────────────────────────────────────────────────
+    // ── Page 3: Products ────────────────────────────────────────────────────
     doc.addPage();
     doc.setFontSize(18);
     doc.setTextColor(5, 150, 105);
@@ -580,6 +761,8 @@ export default function SalesHistoryPage() {
       storeEmail: storeSettings?.storeEmail,
       logoUrl: storeSettings?.logoUrl,
       invoiceFooter: storeSettings?.invoiceFooter,
+      customerName: order.customer?.name || undefined,
+      customerPhone: order.customer?.phone || undefined,
     });
     setInvoiceOpen(true);
   };
@@ -630,7 +813,7 @@ export default function SalesHistoryPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 flex flex-col">
             <span className="text-xs text-gray-500 uppercase tracking-wide">Total ventas</span>
@@ -639,8 +822,22 @@ export default function SalesHistoryPage() {
         </Card>
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Ingresos</span>
-            <span className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(stats.revenue)}</span>
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Ingresos reales</span>
+            <span className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(stats.realRevenue)}</span>
+            <span className="text-xs text-gray-400 mt-0.5">Efectivo · Tarjeta · Transf.</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex flex-col">
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Créditos</span>
+            <span className="text-2xl font-bold text-blue-500 mt-1">{formatCurrency(stats.creditRevenue)}</span>
+            <span className="text-xs text-gray-400 mt-0.5">Ventas a crédito</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex flex-col">
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Retiros de caja</span>
+            <span className="text-2xl font-bold text-red-500 mt-1">−{formatCurrency(stats.withdrawalsTotal)}</span>
           </CardContent>
         </Card>
         <Card>
@@ -666,8 +863,8 @@ export default function SalesHistoryPage() {
         {/* ══════════════ VENTAS TAB ══════════════ */}
         <TabsContent value="ventas" className="mt-4 space-y-4">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             className="pl-9"
@@ -675,6 +872,36 @@ export default function SalesHistoryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="space-y-0.5">
+            <Label className="text-xs text-gray-500">Desde</Label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-38"
+            />
+          </div>
+          <div className="space-y-0.5">
+            <Label className="text-xs text-gray-500">Hasta</Label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-38"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-4 text-gray-400 hover:text-gray-600 px-2"
+              onClick={() => { setDateFrom(''); setDateTo(''); }}
+            >
+              ✕
+            </Button>
+          )}
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-44">
@@ -714,7 +941,7 @@ export default function SalesHistoryPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((order) => {
+          {paginated.map((order) => {
             const isExpanded = expandedId === order.id;
             const statusInfo = STATUS_LABELS[order.status] ?? { label: order.status, variant: 'outline' as const };
             const isCancelled = order.status === 'cancelled';
@@ -870,6 +1097,50 @@ export default function SalesHistoryPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Pagination ────────────────────────────────────────────────────── */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-sm text-gray-500">
+            {filtered.length} resultados · Página {currentPage} de {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline" size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+            >«</Button>
+            <Button
+              variant="outline" size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >‹</Button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+              const page = start + i;
+              return (
+                <Button
+                  key={page}
+                  variant={page === currentPage ? 'default' : 'outline'}
+                  size="sm"
+                  className="w-8"
+                  onClick={() => setCurrentPage(page)}
+                >{page}</Button>
+              );
+            })}
+            <Button
+              variant="outline" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >›</Button>
+            <Button
+              variant="outline" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+            >»</Button>
+          </div>
         </div>
       )}
 
@@ -1132,6 +1403,14 @@ export default function SalesHistoryPage() {
                   const totalRevenue = reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
                   const totalSubtotal = reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0);
                   const totalDiscount = reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0);
+                  const rRealRevenue = reportOrders
+                    .filter((o) => o.paymentMethod !== 'credit')
+                    .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+                  const rCreditRevenue = reportOrders
+                    .filter((o) => o.paymentMethod === 'credit')
+                    .reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0);
+                  const rWithdrawalsTotal = reportWithdrawals.reduce((s, w) => s + parseFloat(w.amount || '0'), 0);
+                  const rNetIncome = rRealRevenue - rWithdrawalsTotal;
                   const byMethod: Record<string, number> = {};
                   reportOrders.forEach((o) => {
                     const m = PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—';
@@ -1139,7 +1418,7 @@ export default function SalesHistoryPage() {
                   });
                   return (
                     <>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                         <Card><CardContent className="p-3 text-center">
                           <p className="text-2xl font-bold text-blue-600">{reportOrders.length}</p>
                           <p className="text-xs text-gray-500">Ventas</p>
@@ -1153,9 +1432,24 @@ export default function SalesHistoryPage() {
                           <p className="text-xs text-gray-500">Descuentos</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</p>
-                          <p className="text-xs text-gray-500">Total ingresos</p>
+                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(rRealRevenue)}</p>
+                          <p className="text-xs text-gray-500">Ingresos reales</p>
+                          <p className="text-xs text-gray-400">Efect. · Tarj. · Transf.</p>
                         </CardContent></Card>
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-xl font-bold text-blue-500">{formatCurrency(rCreditRevenue)}</p>
+                          <p className="text-xs text-gray-500">Créditos</p>
+                        </CardContent></Card>
+                        <Card><CardContent className="p-3 text-center">
+                          <p className="text-xl font-bold text-red-500">−{formatCurrency(rWithdrawalsTotal)}</p>
+                          <p className="text-xs text-gray-500">Retiros caja</p>
+                          <p className="text-xs text-gray-400">{reportWithdrawals.length} retiro{reportWithdrawals.length !== 1 ? 's' : ''}</p>
+                        </CardContent></Card>
+                      </div>
+                      {/* Net income highlight */}
+                      <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Ingreso neto efectivo (reales − retiros)</span>
+                        <span className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(rNetIncome)}</span>
                       </div>
                       {/* By payment method */}
                       <div className="flex flex-wrap gap-2">
