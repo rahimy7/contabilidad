@@ -722,11 +722,20 @@ router.get('/inventory-movements', authenticateToken, async (req: any, res: any)
     if (type) {
       conditions.push(eq(schema.inventoryMovements.type, type as string));
     }
+    // Interpretar fechas en zona horaria dominicana (America/Santo_Domingo, UTC-4 sin DST)
+    // para que el filtro coincida con el día local registrado por TZ del .env
+    const DR_OFFSET = '-04:00';
     if (fromDate) {
-      conditions.push(gte(schema.inventoryMovements.createdAt, new Date(fromDate as string)));
+      const from = new Date(`${String(fromDate).slice(0, 10)}T00:00:00.000${DR_OFFSET}`);
+      if (!isNaN(from.getTime())) {
+        conditions.push(gte(schema.inventoryMovements.createdAt, from));
+      }
     }
     if (toDate) {
-      conditions.push(lte(schema.inventoryMovements.createdAt, new Date(toDate as string)));
+      const to = new Date(`${String(toDate).slice(0, 10)}T23:59:59.999${DR_OFFSET}`);
+      if (!isNaN(to.getTime())) {
+        conditions.push(lte(schema.inventoryMovements.createdAt, to));
+      }
     }
 
     const movements = await query

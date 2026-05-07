@@ -95,8 +95,8 @@ export default function InventoryTraceability() {
       const token = localStorage.getItem('auth_token');
       const params = new URLSearchParams();
       if (typeFilter !== "all") params.append("type", typeFilter);
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
+      if (dateFrom) params.append("fromDate", dateFrom);
+      if (dateTo) params.append("toDate", dateTo);
       if (productFilter) params.append("productId", productFilter);
       if (lotFilter) params.append("lotNumber", lotFilter);
 
@@ -256,7 +256,7 @@ export default function InventoryTraceability() {
     ];
 
     const rows = filteredMovements.map((m) => [
-      new Date(m.createdAt).toLocaleString("es-DO"),
+      new Date(m.createdAt).toLocaleString("es-DO", { timeZone: "America/Santo_Domingo" }),
       getMovementLabel(m.type),
       m.productName || "-",
       m.quantity,
@@ -712,10 +712,10 @@ export default function InventoryTraceability() {
                     <tr key={movement.id} className="hover:bg-gray-50">
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">
-                          {new Date(movement.createdAt).toLocaleDateString("es-DO")}
+                          {new Date(movement.createdAt).toLocaleDateString("es-DO", { timeZone: "America/Santo_Domingo" })}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(movement.createdAt).toLocaleTimeString("es-DO")}
+                          {new Date(movement.createdAt).toLocaleTimeString("es-DO", { timeZone: "America/Santo_Domingo" })}
                         </div>
                       </td>
                       <td className="px-4 py-4">

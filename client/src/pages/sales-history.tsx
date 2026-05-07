@@ -527,6 +527,17 @@ export default function SalesHistoryPage() {
 
     const date = new Date(order.createdAt);
 
+    // Fallback descriptivo cuando la orden no tiene items (citas, abonos a crédito, etc.)
+    const fallbackLabel = (() => {
+      if (order.notes && order.notes.trim()) return order.notes.trim();
+      switch (order.orderType) {
+        case 'credit_payment': return 'Abono a cuenta de crédito';
+        case 'appointment':    return 'Cobro de cita';
+        case 'service':        return 'Servicio';
+        default:               return 'Venta';
+      }
+    })();
+
     const displayItems = order.items.length > 0
       ? order.items.map((item) => ({
           productId: item.productId,
@@ -536,7 +547,7 @@ export default function SalesHistoryPage() {
           totalPrice: parseFloat(item.totalPrice),
         }))
       : [{
-          productName: order.notes || `Orden ${order.orderNumber}`,
+          productName: fallbackLabel,
           quantity: 1,
           unitPrice: total,
           totalPrice: total,
@@ -1182,7 +1193,16 @@ export default function SalesHistoryPage() {
                       <tbody>
                         {reportOrders.map((o, i) => (
                           <tr key={o.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
-                            <td className="px-3 py-2 font-medium text-blue-700">{o.orderNumber}</td>
+                            <td className="px-3 py-2 font-medium">
+                              <button
+                                type="button"
+                                onClick={() => handleViewInvoice(o)}
+                                className="text-blue-700 hover:text-blue-900 hover:underline focus:outline-none focus:underline"
+                                title="Ver detalle de factura"
+                              >
+                                {o.orderNumber}
+                              </button>
+                            </td>
                             <td className="px-3 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDateTime(o.createdAt)}</td>
                             <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{o.customer.name}</td>
                             <td className="px-3 py-2 text-gray-500">{PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—'}</td>
