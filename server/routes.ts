@@ -3019,9 +3019,13 @@ router.get('/customers/search', authenticateToken, async (req: any, res: any) =>
     const tenantStorage = await getTenantStorageWithSchema(user);
     
     console.log('📦 Fetching orders for store:', user.storeId);
-    
-    // Obtener órdenes básicas
-    const orders = await tenantStorage.getAllOrders();
+
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    // Obtener órdenes (filtradas por rango de fechas si se proveen)
+    const orders = (startDate && endDate)
+      ? await (tenantStorage as any).getOrdersByDateRange(startDate, endDate)
+      : await tenantStorage.getAllOrders();
     
     // Enriquecer con información adicional
     const enrichedOrders = await Promise.all(orders.map(async (order: any) => {

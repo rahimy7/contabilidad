@@ -1,7 +1,7 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "../shared/schema.js";
-import { eq, desc, and, or, count, sql, ilike, asc, like, lt, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, or, count, sql, ilike, asc, like, lt, lte, inArray, gte } from "drizzle-orm";
 import { getTenantDb, masterDb } from "./multi-tenant-db.js";
 import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
 import { ProductBrand, InsertProductBrand } from "@shared/types.js";
@@ -326,6 +326,26 @@ async getActiveCategories() {
           .orderBy(desc(schema.orders.createdAt));
       } catch (error) {
         console.error('Error getting all orders:', error);
+        return [];
+      }
+    },
+
+    async getOrdersByDateRange(startDate: string, endDate: string) {
+      try {
+        // DR timezone is UTC-4 fixed (America/Santo_Domingo, no DST)
+        const start = new Date(`${startDate}T00:00:00-04:00`);
+        const end   = new Date(`${endDate}T23:59:59-04:00`);
+        return await tenantDb.select()
+          .from(schema.orders)
+          .where(
+            and(
+              gte(schema.orders.createdAt, start),
+              lte(schema.orders.createdAt, end)
+            )
+          )
+          .orderBy(desc(schema.orders.createdAt));
+      } catch (error) {
+        console.error('Error getting orders by date range:', error);
         return [];
       }
     },
