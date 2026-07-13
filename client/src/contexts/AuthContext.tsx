@@ -43,13 +43,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Set user data from token
         setUser({
-          id: payload.id,
+          id: payload.userId ?? payload.id,
           username: payload.username,
           name: payload.name || payload.username,
           role: payload.role,
           status: payload.status || 'active',
           storeId: payload.storeId,
-          level: payload.level
+          level: payload.level,
+          warehouseId: payload.warehouseId ?? undefined,
+          warehouseName: payload.warehouseName ?? undefined,
         });
       } catch (tokenError) {
         console.log('Invalid or expired token');

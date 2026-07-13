@@ -12,6 +12,7 @@ import { InvoiceModal } from '@/components/invoice-modal';
 import { AppointmentQuickCreateDialog } from '@/components/appointment-quick-create-dialog';
 import { ServiceRibbon, isServiceProduct } from '@/components/service-ribbon';
 import { CashWithdrawalDialog } from '@/components/pos/cash-withdrawal-dialog';
+import { useWarehouse } from '@/contexts/WarehouseContext';
 
 type Product = {
   id: number;
@@ -198,6 +199,7 @@ const useCurrencyConversion = (exchangeRates: any[]) => {
 export default function POSScreen() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { activeWarehouseId } = useWarehouse();
 
   // State - cart persisted in localStorage
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -902,6 +904,7 @@ export default function POSScreen() {
       discountPercentage: discPct > 0 ? discPct : undefined,
       discountAmount: discAmt > 0 ? Number(discAmt.toFixed(2)) : undefined,
       orderType: 'sale',
+      warehouseId: activeWarehouseId ?? undefined,
       loyaltyPointsPropertyName: getLoyaltyPropertyName() || undefined as any,
       loyaltyPointsValue: (() => {
         const itemWithLoyalty = cart.find(item => item.product.loyaltyPointsValue);
@@ -952,6 +955,7 @@ export default function POSScreen() {
         changeAmount: 0,
         totalAmount: price,
         orderType: 'appointment',
+        warehouseId: activeWarehouseId ?? undefined,
         items: [],
       };
 

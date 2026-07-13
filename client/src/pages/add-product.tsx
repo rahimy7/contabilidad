@@ -1004,7 +1004,7 @@ export default function EnhancedAddProduct() {
                             <SelectValue placeholder="Seleccionar categoría" />
                           </SelectTrigger>
                           <SelectContent>
-                            {categories.map((category) => (
+                            {categories.filter((category) => !!category.name).map((category) => (
                               <SelectItem key={category.id} value={category.name}>
                                 {category.name}
                               </SelectItem>
@@ -1172,7 +1172,7 @@ export default function EnhancedAddProduct() {
                                 <SelectValue placeholder="Seleccionar marca" />
                               </SelectTrigger>
                               <SelectContent>
-                                {existingBrands.map((brand) => (
+                                {existingBrands.filter((brand) => !!brand).map((brand) => (
                                   <SelectItem key={brand} value={brand}>
                                     {brand}
                                   </SelectItem>

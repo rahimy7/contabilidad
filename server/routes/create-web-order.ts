@@ -203,7 +203,7 @@ export async function createWebOrder(req: Request, res: Response) {
         console.log('🚚 [TRIPS] Verificando integración con viajes...');
         
         const { getTenantDb } = await import('../multi-tenant-db.js');
-        const schema = await import('../../shared/schema.js');
+        const schema = await import('../../shared/schema');
         const { integrateWithAutoAssignment } = await import('../services/trip-service.js');
         
         const db = await getTenantDb(validatedData.storeId);

@@ -7,7 +7,7 @@
 
 import { eq } from 'drizzle-orm';
 import { getTenantDb, masterDb } from './multi-tenant-db.js';
-import * as schema from '../shared/schema.ts';
+import * as schema from '../shared/schema';
 
 export interface AuthUser {
   id: number;

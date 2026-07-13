@@ -3,7 +3,7 @@
 import { eq, and, inArray, sql, desc } from 'drizzle-orm';
 import type { AuthUser } from '../../shared/auth';
 import { getTenantDb } from '../multi-tenant-db.js';
-import * as schema from '../../shared/schema.js';
+import * as schema from '../../shared/schema';
 
 interface Order {
   id: number;

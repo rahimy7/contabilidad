@@ -226,7 +226,7 @@ export default function PublicCatalogClean() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {categories.map((category: any) => (
+                {categories.filter((category: any) => !!category.name).map((category: any) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
                   </SelectItem>
@@ -247,7 +247,7 @@ export default function PublicCatalogClean() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas las categorías</SelectItem>
-                  {categories.map((category: any) => (
+                  {categories.filter((category: any) => !!category.name).map((category: any) => (
                     <SelectItem key={category.id} value={category.name}>
                       {category.name}
                     </SelectItem>

@@ -7,6 +7,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { WarehouseProvider } from "@/contexts/WarehouseContext";
+import { CompanyProvider } from "@/contexts/CompanyContext";
 import { hasPermission } from "@shared/auth";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -64,8 +66,23 @@ import AppointmentServicesPage from "./pages/appointment-services";
 import DoctorDashboard from "./pages/doctor-dashboard";
 import InventoryAdjustmentPage from "./pages/inventory-adjustment";
 import SalesHistoryPage from "./pages/sales-history";
-import CashRegisterPage from "./pages/cash-register";
-
+import CashRegisterPage from "./pages/cash-register";import WarehousesPage from "@/pages/warehouses";
+import CompaniesPage from "@/pages/companies";
+import ChartOfAccountsPage from "@/pages/accounting/chart-of-accounts";
+import TrialBalancePage from "@/pages/accounting/trial-balance";
+import FinancialStatementsPage from "@/pages/accounting/financial-statements";
+import FiscalDocumentsPage from "@/pages/fiscal/fiscal-documents";
+import DgiiReportsPage from "@/pages/fiscal/dgii-reports";
+import ReceivablesPage from "@/pages/receivables";
+import PayablesPage from "@/pages/payables";
+import FixedAssetsPage from "@/pages/fixed-assets";
+import BudgetPage from "@/pages/budget";
+import PayrollPage from "@/pages/payroll";
+import TreasuryPage from "@/pages/treasury";
+import InventoryCostingPage from "@/pages/inventory-costing";
+import ConsolidationPage from "@/pages/consolidation";
+import WarehouseTransfersPage from "@/pages/warehouse-transfers";
+import WarehouseReportsPage from "@/pages/warehouse-reports";
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
 
@@ -194,6 +211,24 @@ function Router() {
       <Route path="/inventory-adjustment" component={() => <ProtectedRoute component={InventoryAdjustmentPage} permission="manage_inventory_adjustments" />} />
       <Route path="/sales-history" component={() => <ProtectedRoute component={SalesHistoryPage} permission="manage_orders" />} />
       <Route path="/cash-register" component={() => <ProtectedRoute component={CashRegisterPage} permission="manage_cash_register" />} />
+      <Route path="/warehouses" component={() => <ProtectedRoute component={WarehousesPage} permission="manage_products" />} />
+      <Route path="/warehouse-transfers" component={() => <ProtectedRoute component={WarehouseTransfersPage} permission="manage_products" />} />
+      <Route path="/warehouse-reports" component={() => <ProtectedRoute component={WarehouseReportsPage} permission="view_reports" />} />
+      {/* Contabilidad y fiscal (DGII) */}
+      <Route path="/companies" component={() => <ProtectedRoute component={CompaniesPage} permission="manage_settings" />} />
+      <Route path="/accounting/accounts" component={() => <ProtectedRoute component={ChartOfAccountsPage} permission="manage_accounting" />} />
+      <Route path="/accounting/trial-balance" component={() => <ProtectedRoute component={TrialBalancePage} permission="view_financial_reports" />} />
+      <Route path="/accounting/financial-statements" component={() => <ProtectedRoute component={FinancialStatementsPage} permission="view_financial_reports" />} />
+      <Route path="/fiscal/documents" component={() => <ProtectedRoute component={FiscalDocumentsPage} permission="manage_invoicing" />} />
+      <Route path="/fiscal/reports" component={() => <ProtectedRoute component={DgiiReportsPage} permission="view_fiscal_reports" />} />
+      <Route path="/receivables" component={() => <ProtectedRoute component={ReceivablesPage} permission="manage_accounting" />} />
+      <Route path="/payables" component={() => <ProtectedRoute component={PayablesPage} permission="manage_accounting" />} />
+      <Route path="/fixed-assets" component={() => <ProtectedRoute component={FixedAssetsPage} permission="manage_accounting" />} />
+      <Route path="/budget" component={() => <ProtectedRoute component={BudgetPage} permission="manage_accounting" />} />
+      <Route path="/payroll" component={() => <ProtectedRoute component={PayrollPage} permission="manage_accounting" />} />
+      <Route path="/treasury" component={() => <ProtectedRoute component={TreasuryPage} permission="manage_accounting" />} />
+      <Route path="/inventory-costing" component={() => <ProtectedRoute component={InventoryCostingPage} permission="manage_accounting" />} />
+      <Route path="/consolidation" component={() => <ProtectedRoute component={ConsolidationPage} permission="view_financial_reports" />} />
       <Route path="/user-settings" component={UserSettings} />
     </Switch>
   );
@@ -252,10 +287,14 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <AuthProvider>
+              <CompanyProvider>
+              <WarehouseProvider>
               <ErrorBoundary>
                 <Toaster />
                 <AppWithAuth />
               </ErrorBoundary>
+              </WarehouseProvider>
+              </CompanyProvider>
             </AuthProvider>
           </TooltipProvider>
         </QueryClientProvider>

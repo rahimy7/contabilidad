@@ -154,8 +154,15 @@ router.get('/purchase-orders', authenticateToken, async (req: any, res: any) => 
       return res.status(403).json({ error: 'Store ID requerido' });
     }
 
-    const { status, fromDate, toDate, supplierId } = req.query;
+    const { status, fromDate, toDate, supplierId, warehouseId: warehouseIdParam } = req.query;
     const db = await getTenantDb(user.storeId);
+
+    const ADMIN_ROLES = ['admin', 'super_admin'];
+    const isAdmin = ADMIN_ROLES.includes(user.role || '');
+    // Resolver almacén a filtrar
+    const resolvedWarehouseId = isAdmin
+      ? (warehouseIdParam ? parseInt(warehouseIdParam as string) : null)
+      : (user.warehouseId ?? null);
 
     let query = db
       .select({
@@ -174,6 +181,7 @@ router.get('/purchase-orders', authenticateToken, async (req: any, res: any) => 
         invoiceNumber: schema.purchaseOrders.invoiceNumber,
         notes: schema.purchaseOrders.notes,
         createdAt: schema.purchaseOrders.createdAt,
+        warehouseId: schema.purchaseOrders.warehouseId,
 
         // Datos del proveedor
         supplier: {
@@ -191,6 +199,9 @@ router.get('/purchase-orders', authenticateToken, async (req: any, res: any) => 
     // Aplicar filtros
     const conditions = [eq(schema.purchaseOrders.storeId, user.storeId)];
 
+    if (resolvedWarehouseId) {
+      conditions.push(eq(schema.purchaseOrders.warehouseId, resolvedWarehouseId));
+    }
     if (status) {
       conditions.push(eq(schema.purchaseOrders.status, status as string));
     }
@@ -305,6 +316,7 @@ router.post('/purchase-orders', authenticateToken, async (req: any, res: any) =>
       storeId: storeId,
       supplierName,
       createdBy: user.id,
+      warehouseId: orderData.warehouseId ?? user.warehouseId ?? null,
       orderDate: orderData.orderDate ? new Date(orderData.orderDate) : new Date(),
       expectedDeliveryDate: orderData.expectedDeliveryDate ? new Date(orderData.expectedDeliveryDate) : null,
     };
@@ -319,6 +331,7 @@ router.post('/purchase-orders', authenticateToken, async (req: any, res: any) =>
     const itemsToInsert = items.map((item: any) => ({
       purchaseOrderId: purchaseOrder.id,
       storeId: storeId,
+      warehouseId: item.warehouseId ?? purchaseOrder.warehouseId ?? null,
       productId: item.productId || null,
       productName: item.productName, // Campo obligatorio
       sku: item.sku || null,
@@ -536,6 +549,17 @@ router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req:
       return res.status(404).json({ error: 'Orden de compra no encontrada' });
     }
 
+    // Resolve warehouse: from the order, then the user JWT, then fallback to first warehouse of the store
+    let resolvedWarehouseId: number | null = currentOrder.warehouseId ?? (user.warehouseId ?? null);
+    if (!resolvedWarehouseId) {
+      const [firstWarehouse] = await db
+        .select({ id: schema.warehouses.id })
+        .from(schema.warehouses)
+        .where(eq(schema.warehouses.storeId, storeId))
+        .limit(1);
+      resolvedWarehouseId = firstWarehouse?.id ?? null;
+    }
+
     // Actualizar items
     for (const item of items) {
       const quantityReceived = parseFloat(item.quantityReceived) || 0;
@@ -616,6 +640,7 @@ router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req:
               reason: `Recepción de orden de compra #${currentOrder.purchaseNumber}`,
               notes: item.notes,
               createdBy: user.id,
+              warehouseId: resolvedWarehouseId,
             });
         }
       }
@@ -659,8 +684,14 @@ router.get('/inventory-movements', authenticateToken, async (req: any, res: any)
       return res.status(403).json({ error: 'Store ID requerido' });
     }
 
-    const { productId, type, fromDate, toDate } = req.query;
+    const { productId, type, fromDate, toDate, warehouseId: wIdParam } = req.query;
     const db = await getTenantDb(user.storeId);
+
+    const ADMIN_ROLES_INV = ['admin', 'super_admin'];
+    const isAdminInv = ADMIN_ROLES_INV.includes(user.role || '');
+    const invWarehouseId = isAdminInv
+      ? (wIdParam ? parseInt(wIdParam as string) : null)
+      : (user.warehouseId ?? null);
 
     let query = db
       .select({
@@ -715,6 +746,10 @@ router.get('/inventory-movements', authenticateToken, async (req: any, res: any)
     conditions.push(
       sql`(${schema.products.type} IS NULL OR ${schema.products.type} != 'service')`
     );
+
+    if (invWarehouseId) {
+      conditions.push(eq(schema.inventoryMovements.warehouseId, invWarehouseId));
+    }
 
     if (productId) {
       conditions.push(eq(schema.inventoryMovements.productId, parseInt(productId as string)));
@@ -983,7 +1018,17 @@ router.get('/purchase-stats', authenticateToken, async (req: any, res: any) => {
       return res.status(403).json({ error: 'Store ID requerido' });
     }
 
+    const { warehouseId: statsWIdParam } = req.query;
     const db = await getTenantDb(user.storeId);
+
+    const ADMIN_ROLES_STATS = ['admin', 'super_admin'];
+    const isAdminStats = ADMIN_ROLES_STATS.includes(user.role || '');
+    const statsWarehouseId = isAdminStats
+      ? (statsWIdParam ? parseInt(statsWIdParam as string) : null)
+      : (user.warehouseId ?? null);
+
+    const baseConditions = [eq(schema.purchaseOrders.storeId, user.storeId)];
+    if (statsWarehouseId) baseConditions.push(eq(schema.purchaseOrders.warehouseId, statsWarehouseId));
 
     // Total de órdenes
     const [totals] = await db
@@ -992,7 +1037,7 @@ router.get('/purchase-stats', authenticateToken, async (req: any, res: any) => {
         totalSpent: sql<string>`COALESCE(sum(${schema.purchaseOrders.totalAmount}), '0')`,
       })
       .from(schema.purchaseOrders)
-      .where(eq(schema.purchaseOrders.storeId, user.storeId));
+      .where(and(...baseConditions));
 
     // Órdenes por estado
     const [pendingOrders] = await db
@@ -1000,24 +1045,14 @@ router.get('/purchase-stats', authenticateToken, async (req: any, res: any) => {
         count: sql<number>`count(*)`,
       })
       .from(schema.purchaseOrders)
-      .where(
-        and(
-          eq(schema.purchaseOrders.storeId, user.storeId),
-          eq(schema.purchaseOrders.status, 'pending')
-        )
-      );
+      .where(and(...baseConditions, eq(schema.purchaseOrders.status, 'pending')));
 
     const [receivedOrders] = await db
       .select({
         count: sql<number>`count(*)`,
       })
       .from(schema.purchaseOrders)
-      .where(
-        and(
-          eq(schema.purchaseOrders.storeId, user.storeId),
-          eq(schema.purchaseOrders.status, 'received')
-        )
-      );
+      .where(and(...baseConditions, eq(schema.purchaseOrders.status, 'received')));
 
     // Total gastado este mes
     const firstDayOfMonth = new Date();
@@ -1029,12 +1064,7 @@ router.get('/purchase-stats', authenticateToken, async (req: any, res: any) => {
         total: sql<string>`COALESCE(sum(${schema.purchaseOrders.totalAmount}), '0')`,
       })
       .from(schema.purchaseOrders)
-      .where(
-        and(
-          eq(schema.purchaseOrders.storeId, user.storeId),
-          gte(schema.purchaseOrders.orderDate, firstDayOfMonth)
-        )
-      );
+      .where(and(...baseConditions, gte(schema.purchaseOrders.orderDate, firstDayOfMonth)));
 
     // Proveedores más usados
     const topSuppliers = await db
@@ -1045,12 +1075,7 @@ router.get('/purchase-stats', authenticateToken, async (req: any, res: any) => {
         totalSpent: sql<string>`COALESCE(sum(${schema.purchaseOrders.totalAmount}), '0')`,
       })
       .from(schema.purchaseOrders)
-      .where(
-        and(
-          eq(schema.purchaseOrders.storeId, user.storeId),
-          not(isNull(schema.purchaseOrders.supplierId))
-        )
-      )
+      .where(and(...baseConditions, not(isNull(schema.purchaseOrders.supplierId))))
       .groupBy(schema.purchaseOrders.supplierId, schema.purchaseOrders.supplierName)
       .orderBy(sql`count(*) DESC`)
       .limit(5);

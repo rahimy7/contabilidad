@@ -5,7 +5,7 @@
  * permitiendo que ambos trabajen con la misma estructura de órdenes
  */
 
-import { CustomerRegistrationFlow } from '../shared/schema.js';
+import { CustomerRegistrationFlow } from '../shared/schema';
 
 export type FlowType = 'ai_assisted' | 'automatic' | null;
 export type FlowStep = 'add_products' | 'collect_address' | 'collect_payment' | 'collect_notes' | 'confirm_order' | 'collect_name' | 'collect_contact';

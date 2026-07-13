@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
+import { resolveWarehouseId } from '../utils/warehouse-context';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 
@@ -69,6 +70,7 @@ router.post('/cash-withdrawals', authenticateToken, async (req: any, res: any) =
       .insert(schema.cashWithdrawals)
       .values({
         storeId:            user.storeId,
+        warehouseId:        user.warehouseId ?? (resolveWarehouseId(req) as number),
         cashierId:          user.id,
         authorizedByUserId: authorizer.id,
         concept:            body.concept,
@@ -109,6 +111,9 @@ router.get('/cash-withdrawals', authenticateToken, async (req: any, res: any) =>
     const db = await getTenantDb(user.storeId);
 
     const conditions: any[] = [eq(schema.cashWithdrawals.storeId, user.storeId)];
+
+    // Filtrar por almacén: operativos ven solo su almacén
+    const warehouseId = resolveWarehouseId(req);
 
     if (startDate) {
       conditions.push(gte(schema.cashWithdrawals.createdAt, new Date(startDate)));
@@ -152,6 +157,7 @@ router.get('/cash-withdrawals', authenticateToken, async (req: any, res: any) =>
       LEFT JOIN users a  ON a.id  = w.authorized_by_user_id
       LEFT JOIN users vb ON vb.id = w.voided_by_user_id
       WHERE w.store_id = ${user.storeId}
+        ${warehouseId ? sql`AND w.warehouse_id = ${warehouseId}` : sql``}
         ${startDate ? sql`AND w.created_at >= ${new Date(startDate)}` : sql``}
         ${endDate   ? sql`AND w.created_at <= ${new Date(new Date(endDate).setHours(23, 59, 59, 999))}` : sql``}
         ${cashierId ? sql`AND w.cashier_id = ${parseInt(cashierId)}` : sql``}

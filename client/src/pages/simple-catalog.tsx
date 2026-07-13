@@ -813,7 +813,7 @@ ${orderItems}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">📂 Todas</SelectItem>
-                    {categories.map((category: any) => (
+                    {categories.filter((category: any) => !!category.name).map((category: any) => (
                       <SelectItem key={category.id || category.name} value={category.name}>
                         {category.name}
                       </SelectItem>
@@ -873,7 +873,7 @@ ${orderItems}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">📂 Todas las categorías</SelectItem>
-                    {categories.map((category: any) => (
+                    {categories.filter((category: any) => !!category.name).map((category: any) => (
                       <SelectItem key={category.id || category.name} value={category.name}>
                         {category.name}
                       </SelectItem>

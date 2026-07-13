@@ -73,6 +73,8 @@ const CreateUserWithProfileSchema = z.object({
   emergencyPhone: z.string().optional().nullable(),
   vehicleInfo: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  // Almacén asignado (requerido para roles operativos)
+  warehouseId: z.number().int().positive().optional().nullable(),
 });
 
 // ================================
@@ -255,6 +257,7 @@ router.post('/employees', authenticateToken, requireAdmin, async (req: any, res:
       emergencyPhone: validatedData.emergencyPhone,
       vehicleInfo: validatedData.vehicleInfo,
       address: validatedData.address,
+      warehouseId: validatedData.warehouseId ?? null,
     });
     
     // Obtener usuario completo con perfil

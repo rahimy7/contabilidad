@@ -309,6 +309,12 @@ export default function UserSettings() {
                   <Label className="text-sm font-medium text-gray-500">Estado Actual</Label>
                   <p className="text-sm text-gray-900 capitalize">{user?.status}</p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Almacén asignado</Label>
+                  <p className="text-sm text-gray-900">
+                    {user?.warehouseName ?? (user?.warehouseId ? `Almacén #${user.warehouseId}` : 'Sin almacén asignado')}
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>

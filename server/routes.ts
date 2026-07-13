@@ -19,6 +19,7 @@ import inventoryAdjustmentRoutes from './routes/inventory-adjustment-routes';
 import creditRoutes from './routes/credit-routes';
 import cashRegisterRoutes from './routes/cash-register-routes';
 import cashWithdrawalsRoutes from './routes/cash-withdrawals-routes';
+import warehouseRoutes from './routes/warehouse-routes';
 
 // Schema and Types
 import {
@@ -1476,6 +1477,7 @@ app.use('/api', appointmentRoutes);
   app.use('/api', creditRoutes);
   app.use('/api', cashRegisterRoutes);
   app.use('/api', cashWithdrawalsRoutes);
+  app.use('/api', warehouseRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================
@@ -1495,8 +1497,40 @@ app.use('/api', appointmentRoutes);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
+      // Cargar warehouseId del usuario desde la BD
+      let warehouseId: number | null = null;
+      let warehouseName: string | null = null;
+      if (user.storeId && user.role !== 'super_admin') {
+        try {
+          const db = await getTenantDb(user.storeId);
+          const [userRow] = await db
+            .select({ warehouseId: schema.users.warehouseId })
+            .from(schema.users)
+            .where(eq(schema.users.id, user.id))
+            .limit(1);
+          if (userRow?.warehouseId) {
+            warehouseId = userRow.warehouseId;
+            const [wh] = await db
+              .select({ name: schema.warehouses.name })
+              .from(schema.warehouses)
+              .where(eq(schema.warehouses.id, warehouseId))
+              .limit(1);
+            warehouseName = wh?.name ?? null;
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not load warehouseId for user:', e);
+        }
+      }
+
       const token = jwt.sign(
-        { userId: user.id, username: user.username, role: user.role, storeId: user.storeId },
+        {
+          userId: user.id,
+          username: user.username,
+          role: user.role,
+          storeId: user.storeId,
+          warehouseId,
+          warehouseName,
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -1509,7 +1543,7 @@ app.use('/api', appointmentRoutes);
         maxAge: 24 * 60 * 60 * 1000, // 24 horas
       });
 
-      res.json({ token, user });
+      res.json({ token, user: { ...user, warehouseId, warehouseName } });
     } catch (error) {
       console.error("Error during login:", error);
       res.status(500).json({ error: "Failed to authenticate" });
@@ -3023,9 +3057,17 @@ router.get('/customers/search', authenticateToken, async (req: any, res: any) =>
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
 
     // Obtener órdenes (filtradas por rango de fechas si se proveen)
-    const orders = (startDate && endDate)
+    let orders = (startDate && endDate)
       ? await (tenantStorage as any).getOrdersByDateRange(startDate, endDate)
       : await tenantStorage.getAllOrders();
+
+    // Filtrar por almacén si el usuario no es admin/super_admin
+    if (user.warehouseId && !['admin', 'super_admin'].includes(user.role)) {
+      orders = (orders as any[]).filter((o: any) => o.warehouseId === user.warehouseId);
+    } else if (req.query.warehouseId) {
+      const wid = parseInt(req.query.warehouseId as string);
+      if (!isNaN(wid)) orders = (orders as any[]).filter((o: any) => o.warehouseId === wid);
+    }
     
     // Enriquecer con información adicional
     const enrichedOrders = await Promise.all(orders.map(async (order: any) => {
@@ -3286,6 +3328,7 @@ router.post('/orders/by-customer', authenticateToken, async (req: any, res: any)
       ...rest,
       storeId,
       customerId,
+      warehouseId: user.warehouseId ?? undefined,
       customerAddress: validated.customerAddress ?? customer.address ?? null,
       customerLatitude: validated.customerLatitude ?? customer.latitude ?? null,
       customerLongitude: validated.customerLongitude ?? customer.longitude ?? null,
@@ -3387,9 +3430,21 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
     const createdByUserId =
       req.body.orderType === 'sale' && !req.body.assignedUserId ? user.id : undefined;
 
+    // Resolve warehouseId: from request body → user JWT → first warehouse of store
+    let resolvedWarehouseId: number | null = req.body.warehouseId ?? user.warehouseId ?? null;
+    if (!resolvedWarehouseId) {
+      const [firstWarehouse] = await masterDb
+        .select({ id: schema.warehouses.id })
+        .from(schema.warehouses)
+        .where(eq(schema.warehouses.storeId, storeId))
+        .limit(1);
+      resolvedWarehouseId = firstWarehouse?.id ?? null;
+    }
+
     const orderData = {
       ...req.body,
       storeId,
+      warehouseId: resolvedWarehouseId,
       ...(createdByUserId ? { assignedUserId: createdByUserId } : {}),
     };
     
@@ -5395,11 +5450,20 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
       const user = req.user as AuthUser;
       const { type, startDate, endDate } = req.query;
       
+      // Determinar filtro de almacén: operativos ven solo su almacén; admin puede pasar ?warehouseId=N
+      let warehouseId: number | undefined;
+      if (!['admin', 'super_admin'].includes(user.role) && user.warehouseId) {
+        warehouseId = user.warehouseId;
+      } else if (req.query.warehouseId) {
+        warehouseId = parseInt(req.query.warehouseId as string) || undefined;
+      }
+
       const tenantStorage = await getTenantStorageWithSchema(user);
       const reports = await tenantStorage.getReports({
         type: type as string,
         startDate: startDate as string,
-        endDate: endDate as string
+        endDate: endDate as string,
+        warehouseId,
       });
       
       res.json(reports);
@@ -5412,10 +5476,18 @@ router.delete('/stores/:storeId/users/:userId', authenticateToken, async (req: a
   router.get('/reports/dashboard', authenticateToken, async (req: any, res: any) => {
     try {
       const user = req.user as AuthUser;
-      const tenantStorage = await getTenantStorageWithSchema(user);
-      
-      const dashboardData = await tenantStorage.getDashboardMetrics();
-      res.json(dashboardData);
+
+      // Filtro de almacén para dashboard
+      let warehouseId: number | undefined;
+      if (!['admin', 'super_admin'].includes(user.role) && user.warehouseId) {
+        warehouseId = user.warehouseId;
+      } else if (req.query.warehouseId) {
+        warehouseId = parseInt(req.query.warehouseId as string) || undefined;
+      }
+
+      // getDashboardMetrics vive en masterStorage para esta arquitectura de tienda única
+      const dashboardData = await masterStorage.getDashboardMetrics(user.storeId);
+      res.json({ ...dashboardData, warehouseId: warehouseId ?? null });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       res.status(500).json({ error: 'Failed to fetch dashboard data' });

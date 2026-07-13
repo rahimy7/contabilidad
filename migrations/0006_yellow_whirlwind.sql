@@ -1,0 +1,1 @@
+ALTER TABLE "journal_entries" ADD COLUMN "balances_applied" boolean DEFAULT false NOT NULL;

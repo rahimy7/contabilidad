@@ -1,9 +1,9 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import * as schema from "../shared/schema.js";
+import * as schema from "../shared/schema";
 import { eq, desc, and, or, count, sql, ilike, asc, like, lt, lte, inArray, gte } from "drizzle-orm";
 import { getTenantDb, masterDb } from "./multi-tenant-db.js";
-import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema.js";
+import { ConversationWithDetails, CustomerRegistrationFlow, InsertUser, orders, User } from "../shared/schema";
 import { ProductBrand, InsertProductBrand } from "@shared/types.js";
 import { TenantStorage } from "./interfaces/storage.js";
 import { getTenantStorage } from "./storage/index.js";
@@ -496,7 +496,8 @@ async createOrder(orderData: any, items: any[] = []) {
     if (items && items.length > 0) {
       const itemsWithOrderId = items.map(item => ({
         ...item,
-        orderId: order.id
+        orderId: order.id,
+        warehouseId: item.warehouseId ?? order.warehouseId,
       }));
       await tenantDb.insert(schema.orderItems).values(itemsWithOrderId);
     }
@@ -674,7 +675,7 @@ async deleteOrder(id: number) {
     
     // ✅ LOGGING DETALLADO para debugging
     orderItemsWithProducts.forEach((item, index) => {
-      console.log(`  ${index + 1}. Product ID: ${item.productId} | Name: "${item.productName}" | Quantity: ${item.quantity}`);
+      //console.log(`  ${index + 1}. Product ID: ${item.productId} | Name: "${item.productName}" | Quantity: ${item.quantity}`);
     });
 
     return orderItemsWithProducts;

@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_valuation" ADD COLUMN "inventory_account" text DEFAULT '1.1.03.001' NOT NULL;

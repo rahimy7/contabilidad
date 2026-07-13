@@ -25,6 +25,7 @@ const createEmployeeSchema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   address: z.string().optional(),
   employeeProfileId: z.number().optional().nullable(),
+  warehouseId: z.number().int().positive().optional().nullable(),
 });
 
 const editEmployeeSchema = createEmployeeSchema.extend({
@@ -77,6 +78,11 @@ export default function EmployeesManagement() {
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ["/api/employee-profiles"],
     queryFn: () => apiCall("/api/employee-profiles")
+  });
+
+  const { data: warehousesList = [] } = useQuery({
+    queryKey: ["/api/warehouses"],
+    queryFn: () => apiCall("/api/warehouses")
   });
 
  const roles = [
@@ -132,7 +138,8 @@ export default function EmployeesManagement() {
           phone: data.phone || null,
           address: data.address || null,
           status: 'active',
-          employeeProfileId: data.employeeProfileId || null
+          employeeProfileId: data.employeeProfileId || null,
+          warehouseId: data.warehouseId || null,
         })
       });
     },
@@ -150,7 +157,8 @@ export default function EmployeesManagement() {
       const updateData: any = {
         username: data.username, name: data.name, role: data.role,
         email: data.email || null, phone: data.phone || null,
-        address: data.address || null, employeeProfileId: data.employeeProfileId || null
+        address: data.address || null, employeeProfileId: data.employeeProfileId || null,
+        warehouseId: data.warehouseId || null,
       };
       if (data.password) updateData.password = data.password;
       return apiCall(`/api/employees/${id}`, { method: "PUT", body: JSON.stringify(updateData) });
@@ -229,7 +237,8 @@ export default function EmployeesManagement() {
     editEmployeeForm.reset({
       username: emp.username, name: emp.name, role: emp.role,
       phone: emp.phone || "", email: emp.email || "", address: emp.address || "",
-      password: "", employeeProfileId: emp.employeeProfileId || null
+      password: "", employeeProfileId: emp.employeeProfileId || null,
+      warehouseId: emp.warehouseId || null,
     });
     setIsEditEmployeeOpen(true);
   };
@@ -307,6 +316,9 @@ const handleEditProfile = (profile: any) => {
                   )}
                   {emp.email && <p className="text-sm">📧 {emp.email}</p>}
                   {emp.phone && <p className="text-sm">📱 {emp.phone}</p>}
+                  {emp.warehouseId && (
+                    <p className="text-sm">🏪 {(warehousesList as any[]).find((w: any) => w.id === emp.warehouseId)?.name || `Almacén #${emp.warehouseId}`}</p>
+                  )}
                   <div className="flex gap-2 pt-2">
                     <Button size="sm" variant="outline" onClick={() => handleEditEmployee(emp)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>
                     <Button size="sm" variant="destructive" onClick={() => setEmployeeToDelete(emp)}><Trash2 className="w-3 h-3 mr-1" />Eliminar</Button>
@@ -413,6 +425,20 @@ const handleEditProfile = (profile: any) => {
                   </FormItem>
                 )} />
               </div>
+              <FormField control={employeeForm.control} name="warehouseId" render={({ field }) => (
+                <FormItem><FormLabel>Almacén asignado</FormLabel>
+                  <Select onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val))} value={field.value?.toString() || "none"}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar almacén" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin almacén</SelectItem>
+                      {(warehousesList as any[]).map((w: any) => (
+                        <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={employeeForm.control} name="email" render={({ field }) => (
                   <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
@@ -478,6 +504,20 @@ const handleEditProfile = (profile: any) => {
                   </FormItem>
                 )} />
               </div>
+              <FormField control={editEmployeeForm.control} name="warehouseId" render={({ field }) => (
+                <FormItem><FormLabel>Almacén asignado</FormLabel>
+                  <Select onValueChange={(val) => field.onChange(val === "none" ? null : parseInt(val))} value={field.value?.toString() || "none"}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar almacén" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin almacén</SelectItem>
+                      {(warehousesList as any[]).map((w: any) => (
+                        <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={editEmployeeForm.control} name="email" render={({ field }) => (
                   <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>

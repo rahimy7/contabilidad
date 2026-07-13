@@ -30,6 +30,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWarehouse } from "@/contexts/WarehouseContext";
 import { CloseWizard } from "@/components/cash-register/close-wizard";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -426,6 +427,7 @@ export default function CashRegisterPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { activeWarehouseId } = useWarehouse();
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   // Form state: cierre
@@ -481,12 +483,13 @@ export default function CashRegisterPage() {
     : (storeUsersData?.users ?? []);
 
   const { data: histData, isLoading: loadingHist, refetch: refetchHist } = useQuery({
-    queryKey: ["/api/cash-register/sessions", histFilters],
+    queryKey: ["/api/cash-register/sessions", histFilters, activeWarehouseId],
     queryFn: () => {
       const params = new URLSearchParams();
       if (histFilters.startDate) params.set("startDate", histFilters.startDate);
       if (histFilters.endDate) params.set("endDate", histFilters.endDate);
       if (histFilters.status) params.set("status", histFilters.status);
+      if (activeWarehouseId) params.set("warehouseId", String(activeWarehouseId));
       return apiCall(`/api/cash-register/sessions?${params.toString()}`);
     },
   });

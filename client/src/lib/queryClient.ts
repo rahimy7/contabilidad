@@ -86,6 +86,14 @@ export async function apiRequest<T = unknown>(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Active company for the multi-company accounting/fiscal API. The server
+    // still verifies membership against user_companies, so a tampered value is
+    // rejected rather than trusted; absent, the server uses the user's default.
+    const activeCompanyId = localStorage.getItem("active_company_id");
+    if (activeCompanyId) {
+      headers["X-Company-Id"] = activeCompanyId;
+    }
+
     /* ------------------------------ Request --------------------------------- */
     const fetchOptions: RequestInit = {
       ...options,

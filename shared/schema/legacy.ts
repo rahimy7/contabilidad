@@ -1,7 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { makeInsertSchema } from "./schema.utils";
+import { makeInsertSchema } from "../schema.utils";
 
 // ================================
 // SISTEMA TIENDA ÚNICA - NO MULTI-TENANT
@@ -216,6 +216,9 @@ export const users = pgTable('users', {
   
   // ✅ NUEVOS CAMPOS - Nivel de habilidad
   skillLevel: integer('skill_level').default(1),
+
+  // Almacén asignado (nullable solo para super_admin)
+  warehouseId: integer('warehouse_id').references(() => warehouses.id),
 });
 
 // ================================
@@ -241,7 +244,10 @@ export const views = pgTable('views', {
   label: text('label').notNull(), // Etiqueta para mostrar (ej: 'Dashboard', 'Pedidos')
   iconName: text('icon_name').notNull(), // Nombre del ícono de lucide-react (ej: 'ChartLine', 'ShoppingCart')
   permissionRequired: text('permission_required').notNull(), // Permiso requerido (ej: 'view_dashboard', 'manage_orders')
-  section: text('section'), // Sección a la que pertenece (ej: 'core', 'admin', 'sales')
+  section: text('section'), // Sección a la que pertenece (ej: 'ventas', 'contabilidad', 'fiscal')
+  // Orden global en el menú. Las secciones ocupan bandas (100 principal, 200 ventas,
+  // …) para que ordenar por este número ordene también las secciones entre sí.
+  sortOrder: integer('sort_order').default(0),
   isSystem: boolean('is_system').default(false), // true para vistas del sistema que no se pueden eliminar
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -451,6 +457,7 @@ export const orders = pgTable("orders", {
   orderNumber: text("order_number").notNull().unique(),
   customerId: integer("customer_id").references(() => customers.id),
   storeId: integer('store_id').notNull(),
+  warehouseId: integer('warehouse_id').references(() => warehouses.id).notNull(),
 
   // Información de ubicación del cliente
   customerProvince: text("customer_province"),
@@ -516,6 +523,7 @@ export const orderItems = pgTable("order_items", {
   quantityInBaseUnit: decimal("quantity_in_base_unit", { precision: 12, scale: 4 }), // Cantidad normalizada a unidad base
   notes: text("notes"),
   storeId: integer("store_id"),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
 });
 
 // ================================
@@ -575,6 +583,9 @@ export const purchaseOrders = pgTable("purchase_orders", {
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+
+  // Almacén destino de la recepción
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
 });
 
 // Items de la orden de compra
@@ -607,6 +618,9 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 
   // Notas
   notes: text("notes"),
+
+  // Almacén donde se reciben los ítems
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
 
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -642,6 +656,9 @@ export const inventoryMovements = pgTable("inventory_movements", {
   // Detalles
   notes: text("notes"),
   reason: text("reason"), // Para ajustes, daños, etc.
+
+  // Almacén donde ocurrió el movimiento
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
 
   // Auditoría
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1220,6 +1237,7 @@ export const insertCustomerHistorySchema = makeInsertSchema(customerHistory);
 export const cashRegisterSessions = pgTable("cash_register_sessions", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").notNull(),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
   cashierId: integer("cashier_id").references(() => users.id).notNull(),
   sessionType: text("session_type").notNull().default("shift"), // 'shift' | 'day'
   status: text("status").notNull().default("open"), // 'open' | 'closed' | 'approved' | 'rejected'
@@ -1278,6 +1296,7 @@ export const insertCashRegisterSessionSchema = makeInsertSchema(cashRegisterSess
 export const cashWithdrawals = pgTable("cash_withdrawals", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").notNull(),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
   cashierId: integer("cashier_id").references(() => users.id).notNull(),
   authorizedByUserId: integer("authorized_by_user_id").references(() => users.id).notNull(),
   concept: text("concept").notNull(),
@@ -2018,6 +2037,7 @@ export const appointments = pgTable("appointments", {
   orderId: integer("order_id").references(() => orders.id),
   notes: text("notes"),
   createdBy: integer("created_by").references(() => users.id),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -2136,3 +2156,100 @@ export const insertCreditTransactionSchema = z.object({
 
 export type CustomerCreditAccount = typeof customerCreditAccounts.$inferSelect;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
+
+// ================================
+// SISTEMA DE MULTI-ALMACENES (SUCURSALES)
+// ================================
+
+// Almacenes / Sucursales de la tienda
+export const warehouses = pgTable("warehouses", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address"),
+  phone: text("phone"),
+  manager: text("manager"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Stock de productos por almacén (reemplaza stock_quantity global)
+export const warehouseStock = pgTable("warehouse_stock", {
+  id: serial("id").primaryKey(),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  storeId: integer("store_id").notNull(),
+  quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull().default("0"),
+  minStock: decimal("min_stock", { precision: 12, scale: 2 }).default("0"),
+  maxStock: decimal("max_stock", { precision: 12, scale: 2 }),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Transferencias entre almacenes
+export const warehouseTransfers = pgTable("warehouse_transfers", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  transferNumber: text("transfer_number").notNull(),
+  fromWarehouseId: integer("from_warehouse_id").references(() => warehouses.id).notNull(),
+  toWarehouseId: integer("to_warehouse_id").references(() => warehouses.id).notNull(),
+  status: text("status").notNull().default("pending"), // pending, approved, in_transit, completed, cancelled
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  approvedBy: integer("approved_by").references(() => users.id),
+  completedBy: integer("completed_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  completedAt: timestamp("completed_at"),
+});
+
+// Ítems de cada transferencia
+export const warehouseTransferItems = pgTable("warehouse_transfer_items", {
+  id: serial("id").primaryKey(),
+  transferId: integer("transfer_id").references(() => warehouseTransfers.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  requestedQuantity: decimal("requested_quantity", { precision: 12, scale: 2 }).notNull(),
+  sentQuantity: decimal("sent_quantity", { precision: 12, scale: 2 }),
+  receivedQuantity: decimal("received_quantity", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+});
+
+// -------- Schemas de inserción --------
+
+export const insertWarehouseSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  manager: z.string().optional().nullable(),
+  isDefault: z.boolean().optional().default(false),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const insertWarehouseStockSchema = z.object({
+  warehouseId: z.number().int().positive(),
+  productId: z.number().int().positive(),
+  quantity: z.string().or(z.number()),
+  minStock: z.string().or(z.number()).optional().nullable(),
+  maxStock: z.string().or(z.number()).optional().nullable(),
+});
+
+export const insertWarehouseTransferSchema = z.object({
+  fromWarehouseId: z.number().int().positive(),
+  toWarehouseId: z.number().int().positive(),
+  notes: z.string().optional().nullable(),
+  items: z.array(z.object({
+    productId: z.number().int().positive(),
+    requestedQuantity: z.string().or(z.number()),
+    notes: z.string().optional().nullable(),
+  })).min(1, "Se requiere al menos un producto"),
+});
+
+// -------- Tipos inferidos --------
+
+export type Warehouse = typeof warehouses.$inferSelect;
+export type WarehouseStock = typeof warehouseStock.$inferSelect;
+export type WarehouseTransfer = typeof warehouseTransfers.$inferSelect;
+export type WarehouseTransferItem = typeof warehouseTransferItems.$inferSelect;

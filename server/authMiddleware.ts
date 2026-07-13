@@ -42,7 +42,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
       }
     }
 
-    req.user = decoded as AuthUser;
+    // Mapear campos del JWT al tipo AuthUser (el JWT usa userId, el tipo usa id)
+    req.user = {
+      ...decoded,
+      id: (decoded as any).userId ?? (decoded as any).id,
+      warehouseId: (decoded as any).warehouseId ?? undefined,
+      warehouseName: (decoded as any).warehouseName ?? undefined,
+    } as AuthUser;
     next();
   } catch (err) {
     return res.status(403).json({ error: 'Token inválido o expirado' });

@@ -277,7 +277,10 @@ router.get('/roles/me/permissions', authenticateToken, async (req: any, res: any
   const userRole = req.user.role;
 
   try {
-    // Admins y super_admins ven TODAS las vistas sin importar role_permissions
+    // Admins y super_admins ven TODAS las vistas sin importar role_permissions.
+    // El orden lo manda el catálogo (views.sort_order), no el id de inserción:
+    // las secciones ocupan bandas de 100, así que un solo ORDER BY ordena tanto
+    // las secciones como los ítems dentro de cada una.
     if (userRole === 'admin' || userRole === 'super_admin') {
       const result = await pool.query(`
         SELECT
@@ -287,21 +290,16 @@ router.get('/roles/me/permissions', authenticateToken, async (req: any, res: any
           v.icon_name,
           v.permission_required,
           v.section,
-          COALESCE(rp.sort_order, v.id) AS sort_order
+          COALESCE(v.sort_order, 0) AS sort_order
         FROM views v
-        LEFT JOIN role_permissions rp ON rp.view_id = v.id
-          AND rp.role_id = (
-            SELECT r.id FROM user_roles ur
-            INNER JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = $1 LIMIT 1
-          )
-        ORDER BY COALESCE(rp.sort_order, v.id) ASC;
-      `, [userId]);
+        ORDER BY COALESCE(v.sort_order, 0) ASC, v.id ASC;
+      `);
 
       return res.json(result.rows);
     }
 
-    // Para otros roles: solo las vistas asignadas explícitamente
+    // Para otros roles: solo las vistas asignadas explícitamente. Un sort_order
+    // propio del rol (distinto de 0) reordena su menú; si no, cae al del catálogo.
     const result = await pool.query(
       `
       SELECT DISTINCT
@@ -311,13 +309,13 @@ router.get('/roles/me/permissions', authenticateToken, async (req: any, res: any
         v.icon_name,
         v.permission_required,
         v.section,
-        rp.sort_order
+        COALESCE(NULLIF(rp.sort_order, 0), v.sort_order, 0) AS sort_order
       FROM user_roles ur
       INNER JOIN roles r ON ur.role_id = r.id
       INNER JOIN role_permissions rp ON r.id = rp.role_id
       INNER JOIN views v ON rp.view_id = v.id
       WHERE ur.user_id = $1 AND rp.can_access = TRUE AND r.is_active = TRUE
-      ORDER BY rp.sort_order ASC;
+      ORDER BY 7 ASC, v.id ASC;
       `,
       [userId]
     );

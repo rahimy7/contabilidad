@@ -798,6 +798,12 @@ console.log('✅ API Router mounted successfully');
     await registerRoutes(app);
     await registerUserManagementRoutes(app);
 
+    // Accounting + fiscal (DGII) API. Self-contained: it depends only on the
+    // company-scoped schema and its own middleware, so it neither reads from nor
+    // interferes with the legacy POS routes above.
+    const { mountAccounting } = await import('./http/accounting-app');
+    mountAccounting(app);
+
     // Schema migration endpoints
     app.post('/api/super-admin/stores/:id/migrate-schema', async (req, res) => {
       try {

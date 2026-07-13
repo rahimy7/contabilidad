@@ -1,0 +1,1 @@
+ALTER TABLE "views" ADD COLUMN "sort_order" integer DEFAULT 0;

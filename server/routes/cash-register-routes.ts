@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
+import { resolveWarehouseId, canViewAllWarehouses } from '../utils/warehouse-context';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 
@@ -221,6 +222,12 @@ router.get('/cash-register/sessions', authenticateToken, async (req: any, res: a
     const db = await getTenantDb(user.storeId);
 
     const conditions: any[] = [eq(schema.cashRegisterSessions.storeId, user.storeId)];
+
+    // Filtrar por almacén: operativos ven solo su almacén; admin puede filtrar o ver todos
+    const warehouseId = resolveWarehouseId(req);
+    if (warehouseId) {
+      conditions.push(eq(schema.cashRegisterSessions.warehouseId, warehouseId));
+    }
 
     if (startDate) {
       conditions.push(gte(schema.cashRegisterSessions.openedAt, new Date(startDate)));
@@ -460,6 +467,7 @@ router.post('/cash-register/sessions/close', authenticateToken, async (req: any,
       .insert(schema.cashRegisterSessions)
       .values({
         storeId:              user.storeId,
+        warehouseId:          user.warehouseId ?? (resolveWarehouseId(req) as number),
         cashierId:            sessionCashierId,
         closedByUserId:       user.id,
         sessionType:          body.sessionType,

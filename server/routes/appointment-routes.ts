@@ -4,6 +4,7 @@ import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import { ensureAppointmentCreditSchema } from '../services/appointment-credit-schema-guard';
+import { resolveWarehouseId, canViewAllWarehouses } from '../utils/warehouse-context';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 
@@ -204,7 +205,9 @@ router.get('/appointments', authenticateToken, async (req: any, res: any) => {
 
     const { status, startDate, endDate, customerId } = req.query;
 
+    const warehouseId = resolveWarehouseId(req);
     let conditions = [eq(schema.appointments.storeId, user.storeId)];
+    if (warehouseId) conditions.push(eq(schema.appointments.warehouseId, warehouseId));
 
     if (status && status !== 'all') {
       conditions.push(eq(schema.appointments.status, status as string));
@@ -405,6 +408,7 @@ router.post('/appointments', authenticateToken, async (req: any, res: any) => {
       .insert(schema.appointments)
       .values({
         storeId: validation.data.storeId,
+        warehouseId: user.warehouseId ?? (resolveWarehouseId(req) as number),
         customerId: validation.data.customerId,
         titularId: validation.data.titularId || null,
         serviceTypeId: validation.data.serviceTypeId || null,

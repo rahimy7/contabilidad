@@ -120,7 +120,8 @@ const updateUserSchema = z.object({
   role: z.enum(['super_admin', 'admin', 'user', 'viewer']).optional(),
   status: z.enum(['active', 'inactive']).optional(),
   phone: z.string().optional(),
-  level: z.enum(['global', 'store']).optional()
+  level: z.enum(['global', 'store']).optional(),
+  warehouseId: z.number().int().positive().nullable().optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -257,7 +258,8 @@ export async function registerUserManagementRoutes(app: express.Application) {
       const userDataWithStore = {
         ...userData,
         password: hashedPassword,
-        storeId: user.storeId
+        storeId: user.storeId,
+        warehouseId: req.body.warehouseId ? parseInt(req.body.warehouseId) : null,
       };
       
       // ✅ CORREGIDO: Usar master storage para crear usuarios de tienda

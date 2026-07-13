@@ -427,9 +427,9 @@ export class UnifiedStorage implements UnifiedStorageInterface {
   /**
    * Obtiene métricas del dashboard de la tienda
    */
-  async getDashboardMetrics(): Promise<DashboardMetrics> {
+  async getDashboardMetrics(warehouseId?: number): Promise<DashboardMetrics> {
     const tenantStorage = await this.tenant();
-    return tenantStorage.getDashboardMetrics();
+    return tenantStorage.getDashboardMetrics(warehouseId);
   }
 
   /**

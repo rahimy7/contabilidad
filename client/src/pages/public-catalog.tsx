@@ -312,7 +312,7 @@ export default function PublicCatalogFixed() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">📁 Todas las categorías</SelectItem>
-                  {allCategories.map((category: Category) => (
+                  {allCategories.filter((category: Category) => !!category.name).map((category: Category) => (
                     <SelectItem key={category.id} value={category.name}>
                       {category.name}
                     </SelectItem>

@@ -925,7 +925,7 @@ const formatStock = (qty: number | undefined | null): string => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map((category) => (
+                {categories.filter((category) => !!category.name).map((category) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
                   </SelectItem>

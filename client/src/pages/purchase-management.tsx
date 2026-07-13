@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useWarehouse } from "@/contexts/WarehouseContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Package,
   Plus,
@@ -109,6 +111,9 @@ interface PurchaseStats {
 
 export default function PurchaseManagement() {
   const [activeTab, setActiveTab] = useState<"orders" | "suppliers">("orders");
+  const { activeWarehouseId } = useWarehouse();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -119,6 +124,21 @@ export default function PurchaseManagement() {
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
 
   const queryClient = useQueryClient();
+
+  // Fetch warehouses (only needed for admin users to show warehouse selector)
+  const { data: warehouses = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/warehouses"],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch("/api/warehouses", {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: isAdmin,
+  });
 
   // Fetch products
   const { data: products = [] } = useQuery<Product[]>({
@@ -136,11 +156,12 @@ export default function PurchaseManagement() {
 
   // Fetch purchase orders
   const { data: purchaseOrders = [], isLoading: ordersLoading } = useQuery<PurchaseOrder[]>({
-    queryKey: ["/api/purchase-orders", statusFilter],
+    queryKey: ["/api/purchase-orders", statusFilter, activeWarehouseId],
     queryFn: async () => {
       const token = localStorage.getItem('auth_token');
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.append("status", statusFilter);
+      if (activeWarehouseId) params.append("warehouseId", String(activeWarehouseId));
       const response = await fetch(`/api/purchase-orders?${params}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: "include",
@@ -166,10 +187,12 @@ export default function PurchaseManagement() {
 
   // Fetch purchase stats
   const { data: stats } = useQuery<PurchaseStats>({
-    queryKey: ["/api/purchase-stats"],
+    queryKey: ["/api/purchase-stats", activeWarehouseId],
     queryFn: async () => {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch("/api/purchase-stats", {
+      const params = new URLSearchParams();
+      if (activeWarehouseId) params.append("warehouseId", String(activeWarehouseId));
+      const response = await fetch(`/api/purchase-stats?${params}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         credentials: "include"
       });
@@ -283,6 +306,7 @@ export default function PurchaseManagement() {
       discountRate: "0",
       notes: "",
       currency: "DOP",
+      warehouseId: activeWarehouseId ? String(activeWarehouseId) : "",
     });
 
     const [items, setItems] = useState<PurchaseOrderItem[]>([]);
@@ -362,19 +386,11 @@ export default function PurchaseManagement() {
       const newItems = [...items];
       newItems[index] = { ...newItems[index], [field]: value };
 
-      // Recalculate total cost for the item
+      // Total de línea = cantidad × costo unitario (sin impuestos/descuentos por ítem)
       const quantity = parseFloat(newItems[index].quantity) || 0;
       const unitCost = parseFloat(newItems[index].unitCost) || 0;
-      const taxRate = parseFloat(newItems[index].taxRate) || 0;
-      const discountRate = parseFloat(newItems[index].discountRate) || 0;
 
-      const subtotal = quantity * unitCost;
-      const discount = subtotal * (discountRate / 100);
-      const taxableAmount = subtotal - discount;
-      const tax = taxableAmount * (taxRate / 100);
-      const total = taxableAmount + tax;
-
-      newItems[index].totalCost = total.toFixed(2);
+      newItems[index].totalCost = (quantity * unitCost).toFixed(2);
       setItems(newItems);
     };
 
@@ -428,6 +444,7 @@ export default function PurchaseManagement() {
 
       const orderData = {
         supplierId: parseInt(formData.supplierId),
+        warehouseId: formData.warehouseId ? parseInt(formData.warehouseId) : (activeWarehouseId ?? undefined),
         orderDate: formData.orderDate,
         expectedDeliveryDate: formData.expectedDeliveryDate || null,
         invoiceNumber: formData.invoiceNumber || null,
@@ -504,6 +521,26 @@ export default function PurchaseManagement() {
                   ))}
                 </select>
               </div>
+
+              {/* Warehouse selector — only shown to admin users */}
+              {isAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Almacén destino <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.warehouseId}
+                    onChange={(e) => setFormData({ ...formData, warehouseId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Seleccionar almacén</option>
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

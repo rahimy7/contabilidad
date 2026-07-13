@@ -1,0 +1,1 @@
+ALTER TABLE "fiscal_documents" ADD COLUMN "retention_concept" text;

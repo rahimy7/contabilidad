@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useWarehouse } from '@/contexts/WarehouseContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -210,6 +211,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function AppointmentsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeWarehouseId } = useWarehouse();
   const [activeTab, setActiveTab] = useState('calendar');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -227,8 +229,11 @@ export default function AppointmentsPage() {
   // Queries
   // ================================
   const { data: appointments = [], refetch: refetchAppointments } = useQuery({
-    queryKey: ['/api/appointments'],
-    queryFn: () => apiCall('/api/appointments'),
+    queryKey: ['/api/appointments', activeWarehouseId],
+    queryFn: () => {
+      const params = activeWarehouseId ? `?warehouseId=${activeWarehouseId}` : '';
+      return apiCall(`/api/appointments${params}`);
+    },
   });
 
   const year = calendarMonth.getFullYear();

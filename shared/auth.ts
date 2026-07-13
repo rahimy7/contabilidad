@@ -18,6 +18,8 @@ export interface AuthUser {
   department?: string;
   storeId: number;
   storeName?: string;
+  warehouseId?: number;
+  warehouseName?: string;
 }
 
 export interface AuthResponse {

@@ -12,6 +12,7 @@ import { addDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWarehouse } from "@/contexts/WarehouseContext";
 
 const parseCurrency = (value: any): number => {
   if (typeof value === 'number') {
@@ -27,6 +28,7 @@ const parseCurrency = (value: any): number => {
 
 export default function Reports() {
   const { user } = useAuth();
+  const { activeWarehouseId } = useWarehouse();
   const [dateRange, setDateRange] = useState({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date())
@@ -38,7 +40,11 @@ export default function Reports() {
   const hasStoreContext = !!user?.storeId;
 
   const { data: orders } = useQuery({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { warehouseId: activeWarehouseId }],
+    queryFn: () => {
+      const params = activeWarehouseId ? `?warehouseId=${activeWarehouseId}` : '';
+      return fetch(`/api/orders${params}`, { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` } }).then(r => r.json());
+    },
     enabled: hasStoreContext,
   });
 

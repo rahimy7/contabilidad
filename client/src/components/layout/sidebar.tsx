@@ -1,15 +1,28 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { 
-  ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings, 
-  X, Bot, UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Shield, 
-  CreditCard, Truck, DollarSign, ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CalendarDays, Stethoscope, Receipt
+import {
+  // Íconos referenciados por `views.icon_name` (ver server/seed/views.ts).
+  LayoutDashboard, BarChart3, Bell, ShoppingBasket, ShoppingCart, ClipboardList,
+  Receipt, DollarSign, Users, UserPlus, ShoppingBag, Package, PackagePlus,
+  BookOpen, Warehouse, ArrowRightLeft, Sliders, PackageSearch, FileSpreadsheet,
+  Tags, Tag, Ruler, Scale, CreditCard, Wallet, Landmark, Boxes, Building,
+  PiggyBank, Network, FileText, Banknote, CalendarDays, Stethoscope, HeartPulse,
+  // `Map` se renombra: sin el alias sombrea al Map nativo de JavaScript.
+  Wrench, Map as MapIcon, Truck, MessageCircle, Bot, Zap, Smartphone, Building2,
+  Shield, Store, Coins, Settings,
+  // Nombres heredados: filas viejas de `views` pueden seguir usándolos.
+  ChartLine, PackageCheck,
+  // Cromo del propio sidebar.
+  ChevronRight, PanelLeftClose, PanelLeftOpen, X, Moon, Sun, Calculator,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/hooks/use-theme";
+import { WarehouseSwitcher } from "@/components/layout/warehouse-switcher";
+import { CompanySwitcher } from "@/components/layout/company-switcher";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -18,10 +31,20 @@ interface SidebarProps {
 
 interface ActiveTrip {
   id: number;
-  status: 'active' | 'processing' | 'pending' | 'completed';
+  status: "active" | "processing" | "pending" | "completed";
   tripNumber: string;
   totalOrders: number;
   completedOrders: number;
+}
+
+/** Una fila de `views`, tal como la devuelve /api/roles/me/permissions. */
+export interface ViewRow {
+  id: number;
+  route_path: string;
+  label: string;
+  icon_name: string;
+  section: string | null;
+  sort_order: number | null;
 }
 
 interface NavItem {
@@ -31,255 +54,510 @@ interface NavItem {
   badge: number | string | null;
 }
 
+interface NavGroup {
+  key: string;
+  label: string;
+  icon: any;
+  order: number;
+  items: NavItem[];
+}
+
+/** Exportado: el header lo reusa para la paleta de búsqueda global. */
+export const iconMap: Record<string, any> = {
+  LayoutDashboard, BarChart3, Bell, ShoppingBasket, ShoppingCart, ClipboardList,
+  Receipt, DollarSign, Users, UserPlus, ShoppingBag, Package, PackagePlus,
+  BookOpen, Warehouse, ArrowRightLeft, Sliders, PackageSearch, FileSpreadsheet,
+  Tags, Tag, Ruler, Scale, CreditCard, Wallet, Landmark, Boxes, Building,
+  PiggyBank, Network, FileText, Banknote, CalendarDays, Stethoscope, HeartPulse,
+  Wrench, Map: MapIcon, Truck, MessageCircle, Bot, Zap, Smartphone, Building2,
+  Shield, Store, Coins, Settings, ChartLine, PackageCheck,
+};
+
+/**
+ * Cada sección de `views` es un grupo plegable del menú, con su propio ícono.
+ * Una sección que llegue de la base sin estar aquí igual se renderiza (con su
+ * clave como título y un ícono genérico) y se va al final: el catálogo puede
+ * crecer sin tocar este archivo.
+ */
+const SECTION_META: Record<string, { label: string; icon: any }> = {
+  principal: { label: "Principal", icon: LayoutDashboard },
+  ventas: { label: "Ventas", icon: ShoppingCart },
+  compras: { label: "Compras", icon: ShoppingBag },
+  inventario: { label: "Inventario", icon: Boxes },
+  contabilidad: { label: "Contabilidad", icon: Calculator },
+  fiscal: { label: "Fiscal · DGII", icon: Receipt },
+  rrhh: { label: "Nómina y RRHH", icon: Users },
+  operaciones: { label: "Operaciones", icon: Wrench },
+  comunicacion: { label: "Comunicación", icon: MessageCircle },
+  configuracion: { label: "Configuración", icon: Settings },
+};
+
+/** La sección `principal` se muestra como enlaces sueltos arriba, sin plegar. */
+const FLAT_SECTION = "principal";
+
+const COLLAPSED_KEY = "sidebar:collapsed";
+const OPEN_GROUPS_KEY = "sidebar:open-groups";
+
+const readStored = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const [location] = useLocation();
-  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAuth();
-  
-  // Check if mobile view
+  const { theme, toggleTheme } = useTheme();
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => readStored(COLLAPSED_KEY, false));
+  const [openGroups, setOpenGroups] = useState<string[]>(() => readStored<string[]>(OPEN_GROUPS_KEY, ["contabilidad"]));
+
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1025);
-    };
-    
+    const checkMobile = () => setIsMobile(window.innerWidth < 1025);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ================================
-  // CARGA DE VISTAS DINÁMICAS - SISTEMA RBAC
-  // ================================
-  
-  const { data: dynamicViews = [], isLoading: viewsLoading } = useQuery({
+  useEffect(() => localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsed)), [collapsed]);
+  useEffect(() => localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(openGroups)), [openGroups]);
+
+  // En móvil el riel de íconos no aplica: el menú es un panel completo.
+  const isRail = collapsed && !isMobile;
+
+  // ── Vistas permitidas (RBAC, servidas por la base) ────────────────────────
+  const { data: dynamicViews = [], isLoading: viewsLoading } = useQuery<ViewRow[]>({
     queryKey: ["/api/roles/me/permissions"],
     queryFn: () => apiRequest("GET", "/api/roles/me/permissions"),
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 
-  // ================================
-  // QUERIES PARA BADGES
-  // ================================
-  
-  const { data: orders = [] } = useQuery({
-    queryKey: ["/api/orders"],
-    enabled: !!user,
-  });
-
-  const { data: conversations = [] } = useQuery({
-    queryKey: ["/api/conversations"],
-    enabled: !!user,
-  });
-
-  const { data: notificationCounts = { total: 0, unread: 0 } } = useQuery({
+  // ── Contadores para los badges ────────────────────────────────────────────
+  const { data: orders = [] } = useQuery({ queryKey: ["/api/orders"], enabled: !!user });
+  const { data: conversations = [] } = useQuery({ queryKey: ["/api/conversations"], enabled: !!user });
+  const { data: notificationCounts } = useQuery({
     queryKey: ["/api/notifications/count", { userId: user?.id }],
     queryFn: () => apiRequest("GET", `/api/notifications/count?userId=${user?.id}`),
     refetchInterval: 30000,
     enabled: !!user,
   });
-
   const { data: activeTrip } = useQuery<ActiveTrip | null>({
     queryKey: ["/api/trips/my-active"],
-    enabled: !!user && user?.role === 'delivery',
+    enabled: !!user && user?.role === "delivery",
     refetchInterval: 30000,
   });
-
   const { data: tripStats } = useQuery({
-    queryKey: ["/api/trips", { status: 'pending' }],
-    enabled: !!user && (user?.role === 'admin' || user?.role === 'sales_rep'),
+    queryKey: ["/api/trips", { status: "pending" }],
+    enabled: !!user && (user?.role === "admin" || user?.role === "sales_rep"),
     refetchInterval: 30000,
   });
 
-  // ================================
-  // CÁLCULO DE BADGES
-  // ================================
-  
-  const pendingOrders = Array.isArray(orders) ? orders.filter((order: any) => order.status === "pending").length : 0;
-  const activeConversations = Array.isArray(conversations) ? conversations.filter((conv: any) => conv.unreadCount > 0).length : 0;
-  const unreadNotifications = (() => {
-    if (!notificationCounts || typeof notificationCounts !== 'object') return 0;
-    if ('unread' in notificationCounts) {
-      const unread = notificationCounts.unread;
-      return typeof unread === 'number' ? unread : 0;
+  const pendingOrders = Array.isArray(orders) ? orders.filter((o: any) => o.status === "pending").length : 0;
+  const activeConversations = Array.isArray(conversations) ? conversations.filter((c: any) => c.unreadCount > 0).length : 0;
+  const unreadNotifications = typeof (notificationCounts as any)?.unread === "number" ? (notificationCounts as any).unread : 0;
+  const pendingTrips = Array.isArray(tripStats) ? tripStats.filter((t: any) => t.status === "pending").length : 0;
+  const hasActiveTrip = activeTrip?.status === "active" || activeTrip?.status === "processing";
+
+  const getBadgeForRoute = useCallback(
+    (routePath: string): number | string | null => {
+      switch (routePath) {
+        case "/conversations": return activeConversations || null;
+        case "/notifications": return unreadNotifications || null;
+        case "/orders": return pendingOrders || null;
+        case "/trips": return pendingTrips || null;
+        case "/delivery-dashboard": return hasActiveTrip ? "●" : null;
+        default: return null;
+      }
+    },
+    [activeConversations, unreadNotifications, pendingOrders, pendingTrips, hasActiveTrip],
+  );
+
+  // ── Agrupación ────────────────────────────────────────────────────────────
+  // El orden lo manda `sort_order`, que viene en bandas por sección: ordenar por
+  // él ordena los grupos entre sí y los ítems dentro de cada uno.
+  const groups: NavGroup[] = useMemo(() => {
+    const byKey = new Map<string, NavGroup>();
+
+    for (const v of dynamicViews) {
+      const key = v.section || "otros";
+      const order = v.sort_order ?? Number.MAX_SAFE_INTEGER;
+      let g = byKey.get(key);
+      if (!g) {
+        const meta = SECTION_META[key];
+        g = {
+          key,
+          label: meta?.label ?? key.charAt(0).toUpperCase() + key.slice(1),
+          icon: meta?.icon ?? Package,
+          order,
+          items: [],
+        };
+        byKey.set(key, g);
+      }
+      g.order = Math.min(g.order, order);
+      g.items.push({
+        href: v.route_path,
+        icon: iconMap[v.icon_name] || Package,
+        label: v.label,
+        badge: getBadgeForRoute(v.route_path),
+      });
     }
-    return 0;
-  })();
-  const pendingTrips = Array.isArray(tripStats) ? tripStats.filter((trip: any) => trip.status === 'pending').length : 0;
-  const hasActiveTrip = activeTrip?.status === 'active' || activeTrip?.status === 'processing';
 
-  // ================================
-  // CONSTRUCCIÓN DE ITEMS DE NAVEGACIÓN
-  // ================================
-  
-  // Mapa de iconos
-  const iconMap: Record<string, any> = {
-    ChartLine, ShoppingCart, MessageCircle, Users, Package, BarChart3, Settings,
-    UserPlus, Zap, Bell, Wrench, ClipboardList, ShoppingBag, Truck, DollarSign,
-    ShoppingBasket, Sliders, Scale, FileText, PackageSearch, CreditCard, Bot, Shield, CalendarDays, Stethoscope, Receipt,
-  };
+    return [...byKey.values()].sort((a, b) => a.order - b.order);
+  }, [dynamicViews, getBadgeForRoute]);
 
-  // Mapa de badges por ruta
-  const getBadgeForRoute = (routePath: string): number | string | null => {
-    switch (routePath) {
-      case '/conversations':
-        return activeConversations > 0 ? activeConversations : null;
-      case '/notifications':
-        return unreadNotifications > 0 ? unreadNotifications : null;
-      case '/orders':
-        return pendingOrders > 0 ? pendingOrders : null;
-      case '/trips':
-        return pendingTrips > 0 ? pendingTrips : null;
-      case '/delivery-dashboard':
-        return hasActiveTrip ? "●" : null;
-      default:
-        return null;
+  const flatItems = groups.find((g) => g.key === FLAT_SECTION)?.items ?? [];
+  const treeGroups = groups.filter((g) => g.key !== FLAT_SECTION);
+
+  const activeHref = location === "/" ? "/dashboard" : location;
+
+  // El grupo que contiene la página actual se abre solo: nadie debería tener que
+  // buscar dónde quedó lo que está viendo.
+  const activeGroupKey = useMemo(
+    () => treeGroups.find((g) => g.items.some((i) => i.href === activeHref))?.key,
+    [treeGroups, activeHref],
+  );
+  useEffect(() => {
+    if (activeGroupKey && !openGroups.includes(activeGroupKey)) {
+      setOpenGroups((prev) => [...prev, activeGroupKey]);
     }
+  }, [activeGroupKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleGroup = (key: string) =>
+    setOpenGroups((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
+  const handleNavigate = () => {
+    if (isMobile && onClose) onClose();
   };
-
-  // Convertir vistas dinámicas a NavItems
-  const navItems: NavItem[] = dynamicViews.map((view: any) => ({
-    href: view.route_path,
-    icon: iconMap[view.icon_name] || Package,
-    label: view.label,
-    badge: getBadgeForRoute(view.route_path),
-  }));
-
-  // Función para manejar el clic en las opciones del menú
-  const handleMenuItemClick = () => {
-    if (isMobile && onClose) {
-      onClose();
-    }
-  };
-
-  // ================================
-  // RENDERIZADO
-  // ================================
 
   if (isMobile && !isOpen) return null;
 
+  const totalViews = groups.reduce((n, g) => n + g.items.length, 0);
+
   return (
-    <div className="relative">
-      {/* Mobile backdrop */}
+    <>
       {isMobile && isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={onClose} />
       )}
-      
-      <aside className={`w-72 bg-gradient-to-b from-[#4a5eba] to-[#3d4e9f] shadow-xl border-r border-white/10 flex flex-col h-full ${
-        isMobile
-          ? 'fixed left-0 top-0 z-50 transform transition-transform duration-300'
-          : 'relative'
-      } ${
-        isMobile && !isOpen ? '-translate-x-full' : 'translate-x-0'
-      } md:w-72 md:relative md:transform-none`}>
-        
-        {/* Mobile close button */}
-        {isMobile && (
-          <div className="flex justify-end p-4 md:hidden">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onClose}
-              className="p-2 text-white hover:bg-white/20"
-            >
-              <X className="h-5 w-5" />
+
+      <aside
+        className={[
+          // `dark` alcanza a los componentes shadcn de adentro (los selects de
+          // empresa y almacén), que así resuelven sus tokens contra la paleta oscura.
+          "dark flex h-full flex-col bg-[#0B1220] text-slate-300",
+          "transition-[width] duration-200 ease-out",
+          isRail ? "w-[72px]" : "w-[264px]",
+          isMobile ? "fixed left-0 top-0 z-50 w-[280px]" : "relative",
+        ].join(" ")}
+      >
+        {/* Marca */}
+        <div className="flex h-16 shrink-0 items-center gap-2.5 px-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
+            <img src="/image.png" alt="" className="h-6 w-6 object-contain" />
+          </div>
+          {!isRail && (
+            <span className="flex-1 truncate text-[17px] font-bold tracking-tight text-white">
+              Metabella <span className="font-semibold text-indigo-400">ERP</span>
+            </span>
+          )}
+          {isMobile ? (
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0 text-slate-400">
+              <X className="h-4 w-4" />
             </Button>
+          ) : (
+            !isRail && (
+              <button
+                onClick={() => setCollapsed(true)}
+                className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                title="Contraer menú"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            )
+          )}
+        </div>
+
+        {isRail && !isMobile && (
+          <button
+            onClick={() => setCollapsed(false)}
+            className="mx-auto mb-2 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+            title="Expandir menú"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        )}
+
+        {/* Contexto: empresa activa y almacén. En un ERP multiempresa es lo
+            primero que hay que poder ver y cambiar. */}
+        {!isRail && (
+          <div className="space-y-2 px-3 pb-3">
+            <CompanySwitcher />
+            <WarehouseSwitcher />
           </div>
         )}
 
-        {/* Logo Header */}
-        <div className="p-4 md:p-6 border-b border-white/30 flex-shrink-0 bg-black/10">
-          <div className="flex items-center space-x-3">
-            <img
-              src="/image.png"
-              alt="Metabella Logo"
-              className="h-8 md:h-10 w-auto drop-shadow-lg"
-            />
-            <div>
-              <h1 className="font-bold text-white text-base md:text-lg drop-shadow-sm">Metabella</h1>
-            </div>
-          </div>
-        </div>
-
-        {/* User Profile */}
-        <div className="p-4 border-b border-white/30 flex-shrink-0 bg-black/5">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white/30 backdrop-blur rounded-full flex items-center justify-center shadow-md">
-              <span className="text-white text-sm font-medium drop-shadow-sm">👤</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-white text-sm drop-shadow-sm">{user?.name || 'Usuario'}</p>
-              <p className="text-xs text-white/90 capitalize">{user?.role || 'Sistema'}</p>
-            </div>
-            <button className="text-white/90 hover:text-white transition-colors">
-              <ChartLine className="h-4 w-4 drop-shadow-sm" />
-            </button>
-          </div>
-        </div>
-
-        {/* Navigation Menu - CON SCROLL */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2">
+        {/* Navegación */}
+        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
           {viewsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-white/70 text-sm">Cargando menú...</div>
+            <div className="space-y-1.5">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-white/5" />
+              ))}
             </div>
-          ) : navItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-              <Shield className="w-12 h-12 text-white/50 mb-3" />
-              <p className="text-white/70 text-sm">No tienes vistas asignadas</p>
-              <p className="text-white/50 text-xs mt-1">Contacta al administrador</p>
+          ) : totalViews === 0 ? (
+            <div className="flex flex-col items-center px-4 py-10 text-center">
+              <Shield className="mb-3 h-10 w-10 text-slate-700" />
+              <p className="text-sm text-slate-400">No tienes vistas asignadas</p>
+              <p className="mt-1 text-xs text-slate-600">Contacta al administrador</p>
             </div>
           ) : (
-            <div className="space-y-1">
-            {navItems.map((item) => {
-              const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-              const Icon = item.icon;
-
-              return (
-                <Link
+            <>
+              {/* Enlaces sueltos (Dashboard, Reportes, Notificaciones) */}
+              {flatItems.map((item) => (
+                <NavRow
                   key={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  badge={item.badge}
                   href={item.href}
-                  onClick={handleMenuItemClick}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-white text-[#4a5eba] shadow-lg font-semibold"
-                      : "text-white/95 hover:bg-white/20 hover:text-white hover:shadow-md"
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 ${
-                    isActive ? "" : "drop-shadow-sm"
-                  }`} />
-                  <span className={isActive ? "" : "drop-shadow-sm"}>{item.label}</span>
-                  {item.badge && (
-                    <Badge
-                      variant={item.href === "/conversations" ? "default" : "destructive"}
-                      className={`ml-auto text-xs px-2 py-1 ${
-                        item.href === "/conversations" ? "whatsapp-bg text-white" : ""
-                      } ${
-                        item.badge === "●" ? "bg-green-500 text-white animate-pulse" : ""
-                      }`}
+                  isActive={activeHref === item.href}
+                  isRail={isRail}
+                  onNavigate={handleNavigate}
+                />
+              ))}
+
+              {/* Grupos plegables */}
+              {treeGroups.map((group) => {
+                const isOpen = openGroups.includes(group.key);
+                const holdsActive = group.items.some((i) => i.href === activeHref);
+                const groupBadge = group.items.reduce<number>(
+                  (n, i) => n + (typeof i.badge === "number" ? i.badge : 0),
+                  0,
+                );
+
+                // Contraído: el grupo se vuelve un ícono con tooltip que despliega
+                // sus hijos al pasar el mouse — plegar dentro de un riel de 72px
+                // no tendría dónde mostrarlos.
+                if (isRail) {
+                  return (
+                    <RailGroup
+                      key={group.key}
+                      group={group}
+                      activeHref={activeHref}
+                      holdsActive={holdsActive}
+                      onNavigate={handleNavigate}
+                    />
+                  );
+                }
+
+                const GroupIcon = group.icon;
+                return (
+                  <div key={group.key}>
+                    <button
+                      onClick={() => toggleGroup(group.key)}
+                      className={[
+                        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[14px] transition-colors",
+                        holdsActive && !isOpen
+                          ? "bg-white/5 font-medium text-white"
+                          : "text-slate-400 hover:bg-white/5 hover:text-white",
+                      ].join(" ")}
                     >
-                      {item.badge}
-                    </Badge>
-                  )}
-                </Link>
-              );
-            })}
-            </div>
+                      <GroupIcon className="h-[18px] w-[18px] shrink-0" />
+                      <span className="flex-1 truncate text-left">{group.label}</span>
+                      {groupBadge > 0 && !isOpen && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold tabular-nums text-white">
+                          {groupBadge}
+                        </span>
+                      )}
+                      <ChevronRight
+                        className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                      />
+                    </button>
+
+                    {isOpen && (
+                      // La guía vertical ata visualmente los hijos a su grupo.
+                      <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-slate-800 pl-3">
+                        {group.items.map((item) => (
+                          <ChildRow
+                            key={item.href}
+                            item={item}
+                            isActive={activeHref === item.href}
+                            onNavigate={handleNavigate}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           )}
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/30 flex-shrink-0 bg-black/5">
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg"></div>
-            <span className="text-sm text-white/95 drop-shadow-sm font-medium">✅ WhatsApp API Conectado</span>
-          </div>
+        {/* Pie: tema */}
+        <div className="shrink-0 p-3">
+          <button
+            onClick={toggleTheme}
+            className={[
+              "flex h-11 w-full items-center rounded-xl bg-white/5 text-[14px] text-slate-300 transition-colors hover:bg-white/10 hover:text-white",
+              isRail ? "justify-center px-0" : "gap-3 px-3",
+            ].join(" ")}
+            title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+          >
+            {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+            {!isRail && <span>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>}
+          </button>
         </div>
       </aside>
-    </div>
+    </>
+  );
+}
+
+/** Enlace de primer nivel (con ícono), y también cada ítem del riel contraído. */
+function NavRow({
+  icon: Icon,
+  label,
+  badge,
+  href,
+  isActive,
+  isRail,
+  onNavigate,
+}: {
+  icon: any;
+  label: string;
+  badge: number | string | null;
+  href: string;
+  isActive: boolean;
+  isRail: boolean;
+  onNavigate: () => void;
+}) {
+  const link = (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={[
+        "relative flex h-10 items-center rounded-lg text-[14px] transition-colors",
+        isRail ? "w-full justify-center px-0" : "gap-3 px-3",
+        isActive
+          ? "bg-indigo-600 font-medium text-white shadow-lg shadow-indigo-600/20"
+          : "text-slate-400 hover:bg-white/5 hover:text-white",
+      ].join(" ")}
+    >
+      <Icon className="h-[18px] w-[18px] shrink-0" />
+      {!isRail && <span className="flex-1 truncate">{label}</span>}
+      {badge != null &&
+        (isRail ? (
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#0B1220]" />
+        ) : (
+          <span
+            className={[
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
+              badge === "●" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
+            ].join(" ")}
+          >
+            {badge}
+          </span>
+        ))}
+    </Link>
+  );
+
+  if (!isRail) return link;
+
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Hoja dentro de un grupo abierto: sin ícono, la sangría ya dice de quién cuelga. */
+function ChildRow({
+  item,
+  isActive,
+  onNavigate,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate: () => void;
+}) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={[
+        "flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] transition-colors",
+        isActive
+          ? "bg-indigo-600 font-medium text-white shadow-lg shadow-indigo-600/20"
+          : "text-slate-400 hover:bg-white/5 hover:text-white",
+      ].join(" ")}
+    >
+      <span className="flex-1 truncate">{item.label}</span>
+      {item.badge != null && (
+        <span
+          className={[
+            "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
+            item.badge === "●" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
+          ].join(" ")}
+        >
+          {item.badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/** Grupo en el riel contraído: ícono con tooltip que lista sus hijos. */
+function RailGroup({
+  group,
+  activeHref,
+  holdsActive,
+  onNavigate,
+}: {
+  group: NavGroup;
+  activeHref: string;
+  holdsActive: boolean;
+  onNavigate: () => void;
+}) {
+  const GroupIcon = group.icon;
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <button
+          className={[
+            "flex h-10 w-full items-center justify-center rounded-lg transition-colors",
+            holdsActive ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+          ].join(" ")}
+        >
+          <GroupIcon className="h-[18px] w-[18px]" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="p-1.5">
+        <p className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {group.label}
+        </p>
+        <div className="min-w-[180px] space-y-0.5">
+          {group.items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={[
+                "block rounded px-2 py-1.5 text-[13px] transition-colors",
+                activeHref === item.href
+                  ? "bg-indigo-600 font-medium text-white"
+                  : "hover:bg-accent",
+              ].join(" ")}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
