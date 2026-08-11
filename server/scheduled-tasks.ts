@@ -3,6 +3,7 @@
 
 import { getTenantStorage } from './storage/index.js';
 import { cleanupIncompleteAIConversations } from './ai-conversation-cleanup.js';
+import { startEcfJobs } from './jobs/ecf-jobs';
 import { startStorageUpdateJob, startStorageLimitCheckJob } from './jobs/storage-jobs.js';
 
 /**
@@ -208,6 +209,10 @@ export function startScheduledTasks() {
 
   console.log('📅 Storage limit check job: Every hour');
   startStorageLimitCheckJob();
+
+  // 7️⃣ Cola e-CF: reintentos por contingencia y consulta de estado en DGII.
+  // Sin esto, un comprobante que volvió "en proceso" se queda ahí para siempre.
+  startEcfJobs();
 
   // Ejecutar limpieza inicial después de 1 minuto
   console.log('⏳ Running initial cleanup in 1 minute...');

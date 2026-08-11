@@ -1,230 +1,419 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1783655168666,
-      "tag": "0000_complete_luke_cage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1783655243048,
-      "tag": "0001_accounting_guards",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783682073968,
-      "tag": "0002_rls_tenant_isolation",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1783682310552,
-      "tag": "0003_rls_fail_closed",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1783682450416,
-      "tag": "0004_tan_grim_reaper",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1783682461228,
-      "tag": "0005_entry_no_allocator",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1783685600787,
-      "tag": "0006_yellow_whirlwind",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1783685601922,
-      "tag": "0007_incremental_balances",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1783685861480,
-      "tag": "0008_fixed_frightful_four",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1783829223948,
-      "tag": "0009_colossal_mac_gargan",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1783829233846,
-      "tag": "0010_subledgers_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1783829657375,
-      "tag": "0011_bright_mulholland_black",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1783829658523,
-      "tag": "0012_fixed_assets_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1783830359251,
-      "tag": "0013_oval_whistler",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1783830360436,
-      "tag": "0014_budget_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1783830912223,
-      "tag": "0015_ordinary_gertrude_yorkes",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1783830913437,
-      "tag": "0016_payroll_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1783855549125,
-      "tag": "0017_stormy_alex_power",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1783855562609,
-      "tag": "0018_treasury_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1783860415848,
-      "tag": "0019_sparkling_siren",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1783861479479,
-      "tag": "0020_classy_polaris",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1783861490947,
-      "tag": "0021_foreign_payments_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1783873103694,
-      "tag": "0022_clever_pandemic",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1783873120842,
-      "tag": "0023_inventory_costing_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "7",
-      "when": 1783874975050,
-      "tag": "0024_slippery_eternals",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1783878294295,
-      "tag": "0025_thin_klaw",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1783878305395,
-      "tag": "0026_inventory_lots_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "7",
-      "when": 1783884969562,
-      "tag": "0027_first_agent_brand",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "7",
-      "when": 1783886547177,
-      "tag": "0028_luxuriant_blur",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1783895523459,
-      "tag": "0029_military_centennial",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1783895828577,
-      "tag": "0030_solid_warhawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "7",
-      "when": 1783898138610,
-      "tag": "0031_broken_thundra",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1783655168666,
+			"tag": "0000_complete_luke_cage",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1783655243048,
+			"tag": "0001_accounting_guards",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1783682073968,
+			"tag": "0002_rls_tenant_isolation",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1783682310552,
+			"tag": "0003_rls_fail_closed",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1783682450416,
+			"tag": "0004_tan_grim_reaper",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1783682461228,
+			"tag": "0005_entry_no_allocator",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1783685600787,
+			"tag": "0006_yellow_whirlwind",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1783685601922,
+			"tag": "0007_incremental_balances",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1783685861480,
+			"tag": "0008_fixed_frightful_four",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1783829223948,
+			"tag": "0009_colossal_mac_gargan",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1783829233846,
+			"tag": "0010_subledgers_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1783829657375,
+			"tag": "0011_bright_mulholland_black",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1783829658523,
+			"tag": "0012_fixed_assets_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1783830359251,
+			"tag": "0013_oval_whistler",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1783830360436,
+			"tag": "0014_budget_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "7",
+			"when": 1783830912223,
+			"tag": "0015_ordinary_gertrude_yorkes",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "7",
+			"when": 1783830913437,
+			"tag": "0016_payroll_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1783855549125,
+			"tag": "0017_stormy_alex_power",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1783855562609,
+			"tag": "0018_treasury_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1783860415848,
+			"tag": "0019_sparkling_siren",
+			"breakpoints": true
+		},
+		{
+			"idx": 20,
+			"version": "7",
+			"when": 1783861479479,
+			"tag": "0020_classy_polaris",
+			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "7",
+			"when": 1783861490947,
+			"tag": "0021_foreign_payments_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 22,
+			"version": "7",
+			"when": 1783873103694,
+			"tag": "0022_clever_pandemic",
+			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1783873120842,
+			"tag": "0023_inventory_costing_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1783874975050,
+			"tag": "0024_slippery_eternals",
+			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1783878294295,
+			"tag": "0025_thin_klaw",
+			"breakpoints": true
+		},
+		{
+			"idx": 26,
+			"version": "7",
+			"when": 1783878305395,
+			"tag": "0026_inventory_lots_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 27,
+			"version": "7",
+			"when": 1783884969562,
+			"tag": "0027_first_agent_brand",
+			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1783886547177,
+			"tag": "0028_luxuriant_blur",
+			"breakpoints": true
+		},
+		{
+			"idx": 29,
+			"version": "7",
+			"when": 1783895523459,
+			"tag": "0029_military_centennial",
+			"breakpoints": true
+		},
+		{
+			"idx": 30,
+			"version": "7",
+			"when": 1783895828577,
+			"tag": "0030_solid_warhawk",
+			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1783898138610,
+			"tag": "0031_broken_thundra",
+			"breakpoints": true
+		},
+		{
+			"idx": 32,
+			"version": "7",
+			"when": 1785877388022,
+			"tag": "0032_wms_locations_and_counts",
+			"breakpoints": true
+		},
+		{
+			"idx": 33,
+			"version": "7",
+			"when": 1785877389022,
+			"tag": "0033_wms_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 34,
+			"version": "7",
+			"when": 1785892465469,
+			"tag": "0034_ecf_module",
+			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "7",
+			"when": 1785892466469,
+			"tag": "0035_ecf_rls",
+			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1785892467469,
+			"tag": "0036_ecf_key_column_privileges",
+			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1786283054831,
+			"tag": "0037_audit_log",
+			"breakpoints": true
+		},
+		{
+			"idx": 38,
+			"version": "7",
+			"when": 1786283054832,
+			"tag": "0038_order_reservations",
+			"breakpoints": true
+		},
+		{
+			"idx": 39,
+			"version": "7",
+			"when": 1786283054833,
+			"tag": "0039_users_2fa",
+			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1786284459574,
+			"tag": "0040_approvals",
+			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "7",
+			"when": 1786286112862,
+			"tag": "0041_product_serials",
+			"breakpoints": true
+		},
+		{
+			"idx": 42,
+			"version": "7",
+			"when": 1786286112863,
+			"tag": "0042_sales_quotes",
+			"breakpoints": true
+		},
+		{
+			"idx": 43,
+			"version": "7",
+			"when": 1786286112864,
+			"tag": "0043_purchase_returns",
+			"breakpoints": true
+		},
+		{
+			"idx": 44,
+			"version": "7",
+			"when": 1786287331747,
+			"tag": "0044_supplier_rfqs",
+			"breakpoints": true
+		},
+		{
+			"idx": 45,
+			"version": "7",
+			"when": 1786287331748,
+			"tag": "0045_internal_requisitions",
+			"breakpoints": true
+		},
+		{
+			"idx": 46,
+			"version": "7",
+			"when": 1786305720706,
+			"tag": "0046_hr_employees",
+			"breakpoints": true
+		},
+		{
+			"idx": 47,
+			"version": "7",
+			"when": 1786305720707,
+			"tag": "0047_hr_workflow",
+			"breakpoints": true
+		},
+		{
+			"idx": 48,
+			"version": "7",
+			"when": 1786305720708,
+			"tag": "0048_hr_lifecycle",
+			"breakpoints": true
+		},
+		{
+			"idx": 49,
+			"version": "7",
+			"when": 1786308116236,
+			"tag": "0049_hr_tss",
+			"breakpoints": true
+		},
+		{
+			"idx": 50,
+			"version": "7",
+			"when": 1786308116237,
+			"tag": "0050_pricing_b2b",
+			"breakpoints": true
+		},
+		{
+			"idx": 51,
+			"version": "7",
+			"when": 1786308116238,
+			"tag": "0051_marketing",
+			"breakpoints": true
+		},
+		{
+			"idx": 52,
+			"version": "7",
+			"when": 1786314735681,
+			"tag": "0052_bank_statements",
+			"breakpoints": true
+		},
+		{
+			"idx": 53,
+			"version": "7",
+			"when": 1786315445348,
+			"tag": "0053_landed_costs",
+			"breakpoints": true
+		},
+		{
+			"idx": 54,
+			"version": "7",
+			"when": 1786316963627,
+			"tag": "0054_fx_revaluation",
+			"breakpoints": true
+		},
+		{
+			"idx": 55,
+			"version": "7",
+			"when": 1786318311798,
+			"tag": "0055_cash_flow",
+			"breakpoints": true
+		},
+		{
+			"idx": 56,
+			"version": "7",
+			"when": 1786319818613,
+			"tag": "0056_manufacturing",
+			"breakpoints": true
+		},
+		{
+			"idx": 57,
+			"version": "7",
+			"when": 1786321115976,
+			"tag": "0057_alerts",
+			"breakpoints": true
+		},
+		{
+			"idx": 58,
+			"version": "7",
+			"when": 1786323566461,
+			"tag": "0058_api_keys",
+			"breakpoints": true
+		}
+	]
 }

@@ -381,6 +381,275 @@ export const foreignPayments = pgTable(
 
 export type ForeignPayment = typeof foreignPayments.$inferSelect;
 
+// ────────────────────────────────────────────────────────────────────────────
+// e-CF: facturación electrónica
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Which DGII environment a company talks to.
+ *
+ * The three are separate worlds with separate credentials, separate eNCF ranges
+ * and separate consulta URLs. A taxpayer walks them in order: `test` while
+ * building, `cert` for the certification DGII grades, `prod` once authorized.
+ * Keeping it per company rather than per deployment is what lets one instance
+ * serve a taxpayer already in producción alongside one still certifying.
+ *
+ * `simulated` is this system's own: no network at all, a local DGII that runs
+ * the real handshake and the real validations. It is what makes the module
+ * operable before a certificate exists.
+ */
+export const ecfEnvironment = pgEnum("ecf_environment", [
+  "simulated",
+  "test",
+  "cert",
+  "prod",
+]);
+
+/** Where a commercial approval sits. DGII codes: 1 = aceptado, 2 = rechazado. */
+export const ecfApprovalStatus = pgEnum("ecf_approval_status", [
+  "pendiente",
+  "aceptado",
+  "rechazado",
+]);
+
+/**
+ * Per-company e-CF configuration.
+ *
+ * One row per company. The certificate lives here as PEM rather than as a file
+ * path because the deployment is containerised and a path would not survive a
+ * redeploy; the private key is the sensitive part and is never returned by any
+ * read endpoint — only its fingerprint and expiry, which is what an operator
+ * actually needs to see.
+ */
+export const ecfConfig = pgTable(
+  "ecf_config",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
+      .notNull(),
+    environment: ecfEnvironment("environment").notNull().default("simulated"),
+    /** Master switch. Off, and every document stays a legacy NCF. */
+    isEnabled: boolean("is_enabled").notNull().default(false),
+    /** Razón social as DGII has it — must match the RNC registry exactly. */
+    issuerName: text("issuer_name"),
+    issuerRnc: varchar("issuer_rnc", { length: 11 }),
+    /** Comercial name printed on the representación impresa. */
+    tradeName: text("trade_name"),
+    address: text("address"),
+    phone: text("phone"),
+    email: text("email"),
+    /** Logo for the representación impresa, as a data: URI. */
+    logoUrl: text("logo_url"),
+
+    /** PEM private key. Write-only through the API; never read back. */
+    certificatePrivateKey: text("certificate_private_key"),
+    certificatePem: text("certificate_pem"),
+    /** SHA-256 of the certificate, shown so an operator can confirm which is loaded. */
+    certificateFingerprint: text("certificate_fingerprint"),
+    certificateSubject: text("certificate_subject"),
+    certificateExpiresAt: timestamp("certificate_expires_at", { withTimezone: true }),
+
+    /**
+     * A consumo e-CF (E32) below this total goes to DGII as a periodic summary
+     * (RFCE) instead of one submission per sale — the rule that keeps a colmado
+     * ringing up 400 sales a day from making 400 API calls. RD$250,000 is the
+     * DGII threshold; it is configurable because thresholds move by norm.
+     */
+    rfceThreshold: money("rfce_threshold").notNull().default("250000"),
+
+    /**
+     * How long to keep retrying a submission before the operator has to look at
+     * it. Contingency is a legal state, not an error, but one that lasts a week
+     * unnoticed is an unreported month.
+     */
+    maxTransmitAttempts: integer("max_transmit_attempts").notNull().default(8),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ecf_config_company_uq").on(t.companyId)],
+);
+
+/**
+ * The transmission queue.
+ *
+ * A row per attempt to get one document to DGII. Separate from
+ * `fiscal_documents` because a document has one status but many attempts, and
+ * the question an operator asks during an outage — "what is stuck, since when,
+ * and what did DGII say the last three times" — is unanswerable from a single
+ * status column.
+ *
+ * `next_attempt_at` is what the retry job polls. Backoff is exponential, so a
+ * DGII outage does not turn into a self-inflicted denial of service.
+ */
+export const ecfTransmissions = pgTable(
+  "ecf_transmissions",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    companyId: integer("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
+      .notNull(),
+    documentId: bigint("document_id", { mode: "number" })
+      .references(() => fiscalDocuments.id, { onDelete: "cascade" })
+      .notNull(),
+    /** queued | sending | sent | resolved | failed | abandoned */
+    state: text("state").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow(),
+    lastError: text("last_error"),
+    trackId: text("track_id"),
+    /** The status DGII last reported for this submission. */
+    dgiiStatus: text("dgii_status"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ecf_transmissions_doc_uq").on(t.documentId),
+    index("ecf_transmissions_due_idx").on(t.state, t.nextAttemptAt),
+  ],
+);
+
+/**
+ * e-CF received from suppliers.
+ *
+ * An electronic issuer is also an electronic receiver: DGII pushes a supplier's
+ * e-CF to our endpoint, and we owe an acuse de recibo within an hour and a
+ * commercial approval within three days. Kept apart from `fiscal_documents`
+ * because these are somebody else's comprobantes — we did not number them, we
+ * cannot cancel them, and their XML is the supplier's signed original which must
+ * be preserved byte for byte.
+ *
+ * The link to our own AP document is `purchase_document_id`: matching a received
+ * e-CF to the purchase we recorded is the reconciliation that makes the 606
+ * defensible.
+ */
+export const ecfReceived = pgTable(
+  "ecf_received",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    companyId: integer("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
+      .notNull(),
+    /** The supplier's eNCF, e.g. 'E310000000042'. */
+    encf: varchar("encf", { length: 19 }).notNull(),
+    ecfType: varchar("ecf_type", { length: 3 }).notNull(),
+    issuerRnc: varchar("issuer_rnc", { length: 11 }).notNull(),
+    issuerName: text("issuer_name"),
+    /** Our RNC, as the supplier addressed it. */
+    buyerRnc: varchar("buyer_rnc", { length: 11 }),
+    emittedAt: timestamp("emitted_at", { withTimezone: true }),
+    currency: char("currency", { length: 3 }).notNull().default("DOP"),
+    subtotalTaxed: money("subtotal_taxed").notNull().default("0"),
+    subtotalExempt: money("subtotal_exempt").notNull().default("0"),
+    totalItbis: money("total_itbis").notNull().default("0"),
+    total: money("total").notNull().default("0"),
+    securityCode: varchar("security_code", { length: 12 }),
+    /** The supplier's signed XML, preserved exactly as received. */
+    xmlReceived: text("xml_received"),
+    /** Whether our signature check over their XML passed. */
+    signatureValid: boolean("signature_valid"),
+
+    /** Acuse de recibo: did we acknowledge, and when. */
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    /** Aprobación comercial we sent back. */
+    approvalStatus: ecfApprovalStatus("approval_status").notNull().default("pendiente"),
+    approvalReason: text("approval_reason"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: integer("approved_by"),
+
+    /** Our own AP document for this purchase, once matched. */
+    purchaseDocumentId: bigint("purchase_document_id", { mode: "number" }).references(
+      () => fiscalDocuments.id,
+    ),
+    supplierId: integer("supplier_id").references(() => suppliers.id),
+
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    /** One eNCF per issuer: a redelivered push must not create a second row. */
+    uniqueIndex("ecf_received_uq").on(t.companyId, t.issuerRnc, t.encf),
+    index("ecf_received_approval_idx").on(t.companyId, t.approvalStatus),
+    index("ecf_received_date_idx").on(t.companyId, t.emittedAt),
+  ],
+);
+
+/**
+ * Voided e-NCF ranges, reported to DGII.
+ *
+ * Distinct from Form 608 (which reports voided *documents*): this reports
+ * *numbers never used* — a range abandoned because a sequence was replaced, a
+ * printer batch lost, a test range that reached production. DGII wants them
+ * declared so an unused number cannot resurface later as an invoice.
+ */
+export const ecfSequenceVoids = pgTable(
+  "ecf_sequence_voids",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    companyId: integer("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
+      .notNull(),
+    ecfType: varchar("ecf_type", { length: 3 }).notNull(),
+    rangeFrom: bigint("range_from", { mode: "number" }).notNull(),
+    rangeTo: bigint("range_to", { mode: "number" }).notNull(),
+    reason: text("reason"),
+    /** pendiente | enviado | aceptado | rechazado */
+    status: text("status").notNull().default("pendiente"),
+    trackId: text("track_id"),
+    xmlSigned: text("xml_signed"),
+    voidedBy: integer("voided_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("ecf_sequence_voids_idx").on(t.companyId, t.ecfType),
+    check("ecf_sequence_voids_range_ck", sql`${t.rangeTo} >= ${t.rangeFrom}`),
+  ],
+);
+
+/**
+ * The simulated DGII's own storage.
+ *
+ * A mock that lives in a Map proves the code path and forgets everything on
+ * restart. This is a stand-in you can operate against for weeks: it keeps every
+ * submission, enforces eNCF uniqueness across them, and resolves asynchronously
+ * the way the real service does — so "En Proceso" is a state the application
+ * genuinely has to handle rather than one it never sees.
+ *
+ * Rows here are DGII's records, not the taxpayer's. They are deliberately not
+ * company-scoped by RLS in the same way: the simulator plays an outside party.
+ */
+export const ecfSimulatorInbox = pgTable(
+  "ecf_simulator_inbox",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    trackId: text("track_id").notNull(),
+    issuerRnc: varchar("issuer_rnc", { length: 11 }).notNull(),
+    encf: varchar("encf", { length: 19 }).notNull(),
+    ecfType: varchar("ecf_type", { length: 3 }),
+    buyerRnc: varchar("buyer_rnc", { length: 11 }),
+    total: money("total").notNull().default("0"),
+    /** en_proceso | aceptado | aceptado_condicional | rechazado */
+    status: text("status").notNull().default("en_proceso"),
+    /** DGII's validation findings, as a list of coded messages. */
+    messages: jsonb("messages").notNull().default([]),
+    xmlReceived: text("xml_received"),
+    /** When the simulator will flip this from en_proceso to its verdict. */
+    resolvesAt: timestamp("resolves_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ecf_simulator_track_uq").on(t.trackId),
+    /** DGII refuses a second submission of the same eNCF from the same issuer. */
+    uniqueIndex("ecf_simulator_encf_uq").on(t.issuerRnc, t.encf),
+  ],
+);
+
+export type EcfConfig = typeof ecfConfig.$inferSelect;
+export type EcfTransmission = typeof ecfTransmissions.$inferSelect;
+export type EcfReceived = typeof ecfReceived.$inferSelect;
+export type EcfSequenceVoid = typeof ecfSequenceVoids.$inferSelect;
+
 export type NcfSequence = typeof ncfSequences.$inferSelect;
 export type TaxCode = typeof taxCodes.$inferSelect;
 export type TaxRate = typeof taxRates.$inferSelect;

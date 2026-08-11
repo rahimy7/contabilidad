@@ -143,6 +143,33 @@ export async function createOrderFromCart(args: CreateOrderFromCartArgs) {
 
     console.log(`✅ [ORDER-CREATOR] Orden creada exitosamente - ID: ${order.id}`);
 
+    // Reservar stock del pedido para que otro canal no prometa las mismas cajas
+    // antes del despacho. La orden nace `pending` sin descontar inventario.
+    try {
+      const { reserveForOrder } = await import('./inventory/order-reservations.js');
+      const { masterPool } = await import('./multi-tenant-db.js');
+      const warehouseIdForReserve = (order as { warehouseId?: number }).warehouseId;
+      if (warehouseIdForReserve) {
+        const outcome = await reserveForOrder(
+          masterPool,
+          order.id,
+          storeId,
+          orderItems
+            .filter((it: any) => it.productId && Number(it.quantity) > 0)
+            .map((it: any) => ({
+              productId: it.productId,
+              warehouseId: warehouseIdForReserve,
+              quantity: Number(it.quantity),
+            })),
+        );
+        if (outcome.skipped.length) {
+          console.warn(`[reservation] AI cart order ${order.id}: reserved ${outcome.reserved.length}, skipped ${outcome.skipped.length}`, outcome.skipped);
+        }
+      }
+    } catch (resErr) {
+      console.warn('[reservation] AI cart order failed:', resErr);
+    }
+
     // Trae items enriquecidos para el mensaje de confirmación
     const itemsWithNames = await tenantStorage.getOrderItemsByOrderId(order.id);
 

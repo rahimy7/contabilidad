@@ -46,17 +46,28 @@ export type SectionKey =
 export const APP_VIEWS: ViewSeed[] = [
   // ── Principal ──────────────────────────────────────────────────────────────
   { routePath: "/dashboard", label: "Dashboard", iconName: "LayoutDashboard", permission: "view_dashboard", section: "principal", sortOrder: 100 },
+  { routePath: "/executive-dashboard", label: "Panel Ejecutivo", iconName: "BarChart3", permission: "view_dashboard", section: "principal", sortOrder: 105 },
   { routePath: "/reports", label: "Reportes", iconName: "BarChart3", permission: "view_reports", section: "principal", sortOrder: 110 },
+  { routePath: "/help", label: "Ayuda y Módulos", iconName: "BookOpen", permission: "view_dashboard", section: "principal", sortOrder: 130 },
   { routePath: "/notifications", label: "Notificaciones", iconName: "Bell", permission: "view_notifications", section: "principal", sortOrder: 120 },
+  { routePath: "/alerts", label: "Alertas Proactivas", iconName: "Bell", permission: "view_notifications", section: "principal", sortOrder: 122 },
+  { routePath: "/approvals", label: "Aprobaciones", iconName: "ShieldCheck", permission: "manage_settings", section: "principal", sortOrder: 125 },
 
   // ── Ventas ─────────────────────────────────────────────────────────────────
   { routePath: "/pos", label: "Punto de Venta", iconName: "ShoppingBasket", permission: "manage_orders", section: "ventas", sortOrder: 200 },
+  { routePath: "/invoicing", label: "Facturación", iconName: "FileText", permission: "manage_invoicing", section: "ventas", sortOrder: 205 },
   { routePath: "/orders", label: "Pedidos", iconName: "ShoppingCart", permission: "manage_orders", section: "ventas", sortOrder: 210 },
   { routePath: "/order-management", label: "Gestión de Pedidos", iconName: "ClipboardList", permission: "manage_orders", section: "ventas", sortOrder: 220 },
+  { routePath: "/sales-returns", label: "Devoluciones", iconName: "Undo2", permission: "manage_invoicing", section: "ventas", sortOrder: 235 },
   { routePath: "/sales-history", label: "Historial de Ventas", iconName: "Receipt", permission: "manage_orders", section: "ventas", sortOrder: 230 },
   { routePath: "/cash-register", label: "Caja", iconName: "DollarSign", permission: "manage_cash_register", section: "ventas", sortOrder: 240 },
   { routePath: "/customers", label: "Clientes", iconName: "Users", permission: "manage_customers", section: "ventas", sortOrder: 250 },
   { routePath: "/customer-management", label: "Gestión de Clientes", iconName: "UserPlus", permission: "manage_customers", section: "ventas", sortOrder: 260 },
+  { routePath: "/price-lists", label: "Listas de Precios (B2B)", iconName: "Tags", permission: "manage_products", section: "ventas", sortOrder: 270 },
+  { routePath: "/promotions", label: "Promociones", iconName: "Tag", permission: "manage_orders", section: "ventas", sortOrder: 275 },
+  { routePath: "/marketing/segments", label: "Segmentos de Clientes", iconName: "Users", permission: "manage_customers", section: "ventas", sortOrder: 280 },
+  { routePath: "/marketing/campaigns", label: "Campañas de Marketing", iconName: "Zap", permission: "manage_customers", section: "ventas", sortOrder: 285 },
+  { routePath: "/marketing/leads", label: "Leads / CRM", iconName: "UserPlus", permission: "manage_customers", section: "ventas", sortOrder: 290 },
 
   // ── Compras ────────────────────────────────────────────────────────────────
   { routePath: "/purchase-management", label: "Órdenes de Compra", iconName: "ShoppingBag", permission: "manage_products", section: "compras", sortOrder: 300 },
@@ -67,7 +78,10 @@ export const APP_VIEWS: ViewSeed[] = [
   { routePath: "/catalog", label: "Catálogo", iconName: "BookOpen", permission: "manage_products", section: "inventario", sortOrder: 420 },
   { routePath: "/warehouses", label: "Almacenes", iconName: "Warehouse", permission: "manage_products", section: "inventario", sortOrder: 430 },
   { routePath: "/warehouse-transfers", label: "Transferencias", iconName: "ArrowRightLeft", permission: "manage_products", section: "inventario", sortOrder: 440 },
+  { routePath: "/warehouse-locations", label: "Ubicaciones (WMS)", iconName: "MapPin", permission: "manage_products", section: "inventario", sortOrder: 445 },
   { routePath: "/inventory-adjustment", label: "Ajustes de Inventario", iconName: "Sliders", permission: "manage_inventory_adjustments", section: "inventario", sortOrder: 450 },
+  { routePath: "/inventory-count", label: "Conteo Físico", iconName: "ClipboardCheck", permission: "manage_inventory_adjustments", section: "inventario", sortOrder: 455 },
+  { routePath: "/manufacturing", label: "Producción (BOM)", iconName: "PackageCheck", permission: "manage_products", section: "inventario", sortOrder: 457 },
   { routePath: "/inventory-traceability", label: "Trazabilidad", iconName: "PackageSearch", permission: "manage_products", section: "inventario", sortOrder: 460 },
   { routePath: "/warehouse-reports", label: "Reportes de Almacén", iconName: "FileSpreadsheet", permission: "view_reports", section: "inventario", sortOrder: 470 },
   { routePath: "/admin/categories-brands", label: "Categorías", iconName: "Tags", permission: "manage_products", section: "inventario", sortOrder: 480 },
@@ -81,18 +95,25 @@ export const APP_VIEWS: ViewSeed[] = [
   { routePath: "/receivables", label: "Cuentas por Cobrar", iconName: "CreditCard", permission: "manage_accounting", section: "contabilidad", sortOrder: 530 },
   { routePath: "/payables", label: "Cuentas por Pagar", iconName: "Wallet", permission: "manage_accounting", section: "contabilidad", sortOrder: 540 },
   { routePath: "/treasury", label: "Tesorería", iconName: "Landmark", permission: "manage_accounting", section: "contabilidad", sortOrder: 550 },
+  { routePath: "/cash-flow", label: "Flujo de Caja", iconName: "BarChart3", permission: "manage_accounting", section: "contabilidad", sortOrder: 553 },
+  { routePath: "/bank-reconciliation", label: "Conciliación Bancaria", iconName: "Landmark", permission: "manage_accounting", section: "contabilidad", sortOrder: 555 },
   { routePath: "/inventory-costing", label: "Costeo de Inventario", iconName: "Boxes", permission: "manage_accounting", section: "contabilidad", sortOrder: 560 },
+  { routePath: "/landed-costs", label: "Costos de Importación", iconName: "Truck", permission: "manage_products", section: "compras", sortOrder: 310 },
   { routePath: "/fixed-assets", label: "Activos Fijos", iconName: "Building", permission: "manage_accounting", section: "contabilidad", sortOrder: 570 },
   { routePath: "/budget", label: "Presupuesto", iconName: "PiggyBank", permission: "manage_accounting", section: "contabilidad", sortOrder: 580 },
   { routePath: "/consolidation", label: "Consolidación", iconName: "Network", permission: "view_financial_reports", section: "contabilidad", sortOrder: 590 },
 
   // ── Fiscal (DGII) ──────────────────────────────────────────────────────────
   { routePath: "/fiscal/documents", label: "Comprobantes (NCF)", iconName: "Receipt", permission: "manage_invoicing", section: "fiscal", sortOrder: 600 },
+  { routePath: "/fiscal/ecf", label: "Facturación Electrónica", iconName: "FileCheck2", permission: "manage_invoicing", section: "fiscal", sortOrder: 615 },
   { routePath: "/fiscal/reports", label: "Reportes DGII", iconName: "FileText", permission: "view_fiscal_reports", section: "fiscal", sortOrder: 610 },
 
   // ── Recursos Humanos ───────────────────────────────────────────────────────
   { routePath: "/payroll", label: "Nómina", iconName: "Banknote", permission: "manage_accounting", section: "rrhh", sortOrder: 700 },
-  { routePath: "/employees", label: "Empleados", iconName: "Users", permission: "manage_users", section: "rrhh", sortOrder: 710 },
+  { routePath: "/employees", label: "Usuarios del Sistema", iconName: "Shield", permission: "manage_users", section: "configuracion", sortOrder: 1015 },
+  { routePath: "/hr/employees", label: "Empleados y Nómina", iconName: "Users", permission: "manage_users", section: "rrhh", sortOrder: 710 },
+  { routePath: "/hr/tss", label: "TSS y Seguridad Social", iconName: "HeartPulse", permission: "manage_accounting", section: "rrhh", sortOrder: 720 },
+  { routePath: "/commissions", label: "Comisiones", iconName: "Coins", permission: "manage_accounting", section: "rrhh", sortOrder: 730 },
 
   // ── Operaciones ────────────────────────────────────────────────────────────
   { routePath: "/appointments", label: "Citas", iconName: "CalendarDays", permission: "manage_appointments", section: "operaciones", sortOrder: 800 },
@@ -113,8 +134,12 @@ export const APP_VIEWS: ViewSeed[] = [
   { routePath: "/team", label: "Usuarios y Roles", iconName: "Shield", permission: "manage_users", section: "configuracion", sortOrder: 1010 },
   { routePath: "/store-settings", label: "Configuración de Tienda", iconName: "Store", permission: "manage_settings", section: "configuracion", sortOrder: 1020 },
   { routePath: "/exchange-rates", label: "Tasas de Cambio", iconName: "Coins", permission: "manage_settings", section: "configuracion", sortOrder: 1030 },
+  { routePath: "/fx-revaluation", label: "Revaluación FX", iconName: "Coins", permission: "manage_accounting", section: "contabilidad", sortOrder: 595 },
   { routePath: "/billing", label: "Facturación SaaS", iconName: "CreditCard", permission: "manage_settings", section: "configuracion", sortOrder: 1040 },
+  { routePath: "/audit-log", label: "Bitácora", iconName: "FileClock", permission: "manage_settings", section: "configuracion", sortOrder: 1045 },
   { routePath: "/settings", label: "Configuración", iconName: "Settings", permission: "manage_settings", section: "configuracion", sortOrder: 1050 },
+  { routePath: "/api-keys", label: "API Keys", iconName: "Shield", permission: "manage_settings", section: "configuracion", sortOrder: 1055 },
+  { routePath: "/reports-export", label: "Reportes Excel", iconName: "FileSpreadsheet", permission: "view_reports", section: "principal", sortOrder: 115 },
 ];
 
 /** Kept as a named export for the accounting-only subset (used by docs/tests). */

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fiscalApi, FiscalDocument, IssueInvoiceLine } from "@/lib/accounting-api";
+import { ecfApi, fiscalApi, FiscalDocument, IssueInvoiceLine } from "@/lib/accounting-api";
+import { EcfRepresentationDialog } from "./ecf-representation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,12 +46,26 @@ export default function FiscalDocumentsPage() {
   });
 
   const transmit = useMutation({
-    mutationFn: (id: number) => fiscalApi.transmit(id),
+    mutationFn: (id: number) => ecfApi.transmit(id),
     onSuccess: (res) => {
-      toast({ title: `e-CF ${res.ecfStatus}` });
+      toast({
+        title: `e-CF ${res.ecfStatus}`,
+        description: res.trackId ? `TrackId ${res.trackId}` : undefined,
+      });
       qc.invalidateQueries({ queryKey: ["/api/fiscal/documents"] });
     },
-    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+    onError: (e: any) =>
+      toast({
+        variant: "destructive",
+        title: "No se pudo transmitir",
+        // Un rechazo de validación trae los motivos; mostrarlos evita que el
+        // operador tenga que adivinar qué corregir.
+        // `apiRequest` cuelga el cuerpo del error en `data`; los motivos de
+        // rechazo de DGII vienen ahí.
+        description: e.data?.messages?.length
+          ? e.data.messages.map((m: any) => m.message).join(" · ")
+          : e.message,
+      }),
   });
 
   return (
@@ -102,17 +117,20 @@ export default function FiscalDocumentsPage() {
                         {d.is_ecf && d.ecf_status ? ECF_LABEL[d.ecf_status] ?? d.ecf_status : "—"}
                       </td>
                       <td className="py-1.5 pr-4">
-                        {d.is_ecf && d.status === "issued" && d.ecf_status !== "aceptado" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="gap-1"
-                            disabled={transmit.isPending}
-                            onClick={() => transmit.mutate(d.id)}
-                          >
-                            <Send className="h-3.5 w-3.5" /> Transmitir
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {d.is_ecf && <EcfRepresentationDialog documentId={d.id} />}
+                          {d.is_ecf && d.status === "issued" && d.ecf_status !== "aceptado" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="gap-1"
+                              disabled={transmit.isPending}
+                              onClick={() => transmit.mutate(d.id)}
+                            >
+                              <Send className="h-3.5 w-3.5" /> Transmitir
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

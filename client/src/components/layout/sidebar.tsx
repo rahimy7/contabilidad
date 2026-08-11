@@ -8,12 +8,13 @@ import {
   Tags, Tag, Ruler, Scale, CreditCard, Wallet, Landmark, Boxes, Building,
   PiggyBank, Network, FileText, Banknote, CalendarDays, Stethoscope, HeartPulse,
   // `Map` se renombra: sin el alias sombrea al Map nativo de JavaScript.
-  Wrench, Map as MapIcon, Truck, MessageCircle, Bot, Zap, Smartphone, Building2,
-  Shield, Store, Coins, Settings,
+  Wrench, Map as MapIcon, MapPin, ClipboardCheck, FileCheck2, Truck, MessageCircle,
+  Bot, Zap, Smartphone, Building2, Shield, Store, Coins, Settings, Undo2,
+  FileClock,
   // Nombres heredados: filas viejas de `views` pueden seguir usándolos.
   ChartLine, PackageCheck,
   // Cromo del propio sidebar.
-  ChevronRight, PanelLeftClose, PanelLeftOpen, X, Moon, Sun, Calculator,
+  PanelLeftClose, PanelLeftOpen, X, Moon, Sun, Calculator, Home,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/use-theme";
 import { WarehouseSwitcher } from "@/components/layout/warehouse-switcher";
 import { CompanySwitcher } from "@/components/layout/company-switcher";
+
+/**
+ * Navegación de dos niveles: riel de módulos + panel del módulo activo.
+ *
+ * El acordeón anterior ponía las 10 secciones en una sola columna con scroll.
+ * Con ~56 pantallas eso obliga a plegar un módulo para poder abrir otro, y a
+ * buscar con la rueda del mouse lo que debería estar a un clic. Los ERP que
+ * manejan este volumen —SAP, Odoo, Dynamics— convergen todos en lo mismo: los
+ * módulos siempre visibles como íconos, y sólo el módulo en el que estás
+ * parado despliega sus pantallas.
+ *
+ * La consecuencia práctica: cambiar de módulo es un clic en vez de dos, el
+ * panel casi nunca necesita scroll (ningún módulo pasa de 12 pantallas), y la
+ * pregunta "¿dónde estoy?" se contesta mirando qué ícono del riel está
+ * encendido, sin leer nada.
+ */
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -54,9 +71,11 @@ interface NavItem {
   badge: number | string | null;
 }
 
-interface NavGroup {
+interface NavModule {
   key: string;
   label: string;
+  /** Rótulo corto para el riel; el largo no cabe bajo un ícono de 64px. */
+  short: string;
   icon: any;
   order: number;
   items: NavItem[];
@@ -69,34 +88,32 @@ export const iconMap: Record<string, any> = {
   BookOpen, Warehouse, ArrowRightLeft, Sliders, PackageSearch, FileSpreadsheet,
   Tags, Tag, Ruler, Scale, CreditCard, Wallet, Landmark, Boxes, Building,
   PiggyBank, Network, FileText, Banknote, CalendarDays, Stethoscope, HeartPulse,
-  Wrench, Map: MapIcon, Truck, MessageCircle, Bot, Zap, Smartphone, Building2,
-  Shield, Store, Coins, Settings, ChartLine, PackageCheck,
+  Wrench, Map: MapIcon, MapPin, ClipboardCheck, FileCheck2, Truck, MessageCircle,
+  Bot, Zap, Smartphone, Building2, Shield, Store, Coins, Settings, Undo2,
+  FileClock,
+  ChartLine, PackageCheck,
 };
 
 /**
- * Cada sección de `views` es un grupo plegable del menú, con su propio ícono.
- * Una sección que llegue de la base sin estar aquí igual se renderiza (con su
- * clave como título y un ícono genérico) y se va al final: el catálogo puede
- * crecer sin tocar este archivo.
+ * Metadatos de cada módulo. Una sección que llegue de la base sin estar aquí
+ * igual se renderiza (con su clave como título) y se va al final: el catálogo
+ * puede crecer sin tocar este archivo.
  */
-const SECTION_META: Record<string, { label: string; icon: any }> = {
-  principal: { label: "Principal", icon: LayoutDashboard },
-  ventas: { label: "Ventas", icon: ShoppingCart },
-  compras: { label: "Compras", icon: ShoppingBag },
-  inventario: { label: "Inventario", icon: Boxes },
-  contabilidad: { label: "Contabilidad", icon: Calculator },
-  fiscal: { label: "Fiscal · DGII", icon: Receipt },
-  rrhh: { label: "Nómina y RRHH", icon: Users },
-  operaciones: { label: "Operaciones", icon: Wrench },
-  comunicacion: { label: "Comunicación", icon: MessageCircle },
-  configuracion: { label: "Configuración", icon: Settings },
+const SECTION_META: Record<string, { label: string; short: string; icon: any }> = {
+  principal: { label: "Principal", short: "Inicio", icon: Home },
+  ventas: { label: "Ventas", short: "Ventas", icon: ShoppingCart },
+  compras: { label: "Compras", short: "Compras", icon: ShoppingBag },
+  inventario: { label: "Inventario", short: "Inventario", icon: Boxes },
+  contabilidad: { label: "Contabilidad", short: "Contab.", icon: Calculator },
+  fiscal: { label: "Fiscal · DGII", short: "Fiscal", icon: Receipt },
+  rrhh: { label: "Nómina y RRHH", short: "RRHH", icon: Users },
+  operaciones: { label: "Operaciones", short: "Oper.", icon: Wrench },
+  comunicacion: { label: "Comunicación", short: "Chat", icon: MessageCircle },
+  configuracion: { label: "Configuración", short: "Ajustes", icon: Settings },
 };
 
-/** La sección `principal` se muestra como enlaces sueltos arriba, sin plegar. */
-const FLAT_SECTION = "principal";
-
 const COLLAPSED_KEY = "sidebar:collapsed";
-const OPEN_GROUPS_KEY = "sidebar:open-groups";
+const MODULE_KEY = "sidebar:module";
 
 const readStored = <T,>(key: string, fallback: T): T => {
   try {
@@ -108,13 +125,13 @@ const readStored = <T,>(key: string, fallback: T): T => {
 };
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(() => readStored(COLLAPSED_KEY, false));
-  const [openGroups, setOpenGroups] = useState<string[]>(() => readStored<string[]>(OPEN_GROUPS_KEY, ["contabilidad"]));
+  const [activeModule, setActiveModule] = useState<string | null>(() => readStored<string | null>(MODULE_KEY, null));
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1025);
@@ -124,10 +141,13 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   }, []);
 
   useEffect(() => localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsed)), [collapsed]);
-  useEffect(() => localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(openGroups)), [openGroups]);
+  useEffect(() => {
+    if (activeModule) localStorage.setItem(MODULE_KEY, JSON.stringify(activeModule));
+  }, [activeModule]);
 
-  // En móvil el riel de íconos no aplica: el menú es un panel completo.
-  const isRail = collapsed && !isMobile;
+  // En móvil el panel siempre se muestra: un riel de íconos solo no es
+  // navegable con el dedo sin los rótulos.
+  const panelHidden = collapsed && !isMobile;
 
   // ── Vistas permitidas (RBAC, servidas por la base) ────────────────────────
   const { data: dynamicViews = [], isLoading: viewsLoading } = useQuery<ViewRow[]>({
@@ -179,27 +199,29 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   // ── Agrupación ────────────────────────────────────────────────────────────
   // El orden lo manda `sort_order`, que viene en bandas por sección: ordenar por
-  // él ordena los grupos entre sí y los ítems dentro de cada uno.
-  const groups: NavGroup[] = useMemo(() => {
-    const byKey = new Map<string, NavGroup>();
+  // él ordena los módulos entre sí y las pantallas dentro de cada uno.
+  const modules: NavModule[] = useMemo(() => {
+    const byKey = new Map<string, NavModule>();
 
     for (const v of dynamicViews) {
       const key = v.section || "otros";
       const order = v.sort_order ?? Number.MAX_SAFE_INTEGER;
-      let g = byKey.get(key);
-      if (!g) {
+      let m = byKey.get(key);
+      if (!m) {
         const meta = SECTION_META[key];
-        g = {
+        const fallback = key.charAt(0).toUpperCase() + key.slice(1);
+        m = {
           key,
-          label: meta?.label ?? key.charAt(0).toUpperCase() + key.slice(1),
+          label: meta?.label ?? fallback,
+          short: meta?.short ?? fallback.slice(0, 8),
           icon: meta?.icon ?? Package,
           order,
           items: [],
         };
-        byKey.set(key, g);
+        byKey.set(key, m);
       }
-      g.order = Math.min(g.order, order);
-      g.items.push({
+      m.order = Math.min(m.order, order);
+      m.items.push({
         href: v.route_path,
         icon: iconMap[v.icon_name] || Package,
         label: v.label,
@@ -207,28 +229,27 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       });
     }
 
+    for (const m of byKey.values()) {
+      m.items.sort((a, b) => a.label.localeCompare(b.label, "es"));
+    }
     return [...byKey.values()].sort((a, b) => a.order - b.order);
   }, [dynamicViews, getBadgeForRoute]);
 
-  const flatItems = groups.find((g) => g.key === FLAT_SECTION)?.items ?? [];
-  const treeGroups = groups.filter((g) => g.key !== FLAT_SECTION);
-
   const activeHref = location === "/" ? "/dashboard" : location;
 
-  // El grupo que contiene la página actual se abre solo: nadie debería tener que
-  // buscar dónde quedó lo que está viendo.
-  const activeGroupKey = useMemo(
-    () => treeGroups.find((g) => g.items.some((i) => i.href === activeHref))?.key,
-    [treeGroups, activeHref],
+  // El módulo que contiene la pantalla actual manda sobre lo que el usuario
+  // haya dejado seleccionado: navegar a una pantalla siempre debe mostrar el
+  // módulo al que pertenece, sin que nadie tenga que buscarlo.
+  const moduleOfRoute = useMemo(
+    () => modules.find((m) => m.items.some((i) => i.href === activeHref))?.key,
+    [modules, activeHref],
   );
   useEffect(() => {
-    if (activeGroupKey && !openGroups.includes(activeGroupKey)) {
-      setOpenGroups((prev) => [...prev, activeGroupKey]);
-    }
-  }, [activeGroupKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (moduleOfRoute) setActiveModule(moduleOfRoute);
+  }, [moduleOfRoute]);
 
-  const toggleGroup = (key: string) =>
-    setOpenGroups((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const shownModule =
+    modules.find((m) => m.key === (moduleOfRoute ?? activeModule)) ?? modules[0];
 
   const handleNavigate = () => {
     if (isMobile && onClose) onClose();
@@ -236,7 +257,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   if (isMobile && !isOpen) return null;
 
-  const totalViews = groups.reduce((n, g) => n + g.items.length, 0);
+  const totalViews = modules.reduce((n, m) => n + m.items.length, 0);
 
   return (
     <>
@@ -244,239 +265,172 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={onClose} />
       )}
 
-      <aside
+      <div
         className={[
           // `dark` alcanza a los componentes shadcn de adentro (los selects de
           // empresa y almacén), que así resuelven sus tokens contra la paleta oscura.
-          "dark flex h-full flex-col bg-[#0B1220] text-slate-300",
-          "transition-[width] duration-200 ease-out",
-          isRail ? "w-[72px]" : "w-[264px]",
-          isMobile ? "fixed left-0 top-0 z-50 w-[280px]" : "relative",
+          "dark flex h-full shrink-0 bg-[#0B1220]",
+          isMobile ? "fixed left-0 top-0 z-50" : "relative",
         ].join(" ")}
       >
-        {/* Marca */}
-        <div className="flex h-16 shrink-0 items-center gap-2.5 px-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
-            <img src="/image.png" alt="" className="h-6 w-6 object-contain" />
+        {/* ── Riel de módulos ─────────────────────────────────────────────── */}
+        <nav className="flex w-[68px] shrink-0 flex-col items-center border-r border-white/5 py-3">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white">
+            <img src="/image.png" alt="RVR" className="h-8 w-8 object-contain" />
           </div>
-          {!isRail && (
-            <span className="flex-1 truncate text-[17px] font-bold tracking-tight text-white">
-              Metabella <span className="font-semibold text-indigo-400">ERP</span>
-            </span>
-          )}
-          {isMobile ? (
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0 text-slate-400">
-              <X className="h-4 w-4" />
-            </Button>
-          ) : (
-            !isRail && (
-              <button
-                onClick={() => setCollapsed(true)}
-                className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
-                title="Contraer menú"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-            )
-          )}
-        </div>
 
-        {isRail && !isMobile && (
-          <button
-            onClick={() => setCollapsed(false)}
-            className="mx-auto mb-2 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
-            title="Expandir menú"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
-        )}
-
-        {/* Contexto: empresa activa y almacén. En un ERP multiempresa es lo
-            primero que hay que poder ver y cambiar. */}
-        {!isRail && (
-          <div className="space-y-2 px-3 pb-3">
-            <CompanySwitcher />
-            <WarehouseSwitcher />
+          <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+            {viewsLoading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-12 w-12 animate-pulse rounded-xl bg-white/5" />
+                ))
+              : modules.map((m) => (
+                  <RailButton
+                    key={m.key}
+                    module={m}
+                    isActive={shownModule?.key === m.key}
+                    onSelect={() => {
+                      // Si al usuario ya se le está mostrando este módulo y el
+                      // panel está visible, mantener sólo la selección. Si el
+                      // panel está oculto (colapsado) o el módulo no está activo,
+                      // navegar al primer ítem para que el clic tenga efecto
+                      // visible además de cambiar la sección.
+                      setActiveModule(m.key);
+                      const firstItem = m.items[0];
+                      const navigateNeeded = panelHidden || shownModule?.key !== m.key;
+                      if (navigateNeeded && firstItem && location !== firstItem.href) {
+                        navigate(firstItem.href);
+                        if (isMobile && onClose) onClose();
+                      }
+                    }}
+                  />
+                ))}
           </div>
-        )}
 
-        {/* Navegación */}
-        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
-          {viewsLoading ? (
-            <div className="space-y-1.5">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-lg bg-white/5" />
-              ))}
-            </div>
-          ) : totalViews === 0 ? (
-            <div className="flex flex-col items-center px-4 py-10 text-center">
-              <Shield className="mb-3 h-10 w-10 text-slate-700" />
-              <p className="text-sm text-slate-400">No tienes vistas asignadas</p>
-              <p className="mt-1 text-xs text-slate-600">Contacta al administrador</p>
-            </div>
-          ) : (
-            <>
-              {/* Enlaces sueltos (Dashboard, Reportes, Notificaciones) */}
-              {flatItems.map((item) => (
-                <NavRow
-                  key={item.href}
-                  icon={item.icon}
-                  label={item.label}
-                  badge={item.badge}
-                  href={item.href}
-                  isActive={activeHref === item.href}
-                  isRail={isRail}
-                  onNavigate={handleNavigate}
-                />
-              ))}
-
-              {/* Grupos plegables */}
-              {treeGroups.map((group) => {
-                const isOpen = openGroups.includes(group.key);
-                const holdsActive = group.items.some((i) => i.href === activeHref);
-                const groupBadge = group.items.reduce<number>(
-                  (n, i) => n + (typeof i.badge === "number" ? i.badge : 0),
-                  0,
-                );
-
-                // Contraído: el grupo se vuelve un ícono con tooltip que despliega
-                // sus hijos al pasar el mouse — plegar dentro de un riel de 72px
-                // no tendría dónde mostrarlos.
-                if (isRail) {
-                  return (
-                    <RailGroup
-                      key={group.key}
-                      group={group}
-                      activeHref={activeHref}
-                      holdsActive={holdsActive}
-                      onNavigate={handleNavigate}
-                    />
-                  );
-                }
-
-                const GroupIcon = group.icon;
-                return (
-                  <div key={group.key}>
-                    <button
-                      onClick={() => toggleGroup(group.key)}
-                      className={[
-                        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[14px] transition-colors",
-                        holdsActive && !isOpen
-                          ? "bg-white/5 font-medium text-white"
-                          : "text-slate-400 hover:bg-white/5 hover:text-white",
-                      ].join(" ")}
-                    >
-                      <GroupIcon className="h-[18px] w-[18px] shrink-0" />
-                      <span className="flex-1 truncate text-left">{group.label}</span>
-                      {groupBadge > 0 && !isOpen && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold tabular-nums text-white">
-                          {groupBadge}
-                        </span>
-                      )}
-                      <ChevronRight
-                        className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
-                      />
-                    </button>
-
-                    {isOpen && (
-                      // La guía vertical ata visualmente los hijos a su grupo.
-                      <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-slate-800 pl-3">
-                        {group.items.map((item) => (
-                          <ChildRow
-                            key={item.href}
-                            item={item}
-                            isActive={activeHref === item.href}
-                            onNavigate={handleNavigate}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </nav>
-
-        {/* Pie: tema */}
-        <div className="shrink-0 p-3">
           <button
             onClick={toggleTheme}
-            className={[
-              "flex h-11 w-full items-center rounded-xl bg-white/5 text-[14px] text-slate-300 transition-colors hover:bg-white/10 hover:text-white",
-              isRail ? "justify-center px-0" : "gap-3 px-3",
-            ].join(" ")}
+            className="mt-2 flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
             title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
           >
             {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-            {!isRail && <span>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>}
           </button>
-        </div>
-      </aside>
+
+          {!isMobile && (
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
+              title={panelHidden ? "Mostrar panel" : "Ocultar panel"}
+            >
+              {panelHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          )}
+        </nav>
+
+        {/* ── Panel del módulo activo ─────────────────────────────────────── */}
+        {!panelHidden && (
+          <div className="flex w-[228px] flex-col">
+            <div className="flex h-[52px] shrink-0 items-center gap-2 px-4">
+              <span className="flex-1 truncate text-[15px] font-semibold tracking-tight text-white">
+                {shownModule?.label ?? "RVR Accounting"}
+              </span>
+              {isMobile && (
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0 text-slate-400">
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Contexto: empresa y almacén activos. En un ERP multiempresa es lo
+                primero que hay que poder ver y cambiar. */}
+            <div className="space-y-2 px-3 pb-3">
+              <CompanySwitcher />
+              <WarehouseSwitcher />
+            </div>
+
+            <div className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+              {viewsLoading ? (
+                <div className="space-y-1.5">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="h-9 animate-pulse rounded-lg bg-white/5" />
+                  ))}
+                </div>
+              ) : totalViews === 0 ? (
+                <div className="flex flex-col items-center px-2 py-10 text-center">
+                  <Shield className="mb-3 h-10 w-10 text-slate-700" />
+                  <p className="text-sm text-slate-400">No tienes vistas asignadas</p>
+                  <p className="mt-1 text-xs text-slate-600">Contacta al administrador</p>
+                </div>
+              ) : (
+                shownModule?.items.map((item) => (
+                  <PanelRow
+                    key={item.href}
+                    item={item}
+                    isActive={activeHref === item.href}
+                    onNavigate={handleNavigate}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }
 
-/** Enlace de primer nivel (con ícono), y también cada ítem del riel contraído. */
-function NavRow({
-  icon: Icon,
-  label,
-  badge,
-  href,
+/**
+ * Un módulo en el riel. El badge se acumula desde sus pantallas: con el panel
+ * cerrado, es la única señal de que algo dentro pide atención.
+ */
+function RailButton({
+  module,
   isActive,
-  isRail,
-  onNavigate,
+  onSelect,
 }: {
-  icon: any;
-  label: string;
-  badge: number | string | null;
-  href: string;
+  module: NavModule;
   isActive: boolean;
-  isRail: boolean;
-  onNavigate: () => void;
+  onSelect: () => void;
 }) {
-  const link = (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      className={[
-        "relative flex h-10 items-center rounded-lg text-[14px] transition-colors",
-        isRail ? "w-full justify-center px-0" : "gap-3 px-3",
-        isActive
-          ? "bg-indigo-600 font-medium text-white shadow-lg shadow-indigo-600/20"
-          : "text-slate-400 hover:bg-white/5 hover:text-white",
-      ].join(" ")}
-    >
-      <Icon className="h-[18px] w-[18px] shrink-0" />
-      {!isRail && <span className="flex-1 truncate">{label}</span>}
-      {badge != null &&
-        (isRail ? (
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#0B1220]" />
-        ) : (
-          <span
-            className={[
-              "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
-              badge === "●" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
-            ].join(" ")}
-          >
-            {badge}
-          </span>
-        ))}
-    </Link>
+  const Icon = module.icon;
+  const badge = module.items.reduce<number>(
+    (n, i) => n + (typeof i.badge === "number" ? i.badge : 0),
+    0,
   );
-
-  if (!isRail) return link;
+  const hasDot = module.items.some((i) => i.badge === "●");
 
   return (
-    <Tooltip delayDuration={0}>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onSelect}
+          className={[
+            "relative flex h-[52px] w-[52px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors",
+            isActive
+              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+              : "text-slate-400 hover:bg-white/5 hover:text-white",
+          ].join(" ")}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+          <span className="max-w-full truncate px-1 text-[9px] font-medium leading-none tracking-tight">
+            {module.short}
+          </span>
+          {badge > 0 && (
+            <span className="absolute right-1 top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold tabular-nums text-white ring-2 ring-[#0B1220]">
+              {badge > 99 ? "99" : badge}
+            </span>
+          )}
+          {badge === 0 && hasDot && (
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[#0B1220]" />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{module.label}</TooltipContent>
     </Tooltip>
   );
 }
 
-/** Hoja dentro de un grupo abierto: sin ícono, la sangría ya dice de quién cuelga. */
-function ChildRow({
+/** Una pantalla dentro del módulo activo. */
+function PanelRow({
   item,
   isActive,
   onNavigate,
@@ -485,79 +439,30 @@ function ChildRow({
   isActive: boolean;
   onNavigate: () => void;
 }) {
+  const Icon = item.icon;
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
       className={[
-        "flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] transition-colors",
+        "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition-colors",
         isActive
-          ? "bg-indigo-600 font-medium text-white shadow-lg shadow-indigo-600/20"
+          ? "bg-white/10 font-medium text-white"
           : "text-slate-400 hover:bg-white/5 hover:text-white",
       ].join(" ")}
     >
+      <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
       <span className="flex-1 truncate">{item.label}</span>
       {item.badge != null && (
         <span
           className={[
-            "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
+            "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
             item.badge === "●" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white",
           ].join(" ")}
         >
-          {item.badge}
+          {item.badge === "●" ? "" : item.badge}
         </span>
       )}
     </Link>
-  );
-}
-
-/** Grupo en el riel contraído: ícono con tooltip que lista sus hijos. */
-function RailGroup({
-  group,
-  activeHref,
-  holdsActive,
-  onNavigate,
-}: {
-  group: NavGroup;
-  activeHref: string;
-  holdsActive: boolean;
-  onNavigate: () => void;
-}) {
-  const GroupIcon = group.icon;
-  return (
-    <Tooltip delayDuration={0}>
-      <TooltipTrigger asChild>
-        <button
-          className={[
-            "flex h-10 w-full items-center justify-center rounded-lg transition-colors",
-            holdsActive ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
-          ].join(" ")}
-        >
-          <GroupIcon className="h-[18px] w-[18px]" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="p-1.5">
-        <p className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {group.label}
-        </p>
-        <div className="min-w-[180px] space-y-0.5">
-          {group.items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={[
-                "block rounded px-2 py-1.5 text-[13px] transition-colors",
-                activeHref === item.href
-                  ? "bg-indigo-600 font-medium text-white"
-                  : "hover:bg-accent",
-              ].join(" ")}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </TooltipContent>
-    </Tooltip>
   );
 }

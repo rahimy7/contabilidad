@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { wmsApi } from "@/lib/accounting-api";
 import {
   Package,
   Scan,
@@ -58,6 +59,7 @@ interface PurchaseOrder {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  warehouseId: number | null;
   items?: PurchaseOrderItem[];
 }
 
@@ -66,6 +68,8 @@ interface ReceivedItem extends PurchaseOrderItem {
   receivedLotNumber: string;
   receivedExpirationDate: string;
   receivedManufacturingDate: string;
+  /** Ubicación WMS de destino. Vacío cuando el almacén no usa ubicaciones. */
+  receivedLocationId: string;
 }
 
 export default function ReceivePurchaseOrder() {
@@ -95,6 +99,24 @@ export default function ReceivePurchaseOrder() {
     enabled: !!id,
   });
 
+  // Ubicaciones WMS del almacén al que entra la mercancía. Si el almacén no las
+  // usa, `wmsOn` queda en falso y la pantalla es exactamente la de siempre.
+  const orderWarehouseId = purchaseOrder?.warehouseId ?? null;
+  const { data: wmsConfig } = useQuery({
+    queryKey: ["/api/wms/config", orderWarehouseId],
+    queryFn: () => wmsApi.config(orderWarehouseId!),
+    enabled: !!orderWarehouseId,
+  });
+  const wmsOn = wmsConfig?.config.wmsEnabled === true;
+  const requireLocation = wmsConfig?.config.requireLocationOnReceipt === true;
+
+  const { data: wmsLocationsData } = useQuery({
+    queryKey: ["/api/wms/locations", orderWarehouseId],
+    queryFn: () => wmsApi.locations(orderWarehouseId!),
+    enabled: !!orderWarehouseId && wmsOn,
+  });
+  const wmsLocations = wmsLocationsData?.locations ?? [];
+
 
   // Initialize received items when order loads
   useEffect(() => {
@@ -105,6 +127,7 @@ export default function ReceivePurchaseOrder() {
         receivedLotNumber: item.lotNumber || "",
         receivedExpirationDate: item.expirationDate ? item.expirationDate.split('T')[0] : "",
         receivedManufacturingDate: item.manufacturingDate ? item.manufacturingDate.split('T')[0] : "",
+        receivedLocationId: "",
       }));
       setReceivedItems(items);
       setFilteredItems(items);
@@ -230,6 +253,7 @@ export default function ReceivePurchaseOrder() {
       receivedQuantity: "0",
       receivedLotNumber: "",
       receivedExpirationDate: "",
+      receivedLocationId: "",
       receivedManufacturingDate: "",
     };
 
@@ -294,6 +318,22 @@ export default function ReceivePurchaseOrder() {
           alert(`Error en ${item.productName}: ${validation.error}`);
           return;
         }
+      }
+    }
+
+    // El almacén puede exigir ubicación al recibir. Se valida aquí además del
+    // servidor para no mandar al usuario de vuelta después de escribir 40 líneas.
+    if (wmsOn && requireLocation) {
+      const missing = receivedItems.filter(
+        (item) => parseFloat(item.receivedQuantity) > 0 && item.productId && !item.receivedLocationId,
+      );
+      if (missing.length > 0) {
+        alert(
+          `Este almacén exige indicar la ubicación al recibir.\n\nFalta en:\n${missing
+            .map((i) => `- ${i.productName}`)
+            .join("\n")}`,
+        );
+        return;
       }
     }
 
@@ -373,6 +413,8 @@ export default function ReceivePurchaseOrder() {
         lotNumber: item.receivedLotNumber || null,
         expirationDate: item.receivedExpirationDate || null,
         manufacturingDate: item.receivedManufacturingDate || null,
+        // Sólo viaja cuando el almacén usa ubicaciones; el servidor lo ignora si no.
+        locationId: item.receivedLocationId ? Number(item.receivedLocationId) : undefined,
         unitCost: item.unitCost,
         taxRate: item.taxRate,
         discountRate: item.discountRate,
@@ -508,6 +550,11 @@ export default function ReceivePurchaseOrder() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Solicitada</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Pendiente</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Recibida</th>
+                {wmsOn && (
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">
+                    Ubicación{requireLocation && <span className="text-red-500"> *</span>}
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Lote</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">F. Vencimiento</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">F. Fabricación</th>
@@ -609,6 +656,26 @@ export default function ReceivePurchaseOrder() {
                         className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </td>
+                    {wmsOn && (
+                      <td className="px-4 py-3">
+                        <select
+                          value={item.receivedLocationId}
+                          onChange={(e) => updateReceivedItem(actualIndex, "receivedLocationId", e.target.value)}
+                          className={`w-40 px-2 py-1 text-sm border rounded focus:ring-2 focus:border-transparent ${
+                            requireLocation && !item.receivedLocationId && parseFloat(item.receivedQuantity) > 0
+                              ? "border-red-500 bg-red-50 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-blue-500"
+                          }`}
+                        >
+                          <option value="">Sin ubicar</option>
+                          {wmsLocations.map((l: any) => (
+                            <option key={l.id} value={l.id}>
+                              {l.code}{l.name ? ` — ${l.name}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <input
                         type="text"

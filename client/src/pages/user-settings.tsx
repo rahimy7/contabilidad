@@ -9,8 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Save, User, Key, Bell, Settings } from "lucide-react";
-
+import { Save, User, Key, Bell, Settings, ShieldCheck } from "lucide-react";
+import { Link } from "wouter";
 export default function UserSettings() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
@@ -276,6 +276,27 @@ export default function UserSettings() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Two-Factor Authentication */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Verificación en dos pasos (2FA)
+            </CardTitle>
+            <CardDescription>
+              Añade un segundo factor con Google Authenticator, Authy o similar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/security/2fa">
+              <Button variant="outline" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                Administrar 2FA
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 

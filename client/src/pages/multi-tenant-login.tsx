@@ -85,13 +85,13 @@ export default function MultiTenantLogin() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mx-auto h-24 w-24 flex items-center justify-center mb-4">
-            <img src="/image.png" alt="Metabella Logo" className="h-full w-full object-contain" />
+            <img src="/image.png" alt="RVR Accounting Platform" className="h-full w-full object-contain" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Metabella
+            RVR
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Sistema de Gestión de Tienda
+            Accounting Platform
           </p>
         </div>
 

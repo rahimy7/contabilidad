@@ -7,8 +7,7 @@ import {
 } from "recharts";
 import {
   ArrowDownRight, ArrowUpRight, Banknote, ChevronRight, FileText, Receipt,
-  ShoppingCart, TrendingUp, UserPlus, Wallet, Calculator, Boxes, Users,
-  Landmark, BarChart3, Building2,
+  ShoppingCart, TrendingUp, UserPlus, Wallet, Boxes, BarChart3,
 } from "lucide-react";
 import { accountingApi, type DashboardData } from "@/lib/accounting-api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import AttentionCenter from "@/components/dashboard/attention-center";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -54,7 +54,7 @@ export default function Dashboard() {
             ¡Bienvenido, {firstName}! 👋
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Resumen contable de {MONTHS[month - 1]} {year}.
+            Estado del negocio · cifras contables de {MONTHS[month - 1]} {year}.
           </p>
         </div>
 
@@ -82,6 +82,8 @@ export default function Dashboard() {
           </Select>
         </div>
       </div>
+
+      <AttentionCenter />
 
       {isError ? (
         <Card>
@@ -124,7 +126,6 @@ export default function Dashboard() {
             <div className="space-y-5">
               <QuickActions />
               <FinancialSummary data={data} isLoading={isLoading} />
-              <ModuleShortcuts />
             </div>
           </div>
         </>
@@ -484,11 +485,11 @@ function Overdue({ days }: { days: number }) {
 // ── Columna derecha ──────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { label: "Nueva Factura", hint: "Emitir comprobante con NCF", href: "/fiscal/documents", icon: Receipt, tint: "bg-indigo-100 text-indigo-600" },
-  { label: "Nueva Compra", hint: "Registrar orden de compra", href: "/purchase-management", icon: ShoppingCart, tint: "bg-emerald-100 text-emerald-600" },
-  { label: "Registrar Gasto", hint: "Factura de proveedor", href: "/payables", icon: FileText, tint: "bg-rose-100 text-rose-600" },
-  { label: "Nuevo Cliente", hint: "Agregar cliente", href: "/customer-management", icon: UserPlus, tint: "bg-sky-100 text-sky-600" },
-  { label: "Cobro Recibido", hint: "Aplicar a cuentas por cobrar", href: "/receivables", icon: Banknote, tint: "bg-violet-100 text-violet-600" },
+  { label: "Emitir factura", hint: "Comprobante fiscal con NCF o e-CF", href: "/fiscal/documents", icon: Receipt, tint: "bg-indigo-100 text-indigo-600" },
+  { label: "Facturación electrónica", hint: "Transmisión a DGII y recibidos", href: "/fiscal/ecf", icon: FileText, tint: "bg-violet-100 text-violet-600" },
+  { label: "Nueva compra", hint: "Registrar orden de compra", href: "/purchase-management", icon: ShoppingCart, tint: "bg-emerald-100 text-emerald-600" },
+  { label: "Conteo físico", hint: "Auditar existencias por ubicación", href: "/inventory-count", icon: Boxes, tint: "bg-amber-100 text-amber-600" },
+  { label: "Cobro recibido", hint: "Aplicar a cuentas por cobrar", href: "/receivables", icon: Banknote, tint: "bg-sky-100 text-sky-600" },
 ];
 
 function QuickActions() {
@@ -575,41 +576,3 @@ function FinancialSummary({ data, isLoading }: { data?: DashboardData; isLoading
   );
 }
 
-const SHORTCUTS = [
-  { label: "Contabilidad", href: "/accounting/accounts", icon: Calculator, tint: "bg-indigo-100 text-indigo-600" },
-  { label: "Inventario", href: "/inventory-costing", icon: Boxes, tint: "bg-rose-100 text-rose-600" },
-  { label: "Fiscal DGII", href: "/fiscal/reports", icon: Receipt, tint: "bg-emerald-100 text-emerald-600" },
-  { label: "Compras", href: "/purchase-management", icon: ShoppingCart, tint: "bg-amber-100 text-amber-600" },
-  { label: "Nómina", href: "/payroll", icon: Users, tint: "bg-sky-100 text-sky-600" },
-  { label: "Tesorería", href: "/treasury", icon: Landmark, tint: "bg-violet-100 text-violet-600" },
-  { label: "Reportes", href: "/reports", icon: BarChart3, tint: "bg-slate-100 text-slate-600" },
-  { label: "Empresas", href: "/companies", icon: Building2, tint: "bg-teal-100 text-teal-600" },
-];
-
-function ModuleShortcuts() {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Atajos de módulos</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-4 gap-2">
-          {SHORTCUTS.map((s) => (
-            <Link
-              key={s.label}
-              href={s.href}
-              className="flex flex-col items-center gap-1.5 rounded-lg p-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
-            >
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${s.tint}`}>
-                <s.icon className="h-5 w-5" />
-              </div>
-              <span className="w-full truncate text-center text-[10px] text-slate-600 dark:text-slate-400">
-                {s.label}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

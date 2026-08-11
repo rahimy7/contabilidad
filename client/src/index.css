@@ -113,7 +113,7 @@
     scrollbar-gutter: stable;
   }
 
-  /* 🛍️ Botón de Agregar al Carrito - Color Primario (Azul Metabella) */
+  /* Botón de Agregar al Carrito - Color primario azul */
   .add-to-cart-btn {
     background-color: hsl(var(--primary)) !important;
     color: hsl(var(--primary-foreground)) !important;

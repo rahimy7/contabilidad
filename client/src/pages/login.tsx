@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, User, Lock } from 'lucide-react';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Loader2, User, Lock, ShieldCheck } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 export default function Login() {
@@ -13,7 +14,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
+  const { login, verify2fa } = useAuth();
   const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,13 +25,39 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await login(username, password);
-      setLocation('/'); // Redirigir al dashboard después del login
+      const outcome = await login(username, password);
+      if (outcome.kind === '2fa-required') {
+        setChallengeToken(outcome.challengeToken);
+        setOtp('');
+      } else {
+        setLocation('/');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de autenticación');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challengeToken || otp.length < 6) return;
+    setError('');
+    setIsLoading(true);
+    try {
+      await verify2fa(challengeToken, otp);
+      setLocation('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Código inválido');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancel2fa = () => {
+    setChallengeToken(null);
+    setOtp('');
+    setError('');
   };
 
   return (
@@ -48,13 +77,72 @@ export default function Login() {
 
         <Card className="mt-8 space-y-6">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Bienvenido</CardTitle>
+            <CardTitle className="text-2xl text-center">
+              {challengeToken ? 'Verificación en dos pasos' : 'Bienvenido'}
+            </CardTitle>
             <CardDescription className="text-center">
-              Ingresa tus credenciales para continuar
+              {challengeToken
+                ? 'Ingresa el código de 6 dígitos de tu app autenticadora o un código de respaldo.'
+                : 'Ingresa tus credenciales para continuar'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {challengeToken ? (
+              <form onSubmit={handleVerify2fa} className="space-y-6">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex flex-col items-center space-y-4">
+                  <ShieldCheck className="h-10 w-10 text-primary" />
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={(v) => setOtp(v)}
+                    autoFocus
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                  <p className="text-xs text-gray-500 text-center">
+                    ¿Perdiste tu dispositivo? Puedes ingresar un código de respaldo (10 caracteres).
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-12"
+                    onClick={cancel2fa}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 h-12"
+                    disabled={isLoading || (otp.length !== 6 && otp.length !== 10)}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verificando...
+                      </>
+                    ) : (
+                      'Verificar'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -116,6 +204,7 @@ export default function Login() {
                 )}
               </Button>
             </form>
+            )}
 
             <div className="mt-6 text-center">
               <p className="text-xs text-gray-500 dark:text-gray-400">

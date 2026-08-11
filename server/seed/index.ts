@@ -43,7 +43,7 @@ async function main() {
     await seedCompanyDefaults(pool, companyId);
     await seedDemoBankAccount(pool, companyId);
     const views = await seedViews(pool);
-    const demoUserId = await seedDemoUser(pool, companyId);
+    const admin = await seedAdminUser(pool, companyId);
 
     const counts = await pool.query(
       `SELECT
@@ -59,14 +59,38 @@ async function main() {
       `• accounts=${c.accounts} (postable=${c.postable}) tax_codes=${c.tax_codes} ` +
         `retentions=${c.retentions} periods=${c.periods}`,
     );
-    console.log(`• views=${views.total} (added ${views.inserted}) demo_user_id=${demoUserId}`);
+    console.log(`• views=${views.total} (added ${views.inserted})`);
+    console.log(`• admin '${admin.username}' (id=${admin.userId}) ${admin.passwordUpdated ? "[contraseña actualizada desde .env]" : "[sin cambios]"}`);
     console.log("seed complete");
   } finally {
     await pool.end();
   }
 }
 
-const DEMO_USER = "demo";
+/**
+ * Credenciales del administrador inicial, tomadas del entorno.
+ *
+ * El default es `demo`/`demo1234` para que un clon recién bajado arranque sin
+ * configurar nada. En cualquier despliegue serio se sobrescriben en `.env`
+ * (ADMIN_USERNAME / ADMIN_PASSWORD / ADMIN_NAME / ADMIN_EMAIL) — y como `.env`
+ * está fuera de git, la credencial nunca viaja en el código.
+ */
+function adminCredentials() {
+  const username = (process.env.ADMIN_USERNAME || "demo").trim();
+  const password = process.env.ADMIN_PASSWORD || "demo1234";
+  const name = (process.env.ADMIN_NAME || "Administrador").trim();
+  const email = process.env.ADMIN_EMAIL?.trim() || null;
+
+  if (password.length < 8) {
+    throw new Error("ADMIN_PASSWORD debe tener al menos 8 caracteres");
+  }
+  // bcrypt sólo cifra los primeros 72 bytes; una contraseña más larga se
+  // truncaría en silencio y daría una falsa sensación de robustez.
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    throw new Error("ADMIN_PASSWORD no puede exceder 72 bytes");
+  }
+  return { username, password, name, email };
+}
 
 /**
  * A demo bank account, rolled up into the "Bancos" control account so the
@@ -84,25 +108,48 @@ async function seedDemoBankAccount(pool: Pool, companyId: number): Promise<void>
 }
 
 /**
- * A demo admin, and its membership in the demo company.
+ * The admin user (from `.env`), and its membership in the demo company.
  *
  * Membership lives in `user_companies`, not in the JWT: access is checked on
- * every request, so linking here is what lets the demo user reach the API. The
- * password is a fixed dev value — this seed never runs against production.
+ * every request, so linking here is what lets the admin reach the API.
+ *
+ * Idempotent, and it re-syncs the password on every run: without that, changing
+ * ADMIN_PASSWORD in `.env` would have no effect once the user already existed —
+ * exactly the case where a controlled reset is wanted. The hash is only rewritten
+ * when the password actually changed, so a plain re-seed is a no-op.
  */
-async function seedDemoUser(pool: Pool, companyId: number): Promise<number> {
-  const existing = await pool.query(`SELECT id FROM users WHERE username=$1`, [DEMO_USER]);
+async function seedAdminUser(
+  pool: Pool,
+  companyId: number,
+): Promise<{ userId: number; username: string; passwordUpdated: boolean }> {
+  const { username, password, name, email } = adminCredentials();
+  const existing = await pool.query(`SELECT id, password FROM users WHERE username=$1`, [username]);
+
   let userId: number;
+  let passwordUpdated: boolean;
+
   if (existing.rows.length > 0) {
     userId = existing.rows[0].id;
+    const matches = await bcrypt.compare(password, existing.rows[0].password);
+    passwordUpdated = !matches;
+    if (passwordUpdated) {
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query(
+        `UPDATE users SET password=$1, name=$2, email=coalesce($3, email),
+                          role='admin', status='active', updated_at=now()
+          WHERE id=$4`,
+        [hash, name, email, userId],
+      );
+    }
   } else {
-    const hash = await bcrypt.hash("demo1234", 10);
+    const hash = await bcrypt.hash(password, 10);
     const r = await pool.query(
-      `INSERT INTO users (username, password, name, role, status)
-       VALUES ($1,$2,'Usuario Demo','admin','active') RETURNING id`,
-      [DEMO_USER, hash],
+      `INSERT INTO users (username, password, name, email, role, status)
+       VALUES ($1,$2,$3,$4,'admin','active') RETURNING id`,
+      [username, hash, name, email],
     );
     userId = r.rows[0].id;
+    passwordUpdated = true;
   }
 
   await pool.query(
@@ -111,7 +158,7 @@ async function seedDemoUser(pool: Pool, companyId: number): Promise<number> {
      ON CONFLICT (user_id, company_id) DO NOTHING`,
     [userId, companyId],
   );
-  return userId;
+  return { userId, username, passwordUpdated };
 }
 
 main().catch((err) => {

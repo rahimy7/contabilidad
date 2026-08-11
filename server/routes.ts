@@ -20,6 +20,27 @@ import creditRoutes from './routes/credit-routes';
 import cashRegisterRoutes from './routes/cash-register-routes';
 import cashWithdrawalsRoutes from './routes/cash-withdrawals-routes';
 import warehouseRoutes from './routes/warehouse-routes';
+import auditLogRoutes from './routes/audit-log-routes';
+import twoFactorRoutes, { issueTotpChallenge } from './routes/two-factor-routes';
+import approvalsRoutes from './routes/approvals-routes';
+import inventoryAdvancedRoutes from './routes/inventory-advanced-routes';
+import quotesRoutes from './routes/quotes-routes';
+import purchaseReturnsRoutes from './routes/purchase-returns-routes';
+import pickingRoutes from './routes/picking-routes';
+import supplierRfqsRoutes from './routes/supplier-rfqs-routes';
+import requisitionsRoutes from './routes/requisitions-routes';
+import hrRoutes from './routes/hr-routes';
+import commercialHrTssRoutes from './routes/commercial-hr-tss-routes';
+import landedCostsRoutes from './routes/landed-costs-routes';
+import executiveDashboardRoutes from './routes/executive-dashboard-routes';
+import manufacturingRoutes from './routes/manufacturing-routes';
+import alertsRoutes from './routes/alerts-routes';
+import reportsRoutes from './routes/reports-routes';
+import apiPublicRoutes from './routes/api-public-routes';
+import assistantRoutes from './routes/assistant-routes';
+import { auditLogMiddleware } from './middleware/audit-log.middleware';
+import { hasTotpEnabled } from './services/two-factor';
+import { masterPool as _masterPoolForTotp } from './multi-tenant-db';
 
 // Schema and Types
 import {
@@ -1478,6 +1499,27 @@ app.use('/api', appointmentRoutes);
   app.use('/api', cashRegisterRoutes);
   app.use('/api', cashWithdrawalsRoutes);
   app.use('/api', warehouseRoutes);
+  // Registrar la bitácora antes de las rutas que mutan estado; corre después
+  // de authenticateToken en cada endpoint autenticado y captura la respuesta.
+  app.use('/api', auditLogMiddleware);
+  app.use('/api', auditLogRoutes);
+  app.use('/api', approvalsRoutes);
+  app.use('/api', inventoryAdvancedRoutes);
+  app.use('/api', quotesRoutes);
+  app.use('/api', purchaseReturnsRoutes);
+  app.use('/api', pickingRoutes);
+  app.use('/api', supplierRfqsRoutes);
+  app.use('/api', requisitionsRoutes);
+  app.use('/api', hrRoutes);
+  app.use('/api', commercialHrTssRoutes);
+  app.use('/api', landedCostsRoutes);
+  app.use('/api', executiveDashboardRoutes);
+  app.use('/api', manufacturingRoutes);
+  app.use('/api', alertsRoutes);
+  app.use('/api', reportsRoutes);
+  app.use('/api', apiPublicRoutes);
+  app.use('/api', assistantRoutes);
+  app.use('/api', twoFactorRoutes);
   // ================================
   // AUTHENTICATION ENDPOINTS
   // ================================
@@ -1534,6 +1576,28 @@ app.use('/api', appointmentRoutes);
         JWT_SECRET,
         { expiresIn: '24h' }
       );
+
+      // Si el usuario tiene 2FA activo, no emitimos el token de sesión: primero
+      // pedimos el segundo factor con un challenge de vida corta.
+      try {
+        const totpOn = await hasTotpEnabled(_masterPoolForTotp, user.id);
+        if (totpOn) {
+          const challengeToken = issueTotpChallenge({
+            userId: user.id,
+            username: user.username,
+            role: user.role,
+            storeId: user.storeId,
+            warehouseId,
+            warehouseName,
+          });
+          return res.json({ requires2fa: true, challengeToken });
+        }
+      } catch (totpErr) {
+        console.warn('⚠️ Could not check 2FA status:', totpErr);
+        // Falla abierta: sin 2FA sigue el login normal. La única ruta segura
+        // sería fallar cerrado, pero eso bloquearía todos los logins si la
+        // consulta a la BD falla; el 2FA se aplica cuando podemos leerlo.
+      }
 
       // Guardar token en cookie httpOnly
       res.cookie('token', token, {
@@ -2736,6 +2800,31 @@ router.get('/billing/summary', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch billing summary' });
   }
 });
+
+// Créditos y facturas: stubs como los de arriba. La página de facturación SaaS
+// los consume; sin ellos el fetch recibía un 404 en HTML e intentaba parsearlo
+// como JSON, y toda la pantalla se caía. La forma ({ balance }, { invoices })
+// es la que espera client/src/pages/billing.tsx.
+router.get('/billing/credits', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      balance: { available: 0, used: 0, percentage: 0 },
+      transactions: [],
+    });
+  } catch (error) {
+    console.error('Error fetching billing credits:', error);
+    res.status(500).json({ error: 'Failed to fetch billing credits' });
+  }
+});
+
+router.get('/billing/invoices', authenticateToken, async (req, res) => {
+  try {
+    res.json({ invoices: [] });
+  } catch (error) {
+    console.error('Error fetching billing invoices:', error);
+    res.status(500).json({ error: 'Failed to fetch billing invoices' });
+  }
+});
 // ================================
 // NOTIFICATIONS ENDPOINTS (TENANT STORAGE)
 // ================================
@@ -3391,6 +3480,33 @@ router.post('/orders/by-customer', authenticateToken, async (req: any, res: any)
 
     // No recrear items manualmente para evitar duplicados; seguimos el patrón de create-web-order
 
+    // Reservar stock: este endpoint no descuenta al crear (a diferencia del POS)
+    // y el pedido nace en pending; sin reserva, otro pedido ve la misma caja.
+    try {
+      const { reserveForOrder } = await import('./inventory/order-reservations.js');
+      const { masterPool } = await import('./multi-tenant-db.js');
+      const warehouseIdForReserve = (order as { warehouseId?: number }).warehouseId;
+      if (warehouseIdForReserve) {
+        const outcome = await reserveForOrder(
+          masterPool,
+          order.id,
+          storeId,
+          normalizedItems
+            .filter((it: any) => it.productId && Number(it.quantity) > 0)
+            .map((it: any) => ({
+              productId: it.productId,
+              warehouseId: warehouseIdForReserve,
+              quantity: Number(it.quantity),
+            })),
+        );
+        if (outcome.skipped.length) {
+          console.warn(`[reservation] order ${order.id}: reserved ${outcome.reserved.length}, skipped ${outcome.skipped.length}`, outcome.skipped);
+        }
+      }
+    } catch (resErr) {
+      console.warn('[reservation] failed for order', order.id, resErr);
+    }
+
     // Integrar con viajes si hay assignedUserId
     let tripInfo = null;
     if (orderData.assignedUserId) {
@@ -3461,25 +3577,56 @@ router.post('/orders', authenticateToken, async (req: any, res: any) => {
       customData: { source: 'manual_creation' }
     });
     
-    // Items - createOrder ya insertó los items, solo registrar movimientos de inventario
+    // Regla: un pedido en `pending` reserva; uno que nace `completed` (venta POS
+    // ya cobrada) descuenta FIFO como antes. Sin esto, dos POS prometen la misma
+    // caja o un pedido web descuenta como si ya se hubiera despachado.
+    const orderStatus = (orderData.status ?? 'pending').toLowerCase();
+    const shouldReserve = orderStatus === 'pending' || orderStatus === 'assigned' || orderStatus === 'processing';
+
     if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
-      // ✅ REGISTRAR MOVIMIENTOS DE INVENTARIO POR CADA ITEM VENDIDO (FIFO por lotes)
-      for (const item of req.body.items) {
+      if (shouldReserve) {
         try {
-          const qtyToDeduct = item.quantityInBaseUnit || item.quantity;
-          if (item.productId && qtyToDeduct > 0) {
-            await tenantStorage.deductStockFIFO({
-              productId: item.productId,
-              quantity: qtyToDeduct,
-              unitId: item.unitId || undefined,
-              referenceType: 'order',
-              referenceId: order.id,
-              notes: `Venta POS - Orden #${order.orderNumber || order.id}`,
-              allowNegative: true, // la venta fue confirmada, permitir stock negativo
-            });
+          const { reserveForOrder } = await import('./inventory/order-reservations.js');
+          const { masterPool } = await import('./multi-tenant-db.js');
+          const warehouseIdForReserve = (order as { warehouseId?: number }).warehouseId ?? resolvedWarehouseId;
+          if (warehouseIdForReserve) {
+            const outcome = await reserveForOrder(
+              masterPool,
+              order.id,
+              storeId,
+              req.body.items
+                .filter((it: any) => it.productId && (it.quantityInBaseUnit ?? it.quantity) > 0)
+                .map((it: any) => ({
+                  productId: it.productId,
+                  warehouseId: warehouseIdForReserve,
+                  quantity: it.quantityInBaseUnit ?? it.quantity,
+                })),
+            );
+            if (outcome.skipped.length) {
+              console.warn(`[reservation] order ${order.id}: reserved ${outcome.reserved.length}, skipped ${outcome.skipped.length}`, outcome.skipped);
+            }
           }
-        } catch (invError) {
-          console.warn(`⚠️ No se pudo registrar movimiento de inventario para producto ${item.productId}:`, invError);
+        } catch (resErr) {
+          console.warn('[reservation] failed for order', order.id, resErr);
+        }
+      } else {
+        for (const item of req.body.items) {
+          try {
+            const qtyToDeduct = item.quantityInBaseUnit || item.quantity;
+            if (item.productId && qtyToDeduct > 0) {
+              await tenantStorage.deductStockFIFO({
+                productId: item.productId,
+                quantity: qtyToDeduct,
+                unitId: item.unitId || undefined,
+                referenceType: 'order',
+                referenceId: order.id,
+                notes: `Venta POS - Orden #${order.orderNumber || order.id}`,
+                allowNegative: true, // la venta fue confirmada, permitir stock negativo
+              });
+            }
+          } catch (invError) {
+            console.warn(`⚠️ No se pudo registrar movimiento de inventario para producto ${item.productId}:`, invError);
+          }
         }
       }
     }
@@ -3700,6 +3847,28 @@ router.patch('/orders/:id', authenticateToken, async (req: any, res: any) => {
           console.error(`❌ [INVENTORY] Error revirtiendo inventario:`, invError);
         }
       }
+
+      // Liberar/consumir reservas de stock al cerrar el ciclo del pedido.
+      if (orderData.status === 'cancelled' && previousOrder?.status !== 'cancelled') {
+        try {
+          const { releaseReservation } = await import('./inventory/order-reservations.js');
+          const { masterPool } = await import('./multi-tenant-db.js');
+          const out = await releaseReservation(masterPool, id);
+          if (out.released) console.log(`✅ [RESERVATION] Liberadas ${out.released} para orden ${id}`);
+        } catch (resErr) {
+          console.warn('[RESERVATION] release failed for order', id, resErr);
+        }
+      }
+      if (orderData.status === 'completed' && previousOrder?.status !== 'completed') {
+        try {
+          const { consumeReservation } = await import('./inventory/order-reservations.js');
+          const { masterPool } = await import('./multi-tenant-db.js');
+          const out = await consumeReservation(masterPool, id);
+          if (out.consumed) console.log(`✅ [RESERVATION] Consumidas ${out.consumed} para orden ${id}`);
+        } catch (resErr) {
+          console.warn('[RESERVATION] consume failed for order', id, resErr);
+        }
+      }
     }
 
     res.json(order);
@@ -3788,6 +3957,28 @@ router.put('/orders/:id/status', authenticateToken, async (req: any, res: any) =
           console.log(`✅ [INVENTORY] ${invResult.reversed} movimiento(s) revertido(s)`);
         } catch (invError) {
           console.error(`❌ [INVENTORY] Error revirtiendo inventario:`, invError);
+        }
+      }
+
+      // Liberar/consumir reservas de stock al cerrar el ciclo del pedido.
+      if (status === 'cancelled' && previousOrder?.status !== 'cancelled') {
+        try {
+          const { releaseReservation } = await import('./inventory/order-reservations.js');
+          const { masterPool } = await import('./multi-tenant-db.js');
+          const out = await releaseReservation(masterPool, id);
+          if (out.released) console.log(`✅ [RESERVATION] Liberadas ${out.released} para orden ${id}`);
+        } catch (resErr) {
+          console.warn('[RESERVATION] release failed for order', id, resErr);
+        }
+      }
+      if (status === 'completed' && previousOrder?.status !== 'completed') {
+        try {
+          const { consumeReservation } = await import('./inventory/order-reservations.js');
+          const { masterPool } = await import('./multi-tenant-db.js');
+          const out = await consumeReservation(masterPool, id);
+          if (out.consumed) console.log(`✅ [RESERVATION] Consumidas ${out.consumed} para orden ${id}`);
+        } catch (resErr) {
+          console.warn('[RESERVATION] consume failed for order', id, resErr);
         }
       }
     }

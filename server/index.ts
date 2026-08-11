@@ -378,6 +378,29 @@ apiRouter.post('/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // 2FA: si el usuario lo tiene activo, no emitimos el token de sesión
+    // todavía; devolvemos un reto corto para que el cliente pida el código.
+    try {
+      const { hasTotpEnabled } = await import('./services/two-factor');
+      const { issueTotpChallenge } = await import('./routes/two-factor-routes');
+      const { masterPool } = await import('./multi-tenant-db');
+      if (await hasTotpEnabled(masterPool, user.id)) {
+        const challengeToken = issueTotpChallenge({
+          userId: user.id,
+          username: user.username,
+          role: user.role,
+          storeId: user.storeId,
+          warehouseId: null,
+          warehouseName: null,
+        });
+        return res.json({ requires2fa: true, challengeToken });
+      }
+    } catch (totpErr) {
+      // Falla-abierto explícito: si la lectura del flag falla continúa el login
+      // normal en vez de bloquear a todos si se cae la BD del check.
+      console.warn('⚠️ 2FA status check failed:', totpErr);
+    }
+
     console.log(`✅ Login successful, token generated`);
 
     res.setHeader('Content-Type', 'application/json');
@@ -1306,6 +1329,9 @@ app.get('/share-product', async (req, res) => {
     if (process.env.NODE_ENV !== 'test') {
   startScheduledTasks();
   startBillingCronJobs();
+  const { masterPool } = await import('./multi-tenant-db');
+  const { startAlertScheduler } = await import('./jobs/alerts-scheduler');
+  startAlertScheduler(masterPool);
 }
 
     server.listen(PORT, HOST, () => {

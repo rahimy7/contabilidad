@@ -140,6 +140,34 @@ export async function createWebOrder(req: Request, res: Response) {
       console.warn('Warning: Could not create order log:', logError);
     }
 
+    // Reservar stock: el pedido web nace en `pending` y no descuenta hasta
+    // el despacho, así que sin reserva otro cliente ve la misma caja libre.
+    try {
+      const { reserveForOrder } = await import('../inventory/order-reservations.js');
+      const { masterPool } = await import('../multi-tenant-db.js');
+      const warehouseId = (order as { warehouseId?: number }).warehouseId;
+      if (warehouseId) {
+        const outcome = await reserveForOrder(
+          masterPool,
+          order.id,
+          validatedData.storeId,
+          validatedData.items.map((it) => ({
+            productId: it.productId,
+            warehouseId,
+            quantity: it.quantity,
+          })),
+        );
+        if (outcome.skipped.length) {
+          console.warn(
+            `[reservation] order ${order.id}: reserved ${outcome.reserved.length}, skipped ${outcome.skipped.length}`,
+            outcome.skipped,
+          );
+        }
+      }
+    } catch (reservationError) {
+      console.warn('[reservation] failed for order', order.id, reservationError);
+    }
+
     // ===== PASO 1: ASIGNACIÓN AUTOMÁTICA =====
     console.log('🎯 [AUTO-ASSIGN] Iniciando asignación automática para orden desde web');
     

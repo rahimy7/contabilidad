@@ -14,10 +14,6 @@ const REPORT_GENERATORS = {
   "608": generate608,
   "609": generate609,
 } as const;
-import { EcfService } from "../fiscal/ecf/ecf-service";
-import { DevEcfSigner } from "../fiscal/ecf/dev-signer";
-import { DgiiTestGateway } from "../fiscal/ecf/test-gateway";
-import { DgiiEcfGateway, EcfSigner } from "../fiscal/ecf/types";
 
 /**
  * HTTP surface for the DGII fiscal layer: issuing comprobantes, cancelling them,
@@ -69,10 +65,20 @@ export function fiscalRoutes(): Router {
     }),
   );
 
-  // Sign and transmit an e-CF to DGII. Until a production certificate and DGII
-  // credentials are configured, this runs against the in-memory test gateway —
-  // the whole pipeline works, but the signature is not one DGII trusts yet.
-  // Credit note against an existing invoice.
+  /**
+   * Cuánto queda por acreditar de una factura: lo vendido menos lo que otras
+   * notas de crédito ya devolvieron. La pantalla de devoluciones parte de aquí,
+   * así que nadie captura una cantidad que el servidor va a rechazar después.
+   */
+  r.get(
+    "/invoices/:id/creditable",
+    handler(async (req) =>
+      scoped(req, (c) =>
+        new FiscalDocumentService(c).creditableBalance(req.companyId!, Number(req.params.id)),
+      ),
+    ),
+  );
+
   r.post(
     "/credit-notes",
     handler(async (req) => {
@@ -95,6 +101,7 @@ export function fiscalRoutes(): Router {
           modifiesDocId: body.modifiesDocId,
           lines,
           restockInventory: body.restockInventory,
+          matchInvoiceLines: body.matchInvoiceLines,
           postedBy: numericUserId(req),
         }),
       );
@@ -103,20 +110,32 @@ export function fiscalRoutes(): Router {
   );
 
   r.post(
-    "/documents/:id/transmit",
+    "/debit-notes",
     handler(async (req) => {
-      const id = Number(req.params.id);
-      const status = await scoped(req, (c) => ecfService(c).transmit(req.companyId!, id));
-      return { documentId: id, ecfStatus: status };
-    }),
-  );
-
-  r.post(
-    "/documents/:id/refresh-status",
-    handler(async (req) => {
-      const id = Number(req.params.id);
-      const status = await scoped(req, (c) => ecfService(c).refreshStatus(req.companyId!, id));
-      return { documentId: id, ecfStatus: status };
+      const body = debitNoteBody.parse(req.body);
+      const issuerRnc = await companyRnc(req);
+      const lines: IssueLineInput[] = body.lines.map((l) => ({
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        discount: l.discount,
+        taxCode: l.taxCode,
+        productId: l.productId,
+      }));
+      const doc = await scoped(req, (c) =>
+        new FiscalDocumentService(c).issueDebitNote({
+          companyId: req.companyId!,
+          issuerRnc,
+          ncfType: body.ncfType,
+          date: body.date,
+          modifiesDocId: body.modifiesDocId,
+          lines,
+          paymentMethod: body.paymentMethod,
+          reason: body.reason,
+          postedBy: numericUserId(req),
+        }),
+      );
+      return { status: 201, ...doc };
     }),
   );
 
@@ -338,6 +357,21 @@ const creditNoteBody = z.object({
   modifiesDocId: z.number().int().positive(),
   lines: z.array(invoiceLine).min(1),
   restockInventory: z.boolean().optional(),
+  /**
+   * Lo pide la devolución de mercancía: cada línea tiene que ser un producto y
+   * precio de la factura original. Una nota por ajuste de precio o descuento
+   * posterior no lo activa, porque legítimamente no corresponde a ninguna línea.
+   */
+  matchInvoiceLines: z.boolean().optional(),
+});
+
+const debitNoteBody = z.object({
+  ncfType: z.string().min(3).max(3),
+  date: isoDate,
+  modifiesDocId: z.number().int().positive(),
+  lines: z.array(invoiceLine).min(1),
+  paymentMethod: z.enum(["cash", "credit", "card", "transfer"]).optional(),
+  reason: z.string().optional(),
 });
 
 const documentsQuery = z.object({
@@ -392,21 +426,6 @@ const numericUserId = (req: CompanyRequest): number | undefined => {
   return id ? Number(id) : undefined;
 };
 
-/**
- * Assembles an EcfService for the request's client.
- *
- * The signer and gateway are chosen by environment. Neither a production
- * certificate nor DGII credentials exist yet, so this returns the dev signer and
- * the in-memory gateway — the pipeline is exercised, but nothing is sent to a
- * real DGII. Wiring the live signer and gateway is a configuration change here,
- * not a code change at the call sites.
- */
-function ecfService(client: import("../accounting/types").SqlClient): EcfService {
-  const signer: EcfSigner = new DevEcfSigner();
-  const gateway: DgiiEcfGateway = new DgiiTestGateway({ outcome: "aceptado" });
-  const qrBaseUrl = process.env.DGII_ECF_QR_URL || "https://ecf.dgii.gov.do/ecf/consultatimbrefc";
-  return new EcfService(client, { signer, gateway, identity: {}, qrBaseUrl });
-}
 
 /** The issuer RNC for the active company, read from `companies`. */
 async function companyRnc(req: CompanyRequest): Promise<string> {

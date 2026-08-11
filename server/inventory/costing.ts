@@ -1,6 +1,6 @@
 import { SqlClient } from "../accounting/types";
 import { PostingEngine } from "../accounting/posting-engine";
-import { Decimal, add, mul, sub, cmp, isNegative, isZero, roundTo, toMoney } from "../accounting/decimal";
+import { Decimal, add, mul, neg, sub, cmp, isNegative, isZero, roundTo, toMoney } from "../accounting/decimal";
 
 /**
  * Inventory costing: weighted-average or FIFO, per product, per warehouse.
@@ -19,10 +19,11 @@ import { Decimal, add, mul, sub, cmp, isNegative, isZero, roundTo, toMoney } fro
  * balance in the general ledger; that identity is the point of the whole module.
  *
  * Postings go through the rules engine (`inventory_receipt.cost`,
- * `inventory_issue.cogs`, `inventory_return.restock`), with the product's
- * inventory account travelling in the event context so the rules can route an
- * issue to cost of goods sold or, for a supply, straight to expense. A caller that
- * already books the inventory leg (the AP purchase does) passes `post: false`.
+ * `inventory_issue.cogs`, `inventory_return.restock`,
+ * `inventory_adjustment.shortage|surplus`), with the product's inventory account
+ * travelling in the event context so the rules can route an issue to cost of
+ * goods sold or, for a supply, straight to expense. A caller that already books
+ * the inventory leg (the AP purchase does) passes `post: false`.
  *
  * Everything runs in the caller's transaction — the one recording the purchase,
  * the sale, or the transfer.
@@ -30,6 +31,24 @@ import { Decimal, add, mul, sub, cmp, isNegative, isZero, roundTo, toMoney } fro
 export class InventoryCostingError extends Error {}
 
 export type CostingMethod = "average" | "fifo";
+
+/**
+ * Which layer leaves first.
+ *
+ * `fifo` drains the oldest receipt; `fefo` drains the earliest expiry. They are
+ * only the same when goods are received in the order they expire, which for
+ * anything perishable is exactly the assumption that gets a shipment thrown
+ * away. The policy is a property of the *warehouse* — a bodega of ambient dry
+ * goods and a walk-in cooler rotate differently — and is read from
+ * `warehouses.rotation_policy` unless the caller states it.
+ *
+ * It changes only the *order* layers are consumed in, never how they are
+ * valued: FEFO on a weighted-average product costs the issue at the average,
+ * same as always. Rotation is a warehouse decision; costing is an accounting
+ * one, and conflating them would let a change in picking policy quietly restate
+ * the cost of goods sold.
+ */
+export type RotationPolicy = "fifo" | "fefo";
 
 export interface ReceiveInput {
   companyId: number;
@@ -55,6 +74,8 @@ export interface ReceiveInput {
   sourceType?: string;
   sourceId?: string;
   postedBy?: number;
+  /** Expiry of the goods received, when they have one. Drives FEFO. */
+  expirationDate?: string | null;
 }
 
 export interface IssueInput {
@@ -67,6 +88,37 @@ export interface IssueInput {
   sourceType?: string;
   sourceId?: string;
   postedBy?: number;
+  /** Overrides the warehouse's own rotation policy for this issue. */
+  rotation?: RotationPolicy;
+}
+
+/**
+ * Bringing the books in line with what a count actually found.
+ *
+ * `countedQuantity` is the absolute quantity on the shelf, not a delta — the
+ * caller states what is there and this works out the rest. Passing a delta is
+ * how a count race turns into a double adjustment: two people apply the same
+ * sheet and the shortage is booked twice. An absolute target applied twice is
+ * idempotent.
+ */
+export interface AdjustInput {
+  companyId: number;
+  productId: number;
+  date: string;
+  /** What the count found. The difference against the books is the adjustment. */
+  countedQuantity: Decimal;
+  warehouseId?: number;
+  /** Cost to value a surplus at; defaults to the warehouse's current average. */
+  unitCost?: Decimal;
+  reason?: string;
+  post?: boolean;
+  sourceType?: string;
+  sourceId?: string;
+  postedBy?: number;
+  /** Lot/expiry the surplus opens a layer under, for a FIFO product. */
+  lotNo?: string;
+  expirationDate?: string | null;
+  rotation?: RotationPolicy;
 }
 
 export interface TransferInput {
@@ -91,13 +143,15 @@ export class InventoryCosting {
   constructor(private readonly client: SqlClient) {}
 
   /** Brings stock into a warehouse: posts Dr Inventory / Cr Proveedores. */
-  async receive(input: ReceiveInput): Promise<{ movementId: number; journalEntryId: number | null; balances: Balances }> {
-    const { movementId, balances, value, inventoryAccount } = await this.inbound(input, "receipt");
+  async receive(
+    input: ReceiveInput,
+  ): Promise<{ movementId: number; journalEntryId: number | null; balances: Balances; lotId: number | null }> {
+    const { movementId, balances, value, inventoryAccount, lotId } = await this.inbound(input, "receipt");
     const journalEntryId =
       input.post === false
         ? null
         : await this.post(input, "inventory_receipt", "cost", value, movementId, "receipt", inventoryAccount);
-    return { movementId, journalEntryId, balances };
+    return { movementId, journalEntryId, balances, lotId };
   }
 
   /**
@@ -105,13 +159,15 @@ export class InventoryCosting {
    * the original sale. The `unitCost` is the cost the goods left at, so the return
    * neutralises the sale's COGS exactly.
    */
-  async returnToStock(input: ReceiveInput): Promise<{ movementId: number; journalEntryId: number | null; balances: Balances }> {
-    const { movementId, balances, value, inventoryAccount } = await this.inbound(input, "return");
+  async returnToStock(
+    input: ReceiveInput,
+  ): Promise<{ movementId: number; journalEntryId: number | null; balances: Balances; lotId: number | null }> {
+    const { movementId, balances, value, inventoryAccount, lotId } = await this.inbound(input, "return");
     const journalEntryId =
       input.post === false
         ? null
         : await this.post(input, "inventory_return", "restock", value, movementId, "return", inventoryAccount);
-    return { movementId, journalEntryId, balances };
+    return { movementId, journalEntryId, balances, lotId };
   }
 
   /** Takes stock out of a warehouse and books its cost (COGS, or expense for a supply). */
@@ -154,13 +210,122 @@ export class InventoryCosting {
     return { outMovementId: out.movementId, inMovementId: inn.movementId, cost: out.cost };
   }
 
+  /**
+   * Writes the result of a physical count into the books.
+   *
+   * A shortage leaves stock without a sale, so its cost goes to the faltantes
+   * expense rather than to COGS — mixing them buries shrinkage inside the gross
+   * margin, which is precisely where nobody looks for it. A surplus enters at the
+   * warehouse's current average cost (or a stated one) against other income,
+   * because inventory that appears was understated, not earned.
+   *
+   * Returns `variance: 0` and posts nothing when the shelf agrees with the books,
+   * which is the common case and must stay free of journal noise.
+   */
+  async adjust(input: AdjustInput): Promise<{
+    movementId: number | null;
+    journalEntryId: number | null;
+    variance: Decimal;
+    value: Decimal;
+    balances: Balances;
+  }> {
+    if (isNegative(input.countedQuantity)) {
+      throw new InventoryCostingError("la cantidad contada no puede ser negativa");
+    }
+    const warehouseId = input.warehouseId ?? 0;
+
+    // Lock the row first: two supervisors applying the same count sheet at once
+    // must serialize, or both read the same "before" and book the variance twice.
+    const locked = await this.client.query(
+      `SELECT quantity_on_hand::text, average_cost::text, total_value::text, costing_method, inventory_account
+         FROM inventory_valuation
+        WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3 FOR UPDATE`,
+      [input.companyId, input.productId, warehouseId],
+    );
+
+    // Never counted before: the whole count is a surplus, and this receipt is
+    // what establishes the product's costing method and control account.
+    const onHand: Decimal = locked.rows.length > 0 ? locked.rows[0].quantity_on_hand : "0";
+    const averageCost: Decimal = locked.rows.length > 0 ? locked.rows[0].average_cost : "0";
+    const variance = sub(input.countedQuantity, onHand);
+
+    if (isZero(variance)) {
+      return {
+        movementId: null,
+        journalEntryId: null,
+        variance: "0",
+        value: "0",
+        balances: {
+          quantityOnHand: onHand,
+          averageCost,
+          totalValue: locked.rows.length > 0 ? locked.rows[0].total_value : "0",
+        },
+      };
+    }
+
+    const memo = input.reason ? `ajuste por conteo (${input.reason})` : "ajuste por conteo";
+
+    if (isNegative(variance)) {
+      const { movementId, cost, balances, inventoryAccount } = await this.outbound(
+        {
+          companyId: input.companyId, productId: input.productId, date: input.date,
+          quantity: neg(variance), warehouseId, rotation: input.rotation,
+          sourceType: input.sourceType, sourceId: input.sourceId, postedBy: input.postedBy,
+        },
+        "adjustment_out",
+      );
+      const journalEntryId =
+        input.post === false
+          ? null
+          : await this.post(
+              { ...input, warehouseId }, "inventory_adjustment", "shortage",
+              cost, movementId, memo, inventoryAccount,
+            );
+      return { movementId, journalEntryId, variance, value: cost, balances };
+    }
+
+    // A surplus with no prior valuation and no stated cost would enter at zero and
+    // silently understate inventory; make the caller say what it is worth.
+    const unitCost = input.unitCost ?? averageCost;
+    if (isZero(unitCost) && locked.rows.length === 0) {
+      throw new InventoryCostingError(
+        `el producto ${input.productId} no tiene costo en el almacén ${warehouseId}: indique el costo unitario del sobrante`,
+      );
+    }
+
+    const { movementId, balances, value, inventoryAccount } = await this.inbound(
+      {
+        companyId: input.companyId, productId: input.productId, date: input.date,
+        quantity: variance, unitCost, warehouseId, lotNo: input.lotNo,
+        expirationDate: input.expirationDate,
+        sourceType: input.sourceType, sourceId: input.sourceId, postedBy: input.postedBy,
+      },
+      "adjustment_in",
+    );
+    const journalEntryId =
+      input.post === false
+        ? null
+        : await this.post(
+            { ...input, warehouseId }, "inventory_adjustment", "surplus",
+            value, movementId, memo, inventoryAccount,
+          );
+    return { movementId, journalEntryId, variance, value, balances };
+  }
+
   // ── inbound / outbound ─────────────────────────────────────────────────────
 
   /** Shared inbound path: re-value the warehouse, open a FIFO lot, record it. */
   private async inbound(
     input: ReceiveInput,
-    kind: "receipt" | "return" | "transfer_in",
-  ): Promise<{ movementId: number; balances: Balances; value: Decimal; inventoryAccount: string }> {
+    kind: "receipt" | "return" | "transfer_in" | "adjustment_in",
+  ): Promise<{
+    movementId: number;
+    balances: Balances;
+    value: Decimal;
+    inventoryAccount: string;
+    /** The FIFO layer opened, so a putaway can bind its placement to it. */
+    lotId: number | null;
+  }> {
     if (isNegative(input.quantity) || isZero(input.quantity)) {
       throw new InventoryCostingError("la cantidad recibida debe ser positiva");
     }
@@ -199,18 +364,23 @@ export class InventoryCosting {
     );
     const balances = balancesOf(upsert.rows[0]);
 
+    let lotId: number | null = null;
     if (method === "fifo") {
       // The layer's unit cost is derived from the value actually brought in, in
       // numeric — so a transfer's layer carries exactly the cost that left.
-      await this.client.query(
+      const lot = await this.client.query(
         `INSERT INTO inventory_lots
-           (company_id, product_id, warehouse_id, received_date, lot_no, original_qty, remaining_qty, unit_cost, source_type, source_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$6, round($7::numeric / $6::numeric, 8), $8,$9)`,
+           (company_id, product_id, warehouse_id, received_date, lot_no, expiration_date,
+            original_qty, remaining_qty, unit_cost, source_type, source_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7, round($8::numeric / $7::numeric, 8), $9,$10)
+         RETURNING id`,
         [
           input.companyId, input.productId, warehouseId, input.date, input.lotNo ?? null,
+          input.expirationDate ?? null,
           input.quantity, receiptValue, input.sourceType ?? null, input.sourceId ?? null,
         ],
       );
+      lotId = Number(lot.rows[0].id);
     }
 
     const movementId = await this.recordMovement({
@@ -219,13 +389,13 @@ export class InventoryCosting {
       sourceType: input.sourceType, sourceId: input.sourceId,
     });
 
-    return { movementId, balances, value: receiptValue, inventoryAccount };
+    return { movementId, balances, value: receiptValue, inventoryAccount, lotId };
   }
 
   /** Shared outbound path: cost the stock leaving a warehouse and reduce it. */
   private async outbound(
     input: IssueInput,
-    kind: "issue" | "transfer_out",
+    kind: "issue" | "transfer_out" | "adjustment_out",
   ): Promise<{ movementId: number; cost: Decimal; balances: Balances; inventoryAccount: string }> {
     if (isNegative(input.quantity) || isZero(input.quantity)) {
       throw new InventoryCostingError("la cantidad emitida debe ser positiva");
@@ -253,15 +423,17 @@ export class InventoryCosting {
     const newQty = sub(current.quantityOnHand, input.quantity);
     const emptied = isZero(newQty);
 
-    // FIFO drains the oldest layers of this warehouse; average takes the quantity
-    // at its average. Emptying the bucket absorbs any rounding residual, so the
-    // value and the ledger reach exactly zero together.
+    // FIFO drains the layers of this warehouse in its rotation order — oldest
+    // receipt, or earliest expiry when the bodega rotates FEFO; average takes the
+    // quantity at its average. Emptying the bucket absorbs any rounding residual,
+    // so the value and the ledger reach exactly zero together.
     let cost: Decimal;
     if (emptied) {
       cost = current.totalValue;
       if (method === "fifo") await this.drainAllLots(input.companyId, input.productId, warehouseId);
     } else if (method === "fifo") {
-      cost = await this.consumeLots(input.companyId, input.productId, warehouseId, input.quantity);
+      const rotation = input.rotation ?? (await this.rotationOf(warehouseId));
+      cost = await this.consumeLots(input.companyId, input.productId, warehouseId, input.quantity, rotation);
     } else {
       cost = toMoney(roundTo(mul(input.quantity, current.averageCost), 4));
     }
@@ -296,14 +468,42 @@ export class InventoryCosting {
     return { movementId, cost, balances, inventoryAccount };
   }
 
-  // ── FIFO layers ────────────────────────────────────────────────────────────
+  // ── FIFO / FEFO layers ─────────────────────────────────────────────────────
 
-  /** Drains the oldest open layers of one warehouse, returning the layered cost. */
-  private async consumeLots(companyId: number, productId: number, warehouseId: number, quantity: Decimal): Promise<Decimal> {
+  /**
+   * The bodega's rotation policy. Warehouse 0 — the company that keeps one
+   * undivided store — has no row to read, and rotates FIFO.
+   */
+  private async rotationOf(warehouseId: number): Promise<RotationPolicy> {
+    if (!warehouseId) return "fifo";
+    const { rows } = await this.client.query(`SELECT rotation_policy FROM warehouses WHERE id=$1`, [warehouseId]);
+    return rows[0]?.rotation_policy === "fefo" ? "fefo" : "fifo";
+  }
+
+  /**
+   * Drains the open layers of one warehouse in rotation order, returning the
+   * layered cost.
+   *
+   * Under FEFO the earliest expiry goes first and undated layers sort last —
+   * `NULLS LAST` is deliberate: stock that never expires should sit on the shelf
+   * while the yoghurt that expires on Friday leaves today. Ties fall back to the
+   * receipt date, so two lots expiring the same day still leave oldest-first.
+   */
+  private async consumeLots(
+    companyId: number,
+    productId: number,
+    warehouseId: number,
+    quantity: Decimal,
+    rotation: RotationPolicy = "fifo",
+  ): Promise<Decimal> {
+    const order =
+      rotation === "fefo"
+        ? "ORDER BY expiration_date ASC NULLS LAST, received_date, id"
+        : "ORDER BY received_date, id";
     const lots = await this.client.query(
       `SELECT id, remaining_qty::text, unit_cost::text FROM inventory_lots
         WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3 AND remaining_qty > 0
-        ORDER BY received_date, id FOR UPDATE`,
+        ${order} FOR UPDATE`,
       [companyId, productId, warehouseId],
     );
     let need = quantity;

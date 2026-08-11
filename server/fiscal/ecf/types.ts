@@ -36,25 +36,123 @@ export interface EcfDocument {
   emittedAt: string; // ISO date
   currency: string;
   sequenceExpiry?: string; // fecha de vencimiento de la secuencia
+
+  /** Comercial name, address and contact — printed, and required by some types. */
+  issuerTradeName?: string;
+  issuerAddress?: string;
+  issuerPhone?: string;
+  issuerEmail?: string;
+
+  /** DGII TipoIngresos (01–06) and TipoPago (1 contado, 2 crédito, 3 gratuito). */
+  incomeType?: string;
+  paymentType?: string;
+  /** FormaPago table code: 01 efectivo, 03 tarjeta, 04 crédito… */
+  paymentMethod?: string;
+  /** Credit terms, when TipoPago is 2. */
+  dueDate?: string;
+
+  /** Notes (E33/E34) point at the comprobante they modify. */
+  modifiesNcf?: string;
+  modifiesDate?: string;
+  /** 1 = anula el anterior, 2 = lo modifica parcialmente. */
+  modificationCode?: string;
+
+  /** Exports (E46) identify the buyer by country instead of RNC. */
+  buyerCountry?: string;
+  /** Non-DOP documents carry the rate the totals convert at. */
+  fxRate?: string;
+
   totals: {
     gravadoTotal: string;
     gravado18: string;
     gravado16: string;
+    /** ITBIS 0% — taxed at zero, which is not the same as exempt. */
+    gravado0?: string;
     exento: string;
     itbis18: string;
     itbis16: string;
+    itbis0?: string;
     totalItbis: string;
+    /** Impuesto selectivo al consumo and propina legal, when present. */
+    isc?: string;
+    tipLegal?: string;
+    /** Retentions the buyer withholds from us. */
+    retentionItbis?: string;
+    retentionIsr?: string;
     montoTotal: string;
   };
+
   lines: Array<{
     lineNo: number;
     name: string;
-    /** 1 = gravado, 2 = exento (DGII indicadorFacturacion). */
-    indicadorFacturacion: 1 | 2;
+    /** 1 = gravado 18%, 2 = exento, 3 = gravado 16%, 4 = gravado 0%. */
+    indicadorFacturacion: 1 | 2 | 3 | 4;
     quantity: string;
     unitPrice: string;
     amount: string;
+    /** Unidad de medida per DGII's table; free text is not accepted. */
+    unitOfMeasure?: string;
+    discount?: string;
+    itbisRate?: string;
+    itbisAmount?: string;
+    /** Supplier/product code, when the buyer needs it for their own records. */
+    productCode?: string;
   }>;
+}
+
+/** A periodic summary of consumo e-CF below the RFCE threshold. */
+export interface RfceSummary {
+  issuerRnc: string;
+  issuerName: string;
+  /** The eNCF range this summary covers. */
+  encfFrom: string;
+  encfTo: string;
+  periodFrom: string;
+  periodTo: string;
+  documentCount: number;
+  totals: {
+    gravadoTotal: string;
+    exento: string;
+    totalItbis: string;
+    montoTotal: string;
+  };
+}
+
+/** Aprobación comercial (ACECF): the buyer's verdict on a received e-CF. */
+export interface CommercialApproval {
+  issuerRnc: string;
+  issuerName?: string;
+  buyerRnc: string;
+  buyerName?: string;
+  encf: string;
+  emittedAt: string;
+  montoTotal: string;
+  /** 1 = aceptado, 2 = rechazado. */
+  status: "1" | "2";
+  reason?: string;
+  approvedAt: string;
+}
+
+/** Acuse de recibo (ARECF): confirms the XML arrived and parsed. */
+export interface Acknowledgement {
+  issuerRnc: string;
+  buyerRnc: string;
+  encf: string;
+  /** 0 = recibido conforme, 1 = rechazado por error de estructura/firma. */
+  status: "0" | "1";
+  /** DGII coded reason when status is 1. */
+  reasonCode?: string;
+  reason?: string;
+  receivedAt: string;
+}
+
+/** Anulación de rangos: eNCF numbers declared as never to be used. */
+export interface SequenceVoid {
+  issuerRnc: string;
+  ecfType: string;
+  rangeFrom: number;
+  rangeTo: number;
+  voidedAt: string;
 }
 
 /** A signing identity: the PKCS#12 material, in production; nothing, in the dev path. */
@@ -63,6 +161,12 @@ export interface SigningIdentity {
   privateKeyPem?: string;
   /** PEM certificate, for the KeyInfo block. */
   certificatePem?: string;
+  /**
+   * The RNC this identity acts as. DGII binds the token to it, so a taxpayer
+   * cannot submit another's comprobantes with their own certificate — the check
+   * the simulator reproduces.
+   */
+  rnc?: string;
 }
 
 export interface SignedEcf {

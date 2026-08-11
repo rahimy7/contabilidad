@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Bell, Menu, LogOut, User, Search, MessageCircle, Settings, ChevronDown, ChevronRight, Package } from "lucide-react";
+import {
+  Plus, Bell, Menu, LogOut, User, Search, MessageCircle, Settings, ChevronDown,
+  ChevronRight, Package, CalendarRange, FileText, ShoppingBag, PackagePlus, UserPlus,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -22,6 +25,8 @@ import CreateOrderModal from "@/components/orders/create-order-modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 import { iconMap, type ViewRow } from "@/components/layout/sidebar";
+import { Link } from "wouter";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -40,6 +45,22 @@ const SECTION_LABELS: Record<string, string> = {
   comunicacion: "Comunicación",
   configuracion: "Configuración",
 };
+
+/**
+ * Lo que se crea a diario, con el permiso que cada cosa exige.
+ *
+ * El botón anterior sólo hacía pedidos. En un ERP la acción frecuente depende
+ * del puesto: quien factura no crea órdenes de compra, y quien compra no abre
+ * conteos. La lista se filtra por las vistas que el usuario ya tiene asignadas,
+ * así que nadie ve un atajo que lo lleva a un 403.
+ */
+const QUICK_CREATE: { label: string; icon: any; route: string; requires: string }[] = [
+  { label: "Factura", icon: FileText, route: "/invoicing", requires: "/invoicing" },
+  { label: "Venta en caja", icon: Plus, route: "/pos", requires: "/pos" },
+  { label: "Orden de compra", icon: ShoppingBag, route: "/purchase-management", requires: "/purchase-management" },
+  { label: "Producto", icon: PackagePlus, route: "/add-product", requires: "/add-product" },
+  { label: "Cliente", icon: UserPlus, route: "/customer-management", requires: "/customer-management" },
+];
 
 export default function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
@@ -64,6 +85,17 @@ export default function Header({ onMenuClick, showMenuButton = false }: HeaderPr
     enabled: !!user,
   });
   const unread = typeof (notificationCounts as any)?.unread === "number" ? (notificationCounts as any).unread : 0;
+
+  // El período contable abierto. En un ERP es contexto permanente, no un dato
+  // que se va a buscar: postear en el mes equivocado es de las cosas más caras
+  // de deshacer, y verlo siempre es lo que lo previene.
+  const { data: period } = useQuery<{ year: number; period: number; status: string } | null>({
+    queryKey: ["/api/accounting/periods/current"],
+    queryFn: () => apiRequest("GET", "/api/accounting/periods/current"),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
 
   // ⌘K / Ctrl+K abre la búsqueda global
   useEffect(() => {
@@ -91,6 +123,12 @@ export default function Header({ onMenuClick, showMenuButton = false }: HeaderPr
     }
     return [...map.entries()];
   }, [views]);
+
+  // Sólo los atajos cuya pantalla el usuario tiene asignada.
+  const quickCreate = useMemo(
+    () => QUICK_CREATE.filter((q) => views.some((v) => v.route_path === q.requires)),
+    [views],
+  );
 
   const go = (routePath: string) => {
     setPaletteOpen(false);
@@ -131,10 +169,35 @@ export default function Header({ onMenuClick, showMenuButton = false }: HeaderPr
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        <Button size="sm" className="mr-1 h-9 gap-1.5" onClick={() => setIsCreateOrderModalOpen(true)}>
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nuevo Pedido</span>
-        </Button>
+        {period && (
+          <PeriodChip year={period.year} period={period.period} status={period.status} />
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="mr-1 h-9 gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Crear</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            {quickCreate.map((q) => {
+              const Icon = q.icon;
+              return (
+                <DropdownMenuItem key={q.route} onClick={() => setLocation(q.route)}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  {q.label}
+                </DropdownMenuItem>
+              );
+            })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setIsCreateOrderModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Pedido
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <IconButton onClick={() => setLocation("/notifications")} badge={unread}>
           <Bell className="h-[18px] w-[18px]" />
@@ -207,6 +270,46 @@ export default function Header({ onMenuClick, showMenuButton = false }: HeaderPr
         onClose={() => setIsCreateOrderModalOpen(false)}
       />
     </header>
+  );
+}
+
+const MONTHS = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+];
+
+/**
+ * El período contable en curso, siempre visible.
+ *
+ * El color no es decorativo: un período cerrado significa que nada de lo que se
+ * haga hoy va a poder postearse, y eso tiene que verse antes de intentarlo, no
+ * después del error.
+ */
+function PeriodChip({ year, period, status }: { year: number; period: number; status: string }) {
+  const open = status === "open";
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <Link
+          href="/accounting/trial-balance"
+          className={[
+            "mr-1 hidden h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] font-medium tabular-nums transition-colors md:flex",
+            open
+              ? "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-900"
+              : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-500",
+          ].join(" ")}
+        >
+          <CalendarRange className="h-4 w-4" />
+          <span>{MONTHS[period - 1] ?? period} {year}</span>
+          {!open && <span className="text-[11px] font-semibold uppercase">cerrado</span>}
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {open
+          ? `Período contable abierto: ${MONTHS[period - 1]} ${year}`
+          : `El período ${MONTHS[period - 1]} ${year} está cerrado — no admite asientos`}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

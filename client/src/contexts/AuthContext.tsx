@@ -7,10 +7,15 @@ import React from "react";
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<LoginOutcome>;
+  verify2fa: (challengeToken: string, code: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
+
+export type LoginOutcome =
+  | { kind: 'ok' }
+  | { kind: '2fa-required'; challengeToken: string };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -71,16 +76,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<LoginOutcome> => {
     const loginData = { username, password };
 
     const response = await apiRequest('POST', '/api/auth/login', loginData);
-    const { user: userData, token } = response as { user: AuthUser; token: string };
+    const parsed = response as
+      | { user: AuthUser; token: string }
+      | { requires2fa: true; challengeToken: string };
 
+    if ('requires2fa' in parsed && parsed.requires2fa) {
+      return { kind: '2fa-required', challengeToken: parsed.challengeToken };
+    }
+
+    const { user: userData, token } = parsed as { user: AuthUser; token: string };
     localStorage.setItem('auth_token', token);
     setUser(userData);
 
     // Redirección automática después del login exitoso
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 100);
+    return { kind: 'ok' };
+  };
+
+  const verify2fa = async (challengeToken: string, code: string): Promise<void> => {
+    const response = await apiRequest('POST', '/api/auth/2fa/verify', { challengeToken, code });
+    const { token } = response as { token: string };
+    localStorage.setItem('auth_token', token);
+    // Decodificamos el token para setear el user; el servidor sólo devuelve el
+    // token para no duplicar la fuente de verdad.
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      setUser({
+        id: payload.userId ?? payload.id,
+        username: payload.username,
+        name: payload.name || payload.username,
+        role: payload.role,
+        status: payload.status || 'active',
+        storeId: payload.storeId,
+        warehouseId: payload.warehouseId ?? undefined,
+        warehouseName: payload.warehouseName ?? undefined,
+      });
+    } catch (_e) {
+      // Si el token no se pudo decodificar dejamos que checkAuthStatus lo maneje.
+    }
     setTimeout(() => {
       window.location.href = '/';
     }, 100);
@@ -98,6 +137,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     isLoading,
     login,
+    verify2fa,
     logout,
     isAuthenticated: !!user,
   };

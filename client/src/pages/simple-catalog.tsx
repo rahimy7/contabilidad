@@ -779,7 +779,7 @@ ${orderItems}
                 <div className="flex items-center gap-2">
                   <img
                     src="/image.png"
-                    alt="Metabella Logo"
+                    alt="RVR Accounting Platform"
                     className="h-8 w-auto"
                   />
                   <div>
@@ -831,7 +831,7 @@ ${orderItems}
                 <div className="flex items-center gap-4">
                   <img
                     src="/image.png"
-                    alt="Metabella Logo"
+                    alt="RVR Accounting Platform"
                     className="h-12 w-auto"
                   />
                   <div>

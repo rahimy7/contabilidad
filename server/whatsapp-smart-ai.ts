@@ -255,6 +255,34 @@ export async function createOrderFromAICart(
       });
     }
 
+    // Reservar stock: la orden nace en `pending` sin descontar; sin reserva,
+    // el mismo producto aparece disponible para otro cliente que llega por
+    // otro canal (POS, web) antes de que ésta se despache.
+    try {
+      const { reserveForOrder } = await import('./inventory/order-reservations.js');
+      const { masterPool } = await import('./multi-tenant-db.js');
+      const warehouseIdForReserve = (order as { warehouseId?: number }).warehouseId;
+      if (warehouseIdForReserve) {
+        const outcome = await reserveForOrder(
+          masterPool,
+          order.id,
+          storeId,
+          cart
+            .filter((it) => it.productId && it.quantity > 0)
+            .map((it) => ({
+              productId: it.productId,
+              warehouseId: warehouseIdForReserve,
+              quantity: it.quantity,
+            })),
+        );
+        if (outcome.skipped.length) {
+          console.warn(`[reservation] AI order ${order.id}: reserved ${outcome.reserved.length}, skipped ${outcome.skipped.length}`, outcome.skipped);
+        }
+      }
+    } catch (resErr) {
+      console.warn('[reservation] AI order failed:', resErr);
+    }
+
     console.log(`✅ [AI-SMART] Orden creada: #${order.id} con datos de entrega`);
     return order.id;
   } catch (error: any) {

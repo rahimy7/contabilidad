@@ -79,6 +79,15 @@ async function seedPostingRules(pool: SqlClient, companyId: number) {
     ["inventory_issue.cogs", "5.2.02.004", "1.1.03.002", { inventoryAccount: "1.1.03.002" }, 10],
     ["inventory_return.restock", "1.1.03.002", "5.2.02.004", { inventoryAccount: "1.1.03.002" }, 10],
 
+    // Conteo físico. Lo que falta se reconoce como gasto por faltante, no como
+    // costo de ventas: no se vendió, se perdió, y la diferencia importa. Lo que
+    // sobra entra al inventario contra otros ingresos. Cada uno con su variante
+    // para suministros, que ruedan por su propia cuenta de control.
+    ["inventory_adjustment.shortage", "5.1.02.001", "1.1.03.001", {}, 0],
+    ["inventory_adjustment.surplus", "1.1.03.001", "4.2.02.001", {}, 0],
+    ["inventory_adjustment.shortage", "5.1.02.001", "1.1.03.002", { inventoryAccount: "1.1.03.002" }, 10],
+    ["inventory_adjustment.surplus", "1.1.03.002", "4.2.02.001", { inventoryAccount: "1.1.03.002" }, 10],
+
     ["depreciation.expense", "5.2.03.001", "1.2.01.003", {}, 0],
     ["fx.gain", "1.1.01.003", "4.2.01.001", {}, 0],
     ["fx.loss", "5.3.01.001", "1.1.01.003", {}, 0],

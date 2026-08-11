@@ -174,8 +174,9 @@ describeIntegration("e-CF transmission lifecycle", () => {
   it("transmits to an accepting DGII and records the transitions", async () => {
     const doc = await issueEcf();
     const svc = new EcfService(pool, deps(new DgiiTestGateway({ outcome: "aceptado" })));
-    const status = await svc.transmit(companyId, doc.documentId);
-    expect(status).toBe("aceptado");
+    const { ecfStatus, trackId } = await svc.transmit(companyId, doc.documentId);
+    expect(ecfStatus).toBe("aceptado");
+    expect(trackId).toBeTruthy();
 
     const row = await pool.query(
       `SELECT ecf_status, xml_signed IS NOT NULL AS signed, security_code, track_id, qr_url
@@ -198,8 +199,8 @@ describeIntegration("e-CF transmission lifecycle", () => {
   it("records a DGII rejection", async () => {
     const doc = await issueEcf();
     const svc = new EcfService(pool, deps(new DgiiTestGateway({ rejectIfContains: "E310000000001" })));
-    const status = await svc.transmit(companyId, doc.documentId);
-    expect(status).toBe("rechazado");
+    const { ecfStatus } = await svc.transmit(companyId, doc.documentId);
+    expect(ecfStatus).toBe("rechazado");
     const row = await pool.query(`SELECT ecf_status FROM fiscal_documents WHERE id=$1`, [doc.documentId]);
     expect(row.rows[0].ecf_status).toBe("rechazado");
   });
@@ -207,8 +208,8 @@ describeIntegration("e-CF transmission lifecycle", () => {
   it("falls to contingency when DGII is unreachable, without losing the signature", async () => {
     const doc = await issueEcf();
     const svc = new EcfService(pool, deps(new DgiiTestGateway({ unavailable: true })));
-    const status = await svc.transmit(companyId, doc.documentId);
-    expect(status).toBe("en_contingencia");
+    const { ecfStatus } = await svc.transmit(companyId, doc.documentId);
+    expect(ecfStatus).toBe("en_contingencia");
 
     const row = await pool.query(
       `SELECT ecf_status, contingency, xml_signed IS NOT NULL AS signed FROM fiscal_documents WHERE id=$1`,
@@ -224,13 +225,13 @@ describeIntegration("e-CF transmission lifecycle", () => {
     await new EcfService(pool, deps(new DgiiTestGateway({ unavailable: true }))).transmit(companyId, doc.documentId);
 
     const before = await pool.query(`SELECT security_code FROM fiscal_documents WHERE id=$1`, [doc.documentId]);
-    const status = await new EcfService(pool, deps(new DgiiTestGateway({ outcome: "aceptado" }))).transmit(
+    const { ecfStatus } = await new EcfService(pool, deps(new DgiiTestGateway({ outcome: "aceptado" }))).transmit(
       companyId,
       doc.documentId,
     );
     const after = await pool.query(`SELECT security_code FROM fiscal_documents WHERE id=$1`, [doc.documentId]);
 
-    expect(status).toBe("aceptado");
+    expect(ecfStatus).toBe("aceptado");
     // Same signature reused across the retry — the security code did not change.
     expect(after.rows[0].security_code).toBe(before.rows[0].security_code);
   });
@@ -240,7 +241,7 @@ describeIntegration("e-CF transmission lifecycle", () => {
     const svc = new EcfService(pool, deps(new DgiiTestGateway({ outcome: "aceptado" })));
     await svc.transmit(companyId, doc.documentId);
     const again = await svc.transmit(companyId, doc.documentId);
-    expect(again).toBe("aceptado");
+    expect(again.ecfStatus).toBe("aceptado");
     const events = await pool.query(
       `SELECT count(*)::int c FROM fiscal_document_events WHERE document_id=$1 AND to_status='aceptado'`,
       [doc.documentId],

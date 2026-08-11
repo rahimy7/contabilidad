@@ -53,6 +53,31 @@ export function accountingRoutes(): Router {
   );
 
   /**
+   * El período en el que cae hoy. Lo consume la barra superior, que lo muestra
+   * de forma permanente: postear en el mes equivocado es de las cosas más caras
+   * de deshacer, y tenerlo siempre a la vista es lo que lo evita.
+   *
+   * Devuelve null en vez de 404 cuando la fecha de hoy no cae en ningún período
+   * abierto — una empresa recién creada, o un año sin generar. Es una situación
+   * normal, no un error, y la barra simplemente no muestra el chip.
+   */
+  r.get(
+    "/periods/current",
+    handler(async (req) =>
+      scoped(req, async (c) => {
+        const { rows } = await c.query(
+          `SELECT fiscal_year AS year, period_no AS period, status, start_date, end_date
+             FROM accounting_periods
+            WHERE company_id=$1 AND current_date BETWEEN start_date AND end_date
+            LIMIT 1`,
+          [req.companyId],
+        );
+        return rows[0] ?? null;
+      }),
+    ),
+  );
+
+  /**
    * Trial balance for a fiscal year, optionally a single period. Reads the
    * materialized cache, not the lines, so it stays cheap as the ledger grows.
    * The response asserts its own integrity: totalDebit must equal totalCredit.
@@ -109,6 +134,16 @@ export function accountingRoutes(): Router {
       const q = balanceSheetQuery.parse(req.query);
       return scoped(req, (c) =>
         new FinancialStatements(c).balanceSheet(req.companyId!, q.year, q.through),
+      );
+    }),
+  );
+
+  r.get(
+    "/cash-flow",
+    handler(async (req) => {
+      const q = statementRange.parse(req.query);
+      return scoped(req, (c) =>
+        new FinancialStatements(c).cashFlowStatement(req.companyId!, q.year, q.from, q.to),
       );
     }),
   );

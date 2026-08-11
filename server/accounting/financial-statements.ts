@@ -166,4 +166,181 @@ export class FinancialStatements {
     // line amounts match the canonical form the decimal helpers produce.
     return rows.map((r) => ({ ...r, balance: add(r.balance, "0") }));
   }
+
+  /**
+   * Estado de flujo de efectivo (método directo).
+   *
+   * Recorre los asientos del período tomando SÓLO los que tocan alguna cuenta
+   * marcada como efectivo (`chart_of_accounts.is_cash = true`, o por defecto
+   * el prefijo 1.1.01). Para cada movimiento identifica la contrapartida y la
+   * clasifica en operación, inversión o financiamiento según el tipo de
+   * cuenta contraria:
+   *
+   *   - Operación:    income, expense, current AR/AP, inventario.
+   *   - Inversión:    fixed_asset y otros activos de largo plazo.
+   *   - Financiamiento: liability de largo plazo, equity.
+   *
+   * Es el "cash T" enfocado: la caja se debita/acredita, y el otro lado del
+   * asiento dice de dónde vino o hacia dónde fue el efectivo. Nada de
+   * proyección — eso vive aparte cuando exista el módulo de tesorería.
+   */
+  async cashFlowStatement(
+    companyId: number,
+    year: number,
+    fromPeriod = 1,
+    toPeriod = 12,
+  ): Promise<CashFlowStatement> {
+    // Saldo inicial de caja (activos "cash" al final del período anterior).
+    const opening = await this.cashBalanceAsOf(companyId, year, fromPeriod - 1);
+
+    // Movimientos del período: cada línea de asiento que toca una cuenta cash,
+    // con la contrapartida asignada. Un asiento simple (Dr Cash / Cr Ventas)
+    // aporta una fila; uno compuesto puede aportar varias.
+    const rows = await this.client.query(
+      `WITH cash_accounts AS (
+         SELECT id FROM chart_of_accounts
+          WHERE company_id = $1
+            AND (
+              account_type = 'asset' AND (
+                coalesce(is_cash, false) = true OR code LIKE '1.1.01.%'
+              )
+            )
+       ),
+       cash_lines AS (
+         SELECT je.id AS entry_id, je.entry_date, je.memo,
+                jel.line_no, jel.account_id,
+                jel.debit_func::numeric - jel.credit_func::numeric AS cash_delta
+           FROM journal_entries je
+           JOIN journal_entry_lines jel ON jel.entry_id = je.id
+           JOIN accounting_periods p ON p.id = je.period_id
+          WHERE je.company_id = $1
+            AND je.status = 'posted'
+            AND p.fiscal_year = $2
+            AND p.period_no BETWEEN $3 AND $4
+            AND jel.account_id IN (SELECT id FROM cash_accounts)
+       ),
+       counter_totals AS (
+         SELECT je.id AS entry_id,
+                sum(jel.debit_func::numeric - jel.credit_func::numeric) AS total_delta
+           FROM journal_entries je
+           JOIN journal_entry_lines jel ON jel.entry_id = je.id
+          WHERE je.company_id = $1
+            AND jel.account_id NOT IN (SELECT id FROM (SELECT id FROM chart_of_accounts
+                                                        WHERE company_id = $1
+                                                          AND account_type = 'asset'
+                                                          AND (coalesce(is_cash, false) = true OR code LIKE '1.1.01.%')) c)
+          GROUP BY je.id
+       ),
+       counters AS (
+         SELECT je.id AS entry_id, jel.account_id AS counter_id, ca.code AS counter_code,
+                ca.name AS counter_name, ca.account_type AS counter_type,
+                jel.debit_func::numeric - jel.credit_func::numeric AS counter_delta
+           FROM journal_entries je
+           JOIN journal_entry_lines jel ON jel.entry_id = je.id
+           JOIN chart_of_accounts ca ON ca.id = jel.account_id
+          WHERE je.company_id = $1
+            AND jel.account_id NOT IN (SELECT id FROM (SELECT id FROM chart_of_accounts
+                                                        WHERE company_id = $1
+                                                          AND account_type = 'asset'
+                                                          AND (coalesce(is_cash, false) = true OR code LIKE '1.1.01.%')) c)
+       )
+       SELECT counters.counter_code AS code, counters.counter_name AS name,
+              counters.counter_type AS account_type,
+              /* Cash aumenta cuando la contrapartida es acreditada (por eso
+                 -counter_delta). */
+              sum(-counters.counter_delta)::text AS amount
+         FROM cash_lines
+         JOIN counters ON counters.entry_id = cash_lines.entry_id
+        GROUP BY counters.counter_code, counters.counter_name, counters.counter_type
+        HAVING sum(-counters.counter_delta) <> 0
+        ORDER BY counters.counter_code`,
+      [companyId, year, fromPeriod, toPeriod],
+    );
+
+    const operating: CashLine[] = [];
+    const investing: CashLine[] = [];
+    const financing: CashLine[] = [];
+    for (const r of rows.rows) {
+      const line: CashLine = { code: r.code, name: r.name, amount: add(r.amount, "0") };
+      switch (r.account_type) {
+        case "income":
+        case "expense":
+          operating.push(line);
+          break;
+        case "asset":
+          // Otros activos que no son efectivo = inversión.
+          investing.push(line);
+          break;
+        case "liability":
+          // Simplificación: tratamos toda liability como financiamiento. Un
+          // corte fino distinguiría corto plazo (operación) de largo plazo
+          // (financiamiento); mientras no exista una bandera, la ganancia
+          // sobre "no clasificar" supera al costo del binario grueso.
+          financing.push(line);
+          break;
+        case "equity":
+          financing.push(line);
+          break;
+        default:
+          operating.push(line);
+      }
+    }
+
+    const operatingTotal = sum(operating.map((l) => l.amount));
+    const investingTotal = sum(investing.map((l) => l.amount));
+    const financingTotal = sum(financing.map((l) => l.amount));
+    const netChange = sum([operatingTotal, investingTotal, financingTotal]);
+    const closing = add(opening, netChange);
+
+    return {
+      year, fromPeriod, toPeriod,
+      openingCash: opening,
+      operating: { title: "Actividades de operación", lines: operating, total: operatingTotal },
+      investing: { title: "Actividades de inversión", lines: investing, total: investingTotal },
+      financing: { title: "Actividades de financiamiento", lines: financing, total: financingTotal },
+      netChange,
+      closingCash: closing,
+    };
+  }
+
+  private async cashBalanceAsOf(companyId: number, year: number, throughPeriod: number): Promise<Decimal> {
+    if (throughPeriod < 1) return "0";
+    const { rows } = await this.client.query(
+      `SELECT coalesce(sum(b.closing_func), 0)::text AS balance
+         FROM chart_of_accounts a
+         JOIN account_period_balances b ON b.account_id = a.id
+         JOIN accounting_periods p ON p.id = b.period_id
+        WHERE a.company_id = $1
+          AND a.account_type = 'asset'
+          AND (coalesce(a.is_cash, false) = true OR a.code LIKE '1.1.01.%')
+          AND p.fiscal_year = $2
+          AND p.period_no <= $3`,
+      [companyId, year, throughPeriod],
+    );
+    return add(rows[0]?.balance ?? "0", "0");
+  }
+}
+
+export interface CashLine {
+  code: string;
+  name: string;
+  amount: Decimal;
+}
+
+export interface CashFlowSection {
+  title: string;
+  lines: CashLine[];
+  total: Decimal;
+}
+
+export interface CashFlowStatement {
+  year: number;
+  fromPeriod: number;
+  toPeriod: number;
+  openingCash: Decimal;
+  operating: CashFlowSection;
+  investing: CashFlowSection;
+  financing: CashFlowSection;
+  netChange: Decimal;
+  closingCash: Decimal;
 }

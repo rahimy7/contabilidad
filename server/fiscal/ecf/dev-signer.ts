@@ -67,7 +67,21 @@ export class DevEcfSigner implements EcfSigner {
       `    <CodigoSeguridad>${code}</CodigoSeguridad>`,
       "  </Signature>",
     ].join("\n");
-    return xml.replace(/<\/ECF>\s*$/, `${block}\n</ECF>`);
+
+    // El elemento raíz se descubre, no se asume. Esta clase firma cinco
+    // documentos distintos —ECF, ACECF, ARECF, RFCE, ANECF— y buscar `</ECF>`
+    // a ciegas hacía que los otros cuatro salieran sin firma y sin error: el
+    // replace no encontraba nada y devolvía el XML intacto. Un documento que se
+    // cree firmado y no lo está es peor que uno que falla al firmarse.
+    const root = xml.match(/<([A-Za-z][\w.-]*)[\s>]/g)?.find((t) => !t.startsWith("<?"));
+    const name = root?.replace(/^<|[\s>]$/g, "");
+    if (!name) throw new Error("no se pudo determinar el elemento raíz del XML a firmar");
+
+    const closing = new RegExp(`</${name}>\\s*$`);
+    if (!closing.test(xml)) {
+      throw new Error(`el XML no cierra con </${name}>: no se puede insertar la firma`);
+    }
+    return xml.replace(closing, `${block}\n</${name}>`);
   }
 
   private ephemeral() {

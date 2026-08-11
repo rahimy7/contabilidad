@@ -39,7 +39,7 @@ async getAllProducts() {
       // ✅ SOLUCIÓN: String interpolation directa en schema público
       const directQuery = `
         SELECT * FROM products
-        WHERE store_id = ${storeId} AND "is_active" = true
+        WHERE store_id = ${storeId} AND status = 'active'
         ORDER BY created_at DESC
       `;
       console.log(`🚀 Executing direct query for store ${storeId} in public schema`);

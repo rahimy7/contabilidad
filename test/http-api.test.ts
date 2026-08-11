@@ -128,7 +128,7 @@ describeIntegration("accounting + fiscal HTTP API", () => {
     const res = await get("/api/accounting/accounts");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.accounts.length).toBe(73);
+    expect(body.accounts.length).toBe(77);
     expect(body.accounts.find((a: any) => a.code === "1.1.01.001").name).toBe("Caja general");
   });
 

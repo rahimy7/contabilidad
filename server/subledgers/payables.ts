@@ -2,6 +2,7 @@ import { SqlClient } from "../accounting/types";
 import { PostingEngine } from "../accounting/posting-engine";
 import { TaxCalculator } from "../fiscal/tax-calculator";
 import { InventoryCosting, CostingMethod } from "../inventory/costing";
+import { putaway, warehouseConfig } from "../inventory/wms";
 import { FixedAssets } from "../modules/fixed-assets";
 import { Decimal, add, sub, sum, cmp, isNegative, isZero, toMoney } from "../accounting/decimal";
 
@@ -27,6 +28,16 @@ export interface SupplierInvoiceLine {
   taxCode: string;
   /** The catalog product this line buys; required to feed inventory costing. */
   productId?: number;
+  /** Supplier batch and expiry, carried into the cost layer so FEFO can sort it. */
+  lotNo?: string;
+  expirationDate?: string | null;
+  /**
+   * Which bins the goods go into, for a warehouse using WMS. Splitting one
+   * receipt across several is normal — a pallet to the racking, a case to the
+   * picking face — and the quantities must add up to the line, or the shelves
+   * and the valuation start the day already disagreeing.
+   */
+  locations?: { locationId: number; quantity: Decimal; lotNo?: string; expirationDate?: string | null }[];
 }
 
 export interface RegisterSupplierInvoiceInput {
@@ -180,9 +191,10 @@ export class Payables {
       purchaseType === "inventory" ? "1.1.03.001" : purchaseType === "supply" ? "1.1.03.002" : null;
     if (input.receiveToInventory && stockAccount) {
       const costing = new InventoryCosting(this.client);
+      const wms = await warehouseConfig(this.client, input.warehouseId ?? 0);
       for (const [i, line] of input.lines.entries()) {
         if (!line.productId) continue;
-        await costing.receive({
+        const { lotId } = await costing.receive({
           companyId: input.companyId,
           productId: line.productId,
           date: input.date,
@@ -195,10 +207,45 @@ export class Payables {
           method: input.inventoryMethod,
           inventoryAccountRef: stockAccount,
           warehouseId: input.warehouseId ?? 0,
+          lotNo: line.lotNo,
+          expirationDate: line.expirationDate,
           post: false,
           sourceType: "purchase_document",
           sourceId: String(documentId),
           postedBy: input.postedBy,
+        });
+
+        // File the goods into their bins in the same transaction that valued
+        // them, so the placements and the valuation are never apart. A warehouse
+        // that requires a location and did not get one stops the whole invoice —
+        // receiving stock nobody can find is worse than not receiving it.
+        if (!wms.wmsEnabled) continue;
+        const lines = line.locations?.length
+          ? line.locations
+          : wms.requireLocationOnReceipt
+            ? (() => {
+                throw new PayablesError(
+                  `el almacén exige ubicación al recibir y la línea "${line.description}" no indica ninguna`,
+                );
+              })()
+            : [];
+        if (lines.length === 0) continue;
+        await putaway(this.client, {
+          companyId: input.companyId,
+          productId: line.productId,
+          warehouseId: input.warehouseId ?? 0,
+          receivedDate: input.date,
+          unitCost: line.unitPrice,
+          lotId,
+          sourceType: "purchase_document",
+          sourceId: String(documentId),
+          userId: input.postedBy,
+          lines: lines.map((l) => ({
+            locationId: l.locationId,
+            quantity: l.quantity,
+            lotNo: l.lotNo ?? line.lotNo ?? null,
+            expirationDate: l.expirationDate ?? line.expirationDate ?? null,
+          })),
         });
       }
     }

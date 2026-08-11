@@ -29,6 +29,30 @@ import AssignmentRules from "@/pages/assignment-rules";
 import Notifications from "@/pages/notifications";
 import TechnicianDashboard from "@/pages/technician-dashboard";
 import UserSettings from "@/pages/user-settings";
+import SecurityTwoFactor from "@/pages/security-2fa";
+import AuditLogPage from "@/pages/audit-log";
+import ApprovalsPage from "@/pages/approvals";
+import QuotesPage from "@/pages/quotes";
+import PurchaseReturnsPage from "@/pages/purchase-returns";
+import PickingPage from "@/pages/picking";
+import ReplenishmentPage from "@/pages/replenishment";
+import HrEmployeesPage from "@/pages/hr-employees";
+import HrTssPage from "@/pages/hr-tss";
+import PriceListsPage from "@/pages/price-lists";
+import PromotionsPage from "@/pages/promotions";
+import MarketingSegmentsPage from "@/pages/marketing-segments";
+import MarketingCampaignsPage from "@/pages/marketing-campaigns";
+import MarketingLeadsPage from "@/pages/marketing-leads";
+import CommissionsPage from "@/pages/commissions";
+import BankReconciliationPage from "@/pages/bank-reconciliation";
+import LandedCostsPage from "@/pages/landed-costs";
+import FxRevaluationPage from "@/pages/fx-revaluation";
+import CashFlowPage from "@/pages/cash-flow";
+import ExecutiveDashboardPage from "@/pages/executive-dashboard";
+import ManufacturingPage from "@/pages/manufacturing";
+import AlertsPage from "@/pages/alerts";
+import ApiKeysPage from "@/pages/api-keys";
+import ReportsExportPage from "@/pages/reports-export";
 import Catalog from "@/pages/catalog";
 import PublicCatalogClean from "@/pages/public-catalog-clean";
 import SimpleCatalog from "@/pages/simple-catalog";
@@ -71,6 +95,7 @@ import CompaniesPage from "@/pages/companies";
 import ChartOfAccountsPage from "@/pages/accounting/chart-of-accounts";
 import TrialBalancePage from "@/pages/accounting/trial-balance";
 import FinancialStatementsPage from "@/pages/accounting/financial-statements";
+import InvoicingPage from "@/pages/invoicing";
 import FiscalDocumentsPage from "@/pages/fiscal/fiscal-documents";
 import DgiiReportsPage from "@/pages/fiscal/dgii-reports";
 import ReceivablesPage from "@/pages/receivables";
@@ -83,6 +108,11 @@ import InventoryCostingPage from "@/pages/inventory-costing";
 import ConsolidationPage from "@/pages/consolidation";
 import WarehouseTransfersPage from "@/pages/warehouse-transfers";
 import WarehouseReportsPage from "@/pages/warehouse-reports";
+import WarehouseLocationsPage from "@/pages/warehouse-locations";
+import InventoryCountPage from "@/pages/inventory-count";
+import EcfConsolePage from "@/pages/fiscal/ecf-console";
+import SalesReturnsPage from "@/pages/sales-returns";
+import HelpPage from "@/pages/help";
 function ProtectedRoute({ component: Component, permission }: { component: React.ComponentType, permission?: string }) {
   const { user, isLoading } = useAuth();
 
@@ -209,10 +239,14 @@ function Router() {
       <Route path="/appointment-services" component={() => <ProtectedRoute component={AppointmentServicesPage} permission="manage_appointments" />} />
       <Route path="/doctor-dashboard" component={() => <ProtectedRoute component={DoctorDashboard} permission="manage_appointments" />} />
       <Route path="/inventory-adjustment" component={() => <ProtectedRoute component={InventoryAdjustmentPage} permission="manage_inventory_adjustments" />} />
+      <Route path="/invoicing" component={() => <ProtectedRoute component={InvoicingPage} permission="manage_invoicing" />} />
+      <Route path="/sales-returns" component={() => <ProtectedRoute component={SalesReturnsPage} permission="manage_invoicing" />} />
       <Route path="/sales-history" component={() => <ProtectedRoute component={SalesHistoryPage} permission="manage_orders" />} />
       <Route path="/cash-register" component={() => <ProtectedRoute component={CashRegisterPage} permission="manage_cash_register" />} />
       <Route path="/warehouses" component={() => <ProtectedRoute component={WarehousesPage} permission="manage_products" />} />
       <Route path="/warehouse-transfers" component={() => <ProtectedRoute component={WarehouseTransfersPage} permission="manage_products" />} />
+      <Route path="/warehouse-locations" component={() => <ProtectedRoute component={WarehouseLocationsPage} permission="manage_products" />} />
+      <Route path="/inventory-count" component={() => <ProtectedRoute component={InventoryCountPage} permission="manage_inventory_adjustments" />} />
       <Route path="/warehouse-reports" component={() => <ProtectedRoute component={WarehouseReportsPage} permission="view_reports" />} />
       {/* Contabilidad y fiscal (DGII) */}
       <Route path="/companies" component={() => <ProtectedRoute component={CompaniesPage} permission="manage_settings" />} />
@@ -220,6 +254,7 @@ function Router() {
       <Route path="/accounting/trial-balance" component={() => <ProtectedRoute component={TrialBalancePage} permission="view_financial_reports" />} />
       <Route path="/accounting/financial-statements" component={() => <ProtectedRoute component={FinancialStatementsPage} permission="view_financial_reports" />} />
       <Route path="/fiscal/documents" component={() => <ProtectedRoute component={FiscalDocumentsPage} permission="manage_invoicing" />} />
+      <Route path="/fiscal/ecf" component={() => <ProtectedRoute component={EcfConsolePage} permission="manage_invoicing" />} />
       <Route path="/fiscal/reports" component={() => <ProtectedRoute component={DgiiReportsPage} permission="view_fiscal_reports" />} />
       <Route path="/receivables" component={() => <ProtectedRoute component={ReceivablesPage} permission="manage_accounting" />} />
       <Route path="/payables" component={() => <ProtectedRoute component={PayablesPage} permission="manage_accounting" />} />
@@ -229,7 +264,32 @@ function Router() {
       <Route path="/treasury" component={() => <ProtectedRoute component={TreasuryPage} permission="manage_accounting" />} />
       <Route path="/inventory-costing" component={() => <ProtectedRoute component={InventoryCostingPage} permission="manage_accounting" />} />
       <Route path="/consolidation" component={() => <ProtectedRoute component={ConsolidationPage} permission="view_financial_reports" />} />
+      <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
       <Route path="/user-settings" component={UserSettings} />
+      <Route path="/security/2fa" component={() => <ProtectedRoute component={SecurityTwoFactor} />} />
+      <Route path="/audit-log" component={() => <ProtectedRoute component={AuditLogPage} />} />
+      <Route path="/approvals" component={() => <ProtectedRoute component={ApprovalsPage} />} />
+      <Route path="/quotes" component={() => <ProtectedRoute component={QuotesPage} />} />
+      <Route path="/purchase-returns" component={() => <ProtectedRoute component={PurchaseReturnsPage} />} />
+      <Route path="/picking" component={() => <ProtectedRoute component={PickingPage} />} />
+      <Route path="/replenishment" component={() => <ProtectedRoute component={ReplenishmentPage} />} />
+      <Route path="/hr/employees" component={() => <ProtectedRoute component={HrEmployeesPage} />} />
+      <Route path="/hr/tss" component={() => <ProtectedRoute component={HrTssPage} />} />
+      <Route path="/price-lists" component={() => <ProtectedRoute component={PriceListsPage} />} />
+      <Route path="/promotions" component={() => <ProtectedRoute component={PromotionsPage} />} />
+      <Route path="/marketing/segments" component={() => <ProtectedRoute component={MarketingSegmentsPage} />} />
+      <Route path="/marketing/campaigns" component={() => <ProtectedRoute component={MarketingCampaignsPage} />} />
+      <Route path="/marketing/leads" component={() => <ProtectedRoute component={MarketingLeadsPage} />} />
+      <Route path="/commissions" component={() => <ProtectedRoute component={CommissionsPage} />} />
+      <Route path="/bank-reconciliation" component={() => <ProtectedRoute component={BankReconciliationPage} permission="manage_accounting" />} />
+      <Route path="/landed-costs" component={() => <ProtectedRoute component={LandedCostsPage} permission="manage_products" />} />
+      <Route path="/fx-revaluation" component={() => <ProtectedRoute component={FxRevaluationPage} permission="manage_accounting" />} />
+      <Route path="/cash-flow" component={() => <ProtectedRoute component={CashFlowPage} permission="manage_accounting" />} />
+      <Route path="/executive-dashboard" component={() => <ProtectedRoute component={ExecutiveDashboardPage} permission="view_dashboard" />} />
+      <Route path="/manufacturing" component={() => <ProtectedRoute component={ManufacturingPage} permission="manage_products" />} />
+      <Route path="/alerts" component={() => <ProtectedRoute component={AlertsPage} permission="view_notifications" />} />
+      <Route path="/api-keys" component={() => <ProtectedRoute component={ApiKeysPage} permission="manage_settings" />} />
+      <Route path="/reports-export" component={() => <ProtectedRoute component={ReportsExportPage} permission="view_reports" />} />
     </Switch>
   );
 }

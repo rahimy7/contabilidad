@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, bigserial, varchar, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { makeInsertSchema } from "../schema.utils";
@@ -26,7 +26,36 @@ import { makeInsertSchema } from "../schema.utils";
 // export const subscriptionPlans = pgTable("subscription_plans", { ... });
 // export const storeSubscriptions = pgTable("store_subscriptions", { ... });
 // export const usageHistory = pgTable("usage_history", { ... });
-// export const systemAuditLog = pgTable("system_audit_log", { ... });
+
+// Bitácora de auditoría interna. La tabla existe en producción desde la
+// migración inicial (0000_complete_luke_cage.sql) pero su definición estaba
+// comentada y nadie le escribía. La normaliza la migración 0037.
+export const systemAuditLog = pgTable(
+  "system_audit_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: integer("user_id"),
+    storeId: integer("store_id"),
+    action: text("action").notNull(),
+    resource: text("resource").notNull(),
+    resourceId: text("resource_id"),
+    details: jsonb("details"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    method: varchar("method", { length: 10 }),
+    path: text("path"),
+    statusCode: integer("status_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("system_audit_log_store_created_idx").on(t.storeId, t.createdAt),
+    index("system_audit_log_user_created_idx").on(t.userId, t.createdAt),
+    index("system_audit_log_resource_idx").on(t.resource, t.resourceId),
+  ],
+);
+
+export type SystemAuditLog = typeof systemAuditLog.$inferSelect;
+export type InsertSystemAuditLog = typeof systemAuditLog.$inferInsert;
 
 // NOTA: Si necesitas estas tablas más adelante, descomenta y crea las migraciones
 /*
@@ -219,6 +248,15 @@ export const users = pgTable('users', {
 
   // Almacén asignado (nullable solo para super_admin)
   warehouseId: integer('warehouse_id').references(() => warehouses.id),
+
+  // ── Doble factor de autenticación (TOTP) ─────────────────────────────────
+  // `totp_enabled` sólo se pone en true después de verificar el primer código
+  // para no dejar cuentas medio enroladas fuera de servicio.
+  totpSecret: text('totp_secret'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  totpBackupCodes: text('totp_backup_codes').array(),
+  totpActivatedAt: timestamp('totp_activated_at', { withTimezone: true }),
+  totpLastUsedAt: timestamp('totp_last_used_at', { withTimezone: true }),
 });
 
 // ================================
@@ -2172,6 +2210,18 @@ export const warehouses = pgTable("warehouses", {
   manager: text("manager"),
   isDefault: boolean("is_default").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
+
+  // Ubicaciones tipo WMS. Opcional por almacén: una bodega racked las usa, el
+  // colmado de la esquina no. Con esto apagado nada cambia — la existencia vive
+  // en el almacén y punto; encendido, cada unidad tiene además una ubicación.
+  wmsEnabled: boolean("wms_enabled").notNull().default(false),
+  // Orden en que se propone despachar: fifo (lo más viejo) o fefo (lo que vence
+  // primero). Para perecederos no son lo mismo, y el que importa es fefo.
+  rotationPolicy: text("rotation_policy").notNull().default("fifo"), // fifo | fefo
+  // Obliga a que toda recepción indique ubicación. Sin esto la ubicación es
+  // sugerida pero se puede omitir, útil mientras se etiquetan los estantes.
+  requireLocationOnReceipt: boolean("require_location_on_receipt").notNull().default(false),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -2183,10 +2233,106 @@ export const warehouseStock = pgTable("warehouse_stock", {
   productId: integer("product_id").references(() => products.id).notNull(),
   storeId: integer("store_id").notNull(),
   quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull().default("0"),
+  // Prometido a pedidos pending/assigned/processing; nunca > quantity para
+  // que `available = quantity - reserved` no mienta. Mantenido por trigger
+  // desde `order_reservations`.
+  reservedQuantity: decimal("reserved_quantity", { precision: 12, scale: 2 }).notNull().default("0"),
   minStock: decimal("min_stock", { precision: 12, scale: 2 }).default("0"),
   maxStock: decimal("max_stock", { precision: 12, scale: 2 }),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Reserva de stock por pedido. El disparador de la migración 0038 mantiene
+// `warehouse_stock.reserved_quantity` en sincronía; los cambios de estado
+// (active → released/consumed) los hace el servicio.
+export const orderReservations = pgTable("order_reservations", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull(),
+  productId: integer("product_id").notNull(),
+  warehouseId: integer("warehouse_id").notNull(),
+  storeId: integer("store_id").notNull(),
+  quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+});
+
+export type OrderReservation = typeof orderReservations.$inferSelect;
+export type InsertOrderReservation = typeof orderReservations.$inferInsert;
+
+// ── Motor de aprobaciones (Fase 01) ─────────────────────────────────────────
+// Cinco flujos (OC, precios, requisiciones, vacaciones, ajustes) comparten la
+// misma forma; se especializan desde el llamador. La migración 0040 define el
+// esquema y los CHECK.
+
+export const approvalRules = pgTable("approval_rules", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  documentType: text("document_type").notNull(),
+  minAmount: decimal("min_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  maxAmount: decimal("max_amount", { precision: 14, scale: 2 }),
+  approverRole: text("approver_role"),
+  approverUserId: integer("approver_user_id"),
+  requiredApprovals: integer("required_approvals").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  priority: integer("priority").notNull().default(100),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const approvalRequests = pgTable("approval_requests", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").notNull(),
+  documentType: text("document_type").notNull(),
+  documentId: text("document_id").notNull(),
+  documentRef: text("document_ref"),
+  amount: decimal("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  currency: text("currency").notNull().default("DOP"),
+  requestedBy: integer("requested_by").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  requiredApprovals: integer("required_approvals").notNull().default(1),
+  receivedApprovals: integer("received_approvals").notNull().default(0),
+  approverRole: text("approver_role"),
+  approverUserId: integer("approver_user_id"),
+  ruleId: integer("rule_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+export const approvalActions = pgTable("approval_actions", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull(),
+  actorUserId: integer("actor_user_id").notNull(),
+  action: text("action").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ApprovalRule = typeof approvalRules.$inferSelect;
+export type ApprovalRequest = typeof approvalRequests.$inferSelect;
+export type ApprovalAction = typeof approvalActions.$inferSelect;
+
+// ── Números de serie ────────────────────────────────────────────────────────
+export const productSerials = pgTable("product_serials", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  storeId: integer("store_id").notNull(),
+  productId: integer("product_id").notNull(),
+  warehouseId: integer("warehouse_id"),
+  lotId: integer("lot_id"),
+  serialNumber: text("serial_number").notNull(),
+  status: text("status").notNull().default("in_stock"),
+  soldAt: timestamp("sold_at", { withTimezone: true }),
+  orderId: integer("order_id"),
+  warrantyUntil: text("warranty_until"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ProductSerial = typeof productSerials.$inferSelect;
 
 // Transferencias entre almacenes
 export const warehouseTransfers = pgTable("warehouse_transfers", {
@@ -2226,6 +2372,9 @@ export const insertWarehouseSchema = z.object({
   manager: z.string().optional().nullable(),
   isDefault: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
+  wmsEnabled: z.boolean().optional(),
+  rotationPolicy: z.enum(["fifo", "fefo"]).optional(),
+  requireLocationOnReceipt: z.boolean().optional(),
 });
 
 export const insertWarehouseStockSchema = z.object({

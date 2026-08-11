@@ -5,6 +5,8 @@ import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
+import { resolveActiveCompany, withCompany } from '../tenant-context';
+import { putaway, warehouseConfig, WmsError } from '../inventory/wms';
 
 const router = Router();
 
@@ -560,6 +562,28 @@ router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req:
       resolvedWarehouseId = firstWarehouse?.id ?? null;
     }
 
+    // Si el almacén usa ubicaciones WMS, la recepción también dice en qué
+    // estante quedó cada cosa. La configuración se lee antes de tocar nada para
+    // poder rechazar la recepción completa cuando falta una ubicación
+    // obligatoria — recibir la mitad y fallar deja el inventario a medias.
+    const companyId = await resolveActiveCompany(Number(user.id));
+    const wmsConfig = companyId && resolvedWarehouseId
+      ? await withCompany(companyId, (c) => warehouseConfig(c, resolvedWarehouseId!))
+      : null;
+
+    if (wmsConfig?.wmsEnabled && wmsConfig.requireLocationOnReceipt) {
+      const missing = (items as any[]).filter(
+        (i) => parseFloat(i.quantityReceived) > 0 && i.productId && !hasLocations(i),
+      );
+      if (missing.length > 0) {
+        return res.status(400).json({
+          error: `El almacén exige ubicación al recibir. Falta indicarla en: ${missing
+            .map((i) => i.productName || i.sku || i.productId)
+            .join(', ')}`,
+        });
+      }
+    }
+
     // Actualizar items
     for (const item of items) {
       const quantityReceived = parseFloat(item.quantityReceived) || 0;
@@ -642,6 +666,26 @@ router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req:
               createdBy: user.id,
               warehouseId: resolvedWarehouseId,
             });
+
+          // Guardar en ubicaciones. Es un hecho físico — la caja quedó en A-01 —
+          // e independiente de si la compra ya se costeó en contabilidad; el
+          // reporte de diferencias (`/api/wms/drift`) es el que después empareja
+          // las dos vistas en lugar de que una pise a la otra.
+          if (wmsConfig?.wmsEnabled && companyId && hasLocations(item)) {
+            await withCompany(companyId, (c) =>
+              putaway(c, {
+                companyId,
+                productId: item.productId,
+                warehouseId: resolvedWarehouseId!,
+                receivedDate: new Date().toISOString().slice(0, 10),
+                unitCost: item.unitCost ? String(item.unitCost) : '0',
+                sourceType: 'purchase_order',
+                sourceId: String(id),
+                userId: Number(user.id),
+                lines: putawayLinesOf(item, quantityReceived),
+              }),
+            );
+          }
         }
       }
     }
@@ -667,10 +711,45 @@ router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req:
 
     res.json({ success: true, message: 'Orden recibida exitosamente' });
   } catch (error) {
+    if (error instanceof WmsError) {
+      return res.status(400).json({ error: error.message });
+    }
     console.error('Error receiving purchase order items:', error);
     res.status(500).json({ error: 'Error al recibir items de la orden' });
   }
 });
+
+/**
+ * Un ítem puede llegar repartido en varias ubicaciones (`locations[]`) o entero
+ * en una sola (`locationId`). La segunda forma es la que usa el 90% de las
+ * recepciones y no vale la pena obligar a la pantalla a construir un arreglo
+ * para una sola caja.
+ */
+const hasLocations = (item: any): boolean =>
+  Boolean(item?.locationId) || (Array.isArray(item?.locations) && item.locations.length > 0);
+
+function putawayLinesOf(item: any, quantityReceived: number) {
+  if (Array.isArray(item.locations) && item.locations.length > 0) {
+    return item.locations.map((l: any) => ({
+      locationId: Number(l.locationId),
+      quantity: String(l.quantity),
+      lotNo: l.lotNo ?? item.lotNumber ?? null,
+      expirationDate: dateOnly(l.expirationDate ?? item.expirationDate),
+      status: l.status,
+    }));
+  }
+  return [
+    {
+      locationId: Number(item.locationId),
+      quantity: String(quantityReceived),
+      lotNo: item.lotNumber ?? null,
+      expirationDate: dateOnly(item.expirationDate),
+    },
+  ];
+}
+
+const dateOnly = (value: any): string | null =>
+  value ? new Date(value).toISOString().slice(0, 10) : null;
 
 // ================================
 // MOVIMIENTOS DE INVENTARIO

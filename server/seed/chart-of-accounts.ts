@@ -88,12 +88,21 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "4.2", name: "Ingresos no operacionales", type: "income", side: "C" },
   { code: "4.2.01", name: "Financieros", type: "income", side: "C" },
   { code: "4.2.01.001", name: "Ganancia por diferencia cambiaria", type: "income", side: "C" },
+  { code: "4.2.02", name: "Otros ingresos", type: "income", side: "C" },
+  // Un conteo físico que encuentra más de lo que dicen los libros no es una
+  // venta: es un ingreso que aparece porque antes se registró de menos.
+  { code: "4.2.02.001", name: "Sobrantes de inventario", type: "income", side: "C" },
 
   // 5 — Costos y gastos
   { code: "5", name: "Costos y gastos", type: "expense", side: "D" },
   { code: "5.1", name: "Costo de ventas", type: "expense", side: "D" },
   { code: "5.1.01", name: "Costo de mercancías", type: "expense", side: "D" },
   { code: "5.1.01.001", name: "Costo de mercancías vendidas", type: "expense", side: "D" },
+  // Lo que el conteo físico no encuentra sale del inventario sin haberse
+  // vendido. Separado del costo de ventas a propósito: mezclarlos esconde la
+  // merma dentro del margen y nadie vuelve a preguntar por qué creció.
+  { code: "5.1.02", name: "Faltantes y mermas de inventario", type: "expense", side: "D" },
+  { code: "5.1.02.001", name: "Faltantes de inventario", type: "expense", side: "D" },
   { code: "5.2", name: "Gastos operacionales", type: "expense", side: "D" },
   { code: "5.2.01", name: "Gastos de personal", type: "expense", side: "D" },
   { code: "5.2.01.001", name: "Sueldos y salarios", type: "expense", side: "D" },

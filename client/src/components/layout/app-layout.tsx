@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import Sidebar from "./sidebar";
 import Header from "./header";
+import { AssistantWidget } from "@/components/assistant-widget";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -41,6 +42,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      <AssistantWidget />
     </div>
   );
 }
