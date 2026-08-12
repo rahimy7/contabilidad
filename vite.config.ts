@@ -48,6 +48,11 @@ export default defineConfig(async () => {
     server: {
       host: 'localhost',
       port: 5173,
+      allowedHosts: [
+        'localhost',
+        'contabilidad-production-667e.up.railway.app',
+        '.railway.app',
+      ],
       hmr: {
         host: 'localhost',
         port: 5173,
@@ -58,6 +63,14 @@ export default defineConfig(async () => {
         strict: true,
         deny: ["**/.*"],
       },
+    },
+    preview: {
+      host: '0.0.0.0',
+      allowedHosts: [
+        'localhost',
+        'contabilidad-production-667e.up.railway.app',
+        '.railway.app',
+      ],
     },
   };
 });

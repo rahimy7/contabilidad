@@ -48,10 +48,12 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: {
       middlewareMode: true,
-      hmr: { 
+      hmr: {
         server: server,
         port: 5173
-      }
+      },
+      // Permite hosts públicos (Railway, ngrok, etc.) cuando el server Express corre en dev
+      allowedHosts: true as const,
     },
     appType: "custom",
   });
