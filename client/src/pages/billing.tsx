@@ -100,11 +100,11 @@ export default function Billing() {
 
   if (billingLoading || summaryLoading) {
     return (
-      <div className="p-6">
+      <div>
         <div className="h-screen flex items-center justify-center">
           <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
-            <p className="text-gray-600">Loading billing information...</p>
+            <div className="w-12 h-12 border-4 border-border border-t-primary rounded-full animate-spin mx-auto"></div>
+            <p className="text-muted-foreground">Loading billing information...</p>
           </div>
         </div>
       </div>
@@ -198,17 +198,17 @@ export default function Billing() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Billing & Subscription</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-[20px] font-semibold tracking-tight">Billing & Subscription</h1>
+        <p className="text-muted-foreground mt-2">
           Manage your subscription, invoices, and AI credits
         </p>
       </div>
 
       {/* Alert de pagos pendientes */}
       {billingSummary?.outstandingInvoices && billingSummary.outstandingInvoices > 0 && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800">
+        <Alert className="border-warning/40 bg-warning/10">
+          <AlertCircle className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning">
             You have <strong>{billingSummary.outstandingInvoices} outstanding invoice(s)</strong> totaling{" "}
             <strong>{formatCurrency(billingSummary.totalDue)}</strong>
             . Due on{" "}
@@ -223,8 +223,8 @@ export default function Billing() {
           onClick={() => setActiveTab("overview")}
           className={`pb-2 px-4 font-medium transition-colors ${
             activeTab === "overview"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-gray-900"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Overview
@@ -233,8 +233,8 @@ export default function Billing() {
           onClick={() => setActiveTab("invoices")}
           className={`pb-2 px-4 font-medium transition-colors ${
             activeTab === "invoices"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-gray-900"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Invoices
@@ -243,8 +243,8 @@ export default function Billing() {
           onClick={() => setActiveTab("credits")}
           className={`pb-2 px-4 font-medium transition-colors ${
             activeTab === "credits"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600 hover:text-gray-900"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           AI Credits
@@ -264,7 +264,7 @@ export default function Billing() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <p className="text-sm text-gray-600">Plan Type</p>
+                <p className="text-sm text-muted-foreground">Plan Type</p>
                 <div className="flex items-center gap-2 mt-2">
                   <p className="text-2xl font-bold capitalize">
                     {billingData?.store.subscription}
@@ -277,24 +277,24 @@ export default function Billing() {
                 </div>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Billing Cycle</p>
+                <p className="text-sm text-muted-foreground">Billing Cycle</p>
                 <p className="text-2xl font-bold mt-2 capitalize">
                   {billingData?.billing.billingCycle}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Next Billing Date</p>
+                <p className="text-sm text-muted-foreground">Next Billing Date</p>
                 <p className="text-2xl font-bold mt-2">
                   {formatDate(billingData?.billing.nextBillingDate)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Payment Status</p>
+                <p className="text-sm text-muted-foreground">Payment Status</p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className={`w-3 h-3 rounded-full ${
                     billingData?.billing.paymentStatus === "paid"
-                      ? "bg-green-500"
-                      : "bg-orange-500"
+                      ? "bg-success"
+                      : "bg-warning"
                   }`}></span>
                   <p className="font-semibold capitalize">
                     {billingData?.billing.paymentStatus}
@@ -309,13 +309,13 @@ export default function Billing() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-                <DollarSign className="w-4 h-4 text-orange-500" />
+                <DollarSign className="w-4 h-4 text-warning" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {formatCurrency(billingSummary?.totalDue || 0)}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {billingSummary?.outstandingInvoices} invoice(s)
                 </p>
               </CardContent>
@@ -324,26 +324,26 @@ export default function Billing() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Average Invoice</CardTitle>
-                <TrendingUp className="w-4 h-4 text-blue-500" />
+                <TrendingUp className="w-4 h-4 text-primary" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {formatCurrency(billingSummary?.averageInvoiceAmount || 0)}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">Last 12 months</p>
+                <p className="text-xs text-muted-foreground mt-1">Last 12 months</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">AI Credits</CardTitle>
-                <Zap className="w-4 h-4 text-yellow-500" />
+                <Zap className="w-4 h-4 text-warning" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {creditsData?.balance?.available || 0}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {creditsData?.balance?.percentage || 0}% used
                 </p>
               </CardContent>
@@ -364,34 +364,34 @@ export default function Billing() {
           <CardContent>
             {invoicesLoading ? (
               <div className="flex justify-center py-8">
-                <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin"></div>
               </div>
             ) : invoicesData?.invoices?.length === 0 ? (
               <div className="text-center py-8">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-600">No invoices yet</p>
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No invoices yet</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {invoicesData?.invoices?.map((invoice: Invoice) => (
                   <div
                     key={invoice.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-subtle"
                   >
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-foreground">
                         {invoice.invoiceNumber}
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {formatDate(invoice.periodStart)} - {formatDate(invoice.periodEnd)}
                       </p>
                     </div>
 
                     <div className="text-right mr-6">
-                      <p className="font-bold text-gray-900">
+                      <p className="font-bold text-foreground">
                         {formatCurrency(invoice.totalAmount)}
                       </p>
-                      <p className="text-xs text-gray-600 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatDate(invoice.issuedDate)}
                       </p>
                     </div>
@@ -437,7 +437,7 @@ export default function Billing() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-500" />
+                <Zap className="w-5 h-5 text-warning" />
                 AI Credits Balance
               </CardTitle>
               <CardDescription>
@@ -448,23 +448,23 @@ export default function Billing() {
               {/* Balance Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Available Credits</p>
+                  <p className="text-sm text-muted-foreground">Available Credits</p>
                   <p className="text-3xl font-bold mt-2">
                     {creditsData?.balance?.available || 0}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Used Credits</p>
+                  <p className="text-sm text-muted-foreground">Used Credits</p>
                   <p className="text-3xl font-bold mt-2">
                     {creditsData?.balance?.used || 0}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Usage Percentage</p>
+                  <p className="text-sm text-muted-foreground">Usage Percentage</p>
                   <div className="mt-2">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-secondary rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        className="bg-primary h-2 rounded-full transition-all"
                         style={{
                           width: `${creditsData?.balance?.percentage || 0}%`,
                         }}
@@ -479,22 +479,22 @@ export default function Billing() {
 
               {/* Pricing Info */}
               <div className="space-y-3 pt-6 border-t">
-                <h4 className="font-semibold text-gray-900">AI Service Pricing</h4>
+                <h4 className="font-semibold text-foreground">AI Service Pricing</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Message Analysis</span>
+                    <span className="text-muted-foreground">Message Analysis</span>
                     <span className="font-semibold">5 credits</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Voice Transcription</span>
+                    <span className="text-muted-foreground">Voice Transcription</span>
                     <span className="font-semibold">20 credits/min</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Order Creation</span>
+                    <span className="text-muted-foreground">Order Creation</span>
                     <span className="font-semibold">15 credits</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Product Search</span>
+                    <span className="text-muted-foreground">Product Search</span>
                     <span className="font-semibold">5 credits</span>
                   </div>
                 </div>
@@ -504,9 +504,9 @@ export default function Billing() {
 
           {/* Low Credits Alert */}
           {creditsData?.balance?.available < 100 && (
-            <Alert className="border-yellow-200 bg-yellow-50">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
+            <Alert className="border-warning/40 bg-warning/15">
+              <AlertCircle className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
                 Your AI credits are running low! Consider purchasing additional credits to avoid service interruptions.
               </AlertDescription>
             </Alert>

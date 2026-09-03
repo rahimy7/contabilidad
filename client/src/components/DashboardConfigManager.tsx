@@ -215,7 +215,7 @@ export default function DashboardConfigManager() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <Settings className="w-8 h-8 text-blue-600" />
+          <Settings className="w-8 h-8 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">⚡ Optimización del Dashboard</h2>
             <p className="text-muted-foreground">
@@ -235,7 +235,7 @@ export default function DashboardConfigManager() {
           <Button 
             onClick={applyOptimizations}
             disabled={isApplying}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-success hover:bg-success/90"
           >
             {isApplying ? (
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -580,7 +580,7 @@ export default function DashboardConfigManager() {
                     <CardTitle className="text-lg">Configuración Actual</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto">
+                    <pre className="text-xs bg-muted p-4 rounded overflow-auto">
                       {JSON.stringify(config, null, 2)}
                     </pre>
                   </CardContent>

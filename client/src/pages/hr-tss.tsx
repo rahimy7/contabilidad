@@ -71,11 +71,11 @@ export default function HrTssPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <HeartPulse className="w-8 h-8 text-red-500" />
+        <HeartPulse className="w-8 h-8 text-destructive" />
         <div>
-          <h1 className="text-2xl font-bold">TSS y Seguridad Social</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">TSS y Seguridad Social</h1>
           <p className="text-muted-foreground">Aportes AFP/SFS, novedades SUIR+, submissions mensuales</p>
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function HrTssPage() {
                   <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Empleados</p><p className="text-2xl font-bold">{preview.employees?.length ?? 0}</p></CardContent></Card>
                   <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total empleado</p><p className="text-2xl font-bold font-mono">RD$ {money(preview.totals.totalEmployee ?? 0)}</p></CardContent></Card>
                   <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total empleador</p><p className="text-2xl font-bold font-mono">RD$ {money(preview.totals.totalEmployer ?? 0)}</p></CardContent></Card>
-                  <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total TSS</p><p className="text-2xl font-bold font-mono text-red-600">RD$ {money(preview.totals.totalToTss ?? 0)}</p></CardContent></Card>
+                  <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total TSS</p><p className="text-2xl font-bold font-mono text-destructive">RD$ {money(preview.totals.totalToTss ?? 0)}</p></CardContent></Card>
                 </div>
               )}
               {preview?.employees?.length ? (

@@ -621,11 +621,11 @@ export default function InvoicingPage() {
   const noSequences = !sequencesQuery.isLoading && availableSequences.length === 0;
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <div className="space-y-4">
       {/* Encabezado de la vista */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
             <FileText className="h-6 w-6 text-muted-foreground" />
             Facturación
           </h1>
@@ -650,10 +650,10 @@ export default function InvoicingPage() {
       </div>
 
       {noSequences && (
-        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        <Card className="border-warning/50 bg-warning/15">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="flex items-start gap-2 text-sm">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-warning" />
               <span>
                 {sequenceError
                   ? `No se pudieron leer las secuencias de NCF: ${sequenceError}`
@@ -845,18 +845,18 @@ export default function InvoicingPage() {
               <ProductPicker products={products} currency={currency} onSelect={addProductLine} />
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[840px]">
+                <table className="w-full border-collapse text-[13px] min-w-[840px]">
                   <thead>
                     <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="py-2 pr-2 font-medium w-8">#</th>
-                      <th className="py-2 pr-2 font-medium w-28">Código</th>
-                      <th className="py-2 pr-2 font-medium">Descripción</th>
-                      <th className="py-2 pr-2 font-medium w-24 text-right">Cant.</th>
-                      <th className="py-2 pr-2 font-medium w-32 text-right">Precio</th>
-                      <th className="py-2 pr-2 font-medium w-20 text-right">Desc. %</th>
-                      <th className="py-2 pr-2 font-medium w-32">ITBIS</th>
-                      <th className="py-2 pr-2 font-medium w-32 text-right">Importe</th>
-                      <th className="py-2 w-8" />
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-8">#</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-28">Código</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Descripción</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-24 text-right">Cant.</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-32 text-right">Precio</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-20 text-right">Desc. %</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-32">ITBIS</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-32 text-right">Importe</th>
+                      <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground w-8" />
                     </tr>
                   </thead>
                   <tbody>
@@ -864,8 +864,8 @@ export default function InvoicingPage() {
                       const c = computeLine(l);
                       return (
                         <tr key={l.id} className="border-b last:border-0 align-middle">
-                          <td className="py-1.5 pr-2 text-muted-foreground tabular-nums">{i + 1}</td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Input
                               className="h-8 text-xs font-mono"
                               value={l.code}
@@ -873,7 +873,7 @@ export default function InvoicingPage() {
                               placeholder="—"
                             />
                           </td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Input
                               className="h-8"
                               value={l.description}
@@ -881,7 +881,7 @@ export default function InvoicingPage() {
                               placeholder="Descripción del bien o servicio"
                             />
                           </td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Input
                               className="h-8 text-right tabular-nums"
                               value={l.quantity}
@@ -889,7 +889,7 @@ export default function InvoicingPage() {
                               inputMode="decimal"
                             />
                           </td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Input
                               className="h-8 text-right tabular-nums"
                               value={l.unitPrice}
@@ -897,7 +897,7 @@ export default function InvoicingPage() {
                               inputMode="decimal"
                             />
                           </td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Input
                               className="h-8 text-right tabular-nums"
                               value={l.discountPct}
@@ -905,7 +905,7 @@ export default function InvoicingPage() {
                               inputMode="decimal"
                             />
                           </td>
-                          <td className="py-1.5 pr-2">
+                          <td className="h-[34px] px-3 py-1.5 pr-2">
                             <Select
                               value={l.taxCode}
                               onValueChange={(v) => patchLine(l.id, { taxCode: v as TaxCode })}
@@ -918,10 +918,10 @@ export default function InvoicingPage() {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="py-1.5 pr-2 text-right tabular-nums font-medium">
+                          <td className="h-[34px] px-3 py-1.5 pr-2 text-right tabular-nums font-medium">
                             {money(c.lineTotal, currency)}
                           </td>
-                          <td className="py-1.5">
+                          <td className="h-[34px] px-3 py-1.5">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1006,7 +1006,7 @@ export default function InvoicingPage() {
                     <span
                       className={
                         Number(activeSequence.remaining) <= Number(activeSequence.alert_threshold)
-                          ? 'font-medium text-amber-600'
+                          ? 'font-medium text-warning'
                           : 'tabular-nums'
                       }
                     >
@@ -1024,7 +1024,7 @@ export default function InvoicingPage() {
                 <p className="text-muted-foreground">Sin secuencia activa para el tipo seleccionado.</p>
               )}
               {(sequencesQuery.data?.alerts ?? []).length > 0 && (
-                <div className="rounded-md border border-amber-500/40 bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                <div className="rounded-md border border-warning/40 bg-warning/15 p-2 text-xs text-warning">
                   {(sequencesQuery.data?.alerts ?? []).map((a: any, i: number) => (
                     <p key={i}>
                       {a.ncfType}: quedan {a.remaining} comprobantes.
@@ -1274,7 +1274,7 @@ function IssuedDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" /> Factura emitida
+            <CheckCircle2 className="h-5 w-5 text-success" /> Factura emitida
           </DialogTitle>
           <DialogDescription>El comprobante quedó registrado y contabilizado.</DialogDescription>
         </DialogHeader>

@@ -31,7 +31,7 @@ interface Warehouse { id: number; name: string; }
 const urgencyBadge = (u: Suggestion['urgency']) => {
   switch (u) {
     case 'critical': return <Badge variant="destructive">Sin stock</Badge>;
-    case 'warn': return <Badge className="bg-amber-600 hover:bg-amber-600">Bajo mínimo</Badge>;
+    case 'warn': return <Badge className="bg-warning hover:bg-warning">Bajo mínimo</Badge>;
     case 'info': return <Badge variant="secondary">Cerca del mínimo</Badge>;
   }
 };
@@ -74,11 +74,11 @@ export default function ReplenishmentPage() {
   const totalItems = chosen.reduce((a, r) => a + r.suggestedQty, 0);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-center gap-3">
         <PackagePlus className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Reabastecimiento sugerido</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Reabastecimiento sugerido</h1>
           <p className="text-sm text-muted-foreground">
             Productos por debajo del mínimo, ordenados por urgencia. Selecciona los que quieras y crea una orden de compra.
           </p>

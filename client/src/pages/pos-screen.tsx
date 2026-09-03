@@ -1150,22 +1150,22 @@ export default function POSScreen() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-subtle">
         <div className="text-center">
           <Package className="w-16 h-16 text-primary mx-auto mb-4" />
-          <p className="text-lg text-gray-600">Cargando productos...</p>
+          <p className="text-lg text-muted-foreground">Cargando productos...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen w-screen bg-subtle flex flex-col overflow-hidden">
       {/* Header - Full Width */}
-      <div className="bg-primary text-white p-4 shadow-lg flex justify-between items-center flex-shrink-0">
+      <div className="bg-primary text-primary-foreground p-4 shadow-lg flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
           <ShoppingCart className="w-8 h-8" />
-          <h1 className="text-2xl font-bold">Punto de Venta</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Punto de Venta</h1>
         </div>
 
         <div className="flex items-center gap-4">
@@ -1177,8 +1177,8 @@ export default function POSScreen() {
                 onClick={() => setSelectedCurrency(currency.code)}
                 className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
                   selectedCurrency === currency.code
-                    ? 'bg-white/20 text-white border border-white'
-                    : 'bg-white text-primary'
+                    ? 'bg-card/20 text-white border border-white'
+                    : 'bg-card text-primary'
                 }`}
               >
                 {currency.symbol}
@@ -1190,7 +1190,7 @@ export default function POSScreen() {
           <div className="relative">
             <ShoppingCart className="w-6 h-6" />
             {cart.length > 0 && (
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+              <div className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                 {cart.length}
               </div>
             )}
@@ -1200,7 +1200,7 @@ export default function POSScreen() {
           <Button
             onClick={() => setLocation('/dashboard')}
             variant="outline"
-            className="bg-white text-primary hover:bg-slate-100 border-0 flex items-center gap-2"
+            className="bg-card text-primary hover:bg-muted border-0 flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Dashboard
@@ -1211,7 +1211,7 @@ export default function POSScreen() {
       {/* Main Content - Full Width */}
       <div className="flex-1 overflow-hidden grid grid-cols-3 gap-4 p-4">
         {/* Products Section - 2/3 width */}
-        <div className="col-span-2 flex flex-col bg-slate-50 rounded-lg overflow-hidden shadow">
+        <div className="col-span-2 flex flex-col bg-subtle rounded-lg overflow-hidden shadow">
           {/* Search Bar */}
           <div className="p-4 bg-primary flex gap-2 flex-shrink-0">
             <div className="flex-1 flex items-center gap-2 bg-primary/80 px-3 rounded-lg">
@@ -1222,7 +1222,7 @@ export default function POSScreen() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSkuQuery('')}
-                className="flex-1 bg-transparent text-white outline-none placeholder-gray-300"
+                className="flex-1 bg-transparent text-white outline-none placeholder:text-muted-foreground"
               />
               {searchQuery.length > 0 && (
                 <button onClick={() => setSearchQuery('')}>
@@ -1234,25 +1234,25 @@ export default function POSScreen() {
             {/* SKU Search Button */}
             <button
               onClick={() => setShowSkuModal(true)}
-              className="bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-700 transition-all"
+              className="bg-chrome text-white p-2 rounded-lg hover:bg-chrome transition-all"
             >
               <Barcode className="w-5 h-5" />
             </button>
           </div>
 
           {/* Action Buttons */}
-          <div className="px-4 py-2 bg-white border-b flex gap-2 flex-shrink-0 items-center">
+          <div className="px-4 py-2 bg-card border-b flex gap-2 flex-shrink-0 items-center">
             {/* Appointment quick-access button */}
             <button
               onClick={() => setShowAppointmentDialog(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover active:scale-95 transition-all shadow-md"
             >
               <CalendarDays className="w-4 h-4" />
               Agendar Cita
             </button>
             <button
               onClick={() => setShowWalkInDialog(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-success text-success-foreground hover:bg-success/90 active:scale-95 transition-all shadow-md"
             >
               <CalendarDays className="w-4 h-4" />
               Atender Sin Cita
@@ -1260,7 +1260,7 @@ export default function POSScreen() {
             {/* Appointment billing button */}
             <button
               onClick={() => setShowAppointmentBilling(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-md"
             >
               <Receipt className="w-4 h-4" />
               Cobrar Cita
@@ -1268,7 +1268,7 @@ export default function POSScreen() {
             {/* Debt payment button */}
             <button
               onClick={() => setShowDebtPayment(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-orange-600 text-white hover:bg-orange-700 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-warning text-warning-foreground hover:bg-warning/90 active:scale-95 transition-all shadow-md"
             >
               <CreditCard className="w-4 h-4" />
               Pagar Deuda
@@ -1276,7 +1276,7 @@ export default function POSScreen() {
             {/* Cash withdrawal button */}
             <button
               onClick={() => setShowCashWithdrawal(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-red-700 text-white hover:bg-red-800 active:scale-95 transition-all shadow-md"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold bg-destructive/90 text-destructive-foreground hover:bg-destructive/90 active:scale-95 transition-all shadow-md"
             >
               <TrendingDown className="w-4 h-4" />
               Retiro de Caja
@@ -1286,7 +1286,7 @@ export default function POSScreen() {
           {/* Products Grid */}
           <div className="flex-1 overflow-y-auto p-4">
             {filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <Package className="w-16 h-16 mb-4" />
                 <p className="text-lg">No se encontraron productos</p>
               </div>
@@ -1302,7 +1302,7 @@ export default function POSScreen() {
                     >
                       {isServiceProduct(product) && <ServiceRibbon size="sm" />}
                       <CardContent className="p-3">
-                        <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                        <div className="aspect-video bg-subtle rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                           {imageUrl ? (
                             <img
                               src={imageUrl}
@@ -1313,20 +1313,20 @@ export default function POSScreen() {
                             <Package className="w-12 h-12 text-primary" />
                           )}
                         </div>
-                        <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">{product.name}</h3>
+                        <h3 className="font-semibold text-sm text-foreground line-clamp-2">{product.name}</h3>
                         <p className="text-xs text-primary my-1">{product.category}</p>
                         <p className="text-lg font-bold text-primary">{formatCurrency(getBasePrice(product))}</p>
 
                         {/* 🎁 Loyalty Points */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
-                          <p className="text-xs bg-amber-50 text-amber-700 p-1 rounded mt-1 font-medium text-center">
+                          <p className="text-xs bg-warning/15 text-warning p-1 rounded mt-1 font-medium text-center">
                             🎁 {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
                           </p>
                         )}
 
                         <Button
                           size="sm"
-                          className="w-full mt-2 bg-primary hover:bg-primary/90 text-white"
+                          className="w-full mt-2 bg-primary hover:bg-primary/90 text-primary-foreground"
                           onClick={(e) => { e.stopPropagation(); openKeypadForProduct(product); }}
                         >
                           <Plus className="w-4 h-4 mr-1" />
@@ -1342,13 +1342,13 @@ export default function POSScreen() {
         </div>
 
         {/* Cart Section - 1/3 width */}
-        <div className="bg-white rounded-lg shadow-lg flex flex-col overflow-hidden">
+        <div className="bg-card rounded-lg shadow-lg flex flex-col overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
             <h2 className="text-xl font-bold">Carrito</h2>
             {cart.length > 0 && (
               <button
                 onClick={clearCart}
-                className="text-red-600 hover:text-red-700 font-semibold text-sm"
+                className="text-destructive hover:text-destructive/80 font-semibold text-sm"
               >
                 Limpiar
               </button>
@@ -1356,10 +1356,10 @@ export default function POSScreen() {
           </div>
 
           {/* Customer selector block */}
-          <div className={`border-b ${selectedCustomer ? 'bg-blue-50' : 'bg-amber-50'}`}>
+          <div className={`border-b ${selectedCustomer ? 'bg-accent' : 'bg-warning/15'}`}>
             <div className="px-3 pt-1.5 pb-0.5 flex items-center gap-1">
-              <Users className={`w-3 h-3 ${selectedCustomer ? 'text-blue-400' : 'text-amber-400'}`} />
-              <span className={`text-[10px] font-semibold uppercase tracking-wide ${selectedCustomer ? 'text-blue-400' : 'text-amber-500'}`}>
+              <Users className={`w-3 h-3 ${selectedCustomer ? 'text-primary/70' : 'text-warning'}`} />
+              <span className={`text-[10px] font-semibold uppercase tracking-wide ${selectedCustomer ? 'text-primary/70' : 'text-warning'}`}>
                 Cliente
               </span>
             </div>
@@ -1367,8 +1367,8 @@ export default function POSScreen() {
               {selectedCustomer ? (
                 <>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-blue-800 truncate">{selectedCustomer.name}</p>
-                    {selectedCustomer.phone && <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>}
+                    <p className="text-sm font-semibold text-accent-foreground truncate">{selectedCustomer.name}</p>
+                    {selectedCustomer.phone && <p className="text-xs text-primary">{selectedCustomer.phone}</p>}
                   </div>
                   <button
                     onClick={() => {
@@ -1386,7 +1386,7 @@ export default function POSScreen() {
                         .catch(() => setProfileOrders([]))
                         .finally(() => setLoadingProfileOrders(false));
                     }}
-                    className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-sm"
+                    className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-semibold transition-all shadow-sm"
                     title="Ver perfil completo del cliente"
                   >
                     <Users className="w-3 h-3" />
@@ -1394,7 +1394,7 @@ export default function POSScreen() {
                   </button>
                   <button
                     onClick={() => setShowCustomerPicker(true)}
-                    className="flex-shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium px-1"
+                    className="flex-shrink-0 text-xs text-primary hover:text-primary font-medium px-1"
                   >
                     cambiar
                   </button>
@@ -1404,14 +1404,14 @@ export default function POSScreen() {
                   onClick={() => setShowCustomerPicker(true)}
                   className="flex-1 flex items-center gap-2 text-left"
                 >
-                  <p className="text-sm font-semibold text-amber-700">Seleccionar cliente *</p>
+                  <p className="text-sm font-semibold text-warning">Seleccionar cliente *</p>
                 </button>
               )}
             </div>
           </div>
 
           {cart.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
               <ShoppingCart className="w-16 h-16 mb-4" />
               <p className="font-semibold">Carrito vacío</p>
               <p className="text-sm">Agrega productos para comenzar</p>
@@ -1427,15 +1427,15 @@ export default function POSScreen() {
                   const currentUnitId = item.selectedUnitId || baseUnitId;
                   const showUnitSelector = units.length > 0 && isUnitConversionEnabled(item.product);
                   return (
-                    <div key={item.product.id} className="flex items-center gap-1 p-2 bg-gray-50 rounded-lg border border-gray-200 min-h-[50px]">
+                    <div key={item.product.id} className="flex items-center gap-1 p-2 bg-subtle rounded-lg border border-border min-h-[50px]">
                       {/* Nombre del producto */}
                       <div className="flex-1 min-w-0 max-w-[45%]">
-                        <p className="text-xs font-semibold text-gray-900 truncate">{item.product.name}</p>
-                        <p className="text-xs text-gray-600 flex items-center gap-2">
+                        <p className="text-xs font-semibold text-foreground truncate">{item.product.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-2">
                           {formatCurrency(itemPrice)}
                           {showUnitSelector && (
                             <select
-                              className="text-[10px] border border-primary/30 rounded px-1 py-0.5 bg-white text-primary"
+                              className="text-[10px] border border-primary/30 rounded px-1 py-0.5 bg-card text-primary"
                               value={currentUnitId || ''}
                               onChange={(e) => {
                                 const selectedId = Number(e.target.value);
@@ -1461,7 +1461,7 @@ export default function POSScreen() {
                       </div>
 
                       {/* Precio total */}
-                      <p className="text-xs font-bold text-gray-900 flex-shrink-0 w-20 text-right">
+                      <p className="text-xs font-bold text-foreground flex-shrink-0 w-20 text-right">
                         {formatCurrency(itemPrice * item.quantity)}
                       </p>
 
@@ -1469,19 +1469,19 @@ export default function POSScreen() {
                       <div className="flex items-center bg-primary rounded overflow-hidden flex-shrink-0">
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          className="text-white p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
+                          className="text-primary-foreground p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
                         >
                           −
                         </button>
                         <button
                           onClick={() => openKeypadForCartEdit(item)}
-                          className="text-white text-xs font-semibold w-10 text-center bg-primary border-none outline-none hover:bg-primary/80 h-6 flex items-center justify-center"
+                          className="text-primary-foreground text-xs font-semibold w-10 text-center bg-primary border-none outline-none hover:bg-primary/80 h-6 flex items-center justify-center"
                         >
                           {item.quantity}
                         </button>
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                          className="text-white p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
+                          className="text-primary-foreground p-0.5 hover:bg-primary/90 h-6 w-6 flex items-center justify-center text-sm"
                         >
                           +
                         </button>
@@ -1490,7 +1490,7 @@ export default function POSScreen() {
                       {/* Botón eliminar */}
                       <button
                         onClick={() => removeFromCart(item.product.id)}
-                        className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
+                        className="text-destructive hover:text-destructive/80 p-1 flex-shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1500,19 +1500,19 @@ export default function POSScreen() {
               </div>
 
               {/* Totals */}
-              <div className="p-3 bg-slate-50 border-t-2 border-b-2 border-primary space-y-2 flex-shrink-0">
+              <div className="p-3 bg-subtle border-t-2 border-b-2 border-primary space-y-2 flex-shrink-0">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-semibold">{formatCurrency(calculateSubtotal())}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">ITBIS (0%)</span>
+                  <span className="text-muted-foreground">ITBIS (0%)</span>
                   <span className="font-semibold">{formatCurrency(calculateTax())}</span>
                 </div>
 
                 {/* Discount Input */}
                 <div className="flex items-center gap-2">
-                  <Percent className="w-4 h-4 text-orange-600" />
+                  <Percent className="w-4 h-4 text-warning" />
                   <input
                     type="number"
                     min={0}
@@ -1524,7 +1524,7 @@ export default function POSScreen() {
                     className="w-20 text-sm border rounded px-2 py-1 text-center"
                   />
                   {calculateDiscountAmount() > 0 && (
-                    <span className="text-sm text-orange-600 font-semibold">
+                    <span className="text-sm text-warning font-semibold">
                       -{formatCurrency(calculateDiscountAmount())}
                     </span>
                   )}
@@ -1537,9 +1537,9 @@ export default function POSScreen() {
 
                 {/* 🎁 Loyalty Points Total */}
                 {calculateTotalLoyaltyPoints() > 0 && (
-                  <div className="flex justify-between items-center p-2 bg-amber-50 rounded-lg border border-amber-200">
-                    <span className="text-sm font-medium text-amber-700">Puntos Acumulados:</span>
-                    <span className="font-bold text-amber-600">
+                  <div className="flex justify-between items-center p-2 bg-warning/15 rounded-lg border border-warning/40">
+                    <span className="text-sm font-medium text-warning">Puntos Acumulados:</span>
+                    <span className="font-bold text-warning">
                       {calculateTotalLoyaltyPoints().toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getLoyaltyPropertyName()}
                     </span>
                   </div>
@@ -1549,7 +1549,7 @@ export default function POSScreen() {
               {/* Checkout Button */}
               <Button
                 onClick={handleCheckout}
-                className="m-3 w-[calc(100%-1.5rem)] bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg flex-shrink-0"
+                className="m-3 w-[calc(100%-1.5rem)] bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-lg flex-shrink-0"
               >
                 <DollarSign className="w-5 h-5 mr-2" />
                 PROCESAR PAGO
@@ -1570,21 +1570,21 @@ export default function POSScreen() {
           <div className="space-y-6">
             {/* Total Display */}
             <div className="bg-primary/5 p-6 rounded-lg text-center border-2 border-primary">
-              <p className="text-gray-600 mb-2">Total a Pagar</p>
+              <p className="text-muted-foreground mb-2">Total a Pagar</p>
               <p className="text-4xl font-bold text-primary">{formatCurrency(calculateTotal())}</p>
             </div>
 
             {/* Discount in Payment Modal */}
             {calculateDiscountAmount() > 0 && (
-              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                <span className="text-sm font-medium text-orange-700">Descuento ({discountPercentage}%)</span>
-                <span className="font-bold text-orange-600">-{formatCurrency(calculateDiscountAmount())}</span>
+              <div className="flex justify-between items-center p-3 bg-warning/10 rounded-lg border border-warning/40">
+                <span className="text-sm font-medium text-warning">Descuento ({discountPercentage}%)</span>
+                <span className="font-bold text-warning">-{formatCurrency(calculateDiscountAmount())}</span>
               </div>
             )}
 
             {/* Payment Method Selection */}
             <div className="space-y-3">
-              <p className="font-semibold text-gray-900">Método de Pago</p>
+              <p className="font-semibold text-foreground">Método de Pago</p>
               <div className="grid grid-cols-4 gap-3">
                 {(['cash', 'card', 'transfer', 'credit'] as const).map((method) => (
                   <button
@@ -1593,7 +1593,7 @@ export default function POSScreen() {
                     className={`p-3 rounded-lg font-semibold transition-all border-2 text-sm ${
                       paymentMethod === method
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-gray-300 bg-white text-gray-600'
+                        : 'border-border bg-card text-muted-foreground'
                     }`}
                   >
                     {method === 'cash' && '💵 Efectivo'}
@@ -1607,15 +1607,15 @@ export default function POSScreen() {
 
             {/* Customer Selection for Credit */}
             {paymentMethod === 'credit' && (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              <div className="flex items-center gap-3 p-3 bg-accent rounded-lg border border-border">
+                <Users className="w-4 h-4 text-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-blue-800">{selectedCustomer?.name}</p>
-                  {selectedCustomer?.phone && <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>}
+                  <p className="text-sm font-semibold text-accent-foreground">{selectedCustomer?.name}</p>
+                  {selectedCustomer?.phone && <p className="text-xs text-primary">{selectedCustomer.phone}</p>}
                 </div>
                 <button
                   onClick={() => { setShowPaymentModal(false); setShowCustomerPicker(true); }}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-xs text-primary hover:text-accent-foreground font-medium"
                 >
                   cambiar
                 </button>
@@ -1626,7 +1626,7 @@ export default function POSScreen() {
             {paymentMethod === 'cash' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
                     Monto Recibido
                   </label>
                   <div className="flex gap-2">
@@ -1639,7 +1639,7 @@ export default function POSScreen() {
                     />
                     <button
                       onClick={() => setReceivedAmount('')}
-                      className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+                      className="px-3 py-2 bg-secondary hover:bg-muted-foreground rounded-lg"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -1648,13 +1648,13 @@ export default function POSScreen() {
 
                 {/* Quick Amount Buttons */}
                 <div>
-                  <p className="text-sm font-semibold text-gray-900 mb-2">Sugerencias Rápidas</p>
+                  <p className="text-sm font-semibold text-foreground mb-2">Sugerencias Rápidas</p>
                   <div className="grid grid-cols-3 gap-2">
                     {quickAmounts.map((amount) => (
                       <button
                         key={amount}
                         onClick={() => setReceivedAmount(amount.toString())}
-                        className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold text-primary transition-all"
+                        className="p-2 bg-muted hover:bg-secondary rounded-lg text-sm font-semibold text-primary transition-all"
                       >
                         {formatCurrency(amount)}
                       </button>
@@ -1663,11 +1663,11 @@ export default function POSScreen() {
                 </div>
 
                 {/* Change Display */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-300">
+                <div className="bg-subtle p-4 rounded-lg border border-border">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-slate-900">Cambio</span>
+                    <span className="font-semibold text-foreground">Cambio</span>
                     <span className={`text-2xl font-bold ${
-                      parseFloat(receivedAmount) < calculateTotal() ? 'text-red-600' : 'text-primary'
+                      parseFloat(receivedAmount) < calculateTotal() ? 'text-destructive' : 'text-primary'
                     }`}>
                       {parseFloat(receivedAmount) < calculateTotal()
                         ? `Insuficiente (${formatCurrency(calculateTotal() - parseFloat(receivedAmount))})`
@@ -1683,7 +1683,7 @@ export default function POSScreen() {
             <Button
               onClick={processSale}
               disabled={createSaleMutation.isPending}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-lg"
             >
               {createSaleMutation.isPending ? 'Procesando...' : 'COMPLETAR VENTA'}
             </Button>
@@ -1701,7 +1701,7 @@ export default function POSScreen() {
           <div className="space-y-4">
             {/* SKU/Barcode Input Field */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">Ingresa SKU o Código de Barras</label>
+              <label className="text-sm font-semibold text-foreground">Ingresa SKU o Código de Barras</label>
               <div className="flex items-center gap-2">
                 <Input
                   type="text"
@@ -1714,7 +1714,7 @@ export default function POSScreen() {
                 {skuQuery.length > 0 && (
                   <button
                     onClick={() => setSkuQuery('')}
-                    className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+                    className="p-2 bg-secondary hover:bg-muted-foreground rounded-lg"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1723,25 +1723,25 @@ export default function POSScreen() {
             </div>
 
             {/* Numeric Keyboard */}
-            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg">
+            <div className="grid grid-cols-3 gap-2 bg-subtle p-3 rounded-lg">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                 <button
                   key={num}
                   onClick={() => setSkuQuery(skuQuery + num.toString())}
-                  className="p-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
+                  className="p-3 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-all"
                 >
                   {num}
                 </button>
               ))}
               <button
                 onClick={() => setSkuQuery(skuQuery + '0')}
-                className="col-span-2 p-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all"
+                className="col-span-2 p-3 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-all"
               >
                 0
               </button>
               <button
                 onClick={() => setSkuQuery(skuQuery.slice(0, -1))}
-                className="p-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-all"
+                className="p-3 bg-destructive text-destructive-foreground font-bold rounded-lg hover:bg-destructive transition-all"
               >
                 ⌫
               </button>
@@ -1772,7 +1772,7 @@ export default function POSScreen() {
                           }}
                           className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border-2 border-primary/30 cursor-pointer hover:bg-primary/10 hover:border-primary transition-all"
                         >
-                          <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center overflow-hidden">
+                          <div className="w-16 h-16 bg-card rounded-lg flex items-center justify-center overflow-hidden">
                             {imageUrl ? (
                               <img
                                 src={imageUrl}
@@ -1784,15 +1784,15 @@ export default function POSScreen() {
                             )}
                           </div>
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-900">{product.name}</p>
+                            <p className="font-semibold text-foreground">{product.name}</p>
                             <div className="flex gap-2 items-center mt-1">
                               {product.sku && (
-                                <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                <span className="text-xs bg-muted text-foreground px-2 py-0.5 rounded">
                                   SKU: {product.sku}
                                 </span>
                               )}
                               {product.barcode && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                <span className="text-xs bg-accent text-primary px-2 py-0.5 rounded">
                                   📊 {product.barcode}
                                 </span>
                               )}
@@ -1806,7 +1806,7 @@ export default function POSScreen() {
                       );
                     })
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 text-gray-400">
+                  <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
                     <Package className="w-12 h-12 mb-2" />
                     <p className="font-semibold">No encontrado</p>
                   </div>
@@ -1827,7 +1827,7 @@ export default function POSScreen() {
             {keypadProduct && (
               <DialogDescription asChild>
                 <div className="space-y-1 text-left">
-                  <p className="font-semibold text-gray-900 text-sm">{keypadProduct.name}</p>
+                  <p className="font-semibold text-foreground text-sm">{keypadProduct.name}</p>
                   <div className="flex items-center gap-2">
                     <span className="text-primary font-bold">{formatCurrency(getBasePrice(keypadProduct))}</span>
                     {(() => {
@@ -1835,9 +1835,9 @@ export default function POSScreen() {
                       if (stock === null) return null;
                       return (
                         <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          stock <= 0 ? 'bg-red-100 text-red-700'
-                          : stock < 5 ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-green-100 text-green-700'
+                          stock <= 0 ? 'bg-destructive/10 text-destructive'
+                          : stock < 5 ? 'bg-warning/15 text-warning'
+                          : 'bg-success/10 text-success'
                         }`}>
                           Stock: {stock}
                         </span>
@@ -1851,8 +1851,8 @@ export default function POSScreen() {
 
           <div className="space-y-4">
             {/* Quantity display */}
-            <div className="bg-slate-100 rounded-lg p-4 text-center">
-              <p className={`text-4xl font-bold tracking-wider ${keypadValue ? 'text-primary' : 'text-gray-400'}`}>
+            <div className="bg-muted rounded-lg p-4 text-center">
+              <p className={`text-4xl font-bold tracking-wider ${keypadValue ? 'text-primary' : 'text-muted-foreground'}`}>
                 {keypadValue || 'Ingresa cantidad...'}
               </p>
               {(() => {
@@ -1861,8 +1861,8 @@ export default function POSScreen() {
                 if (keypadValue === '' || isNaN(qty) || stock === null) return null;
                 if (qty > stock) {
                   return (
-                    <div className="mt-2 flex items-center justify-center gap-1 bg-red-100 border border-red-400 rounded p-2">
-                      <span className="text-red-700 text-sm font-bold">
+                    <div className="mt-2 flex items-center justify-center gap-1 bg-destructive/10 border border-destructive rounded p-2">
+                      <span className="text-destructive text-sm font-bold">
                         ⚠️ Stock insuficiente — Disponible: {stock} unidades
                       </span>
                     </div>
@@ -1878,26 +1878,26 @@ export default function POSScreen() {
                 <button
                   key={num}
                   onClick={() => handleKeypadDigit(num.toString())}
-                  className="p-4 bg-slate-100 hover:bg-slate-200 text-gray-900 font-bold text-lg rounded-lg transition-all"
+                  className="p-4 bg-muted hover:bg-secondary text-foreground font-bold text-lg rounded-lg transition-all"
                 >
                   {num}
                 </button>
               ))}
               <button
                 onClick={handleKeypadClear}
-                className="p-4 bg-slate-200 hover:bg-slate-300 text-gray-700 font-bold rounded-lg transition-all text-sm"
+                className="p-4 bg-secondary hover:bg-muted-foreground text-foreground font-bold rounded-lg transition-all text-sm"
               >
                 C
               </button>
               <button
                 onClick={() => handleKeypadDigit('0')}
-                className="p-4 bg-slate-100 hover:bg-slate-200 text-gray-900 font-bold text-lg rounded-lg transition-all"
+                className="p-4 bg-muted hover:bg-secondary text-foreground font-bold text-lg rounded-lg transition-all"
               >
                 0
               </button>
               <button
                 onClick={handleKeypadBackspace}
-                className="p-4 bg-slate-200 hover:bg-slate-300 text-gray-700 font-bold rounded-lg transition-all"
+                className="p-4 bg-secondary hover:bg-muted-foreground text-foreground font-bold rounded-lg transition-all"
               >
                 ⌫
               </button>
@@ -1921,7 +1921,7 @@ export default function POSScreen() {
                     const qty = parseInt(keypadValue);
                     return keypadValue !== '' && !isNaN(qty) && stock !== null && qty > stock;
                   })()
-                    ? 'bg-orange-500 hover:bg-orange-600'
+                    ? 'bg-warning hover:bg-warning'
                     : 'bg-primary hover:bg-primary/90'
                 }`}
               >
@@ -1949,7 +1949,7 @@ export default function POSScreen() {
           {!showNewCustomerForm ? (
             <div className="space-y-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   autoFocus
                   placeholder="Buscar por nombre o teléfono..."
@@ -1972,7 +1972,7 @@ export default function POSScreen() {
                         setCustomerSearch('');
                       }}
                       className={`w-full text-left p-2.5 rounded-lg text-sm transition-colors flex items-center gap-3 ${
-                        selectedCustomerId === c.id ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-gray-50'
+                        selectedCustomerId === c.id ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-subtle'
                       }`}
                     >
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
@@ -1980,13 +1980,13 @@ export default function POSScreen() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{c.name}</p>
-                        {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
+                        {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
                       </div>
                       {selectedCustomerId === c.id && <span className="text-primary text-xs">✓</span>}
                     </button>
                   ))}
                 {(customers as any[]).filter((c: any) => c.id !== 1 && (!customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch))).length === 0 && (
-                  <p className="text-center text-sm text-gray-400 py-4">No se encontraron clientes</p>
+                  <p className="text-center text-sm text-muted-foreground py-4">No se encontraron clientes</p>
                 )}
               </div>
               <Button
@@ -2000,9 +2000,9 @@ export default function POSScreen() {
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-gray-700">Nuevo cliente</p>
+              <p className="text-sm font-semibold text-foreground">Nuevo cliente</p>
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Nombre *</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre *</label>
                 <Input
                   autoFocus
                   placeholder="Nombre completo"
@@ -2011,7 +2011,7 @@ export default function POSScreen() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Teléfono *</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Teléfono *</label>
                 <Input
                   placeholder="Ej: 809-555-1234"
                   value={newCustomerPhone}
@@ -2023,7 +2023,7 @@ export default function POSScreen() {
                   Cancelar
                 </Button>
                 <Button
-                  className="flex-1 bg-primary text-white"
+                  className="flex-1 bg-primary text-primary-foreground"
                   disabled={!newCustomerName.trim() || !newCustomerPhone.trim() || savingNewCustomer}
                   onClick={async () => {
                     setSavingNewCustomer(true);
@@ -2068,24 +2068,24 @@ export default function POSScreen() {
       }}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 py-5 flex-shrink-0">
+          <div className="bg-primary px-6 py-5 flex-shrink-0">
             <div className="flex items-center gap-4">
-              <div className="bg-white/20 p-3 rounded-xl shadow-inner">
+              <div className="bg-card/20 p-3 rounded-xl shadow-inner">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-white font-bold text-xl leading-tight truncate">{selectedCustomer?.name}</h2>
                 <div className="flex items-center gap-3 mt-1">
                   {selectedCustomer?.phone && (
-                    <span className="text-blue-100 text-sm">📞 {selectedCustomer.phone}</span>
+                    <span className="text-primary/70 text-sm">📞 {selectedCustomer.phone}</span>
                   )}
                   {selectedCustomer?.email && (
-                    <span className="text-blue-100 text-sm">✉️ {selectedCustomer.email}</span>
+                    <span className="text-primary/70 text-sm">✉️ {selectedCustomer.email}</span>
                   )}
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-blue-200 text-xs">Compras totales</p>
+                <p className="text-primary/70 text-xs">Compras totales</p>
                 <p className="text-white font-bold text-xl">
                   {loadingProfileOrders ? '...' : profileOrders.length}
                 </p>
@@ -2098,16 +2098,16 @@ export default function POSScreen() {
             {!profileSelectedOrder ? (
               /* Order list */
               <div className="flex-1 overflow-y-auto p-5">
-                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Historial de Compras</h3>
+                <h3 className="text-sm font-bold text-foreground mb-3 uppercase tracking-wide">Historial de Compras</h3>
                 {loadingProfileOrders ? (
-                  <div className="flex items-center justify-center py-10 text-gray-400">
+                  <div className="flex items-center justify-center py-10 text-muted-foreground">
                     <div className="text-center">
-                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                       <p className="text-sm">Cargando compras...</p>
                     </div>
                   </div>
                 ) : profileOrders.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                     <ShoppingCart className="w-12 h-12 mb-3 opacity-40" />
                     <p className="font-semibold">Sin compras registradas</p>
                   </div>
@@ -2119,7 +2119,7 @@ export default function POSScreen() {
                       const method = order.paymentMethod || order.payment_method || '';
                       const status = order.status || '';
                       const methodLabel: Record<string, string> = { cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' };
-                      const statusColor: Record<string, string> = { completed: 'bg-green-100 text-green-700', pending: 'bg-yellow-100 text-yellow-700', cancelled: 'bg-red-100 text-red-700' };
+                      const statusColor: Record<string, string> = { completed: 'bg-success/10 text-success', pending: 'bg-warning/15 text-warning', cancelled: 'bg-destructive/10 text-destructive' };
                       return (
                         <button
                           key={order.id}
@@ -2142,26 +2142,26 @@ export default function POSScreen() {
                               .catch(() => {})
                               .finally(() => setLoadingOrderItems(false));
                           }}
-                          className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                          className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all group"
                         >
-                          <div className="bg-blue-100 text-blue-600 rounded-lg p-2 flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <div className="bg-accent text-primary rounded-lg p-2 flex-shrink-0 group-hover:bg-primary-hover group-hover:text-primary-foreground transition-all">
                             <Receipt className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-sm text-gray-900">{order.orderNumber || `#${order.id}`}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[status] || 'bg-gray-100 text-gray-600'}`}>
+                              <span className="font-semibold text-sm text-foreground">{order.orderNumber || `#${order.id}`}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[status] || 'bg-muted text-muted-foreground'}`}>
                                 {status === 'completed' ? 'Completado' : status === 'pending' ? 'Pendiente' : status}
                               </span>
                             </div>
                             <div className="flex items-center gap-3 mt-0.5">
-                              {orderDate && <span className="text-xs text-gray-500">{orderDate.toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
-                              <span className="text-xs text-gray-500">{methodLabel[method] || method}</span>
+                              {orderDate && <span className="text-xs text-muted-foreground">{orderDate.toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                              <span className="text-xs text-muted-foreground">{methodLabel[method] || method}</span>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="font-bold text-blue-700">{formatCurrency(total)}</p>
-                            <p className="text-xs text-gray-400 group-hover:text-blue-500">Ver detalle →</p>
+                            <p className="font-bold text-primary">{formatCurrency(total)}</p>
+                            <p className="text-xs text-muted-foreground group-hover:text-primary">Ver detalle →</p>
                           </div>
                         </button>
                       );
@@ -2175,20 +2175,20 @@ export default function POSScreen() {
                 <div className="flex items-center gap-2 mb-4">
                   <button
                     onClick={() => { setProfileSelectedOrder(null); setProfileOrderItems([]); }}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                    className="flex items-center gap-1 text-sm text-primary hover:text-accent-foreground font-semibold"
                   >
                     ← Volver al historial
                   </button>
                 </div>
 
                 {/* Order header */}
-                <div className="rounded-xl border border-blue-200 overflow-hidden mb-4">
-                  <div className="bg-blue-50 px-4 py-3 border-b border-blue-200">
+                <div className="rounded-xl border border-border overflow-hidden mb-4">
+                  <div className="bg-accent px-4 py-3 border-b border-border">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
-                        <p className="font-bold text-gray-900">{profileSelectedOrder.orderNumber || `#${profileSelectedOrder.id}`}</p>
+                        <p className="font-bold text-foreground">{profileSelectedOrder.orderNumber || `#${profileSelectedOrder.id}`}</p>
                         {profileSelectedOrder.createdAt && (
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(profileSelectedOrder.createdAt).toLocaleDateString('es-DO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                             {' · '}
                             {new Date(profileSelectedOrder.createdAt).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}
@@ -2196,10 +2196,10 @@ export default function POSScreen() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-bold text-blue-700">
+                        <p className="text-xl font-bold text-primary">
                           {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {({ cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' } as any)[profileSelectedOrder.paymentMethod || profileSelectedOrder.payment_method] || profileSelectedOrder.paymentMethod}
                         </p>
                       </div>
@@ -2207,52 +2207,52 @@ export default function POSScreen() {
                   </div>
 
                   {/* Subtotals */}
-                  <div className="bg-white px-4 py-3 grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-card px-4 py-3 grid grid-cols-3 gap-3 text-center">
                     <div>
-                      <p className="text-xs text-gray-500">Subtotal</p>
+                      <p className="text-xs text-muted-foreground">Subtotal</p>
                       <p className="font-semibold text-sm">{formatCurrency(parseFloat(profileSelectedOrder.subtotalAmount || profileSelectedOrder.subtotal_amount || '0'))}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Descuento</p>
-                      <p className="font-semibold text-sm text-orange-600">
+                      <p className="text-xs text-muted-foreground">Descuento</p>
+                      <p className="font-semibold text-sm text-warning">
                         {profileSelectedOrder.discountPercentage ? `${profileSelectedOrder.discountPercentage}%` : '-'}
                         {profileSelectedOrder.discountAmount ? ` (-${formatCurrency(parseFloat(profileSelectedOrder.discountAmount))})` : ''}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">ITBIS</p>
+                      <p className="text-xs text-muted-foreground">ITBIS</p>
                       <p className="font-semibold text-sm">{formatCurrency(0)}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Items */}
-                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Artículos</h4>
+                <h4 className="text-sm font-bold text-foreground mb-2 uppercase tracking-wide">Artículos</h4>
                 {loadingOrderItems ? (
-                  <div className="flex items-center justify-center py-6 text-gray-400">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="flex items-center justify-center py-6 text-muted-foreground">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
                     <span className="text-sm">Cargando artículos...</span>
                   </div>
                 ) : profileOrderItems.length === 0 ? (
                   /* Órdenes de citas/servicios no tienen items — mostrar descripción */
                   <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-xl border border-teal-200">
-                      <div className="bg-teal-100 rounded-lg p-2 flex-shrink-0">
-                        <Receipt className="w-4 h-4 text-teal-600" />
+                    <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl border border-primary/40">
+                      <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
+                        <Receipt className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-gray-900">
+                        <p className="font-semibold text-sm text-foreground">
                           {profileSelectedOrder.notes || profileSelectedOrder.description || 'Servicio / Cita'}
                         </p>
-                        <p className="text-xs text-teal-600 mt-0.5 capitalize">
+                        <p className="text-xs text-primary mt-0.5 capitalize">
                           {profileSelectedOrder.orderType === 'appointment' ? 'Cobro de cita' : profileSelectedOrder.orderType || 'Servicio'}
                         </p>
                       </div>
-                      <p className="font-bold text-gray-900 flex-shrink-0">
+                      <p className="font-bold text-foreground flex-shrink-0">
                         {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                    <div className="flex items-center justify-between p-3 bg-primary rounded-xl mt-1">
                       <span className="font-bold text-white text-sm">TOTAL</span>
                       <span className="font-bold text-white text-lg">
                         {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
@@ -2267,23 +2267,23 @@ export default function POSScreen() {
                       const unitPrice = parseFloat(item.unitPrice || item.unit_price || '0');
                       const total = parseFloat(item.totalPrice || item.total_price || String(unitPrice * qty));
                       return (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-subtle rounded-xl border border-border">
                           <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
                             <Package className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm text-gray-900 truncate">{name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">
+                            <p className="font-semibold text-sm text-foreground truncate">{name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {qty} × {formatCurrency(unitPrice)}
                               {item.unitSymbol || item.unit_symbol ? ` / ${item.unitSymbol || item.unit_symbol}` : ''}
                             </p>
                           </div>
-                          <p className="font-bold text-gray-900 flex-shrink-0">{formatCurrency(total)}</p>
+                          <p className="font-bold text-foreground flex-shrink-0">{formatCurrency(total)}</p>
                         </div>
                       );
                     })}
                     {/* Grand total row */}
-                    <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                    <div className="flex items-center justify-between p-3 bg-primary rounded-xl mt-1">
                       <span className="font-bold text-white text-sm">TOTAL</span>
                       <span className="font-bold text-white text-lg">
                         {formatCurrency(parseFloat(profileSelectedOrder.totalAmount || profileSelectedOrder.total_amount || '0'))}
@@ -2323,15 +2323,15 @@ export default function POSScreen() {
       }}>
         <DialogContent className="max-w-xl p-0 overflow-hidden rounded-2xl shadow-2xl">
           {/* Header */}
-          <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-teal-500 px-6 py-5">
+          <div className="bg-primary px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2.5 rounded-xl shadow-inner">
+                <div className="bg-card/20 p-2.5 rounded-xl shadow-inner">
                   <Receipt className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-white font-bold text-lg leading-tight">Cobrar Cita</h2>
-                  <p className="text-teal-100 text-xs mt-0.5">
+                  <p className="text-primary-foreground/80 text-xs mt-0.5">
                     {appointmentBillingStep === 'list'
                       ? `${pendingTodayAppointments.length} cita(s) sin cobrar`
                       : `Paso 2 de 2 · Confirmar cobro`}
@@ -2340,15 +2340,15 @@ export default function POSScreen() {
               </div>
               {appointmentBillingStep === 'pay' && (
                 <button onClick={() => { setAppointmentBillingStep('list'); setSelectedBillingApt(null); }}
-                  className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
+                  className="bg-card/20 hover:bg-card/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
                   ← Lista
                 </button>
               )}
             </div>
             {/* Step indicator */}
             <div className="flex gap-1.5 mt-4">
-              <div className="h-1 flex-1 rounded-full bg-white"></div>
-              <div className={`h-1 flex-1 rounded-full transition-all ${appointmentBillingStep === 'pay' ? 'bg-white' : 'bg-white/30'}`}></div>
+              <div className="h-1 flex-1 rounded-full bg-card"></div>
+              <div className={`h-1 flex-1 rounded-full transition-all ${appointmentBillingStep === 'pay' ? 'bg-card' : 'bg-card/30'}`}></div>
             </div>
           </div>
 
@@ -2357,16 +2357,16 @@ export default function POSScreen() {
               <>
                 {/* Search box */}
                 <div className="relative mb-3">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                   <input
                     type="text"
                     placeholder="Buscar por cliente, cita, servicio o fecha…"
                     value={appointmentSearch}
                     onChange={(e) => setAppointmentSearch(e.target.value)}
-                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-0 focus:border-teal-400 transition-colors"
+                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-border bg-subtle text-sm focus:outline-none focus:ring-0 focus:border-primary transition-colors"
                   />
                   {appointmentSearch && (
-                    <button onClick={() => setAppointmentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <button onClick={() => setAppointmentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground">
                       <X className="w-4 h-4" />
                     </button>
                   )}
@@ -2374,7 +2374,7 @@ export default function POSScreen() {
 
                 {/* Result count */}
                 {appointmentSearch && (
-                  <p className="text-xs text-gray-400 mb-2 px-1">
+                  <p className="text-xs text-muted-foreground mb-2 px-1">
                     {pendingTodayAppointments.filter((apt: any) => {
                       const q = appointmentSearch.toLowerCase();
                       const dateStr = apt.appointmentDate ? new Date(apt.appointmentDate).toLocaleDateString('es-DO', { day: '2-digit', month: 'long' }) : '';
@@ -2399,7 +2399,7 @@ export default function POSScreen() {
                         dateStr.toLowerCase().includes(q);
                     });
                     if (filtered.length === 0) return (
-                      <div className="text-center py-12 text-gray-400">
+                      <div className="text-center py-12 text-muted-foreground">
                         <CalendarDays className="w-14 h-14 mx-auto mb-3 opacity-30" />
                         <p className="font-semibold text-sm">No se encontraron citas</p>
                         <p className="text-xs mt-1">Intenta con otro término de búsqueda</p>
@@ -2419,9 +2419,9 @@ export default function POSScreen() {
                           disabled={isPaid || price <= 0}
                           onClick={() => { if (!isPaid && price > 0) { setSelectedBillingApt(apt); setAppointmentBillingStep('pay'); } }}
                           className={`w-full text-left rounded-xl border-2 transition-all group ${
-                            isPaid ? 'bg-green-50 border-green-200 opacity-75 cursor-default' :
-                            price <= 0 ? 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed' :
-                            'bg-white border-gray-200 hover:border-teal-400 hover:shadow-md cursor-pointer'
+                            isPaid ? 'bg-success/10 border-success/40 opacity-75 cursor-default' :
+                            price <= 0 ? 'bg-subtle border-border opacity-50 cursor-not-allowed' :
+                            'bg-card border-border hover:border-primary hover:shadow-md cursor-pointer'
                           }`}
                         >
                           <div className="p-3.5">
@@ -2429,29 +2429,29 @@ export default function POSScreen() {
                               {/* Left: icon + info */}
                               <div className="flex items-start gap-3 flex-1 min-w-0">
                                 <div className={`mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                  isPaid ? 'bg-green-100' : 'bg-teal-50 group-hover:bg-teal-100'
+                                  isPaid ? 'bg-success/10' : 'bg-primary/10 group-hover:bg-primary/10'
                                 }`}>
-                                  <CalendarDays className={`w-4 h-4 ${isPaid ? 'text-green-600' : 'text-teal-600'}`} />
+                                  <CalendarDays className={`w-4 h-4 ${isPaid ? 'text-success' : 'text-primary'}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-bold text-sm text-gray-800 truncate">{apt.title}</span>
-                                    {isPaid && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">✓ Pagado</span>}
+                                    <span className="font-bold text-sm text-foreground truncate">{apt.title}</span>
+                                    {isPaid && <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">✓ Pagado</span>}
                                   </div>
-                                  <p className="text-xs font-semibold text-gray-600 mt-0.5 truncate">{customer}</p>
+                                  <p className="text-xs font-semibold text-muted-foreground mt-0.5 truncate">{customer}</p>
                                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                                     {dateStr && (
-                                      <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                                         <CalendarDays className="w-3 h-3" />{dateStr}
                                       </span>
                                     )}
                                     {timeStr && (
-                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                                         🕐 {timeStr}
                                       </span>
                                     )}
                                     {service && (
-                                      <span className="flex items-center gap-1 text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                      <span className="flex items-center gap-1 text-[11px] text-primary bg-accent px-2 py-0.5 rounded-full truncate max-w-[120px]">
                                         ✦ {service}
                                       </span>
                                     )}
@@ -2461,11 +2461,11 @@ export default function POSScreen() {
                               {/* Right: price */}
                               <div className="text-right flex-shrink-0">
                                 {price > 0 ? (
-                                  <span className={`text-base font-extrabold ${isPaid ? 'text-green-700' : 'text-gray-800'}`}>
+                                  <span className={`text-base font-extrabold ${isPaid ? 'text-success' : 'text-foreground'}`}>
                                     {formatCurrency(price)}
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-gray-400">Sin precio</span>
+                                  <span className="text-xs text-muted-foreground">Sin precio</span>
                                 )}
                               </div>
                             </div>
@@ -2480,38 +2480,38 @@ export default function POSScreen() {
               /* Step 2 – Payment */
               <div className="space-y-4">
                 {/* Appointment summary card */}
-                <div className="rounded-xl overflow-hidden border border-teal-200">
-                  <div className="bg-teal-50 px-4 py-3 border-b border-teal-200 flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4 text-teal-600" />
-                    <span className="text-sm font-semibold text-teal-700">Resumen de la cita</span>
+                <div className="rounded-xl overflow-hidden border border-primary/40">
+                  <div className="bg-primary/10 px-4 py-3 border-b border-primary/40 flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-primary">Resumen de la cita</span>
                   </div>
-                  <div className="bg-white px-4 py-3 flex items-center justify-between gap-4">
+                  <div className="bg-card px-4 py-3 flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-800 text-sm truncate">{selectedBillingApt?.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{selectedBillingApt?.customerName || selectedBillingApt?.customer_name || 'Cliente'}</p>
+                      <p className="font-bold text-foreground text-sm truncate">{selectedBillingApt?.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{selectedBillingApt?.customerName || selectedBillingApt?.customer_name || 'Cliente'}</p>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         {selectedBillingApt?.appointmentDate && (
-                          <span className="text-[11px] text-gray-400">
+                          <span className="text-[11px] text-muted-foreground">
                             📅 {new Date(selectedBillingApt.appointmentDate).toLocaleDateString('es-DO', { weekday: 'short', day: '2-digit', month: 'short' })} · {new Date(selectedBillingApt.appointmentDate).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                         {(selectedBillingApt?.serviceTypeName || selectedBillingApt?.service_type_name) && (
-                          <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                          <span className="text-[11px] text-primary bg-accent px-2 py-0.5 rounded-full">
                             ✦ {selectedBillingApt?.serviceTypeName || selectedBillingApt?.service_type_name}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-gray-400 mb-0.5">Total a cobrar</p>
-                      <p className="text-2xl font-extrabold text-teal-700">{formatCurrency(parseFloat(selectedBillingApt?.price || '0'))}</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Total a cobrar</p>
+                      <p className="text-2xl font-extrabold text-primary">{formatCurrency(parseFloat(selectedBillingApt?.price || '0'))}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Payment method */}
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Método de pago</p>
+                  <p className="text-sm font-semibold text-foreground mb-2">Método de pago</p>
                   <div className="grid grid-cols-4 gap-2">
                     {([
                       { key: 'cash', label: 'Efectivo', icon: '💵', desc: 'Pago en físico' },
@@ -2524,13 +2524,13 @@ export default function POSScreen() {
                         onClick={() => setAptPaymentMethod(key)}
                         className={`p-3 rounded-xl text-sm border-2 transition-all flex flex-col items-center gap-1 ${
                           aptPaymentMethod === key
-                            ? 'border-teal-500 bg-teal-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-teal-300'
+                            ? 'border-primary bg-primary/10 shadow-sm'
+                            : 'border-border bg-card hover:border-primary/40'
                         }`}
                       >
                         <span className="text-xl">{icon}</span>
-                        <span className={`font-bold text-xs ${aptPaymentMethod === key ? 'text-teal-700' : 'text-gray-700'}`}>{label}</span>
-                        <span className="text-[10px] text-gray-400">{desc}</span>
+                        <span className={`font-bold text-xs ${aptPaymentMethod === key ? 'text-primary' : 'text-foreground'}`}>{label}</span>
+                        <span className="text-[10px] text-muted-foreground">{desc}</span>
                       </button>
                     ))}
                   </div>
@@ -2541,7 +2541,7 @@ export default function POSScreen() {
                     ← Volver
                   </Button>
                   <Button
-                    className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md"
+                    className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md"
                     onClick={() => processAppointmentBilling(selectedBillingApt)}
                   >
                     <DollarSign className="w-4 h-4 mr-1.5" />
@@ -2561,15 +2561,15 @@ export default function POSScreen() {
       }}>
         <DialogContent className="max-w-xl p-0 overflow-hidden rounded-2xl shadow-2xl">
           {/* Header */}
-          <div className="bg-gradient-to-br from-orange-700 via-orange-600 to-orange-500 px-6 py-5">
+          <div className="bg-warning px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2.5 rounded-xl shadow-inner">
+                <div className="bg-card/20 p-2.5 rounded-xl shadow-inner">
                   <CreditCard className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h2 className="text-white font-bold text-lg leading-tight">Pagar Deuda</h2>
-                  <p className="text-orange-100 text-xs mt-0.5">
+                  <p className="text-warning-foreground/80 text-xs mt-0.5">
                     {!selectedDebtCustomer
                       ? `${(pendingCredits as any[]).length} cliente(s) con deuda pendiente`
                       : `Paso 2 de 2 · Registrar pago`}
@@ -2578,15 +2578,15 @@ export default function POSScreen() {
               </div>
               {selectedDebtCustomer && (
                 <button onClick={() => { setSelectedDebtCustomer(null); setDebtPaymentAmount(''); }}
-                  className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
+                  className="bg-card/20 hover:bg-card/30 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
                   ← Lista
                 </button>
               )}
             </div>
             {/* Step indicator */}
             <div className="flex gap-1.5 mt-4">
-              <div className="h-1 flex-1 rounded-full bg-white"></div>
-              <div className={`h-1 flex-1 rounded-full transition-all ${selectedDebtCustomer ? 'bg-white' : 'bg-white/30'}`}></div>
+              <div className="h-1 flex-1 rounded-full bg-card"></div>
+              <div className={`h-1 flex-1 rounded-full transition-all ${selectedDebtCustomer ? 'bg-card' : 'bg-card/30'}`}></div>
             </div>
           </div>
 
@@ -2595,16 +2595,16 @@ export default function POSScreen() {
               <>
                 {/* Search box */}
                 <div className="relative mb-3">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-warning" />
                   <input
                     type="text"
                     placeholder="Buscar por nombre, teléfono o correo…"
                     value={debtSearch}
                     onChange={(e) => setDebtSearch(e.target.value)}
-                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-0 focus:border-orange-400 transition-colors"
+                    className="w-full pl-10 pr-9 py-2.5 rounded-xl border-2 border-border bg-subtle text-sm focus:outline-none focus:ring-0 focus:border-warning transition-colors"
                   />
                   {debtSearch && (
-                    <button onClick={() => setDebtSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <button onClick={() => setDebtSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground">
                       <X className="w-4 h-4" />
                     </button>
                   )}
@@ -2612,7 +2612,7 @@ export default function POSScreen() {
 
                 {/* Result count */}
                 {debtSearch && (
-                  <p className="text-xs text-gray-400 mb-2 px-1">
+                  <p className="text-xs text-muted-foreground mb-2 px-1">
                     {(pendingCredits as any[]).filter((c: any) => {
                       const q = debtSearch.toLowerCase();
                       return (c.customerName || c.customer_name || '').toLowerCase().includes(q) ||
@@ -2626,9 +2626,9 @@ export default function POSScreen() {
                 {!debtSearch && (pendingCredits as any[]).length > 0 && (() => {
                   const totalDebt = (pendingCredits as any[]).reduce((sum: number, c: any) => sum + parseFloat(c.currentBalance || c.current_balance || '0'), 0);
                   return (
-                    <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
-                      <span className="text-xs font-semibold text-red-600">Total deuda acumulada</span>
-                      <span className="text-base font-extrabold text-red-700">{formatCurrency(totalDebt)}</span>
+                    <div className="mb-3 px-4 py-2.5 bg-destructive/10 border border-destructive/40 rounded-xl flex items-center justify-between">
+                      <span className="text-xs font-semibold text-destructive">Total deuda acumulada</span>
+                      <span className="text-base font-extrabold text-destructive">{formatCurrency(totalDebt)}</span>
                     </div>
                   );
                 })()}
@@ -2644,7 +2644,7 @@ export default function POSScreen() {
                         (c.customerEmail || c.customer_email || '').toLowerCase().includes(q);
                     });
                     if (filtered.length === 0) return (
-                      <div className="text-center py-12 text-gray-400">
+                      <div className="text-center py-12 text-muted-foreground">
                         <Users className="w-14 h-14 mx-auto mb-3 opacity-30" />
                         <p className="font-semibold text-sm">No se encontraron clientes</p>
                         <p className="text-xs mt-1">Intenta con otro término de búsqueda</p>
@@ -2660,25 +2660,25 @@ export default function POSScreen() {
                         <button
                           key={credit.customerId || credit.customer_id}
                           onClick={() => { setSelectedDebtCustomer(credit); setDebtPaymentAmount(String(balance)); }}
-                          className="w-full text-left rounded-xl border-2 border-gray-200 bg-white hover:border-orange-400 hover:shadow-md transition-all group"
+                          className="w-full text-left rounded-xl border-2 border-border bg-card hover:border-warning hover:shadow-md transition-all group"
                         >
                           <div className="p-3.5 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               {/* Avatar with initials */}
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                              <div className="w-10 h-10 rounded-full bg-warning flex items-center justify-center flex-shrink-0 shadow-sm">
                                 <span className="text-white font-bold text-xs">{initials}</span>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-gray-800 truncate">{name}</p>
+                                <p className="font-bold text-sm text-foreground truncate">{name}</p>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  {phone && <span className="text-[11px] text-gray-400">📞 {phone}</span>}
-                                  {email && <span className="text-[11px] text-gray-400 truncate max-w-[130px]">✉ {email}</span>}
+                                  {phone && <span className="text-[11px] text-muted-foreground">📞 {phone}</span>}
+                                  {email && <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">✉ {email}</span>}
                                 </div>
                               </div>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <p className="text-base font-extrabold text-red-600">{formatCurrency(balance)}</p>
-                              <p className="text-[10px] text-gray-400 font-medium">Deuda pendiente</p>
+                              <p className="text-base font-extrabold text-destructive">{formatCurrency(balance)}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium">Deuda pendiente</p>
                             </div>
                           </div>
                         </button>
@@ -2690,28 +2690,28 @@ export default function POSScreen() {
             ) : (
               <div className="space-y-4">
                 {/* Client summary card */}
-                <div className="rounded-xl overflow-hidden border border-orange-200">
-                  <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-semibold text-orange-700">Datos del cliente</span>
+                <div className="rounded-xl overflow-hidden border border-warning/40">
+                  <div className="bg-warning/10 px-4 py-3 border-b border-warning/40 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-warning" />
+                    <span className="text-sm font-semibold text-warning">Datos del cliente</span>
                   </div>
-                  <div className="bg-white px-4 py-3 flex items-center justify-between gap-4">
+                  <div className="bg-card px-4 py-3 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <div className="w-11 h-11 rounded-full bg-warning flex items-center justify-center flex-shrink-0 shadow-sm">
                         <span className="text-white font-bold text-sm">
                           {(selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name || 'C').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-gray-800 truncate">{selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name}</p>
+                        <p className="font-bold text-foreground truncate">{selectedDebtCustomer.customerName || selectedDebtCustomer.customer_name}</p>
                         {(selectedDebtCustomer.customerPhone || selectedDebtCustomer.customer_phone) && (
-                          <p className="text-xs text-gray-500">📞 {selectedDebtCustomer.customerPhone || selectedDebtCustomer.customer_phone}</p>
+                          <p className="text-xs text-muted-foreground">📞 {selectedDebtCustomer.customerPhone || selectedDebtCustomer.customer_phone}</p>
                         )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] text-gray-400 font-medium">Deuda total</p>
-                      <p className="text-2xl font-extrabold text-red-600">{formatCurrency(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0'))}</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">Deuda total</p>
+                      <p className="text-2xl font-extrabold text-destructive">{formatCurrency(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0'))}</p>
                     </div>
                   </div>
                 </div>
@@ -2719,16 +2719,16 @@ export default function POSScreen() {
                 {/* Amount input */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Monto a pagar</label>
+                    <label className="text-sm font-semibold text-foreground">Monto a pagar</label>
                     <button
                       onClick={() => setDebtPaymentAmount(String(parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0')))}
-                      className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-lg transition-all"
+                      className="text-xs font-bold text-warning hover:text-warning bg-warning/10 hover:bg-warning/10 px-2.5 py-1 rounded-lg transition-all"
                     >
                       Pagar todo
                     </button>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">RD$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">RD$</span>
                     <Input
                       type="number"
                       min={0}
@@ -2736,15 +2736,15 @@ export default function POSScreen() {
                       placeholder="0.00"
                       value={debtPaymentAmount}
                       onChange={(e) => setDebtPaymentAmount(e.target.value)}
-                      className="pl-14 text-2xl font-extrabold text-center rounded-xl h-14 border-2 focus:border-orange-400"
+                      className="pl-14 text-2xl font-extrabold text-center rounded-xl h-14 border-2 focus:border-warning"
                     />
                   </div>
                   {debtPaymentAmount && parseFloat(debtPaymentAmount) > 0 && (
                     <div className="mt-2 flex items-center justify-between text-xs px-1">
-                      <span className="text-gray-400">Saldo restante:</span>
+                      <span className="text-muted-foreground">Saldo restante:</span>
                       <span className={`font-bold ${
                         parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0') - parseFloat(debtPaymentAmount) <= 0
-                          ? 'text-green-600' : 'text-red-500'
+                          ? 'text-success' : 'text-destructive'
                       }`}>
                         {formatCurrency(Math.max(0, parseFloat(selectedDebtCustomer.currentBalance || selectedDebtCustomer.current_balance || '0') - parseFloat(debtPaymentAmount)))}
                       </span>
@@ -2754,7 +2754,7 @@ export default function POSScreen() {
 
                 {/* Payment method */}
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Método de pago</p>
+                  <p className="text-sm font-semibold text-foreground mb-2">Método de pago</p>
                   <div className="grid grid-cols-3 gap-2">
                     {([
                       { key: 'cash', label: 'Efectivo', icon: '💵', desc: 'Pago en físico' },
@@ -2766,13 +2766,13 @@ export default function POSScreen() {
                         onClick={() => setDebtPaymentMethod(key)}
                         className={`p-3 rounded-xl text-sm border-2 transition-all flex flex-col items-center gap-1 ${
                           debtPaymentMethod === key
-                            ? 'border-orange-500 bg-orange-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-orange-300'
+                            ? 'border-warning bg-warning/10 shadow-sm'
+                            : 'border-border bg-card hover:border-warning/40'
                         }`}
                       >
                         <span className="text-xl">{icon}</span>
-                        <span className={`font-bold text-xs ${debtPaymentMethod === key ? 'text-orange-700' : 'text-gray-700'}`}>{label}</span>
-                        <span className="text-[10px] text-gray-400">{desc}</span>
+                        <span className={`font-bold text-xs ${debtPaymentMethod === key ? 'text-warning' : 'text-foreground'}`}>{label}</span>
+                        <span className="text-[10px] text-muted-foreground">{desc}</span>
                       </button>
                     ))}
                   </div>
@@ -2783,7 +2783,7 @@ export default function POSScreen() {
                     ← Volver
                   </Button>
                   <Button
-                    className="flex-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md"
+                    className="flex-1 rounded-xl bg-warning hover:bg-warning/90 text-warning-foreground font-bold shadow-md"
                     onClick={processDebtPayment}
                     disabled={!debtPaymentAmount || parseFloat(debtPaymentAmount) <= 0}
                   >

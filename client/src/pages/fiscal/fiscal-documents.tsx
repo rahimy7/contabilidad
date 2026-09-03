@@ -16,12 +16,30 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Send } from "lucide-react";
+import { DataGrid, PageHeader, StatusChip, amount, money, type Column, type Status } from "@/components/erp";
 
-const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
-  issued: "secondary",
-  cancelled: "destructive",
-  draft: "outline",
+/** Estado del comprobante ante la DGII, no el de la fila en la tabla. */
+const DOC_STATUS: Record<string, { label: string; status: Status }> = {
+  issued: { label: "Emitido", status: "ok" },
+  cancelled: { label: "Anulado", status: "void" },
+  draft: { label: "Borrador", status: "draft" },
 };
+
+/**
+ * Estado de la transmisión electrónica. "Rechazado" es el único que exige algo
+ * del operador, y por eso es el único en rojo: si todo lo demás también gritara,
+ * no se distinguiría.
+ */
+const ECF_STATUS: Record<string, Status> = {
+  pendiente: "pending",
+  firmado: "pending",
+  enviado: "pending",
+  aceptado: "ok",
+  rechazado: "overdue",
+  en_contingencia: "pending",
+  anulado: "void",
+};
+
 const ECF_LABEL: Record<string, string> = {
   pendiente: "Pendiente",
   firmado: "Firmado",
@@ -32,8 +50,6 @@ const ECF_LABEL: Record<string, string> = {
   anulado: "Anulado",
 };
 
-const money = (v: string) =>
-  Number(v).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function FiscalDocumentsPage() {
   const { toast } = useToast();
@@ -69,80 +85,79 @@ export default function FiscalDocumentsPage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Comprobantes Fiscales</h1>
-          <p className="text-sm text-muted-foreground">Facturas y comprobantes con NCF</p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Emitir factura
-            </Button>
-          </DialogTrigger>
-          <IssueInvoiceDialog onDone={() => setOpen(false)} />
-        </Dialog>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        subtitle="Facturas y comprobantes con NCF"
+        actions={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" /> Emitir factura
+              </Button>
+            </DialogTrigger>
+            <IssueInvoiceDialog onDone={() => setOpen(false)} />
+          </Dialog>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Documentos emitidos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-muted-foreground">Cargando…</p>}
-          {!isLoading && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">NCF</th>
-                    <th className="py-2 pr-4 font-medium">Cliente</th>
-                    <th className="py-2 pr-4 text-right font-medium">Total</th>
-                    <th className="py-2 pr-4 font-medium">Estado</th>
-                    <th className="py-2 pr-4 font-medium">e-CF</th>
-                    <th className="py-2 pr-4"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data?.documents ?? []).map((d: FiscalDocument) => (
-                    <tr key={d.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="py-1.5 pr-4 font-mono text-xs">{d.ncf}</td>
-                      <td className="py-1.5 pr-4">{d.buyer_name ?? d.buyer_rnc ?? "Consumo final"}</td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">{money(d.total)}</td>
-                      <td className="py-1.5 pr-4">
-                        <Badge variant={STATUS_VARIANT[d.status] ?? "outline"}>{d.status}</Badge>
-                      </td>
-                      <td className="py-1.5 pr-4">
-                        {d.is_ecf && d.ecf_status ? ECF_LABEL[d.ecf_status] ?? d.ecf_status : "—"}
-                      </td>
-                      <td className="py-1.5 pr-4">
-                        <div className="flex items-center gap-1">
-                          {d.is_ecf && <EcfRepresentationDialog documentId={d.id} />}
-                          {d.is_ecf && d.status === "issued" && d.ecf_status !== "aceptado" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="gap-1"
-                              disabled={transmit.isPending}
-                              onClick={() => transmit.mutate(d.id)}
-                            >
-                              <Send className="h-3.5 w-3.5" /> Transmitir
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {(data?.documents ?? []).length === 0 && (
-                <p className="py-6 text-center text-muted-foreground">Aún no hay comprobantes.</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <DataGrid
+        columns={[
+          {
+            key: "ncf", header: "NCF", width: "150px",
+            cell: (d: FiscalDocument) => <span className="font-mono text-[12px]">{d.ncf}</span>,
+          },
+          {
+            key: "buyer", header: "Cliente",
+            cell: (d: FiscalDocument) => d.buyer_name ?? d.buyer_rnc ?? "Consumo final",
+          },
+          {
+            key: "total", header: "Total", align: "right", width: "150px",
+            cell: (d: FiscalDocument) => <span className="font-medium">{amount(d.total)}</span>,
+          },
+          {
+            key: "status", header: "Estado", width: "110px",
+            cell: (d: FiscalDocument) => {
+              const st = DOC_STATUS[d.status] ?? { label: d.status, status: "draft" as Status };
+              return <StatusChip status={st.status}>{st.label}</StatusChip>;
+            },
+          },
+          {
+            key: "ecf", header: "e-CF", width: "130px",
+            cell: (d: FiscalDocument) =>
+              d.is_ecf && d.ecf_status ? (
+                <StatusChip status={ECF_STATUS[d.ecf_status] ?? "draft"}>
+                  {ECF_LABEL[d.ecf_status] ?? d.ecf_status}
+                </StatusChip>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          },
+          {
+            key: "actions", header: "", width: "180px", align: "right",
+            cell: (d: FiscalDocument) => (
+              <div className="flex items-center justify-end gap-1">
+                {d.is_ecf && <EcfRepresentationDialog documentId={d.id} />}
+                {d.is_ecf && d.status === "issued" && d.ecf_status !== "aceptado" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1"
+                    disabled={transmit.isPending}
+                    onClick={() => transmit.mutate(d.id)}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Transmitir
+                  </Button>
+                )}
+              </div>
+            ),
+          },
+        ] as Column<FiscalDocument>[]}
+        rows={(data?.documents ?? []) as FiscalDocument[]}
+        rowKey={(d) => d.id}
+        isLoading={isLoading}
+        emptyMessage="Aún no hay comprobantes emitidos."
+      />
+
     </div>
   );
 }

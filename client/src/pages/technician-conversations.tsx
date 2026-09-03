@@ -135,24 +135,24 @@ export default function TechnicianConversations() {
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-subtle">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b px-4 py-4">
+      <div className="bg-card shadow-sm border-b px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <MessageCircle className="w-6 h-6 text-blue-600" />
+            <MessageCircle className="w-6 h-6 text-primary" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-[20px] font-semibold tracking-tight">
                 Mis Conversaciones
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Conversaciones de órdenes asignadas
               </p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            <Badge variant="secondary" className="bg-accent text-accent-foreground">
               {conversations.length} conversaciones
             </Badge>
             {totalUnread > 0 && (
@@ -166,11 +166,11 @@ export default function TechnicianConversations() {
 
       <div className="flex h-[calc(100vh-80px)]">
         {/* Sidebar - Lista de conversaciones */}
-        <div className="w-1/3 bg-white dark:bg-gray-800 border-r flex flex-col">
+        <div className="w-1/3 bg-card border-r flex flex-col">
           {/* Search */}
           <div className="p-4 border-b">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Buscar conversación..."
                 value={searchTerm}
@@ -183,11 +183,11 @@ export default function TechnicianConversations() {
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
             {conversationsLoading ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-muted-foreground">
                 Cargando conversaciones...
               </div>
             ) : filteredConversations.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-muted-foreground">
                 <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No hay conversaciones disponibles</p>
                 <p className="text-xs mt-1">Solo se muestran conversaciones de órdenes asignadas</p>
@@ -197,17 +197,17 @@ export default function TechnicianConversations() {
                 <div
                   key={conversation.id}
                   onClick={() => handleSelectConversation(conversation)}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                  className={`p-4 border-b cursor-pointer hover:bg-subtle transition-colors ${
                     selectedConversation?.id === conversation.id 
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200' 
+                      ? 'bg-accent dark:bg-primary/20 border-border' 
                       : ''
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <User className="w-4 h-4 text-gray-500" />
-                        <span className="font-medium text-gray-900 dark:text-white">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium text-foreground">
                           {conversation.customer.name}
                         </span>
                         {conversation.unreadCount > 0 && (
@@ -217,13 +217,13 @@ export default function TechnicianConversations() {
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <Phone className="w-3 h-3" />
                         {conversation.customer.phone}
                       </div>
 
                       {conversation.order && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                           <Package className="w-3 h-3" />
                           <span>#{conversation.order.orderNumber}</span>
                           <Badge variant="outline" className="text-xs">
@@ -232,7 +232,7 @@ export default function TechnicianConversations() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         {new Date(conversation.lastMessageAt).toLocaleString('es-ES', {
                           day: '2-digit',
@@ -250,17 +250,17 @@ export default function TechnicianConversations() {
         </div>
 
         {/* Main Content - Messages */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
+        <div className="flex-1 flex flex-col bg-card">
           {selectedConversation ? (
             <>
               {/* Conversation Header */}
-              <div className="p-4 border-b bg-gray-50 dark:bg-gray-700">
+              <div className="p-4 border-b bg-subtle">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-semibold text-gray-900 dark:text-white">
+                    <h2 className="font-semibold text-foreground">
                       {selectedConversation.customer.name}
                     </h2>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Phone className="w-4 h-4" />
                         {selectedConversation.customer.phone}
@@ -275,7 +275,7 @@ export default function TechnicianConversations() {
                   </div>
                   
                   {selectedConversation.customer.address && (
-                    <div className="text-right text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-right text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
                         <span className="max-w-xs truncate">
@@ -290,7 +290,7 @@ export default function TechnicianConversations() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
+                  <div className="text-center text-muted-foreground py-8">
                     <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No hay mensajes en esta conversación</p>
                   </div>
@@ -303,14 +303,14 @@ export default function TechnicianConversations() {
                       <div
                         className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                           message.senderType === 'agent'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-foreground'
                         }`}
                       >
                         <p>{message.content}</p>
                         <p
                           className={`text-xs mt-1 ${
-                            message.senderType === 'agent' ? 'text-blue-100' : 'text-gray-500'
+                            message.senderType === 'agent' ? 'text-primary/70' : 'text-muted-foreground'
                           }`}
                         >
                           {new Date(message.sentAt).toLocaleTimeString('es-ES', {
@@ -325,7 +325,7 @@ export default function TechnicianConversations() {
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t bg-gray-50 dark:bg-gray-700">
+              <div className="p-4 border-t bg-subtle">
                 <div className="flex gap-2">
                   <Input
                     placeholder="Escribe tu mensaje..."
@@ -350,7 +350,7 @@ export default function TechnicianConversations() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium">Selecciona una conversación</p>

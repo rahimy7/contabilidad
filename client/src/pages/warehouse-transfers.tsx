@@ -276,18 +276,18 @@ export default function WarehouseTransfersPage() {
   const completed = transfers.filter((t) => t.status === "completed").length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <ArrowRightLeft className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          <div className="p-2 bg-accent rounded-lg">
+            <ArrowRightLeft className="h-6 w-6 text-primary dark:text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-[20px] font-semibold tracking-tight">
               Transferencias entre Almacenes
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Gestiona el movimiento de stock entre sucursales
             </p>
           </div>
@@ -302,28 +302,28 @@ export default function WarehouseTransfersPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <Clock className="h-8 w-8 text-yellow-500" />
+            <Clock className="h-8 w-8 text-warning" />
             <div>
-              <p className="text-sm text-gray-500">Pendientes</p>
-              <p className="text-2xl font-bold text-yellow-600">{pending}</p>
+              <p className="text-sm text-muted-foreground">Pendientes</p>
+              <p className="text-2xl font-bold text-warning">{pending}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <Truck className="h-8 w-8 text-blue-500" />
+            <Truck className="h-8 w-8 text-primary" />
             <div>
-              <p className="text-sm text-gray-500">Aprobadas</p>
-              <p className="text-2xl font-bold text-blue-600">{approved}</p>
+              <p className="text-sm text-muted-foreground">Aprobadas</p>
+              <p className="text-2xl font-bold text-primary">{approved}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <CheckCircle className="h-8 w-8 text-green-500" />
+            <CheckCircle className="h-8 w-8 text-success" />
             <div>
-              <p className="text-sm text-gray-500">Completadas</p>
-              <p className="text-2xl font-bold text-green-600">{completed}</p>
+              <p className="text-sm text-muted-foreground">Completadas</p>
+              <p className="text-2xl font-bold text-success">{completed}</p>
             </div>
           </CardContent>
         </Card>
@@ -334,7 +334,7 @@ export default function WarehouseTransfersPage() {
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por número, almacén..."
                 className="pl-9"
@@ -347,10 +347,10 @@ export default function WarehouseTransfersPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <ArrowRightLeft className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No hay transferencias registradas.</p>
             </div>
@@ -376,10 +376,10 @@ export default function WarehouseTransfersPage() {
                     <TableCell>
                       <StatusBadge status={t.status} />
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-muted-foreground">
                       {formatDate(t.createdAt)}
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-muted-foreground">
                       {t.completedAt ? formatDate(t.completedAt) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -391,7 +391,7 @@ export default function WarehouseTransfersPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-green-600 hover:text-green-800"
+                            className="text-success hover:text-success/80"
                             onClick={() => approveMutation.mutate(t.id)}
                             disabled={approveMutation.isPending}
                           >
@@ -402,7 +402,7 @@ export default function WarehouseTransfersPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-primary hover:text-accent-foreground"
                             onClick={() => completeMutation.mutate(t.id)}
                             disabled={completeMutation.isPending}
                           >
@@ -413,7 +413,7 @@ export default function WarehouseTransfersPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-500 hover:text-red-700"
+                            className="text-destructive hover:text-destructive/80"
                             onClick={() => cancelMutation.mutate(t.id)}
                             disabled={cancelMutation.isPending}
                           >
@@ -513,7 +513,7 @@ export default function WarehouseTransfersPage() {
                           {products.map((p: any) => (
                             <SelectItem key={p.id} value={String(p.id)}>
                               {p.name}
-                              {p.sku && <span className="text-gray-400 ml-1">({p.sku})</span>}
+                              {p.sku && <span className="text-muted-foreground ml-1">({p.sku})</span>}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -546,7 +546,7 @@ export default function WarehouseTransfersPage() {
                         size="sm"
                         onClick={() => removeItem(idx)}
                         disabled={items.length === 1}
-                        className="text-red-400 hover:text-red-600"
+                        className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -582,38 +582,38 @@ export default function WarehouseTransfersPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-400">Origen</p>
+                  <p className="text-muted-foreground">Origen</p>
                   <p className="font-medium">{transferDetail.fromWarehouseName}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Destino</p>
+                  <p className="text-muted-foreground">Destino</p>
                   <p className="font-medium">{transferDetail.toWarehouseName}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Estado</p>
+                  <p className="text-muted-foreground">Estado</p>
                   <StatusBadge status={transferDetail.status} />
                 </div>
                 <div>
-                  <p className="text-gray-400">Creada</p>
+                  <p className="text-muted-foreground">Creada</p>
                   <p className="font-medium">{formatDate(transferDetail.createdAt)}</p>
                 </div>
                 {transferDetail.approvedAt && (
                   <div>
-                    <p className="text-gray-400">Aprobada</p>
+                    <p className="text-muted-foreground">Aprobada</p>
                     <p className="font-medium">{formatDate(transferDetail.approvedAt)}</p>
                   </div>
                 )}
                 {transferDetail.completedAt && (
                   <div>
-                    <p className="text-gray-400">Completada</p>
+                    <p className="text-muted-foreground">Completada</p>
                     <p className="font-medium">{formatDate(transferDetail.completedAt)}</p>
                   </div>
                 )}
               </div>
 
               {transferDetail.notes && (
-                <div className="rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm">
-                  <span className="text-gray-400">Notas: </span>
+                <div className="rounded-md bg-subtle p-3 text-sm">
+                  <span className="text-muted-foreground">Notas: </span>
                   {transferDetail.notes}
                 </div>
               )}
@@ -634,11 +634,11 @@ export default function WarehouseTransfersPage() {
                         <div>
                           <span className="font-medium">{item.productName}</span>
                           {item.productSku && (
-                            <span className="text-xs text-gray-400 ml-2">#{item.productSku}</span>
+                            <span className="text-xs text-muted-foreground ml-2">#{item.productSku}</span>
                           )}
                         </div>
                         {item.notes && (
-                          <p className="text-xs text-gray-400 mt-0.5">{item.notes}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -664,7 +664,7 @@ export default function WarehouseTransfersPage() {
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
-                    className="text-red-500"
+                    className="text-destructive"
                     onClick={() => {
                       cancelMutation.mutate(transferDetail.id);
                       setDetailOpen(false);
@@ -687,7 +687,7 @@ export default function WarehouseTransfersPage() {
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
-                    className="text-red-500"
+                    className="text-destructive"
                     onClick={() => {
                       cancelMutation.mutate(transferDetail.id);
                       setDetailOpen(false);

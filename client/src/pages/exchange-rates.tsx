@@ -117,12 +117,12 @@ queryFn: async () => {
   const dopToUsdRate = getCurrentRate('DOP', 'USD');
 
   return (
-    <div className="container mx-auto p-6">
+    <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tasas de Cambio</h1>
-          <p className="text-gray-600 mt-1">Gestiona las tasas USD ↔ DOP</p>
+          <h1 className="text-[20px] font-semibold tracking-tight">Tasas de Cambio</h1>
+          <p className="text-muted-foreground mt-1">Gestiona las tasas USD ↔ DOP</p>
         </div>
         <CurrencySelector variant="badge" />
       </div>
@@ -138,17 +138,17 @@ queryFn: async () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* USD a DOP */}
-            <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+            <div className="flex justify-between items-center p-3 bg-accent rounded-lg">
               <div>
                 <span className="font-medium">1 USD</span>
-                <span className="text-gray-500 ml-2">→</span>
+                <span className="text-muted-foreground ml-2">→</span>
               </div>
               <div className="text-right">
-                <span className="text-lg font-bold text-blue-600">
+                <span className="text-lg font-bold text-primary">
                   {usdToDopRate ? parseFloat(usdToDopRate.rate).toFixed(2) : 'N/A'} DOP
                 </span>
                 {usdToDopRate && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Actualizado: {new Date(usdToDopRate.updatedAt).toLocaleString()}
                   </p>
                 )}
@@ -156,17 +156,17 @@ queryFn: async () => {
             </div>
 
             {/* DOP a USD */}
-            <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+            <div className="flex justify-between items-center p-3 bg-success/10 rounded-lg">
               <div>
                 <span className="font-medium">1 DOP</span>
-                <span className="text-gray-500 ml-2">→</span>
+                <span className="text-muted-foreground ml-2">→</span>
               </div>
               <div className="text-right">
-                <span className="text-lg font-bold text-green-600">
+                <span className="text-lg font-bold text-success">
                   {dopToUsdRate ? parseFloat(dopToUsdRate.rate).toFixed(4) : 'N/A'} USD
                 </span>
                 {dopToUsdRate && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Actualizado: {new Date(dopToUsdRate.updatedAt).toLocaleString()}
                   </p>
                 )}
@@ -174,7 +174,7 @@ queryFn: async () => {
             </div>
 
             {(!usdToDopRate || !dopToUsdRate) && (
-              <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg text-yellow-800">
+              <div className="flex items-center gap-2 p-3 bg-warning/15 rounded-lg text-warning">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm">Algunas tasas no están configuradas</span>
               </div>
@@ -225,7 +225,7 @@ queryFn: async () => {
                 value={newRate}
                 onChange={(e) => setNewRate(e.target.value)}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 1 {fromCurrency} = {newRate || '0'} {toCurrency}
               </p>
             </div>
@@ -240,12 +240,12 @@ queryFn: async () => {
 
             {/* Validación de rango */}
             {newRate && (
-              <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <div className="text-xs text-muted-foreground bg-subtle p-2 rounded">
                 {fromCurrency === 'USD' && toCurrency === 'DOP' && (
                   parseFloat(newRate) < 40 || parseFloat(newRate) > 70 ? (
-                    <span className="text-red-600">⚠️ Tasa fuera del rango típico (40-70)</span>
+                    <span className="text-destructive">⚠️ Tasa fuera del rango típico (40-70)</span>
                   ) : (
-                    <span className="text-green-600">✓ Tasa en rango aceptable</span>
+                    <span className="text-success">✓ Tasa en rango aceptable</span>
                   )
                 )}
               </div>
@@ -267,14 +267,14 @@ queryFn: async () => {
                 {history.slice(0, 10).map((rate) => (
                   <div key={rate.id} className="flex justify-between items-center p-2 border rounded">
                     <span className="font-medium">{parseFloat(rate.rate).toFixed(4)}</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground">
                       {new Date(rate.updatedAt).toLocaleString()}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-4">No hay historial disponible</p>
+              <p className="text-muted-foreground text-center py-4">No hay historial disponible</p>
             )}
           </CardContent>
         </Card>

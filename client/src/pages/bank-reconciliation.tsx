@@ -16,10 +16,10 @@ const money = (v: string | number) =>
   Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2 });
 
 const CONFIDENCE_COLOR: Record<string, string> = {
-  exact: "bg-green-600",
-  high: "bg-green-500",
-  medium: "bg-yellow-500",
-  manual: "bg-blue-500",
+  exact: "bg-success",
+  high: "bg-success",
+  medium: "bg-warning",
+  manual: "bg-primary",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -89,12 +89,12 @@ export default function BankReconciliationPage() {
   const counts = countByStatus(lines.data?.rows ?? []);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Landmark className="w-8 h-8 text-teal-600" />
+          <Landmark className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Conciliación Bancaria</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Conciliación Bancaria</h1>
             <p className="text-muted-foreground">Importa extractos y empareja con tus movimientos</p>
           </div>
         </div>
@@ -127,9 +127,9 @@ export default function BankReconciliationPage() {
         <>
           <div className="grid grid-cols-5 gap-3">
             <StatCard label="Total líneas" value={lines.data?.rows?.length ?? 0} />
-            <StatCard label="Pendientes" value={counts.pending} color="text-yellow-600" />
-            <StatCard label="Emparejadas" value={counts.matched} color="text-green-600" />
-            <StatCard label="Ignoradas" value={counts.ignored} color="text-gray-600" />
+            <StatCard label="Pendientes" value={counts.pending} color="text-warning" />
+            <StatCard label="Emparejadas" value={counts.matched} color="text-success" />
+            <StatCard label="Ignoradas" value={counts.ignored} color="text-muted-foreground" />
             <StatCard label="Saldo cuenta" value={`RD$ ${money(selectedAccount?.balance ?? 0)}`} />
           </div>
 
@@ -215,7 +215,7 @@ export default function BankReconciliationPage() {
                         <TableCell className="text-xs">{l.txnDate}</TableCell>
                         <TableCell>
                           {l.direction === "in" ? (
-                            <Badge className="bg-green-600 text-white">Ingreso</Badge>
+                            <Badge className="bg-success text-success-foreground">Ingreso</Badge>
                           ) : (
                             <Badge variant="secondary">Salida</Badge>
                           )}
@@ -230,7 +230,7 @@ export default function BankReconciliationPage() {
                         </TableCell>
                         <TableCell>
                           {l.matchConfidence && (
-                            <Badge className={`${CONFIDENCE_COLOR[l.matchConfidence] ?? "bg-slate-500"} text-white text-xs`}>
+                            <Badge className={`${CONFIDENCE_COLOR[l.matchConfidence] ?? "bg-muted-foreground"} text-white text-xs`}>
                               {l.matchConfidence}
                             </Badge>
                           )}

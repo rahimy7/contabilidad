@@ -163,7 +163,7 @@ export default function StoreSettingsPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="mb-4 text-gray-500">Cargando configuración...</div>
+          <div className="mb-4 text-muted-foreground">Cargando configuración...</div>
         </div>
       </div>
     );
@@ -172,21 +172,21 @@ export default function StoreSettingsPage() {
   if (!settings) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center text-red-600">No se encontraron configuraciones</div>
+        <div className="text-center text-destructive">No se encontraron configuraciones</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-subtle py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Configuración de la Tienda</h1>
-        <p className="text-gray-600 mb-8">Administra los datos de tu tienda para facturas y operaciones</p>
+        <h1 className="text-[20px] font-semibold tracking-tight mb-2">Configuración de la Tienda</h1>
+        <p className="text-muted-foreground mb-8">Administra los datos de tu tienda para facturas y operaciones</p>
 
         <div className="space-y-6">
           {/* 🧾 SECCIÓN DE FACTURA */}
           <Card>
-            <CardHeader className="bg-emerald-50 border-b-2 border-emerald-200">
+            <CardHeader className="bg-success/10 border-b-2 border-success/40">
               <CardTitle className="flex items-center gap-2">
                 <span>📄</span> Configuración de Facturas
               </CardTitle>
@@ -197,12 +197,12 @@ export default function StoreSettingsPage() {
             <CardContent className="pt-6 space-y-4">
               {/* Logo */}
               <div className="space-y-4">
-                <label className="block text-sm font-semibold text-gray-700">
+                <label className="block text-sm font-semibold text-foreground">
                   Logo de la Tienda
                 </label>
                 <div className="flex gap-4 items-start">
                   {settings.logoUrl ? (
-                    <div className="relative w-32 h-32 bg-white rounded-lg border-2 border-gray-200 flex items-center justify-center overflow-hidden">
+                    <div className="relative w-32 h-32 bg-card rounded-lg border-2 border-border flex items-center justify-center overflow-hidden">
                       <img
                         src={settings.logoUrl}
                         alt="Logo"
@@ -211,21 +211,21 @@ export default function StoreSettingsPage() {
                       <button
                         onClick={() => deleteLogoMutation.mutate()}
                         disabled={deleteLogoMutation.isPending}
-                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+                        className="absolute top-1 right-1 bg-destructive hover:bg-destructive text-destructive-foreground rounded-full p-1"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="w-32 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    <div className="w-32 h-32 bg-muted rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
                   <div className="flex-1">
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadLogoMutation.isPending}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-success hover:bg-success/90 text-success-foreground rounded-lg disabled:opacity-50"
                     >
                       <Upload className="w-4 h-4" />
                       {uploadLogoMutation.isPending ? 'Subiendo...' : 'Subir Logo'}
@@ -237,7 +237,7 @@ export default function StoreSettingsPage() {
                       onChange={handleLogoUpload}
                       className="hidden"
                     />
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Máximo 5MB. Formatos: PNG, JPG, WebP
                     </p>
                   </div>
@@ -247,7 +247,7 @@ export default function StoreSettingsPage() {
               {/* Store Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
                     Nombre de la Tienda
                   </label>
                   <Input
@@ -258,7 +258,7 @@ export default function StoreSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
                     Teléfono
                   </label>
                   <Input
@@ -271,7 +271,7 @@ export default function StoreSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Dirección
                 </label>
                 <Input
@@ -283,7 +283,7 @@ export default function StoreSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Correo Electrónico
                 </label>
                 <Input
@@ -296,7 +296,7 @@ export default function StoreSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Pie de Factura (Texto Personalizado)
                 </label>
                 <textarea
@@ -304,13 +304,13 @@ export default function StoreSettingsPage() {
                   onChange={(e) => updateMutation.mutate({ invoiceFooter: e.target.value })}
                   placeholder="Ej: Gracias por su compra. Términos y condiciones aplicables."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-success focus:border-transparent"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
                     Porcentaje de Impuesto (%)
                   </label>
                   <Input
@@ -323,13 +323,13 @@ export default function StoreSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">
                     Moneda Predeterminada
                   </label>
                   <select
                     defaultValue={settings.currency}
                     onChange={(e) => updateMutation.mutate({ currency: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-success"
                   >
                     <option value="DOP">Peso Dominicano (RD$)</option>
                     <option value="USD">Dólar Estadounidense ($)</option>
@@ -342,7 +342,7 @@ export default function StoreSettingsPage() {
 
           {/* 🏪 SECCIÓN GENERAL */}
           <Card>
-            <CardHeader className="bg-blue-50 border-b-2 border-blue-200">
+            <CardHeader className="bg-accent border-b-2 border-border">
               <CardTitle className="flex items-center gap-2">
                 <span>🏪</span> Información General
               </CardTitle>
@@ -352,7 +352,7 @@ export default function StoreSettingsPage() {
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Número de WhatsApp
                 </label>
                 <Input
@@ -364,7 +364,7 @@ export default function StoreSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Horario de Negocio
                 </label>
                 <Input
@@ -375,11 +375,11 @@ export default function StoreSettingsPage() {
                 />
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
+              <div className="bg-accent border border-border rounded-lg p-4 flex gap-3">
+                <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="text-sm text-accent-foreground">
                   <p className="font-semibold mb-1">Número Secuencial de Facturas</p>
-                  <p>Próxima factura: <Badge className="bg-blue-600">{settings.invoiceNumber}</Badge></p>
+                  <p>Próxima factura: <Badge className="bg-primary">{settings.invoiceNumber}</Badge></p>
                 </div>
               </div>
             </CardContent>
@@ -395,7 +395,7 @@ export default function StoreSettingsPage() {
                   description: 'Todos los cambios han sido guardados'
                 });
               }}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-success hover:bg-success/90"
             >
               <Save className="w-4 h-4 mr-2" />
               Guardar Cambios

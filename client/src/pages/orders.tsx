@@ -311,13 +311,13 @@ export default function OrdersPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
-      pending: { label: "Pendiente", className: "bg-yellow-100 text-yellow-800" },
-      processing: { label: "En Progreso", className: "bg-purple-100 text-purple-800" },
-      completed: { label: "Completado", className: "bg-green-100 text-green-800" },
-      cancelled: { label: "Cancelado", className: "bg-red-100 text-red-800" },
+      pending: { label: "Pendiente", className: "bg-warning/15 text-warning" },
+      processing: { label: "En Progreso", className: "bg-accent text-accent-foreground" },
+      completed: { label: "Completado", className: "bg-success/10 text-success" },
+      cancelled: { label: "Cancelado", className: "bg-destructive/10 text-destructive" },
     };
 
-    const config = statusConfig[status] || { label: status, className: "bg-gray-100 text-gray-800" };
+    const config = statusConfig[status] || { label: status, className: "bg-muted text-foreground" };
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
@@ -569,7 +569,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Órdenes</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Órdenes</h1>
           <p className="text-muted-foreground">
             Gestiona y monitorea todas las órdenes del sistema
           </p>
@@ -596,17 +596,17 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
           className={`cursor-pointer transition-all hover:shadow-md ${
             dateFilter === "today" && statusFilter === "all"
               ? "ring-2 ring-primary bg-primary/5"
-              : "bg-gradient-to-r from-slate-50 to-slate-100"
+              : "bg-subtle"
           } border-primary/20`}
           onClick={() => handleStatClick("today")}
         >
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-blue-600">Total Hoy</p>
-                <p className="text-xl font-bold text-blue-800">{orderStats.today}</p>
+                <p className="text-xs font-medium text-primary">Total Hoy</p>
+                <p className="text-xl font-bold text-accent-foreground">{orderStats.today}</p>
               </div>
-              <Package className="h-6 w-6 text-blue-600" />
+              <Package className="h-6 w-6 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -614,18 +614,18 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
         <Card 
           className={`cursor-pointer transition-all hover:shadow-md ${
             statusFilter === "pending" && dateFilter === "all"
-              ? "ring-2 ring-yellow-500 bg-yellow-50" 
-              : "bg-gradient-to-r from-yellow-50 to-yellow-100"
-          } border-yellow-200`}
+              ? "ring-2 ring-warning bg-warning/15" 
+              : "bg-warning/15"
+          } border-warning/40`}
           onClick={() => handleStatClick("pending")}
         >
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-yellow-600">Pendientes</p>
-                <p className="text-xl font-bold text-yellow-800">{orderStats.pending}</p>
+                <p className="text-xs font-medium text-warning">Pendientes</p>
+                <p className="text-xl font-bold text-warning">{orderStats.pending}</p>
               </div>
-              <Clock className="h-6 w-6 text-yellow-600" />
+              <Clock className="h-6 w-6 text-warning" />
             </div>
           </CardContent>
         </Card>
@@ -633,18 +633,18 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
         <Card 
           className={`cursor-pointer transition-all hover:shadow-md ${
             statusFilter === "processing" && dateFilter === "all"
-              ? "ring-2 ring-purple-500 bg-purple-50" 
-              : "bg-gradient-to-r from-purple-50 to-purple-100"
-          } border-purple-200`}
+              ? "ring-2 ring-primary bg-accent" 
+              : "bg-accent"
+          } border-border`}
           onClick={() => handleStatClick("processing")}
         >
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-purple-600">En Progreso</p>
-                <p className="text-xl font-bold text-purple-800">{orderStats.inProgress}</p>
+                <p className="text-xs font-medium text-primary">En Progreso</p>
+                <p className="text-xl font-bold text-accent-foreground">{orderStats.inProgress}</p>
               </div>
-              <UserCheck className="h-6 w-6 text-purple-600" />
+              <UserCheck className="h-6 w-6 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -652,18 +652,18 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
         <Card 
           className={`cursor-pointer transition-all hover:shadow-md ${
             statusFilter === "completed" && dateFilter === "all"
-              ? "ring-2 ring-green-500 bg-green-50" 
-              : "bg-gradient-to-r from-green-50 to-green-100"
-          } border-green-200`}
+              ? "ring-2 ring-success bg-success/10" 
+              : "bg-success/10"
+          } border-success/40`}
           onClick={() => handleStatClick("completed")}
         >
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-green-600">Completados</p>
-                <p className="text-xl font-bold text-green-800">{orderStats.completed}</p>
+                <p className="text-xs font-medium text-success">Completados</p>
+                <p className="text-xl font-bold text-success">{orderStats.completed}</p>
               </div>
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <CheckCircle className="h-6 w-6 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -671,18 +671,18 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
         <Card 
           className={`cursor-pointer transition-all hover:shadow-md ${
             statusFilter === "cancelled" && dateFilter === "all"
-              ? "ring-2 ring-red-500 bg-red-50" 
-              : "bg-gradient-to-r from-red-50 to-red-100"
-          } border-red-200`}
+              ? "ring-2 ring-destructive bg-destructive/10" 
+              : "bg-destructive/10"
+          } border-destructive/40`}
           onClick={() => handleStatClick("cancelled")}
         >
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-red-600">Cancelados</p>
-                <p className="text-xl font-bold text-red-800">{orderStats.cancelled}</p>
+                <p className="text-xs font-medium text-destructive">Cancelados</p>
+                <p className="text-xl font-bold text-destructive">{orderStats.cancelled}</p>
               </div>
-              <XCircle className="h-6 w-6 text-red-600" />
+              <XCircle className="h-6 w-6 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -782,9 +782,9 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                     
                     {/* Indicador de notas del cliente */}
                     {order.notes && order.notes.trim() !== '' && (
-                      <div className="mt-2 flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                        <MessageCircle className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-blue-800 line-clamp-2 flex-1">
+                      <div className="mt-2 flex items-start gap-2 p-2 bg-accent border border-border rounded text-xs">
+                        <MessageCircle className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="text-accent-foreground line-clamp-2 flex-1">
                           <span className="font-semibold">Mensaje del cliente:</span>{' '}
                           {order.notes.length > 100 
                             ? order.notes.substring(0, 100) + '...' 
@@ -796,7 +796,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                   
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <div className="text-right">
-                      <div className="text-lg font-bold text-green-600">
+                      <div className="text-lg font-bold text-success">
                         {formatCurrency(order.totalAmount)}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -814,7 +814,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                             handleAssignToTrip(order);
                           }}
                           disabled={assignToTripMutation.isPending}
-                          className="text-green-600 hover:text-green-700"
+                          className="text-success hover:text-success/80"
                           title={
                             order.status === 'pending' && !order.assignedUserId
                               ? "Asignar a viaje compartido"
@@ -830,7 +830,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                           variant="outline"
                           size="sm"
                           disabled
-                          className="text-gray-400"
+                          className="text-muted-foreground"
                           title={`Ya asignada a viaje ${order.tripNumber || order.tripId}`}
                         >
                           <Truck className="w-4 h-4" />
@@ -853,7 +853,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                           e.stopPropagation();
                           handleQuickAssign(order);
                         }}
-                        className="text-blue-600 hover:text-blue-700"
+                        className="text-primary hover:text-primary"
                       >
                         <UserCheck className="w-4 h-4" />
                       </Button>
@@ -864,7 +864,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                           e.stopPropagation();
                           generateOrderPrint(order);
                         }}
-                        className="text-green-600 hover:text-green-700"
+                        className="text-success hover:text-success/80"
                       >
                         <Printer className="w-4 h-4" />
                       </Button>
@@ -875,7 +875,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                           e.stopPropagation();
                           handleDownloadOrder(order);
                         }}
-                        className="text-purple-600 hover:text-purple-700"
+                        className="text-primary hover:text-primary"
                       >
                         <Download className="w-4 h-4" />
                       </Button>
@@ -887,7 +887,7 @@ const buildESCPOSTicket = (order: OrderWithDetails): string => {
                           handleDeleteOrder(order);
                         }}
                         disabled={deleteOrderMutation.isPending}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

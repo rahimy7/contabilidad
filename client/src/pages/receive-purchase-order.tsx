@@ -166,9 +166,9 @@ export default function ReceivePurchaseOrder() {
       setTimeout(() => {
         const element = document.getElementById(`item-${index}`);
         element?.scrollIntoView({ behavior: "smooth", block: "center" });
-        element?.classList.add("ring-2", "ring-blue-500");
+        element?.classList.add("ring-2", "ring-primary");
         setTimeout(() => {
-          element?.classList.remove("ring-2", "ring-blue-500");
+          element?.classList.remove("ring-2", "ring-primary");
         }, 2000);
       }, 100);
     }
@@ -432,8 +432,8 @@ export default function ReceivePurchaseOrder() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando orden...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando orden...</p>
         </div>
       </div>
     );
@@ -443,11 +443,11 @@ export default function ReceivePurchaseOrder() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Orden no encontrada</h2>
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Orden no encontrada</h2>
           <button
             onClick={() => setLocation("/purchase-management")}
-            className="text-blue-600 hover:underline"
+            className="text-primary hover:underline"
           >
             Volver a gestión de compras
           </button>
@@ -457,32 +457,32 @@ export default function ReceivePurchaseOrder() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-subtle p-6">
       {/* Header */}
       <div className="mb-6">
         <button
           onClick={() => setLocation("/purchase-management")}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
           Volver a gestión de compras
         </button>
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-[20px] font-semibold tracking-tight">
                 Recibir Orden de Compra #{purchaseOrder.purchaseNumber}
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Proveedor: {purchaseOrder.supplierName || "Sin proveedor"}
               </p>
               {purchaseOrder.invoiceNumber && (
-                <p className="text-sm text-gray-600">Factura: {purchaseOrder.invoiceNumber}</p>
+                <p className="text-sm text-muted-foreground">Factura: {purchaseOrder.invoiceNumber}</p>
               )}
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Fecha de orden</p>
-              <p className="font-medium text-gray-900">
+              <p className="text-sm text-muted-foreground">Fecha de orden</p>
+              <p className="font-medium text-foreground">
                 {new Date(purchaseOrder.orderDate).toLocaleDateString("es-DO")}
               </p>
             </div>
@@ -491,11 +491,11 @@ export default function ReceivePurchaseOrder() {
       </div>
 
       {/* Product Search */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 mb-6">
+      <div className="bg-card rounded-lg shadow-sm p-6 border border-border mb-6">
         <div className="flex items-center gap-4">
-          <Scan className="w-6 h-6 text-blue-600" />
+          <Scan className="w-6 h-6 text-primary" />
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Buscar producto por código de barras o nombre
             </label>
             <div className="flex gap-2">
@@ -510,17 +510,17 @@ export default function ReceivePurchaseOrder() {
                   }
                 }}
                 placeholder="Escanear código de barras o escribir nombre del producto..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 autoFocus
               />
               <button
                 onClick={() => handleProductSearch(barcodeInput)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
               >
                 Buscar
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Puede escanear un código de barras o escribir el nombre del producto
             </p>
           </div>
@@ -528,14 +528,14 @@ export default function ReceivePurchaseOrder() {
       </div>
 
       {/* Items List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Productos a Recibir</h2>
+      <div className="bg-card rounded-lg shadow-sm border border-border mb-6">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">Productos a Recibir</h2>
           <div className="mt-2 space-y-1">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Ingrese las cantidades recibidas, lotes y fechas de vencimiento
             </p>
-            <p className="text-sm text-blue-600 flex items-center gap-1">
+            <p className="text-sm text-primary flex items-center gap-1">
               <Plus className="w-3 h-3" />
               Puede agregar múltiples lotes para un mismo producto usando el botón "+"
             </p>
@@ -544,24 +544,24 @@ export default function ReceivePurchaseOrder() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-subtle border-b border-border">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Producto</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Solicitada</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Pendiente</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cant. Recibida</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Producto</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Cant. Solicitada</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Cant. Pendiente</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Cant. Recibida</th>
                 {wmsOn && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">
-                    Ubicación{requireLocation && <span className="text-red-500"> *</span>}
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                    Ubicación{requireLocation && <span className="text-destructive"> *</span>}
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Lote</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">F. Vencimiento</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">F. Fabricación</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Lote</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">F. Vencimiento</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">F. Fabricación</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {filteredItems.map((item) => {
                 const actualIndex = receivedItems.indexOf(item);
                 const quantityOrdered = parseFloat(item.quantity) || 0;
@@ -597,50 +597,50 @@ export default function ReceivePurchaseOrder() {
                   <tr
                     key={actualIndex}
                     id={`item-${actualIndex}`}
-                    className={`hover:bg-gray-50 transition-colors ${
+                    className={`hover:bg-subtle transition-colors ${
                       isFullyReceived
-                        ? "bg-green-50"
+                        ? "bg-success/10"
                         : isPartiallyReceived
-                        ? "bg-yellow-50"
+                        ? "bg-warning/15"
                         : ""
                     }`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {isFullyReceived && <CheckCircle className="w-4 h-4 text-green-600" />}
-                        {isPartiallyReceived && <AlertCircle className="w-4 h-4 text-yellow-600" />}
+                        {isFullyReceived && <CheckCircle className="w-4 h-4 text-success" />}
+                        {isPartiallyReceived && <AlertCircle className="w-4 h-4 text-warning" />}
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">{item.productName}</span>
+                            <span className="font-medium text-foreground">{item.productName}</span>
                             {isMultiLot && (
-                              <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                              <span className="px-2 py-0.5 text-xs font-medium bg-accent text-primary rounded">
                                 Lote {lotIndex}/{sameProductItems.length}
                               </span>
                             )}
                           </div>
-                          {item.sku && <div className="text-xs text-gray-500">SKU: {item.sku}</div>}
-                          {item.barcode && <div className="text-xs text-gray-500">Código: {item.barcode}</div>}
+                          {item.sku && <div className="text-xs text-muted-foreground">SKU: {item.sku}</div>}
+                          {item.barcode && <div className="text-xs text-muted-foreground">Código: {item.barcode}</div>}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{item.quantity}</div>
+                      <div className="text-sm font-medium text-foreground">{item.quantity}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className={`text-sm font-medium ${
                         quantityPending > 0
-                          ? 'text-orange-600'
-                          : 'text-green-600'
+                          ? 'text-warning'
+                          : 'text-success'
                       }`}>
                         {quantityPending.toFixed(2)}
                       </div>
                       {quantityPrevReceived > 0 && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           Ya recibido: {quantityPrevReceived}
                         </div>
                       )}
                       {isMultiLot && receivedInPreviousLines > 0 && (
-                        <div className="text-xs text-blue-600">
+                        <div className="text-xs text-primary">
                           En lotes anteriores: {receivedInPreviousLines.toFixed(2)}
                         </div>
                       )}
@@ -653,7 +653,7 @@ export default function ReceivePurchaseOrder() {
                         max={item.quantity}
                         value={item.receivedQuantity}
                         onChange={(e) => updateReceivedItem(actualIndex, "receivedQuantity", e.target.value)}
-                        className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-24 px-2 py-1 text-sm border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </td>
                     {wmsOn && (
@@ -663,8 +663,8 @@ export default function ReceivePurchaseOrder() {
                           onChange={(e) => updateReceivedItem(actualIndex, "receivedLocationId", e.target.value)}
                           className={`w-40 px-2 py-1 text-sm border rounded focus:ring-2 focus:border-transparent ${
                             requireLocation && !item.receivedLocationId && parseFloat(item.receivedQuantity) > 0
-                              ? "border-red-500 bg-red-50 focus:ring-red-500"
-                              : "border-gray-300 focus:ring-blue-500"
+                              ? "border-destructive bg-destructive/10 focus:ring-destructive"
+                              : "border-border focus:ring-primary"
                           }`}
                         >
                           <option value="">Sin ubicar</option>
@@ -681,7 +681,7 @@ export default function ReceivePurchaseOrder() {
                         type="text"
                         value={item.receivedLotNumber}
                         onChange={(e) => updateReceivedItem(actualIndex, "receivedLotNumber", e.target.value)}
-                        className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-32 px-2 py-1 text-sm border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                         placeholder="Lote"
                       />
                     </td>
@@ -693,20 +693,20 @@ export default function ReceivePurchaseOrder() {
                           onChange={(e) => updateReceivedItem(actualIndex, "receivedExpirationDate", e.target.value)}
                           className={`w-36 px-2 py-1 text-sm border rounded focus:ring-2 focus:border-transparent ${
                             !expirationValidation.isValid
-                              ? "border-red-500 bg-red-50 focus:ring-red-500"
+                              ? "border-destructive bg-destructive/10 focus:ring-destructive"
                               : expirationValidation.warning
-                              ? "border-yellow-500 bg-yellow-50 focus:ring-yellow-500"
-                              : "border-gray-300 focus:ring-blue-500"
+                              ? "border-warning bg-warning/15 focus:ring-warning"
+                              : "border-border focus:ring-primary"
                           }`}
                         />
                         {!expirationValidation.isValid && (
-                          <div className="flex items-center gap-1 text-xs text-red-600">
+                          <div className="flex items-center gap-1 text-xs text-destructive">
                             <AlertTriangle className="w-3 h-3" />
                             <span>Fecha vencida</span>
                           </div>
                         )}
                         {expirationValidation.warning && expirationValidation.isValid && (
-                          <div className="flex items-center gap-1 text-xs text-yellow-600">
+                          <div className="flex items-center gap-1 text-xs text-warning">
                             <AlertTriangle className="w-3 h-3" />
                             <span>{expirationValidation.warning}</span>
                           </div>
@@ -718,14 +718,14 @@ export default function ReceivePurchaseOrder() {
                         type="date"
                         value={item.receivedManufacturingDate}
                         onChange={(e) => updateReceivedItem(actualIndex, "receivedManufacturingDate", e.target.value)}
-                        className="w-36 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-36 px-2 py-1 text-sm border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => duplicateItemForNewLot(actualIndex)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-primary hover:bg-accent rounded transition-colors"
                           title="Agregar otro lote para este producto"
                         >
                           <Plus className="w-4 h-4" />
@@ -733,7 +733,7 @@ export default function ReceivePurchaseOrder() {
                         {item.id === 0 && (
                           <button
                             onClick={() => removeItem(actualIndex)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -749,21 +749,21 @@ export default function ReceivePurchaseOrder() {
 
           {receivedItems.length === 0 && (
             <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">No hay productos en esta orden</p>
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No hay productos en esta orden</p>
             </div>
           )}
 
           {filteredItems.length === 0 && receivedItems.length > 0 && (
             <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">No se encontraron productos con ese criterio de búsqueda</p>
+              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No se encontraron productos con ese criterio de búsqueda</p>
               <button
                 onClick={() => {
                   setBarcodeInput("");
                   setFilteredItems(receivedItems);
                 }}
-                className="mt-4 text-blue-600 hover:underline"
+                className="mt-4 text-primary hover:underline"
               >
                 Mostrar todos los productos
               </button>
@@ -773,7 +773,7 @@ export default function ReceivePurchaseOrder() {
       </div>
 
       {/* Actions */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+      <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <input
@@ -781,9 +781,9 @@ export default function ReceivePurchaseOrder() {
               id="keepPending"
               checked={keepPending}
               onChange={(e) => setKeepPending(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              className="w-4 h-4 text-primary border-border rounded focus:ring-2 focus:ring-primary"
             />
-            <label htmlFor="keepPending" className="text-sm font-medium text-gray-700">
+            <label htmlFor="keepPending" className="text-sm font-medium text-foreground">
               Mantener orden como pendiente (recepción parcial)
             </label>
           </div>
@@ -791,14 +791,14 @@ export default function ReceivePurchaseOrder() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setLocation("/purchase-management")}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              className="px-6 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={handleReceiveOrder}
               disabled={receiveOrderMutation.isPending}
-              className="flex items-center gap-2 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 bg-success text-success-foreground px-6 py-2 rounded-lg hover:bg-success/90 disabled:bg-muted-foreground disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-5 h-5" />
               {receiveOrderMutation.isPending ? "Guardando..." : "Recibir Orden"}

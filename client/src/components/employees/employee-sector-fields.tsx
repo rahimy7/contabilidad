@@ -148,9 +148,9 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
       </CardHeader>
       <CardContent className="space-y-6">
         {/* UBICACIÓN BASE */}
-        <div className="space-y-4 p-4 border rounded-lg bg-blue-50/50">
-          <h3 className="font-semibold text-sm text-blue-900">📍 Ubicación Base</h3>
-          <p className="text-xs text-blue-700">
+        <div className="space-y-4 p-4 border rounded-lg bg-accent/50">
+          <h3 className="font-semibold text-sm text-accent-foreground">📍 Ubicación Base</h3>
+          <p className="text-xs text-primary">
             La ubicación principal donde opera el empleado
           </p>
 
@@ -201,7 +201,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                 </SelectContent>
               </Select>
               {!selectedProvince && (
-                <p className="text-xs text-gray-500">Primero selecciona una provincia</p>
+                <p className="text-xs text-muted-foreground">Primero selecciona una provincia</p>
               )}
             </div>
 
@@ -219,7 +219,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                   <option key={sector} value={sector} />
                 ))}
               </datalist>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Sector o barrio específico
               </p>
             </div>
@@ -237,9 +237,9 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
         </div>
 
         {/* COBERTURA AMPLIADA */}
-        <div className="space-y-4 p-4 border rounded-lg bg-green-50/50">
-          <h3 className="font-semibold text-sm text-green-900">🗺️ Áreas de Cobertura</h3>
-          <p className="text-xs text-green-700">
+        <div className="space-y-4 p-4 border rounded-lg bg-success/50">
+          <h3 className="font-semibold text-sm text-success">🗺️ Áreas de Cobertura</h3>
+          <p className="text-xs text-success">
             Provincias, municipios y sectores adicionales que puede atender
           </p>
 
@@ -282,7 +282,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                       const current = form.getValues("coverageProvinces") || [];
                       form.setValue("coverageProvinces", current.filter(p => p !== province));
                     }}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-destructive/80"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -326,7 +326,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                       const current = form.getValues("coverageMunicipalities") || [];
                       form.setValue("coverageMunicipalities", current.filter(m => m !== municipality));
                     }}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-destructive/80"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -366,7 +366,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Presiona Enter o click en + para agregar
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -376,7 +376,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
                   <button
                     type="button"
                     onClick={() => removeCoverageSector(sector)}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-destructive/80"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -399,7 +399,7 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
               onChange={(e) => form.setValue("serviceRadius", e.target.value)}
               placeholder="10"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Distancia máxima desde ubicación base
             </p>
           </div>
@@ -414,16 +414,16 @@ export default function EmployeeSectorFields({ form }: EmployeeSectorFieldsProps
               onChange={(e) => form.setValue("maxDailyOrders", e.target.value)}
               placeholder="5"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Capacidad diaria de órdenes
             </p>
           </div>
         </div>
 
         {/* Coordenadas GPS (opcional) */}
-        <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-          <h3 className="font-semibold text-sm text-gray-900">🌍 Coordenadas GPS (Opcional)</h3>
-          <p className="text-xs text-gray-600">
+        <div className="space-y-4 p-4 border rounded-lg bg-subtle">
+          <h3 className="font-semibold text-sm text-foreground">🌍 Coordenadas GPS (Opcional)</h3>
+          <p className="text-xs text-muted-foreground">
             Para cálculos de distancia precisos en el futuro
           </p>
           <div className="grid grid-cols-2 gap-4">

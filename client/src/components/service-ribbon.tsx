@@ -15,13 +15,13 @@ interface ServiceRibbonProps {
 export function ServiceRibbon({ size = 'md' }: ServiceRibbonProps) {
   if (size === 'sm') {
     return (
-      <div className="absolute top-[6px] left-[-20px] w-[72px] rotate-[-45deg] bg-blue-600 text-white text-[8px] font-bold text-center py-[2px] shadow-sm z-10 pointer-events-none select-none">
+      <div className="absolute top-[6px] left-[-20px] w-[72px] rotate-[-45deg] bg-primary text-primary-foreground text-[8px] font-bold text-center py-[2px] shadow-sm z-10 pointer-events-none select-none">
         SERVICIO
       </div>
     );
   }
   return (
-    <div className="absolute top-[10px] left-[-24px] w-[90px] rotate-[-45deg] bg-blue-600 text-white text-[9px] font-bold text-center py-[3px] shadow-md z-10 pointer-events-none select-none tracking-wide">
+    <div className="absolute top-[10px] left-[-24px] w-[90px] rotate-[-45deg] bg-primary text-primary-foreground text-[9px] font-bold text-center py-[3px] shadow-md z-10 pointer-events-none select-none tracking-wide">
       SERVICIO
     </div>
   );

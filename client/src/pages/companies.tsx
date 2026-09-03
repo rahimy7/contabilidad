@@ -27,10 +27,10 @@ export default function CompaniesPage() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Empresas</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Empresas</h1>
           <p className="text-sm text-muted-foreground">Contribuyentes que administras</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

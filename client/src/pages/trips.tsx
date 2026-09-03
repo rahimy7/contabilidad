@@ -187,14 +187,14 @@ export default function TripsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { label: string; className: string }> = {
-      pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
-      active: { label: 'Activo', className: 'bg-blue-100 text-blue-800' },
-      processing: { label: 'En Progreso', className: 'bg-purple-100 text-purple-800' },
-      completed: { label: 'Completado', className: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-800' }
+      pending: { label: 'Pendiente', className: 'bg-warning/15 text-warning' },
+      active: { label: 'Activo', className: 'bg-accent text-accent-foreground' },
+      processing: { label: 'En Progreso', className: 'bg-accent text-accent-foreground' },
+      completed: { label: 'Completado', className: 'bg-success/10 text-success' },
+      cancelled: { label: 'Cancelado', className: 'bg-destructive/10 text-destructive' }
     };
 
-    const config = variants[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
+    const config = variants[status] || { label: status, className: 'bg-muted text-foreground' };
     return (
       <Badge className={config.className}>
         {config.label}
@@ -203,9 +203,9 @@ export default function TripsPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold">Gestión de Viajes</h1>
+        <h1 className="text-[20px] font-semibold tracking-tight md:text-3xl">Gestión de Viajes</h1>
       </div>
 
       {/* Stats Cards como Filtros - Una sola fila */}
@@ -214,15 +214,15 @@ export default function TripsPage() {
           onClick={() => setStatusFilter('today')}
           className={`text-left transition-all ${
             statusFilter === 'today' 
-              ? 'ring-2 ring-gray-600 shadow-md' 
+              ? 'ring-2 ring-border-strong shadow-md' 
               : 'hover:shadow-md'
           }`}
         >
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-gray-600">Hoy</p>
-                <Calendar className="h-3 w-3 text-gray-600" />
+                <p className="text-xs font-medium text-muted-foreground">Hoy</p>
+                <Calendar className="h-3 w-3 text-muted-foreground" />
               </div>
               <p className="text-xl font-bold">{stats.todayTotal}</p>
             </CardContent>
@@ -233,15 +233,15 @@ export default function TripsPage() {
           onClick={() => setStatusFilter('pending')}
           className={`text-left transition-all ${
             statusFilter === 'pending' 
-              ? 'ring-2 ring-yellow-600 shadow-md' 
+              ? 'ring-2 ring-warning shadow-md' 
               : 'hover:shadow-md'
           }`}
         >
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-yellow-600">Pendientes</p>
-                <Clock className="h-3 w-3 text-yellow-600" />
+                <p className="text-xs font-medium text-warning">Pendientes</p>
+                <Clock className="h-3 w-3 text-warning" />
               </div>
               <p className="text-xl font-bold">{stats.pending}</p>
             </CardContent>
@@ -252,15 +252,15 @@ export default function TripsPage() {
           onClick={() => setStatusFilter('active')}
           className={`text-left transition-all ${
             statusFilter === 'active' 
-              ? 'ring-2 ring-blue-600 shadow-md' 
+              ? 'ring-2 ring-primary shadow-md' 
               : 'hover:shadow-md'
           }`}
         >
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-blue-600">Activos</p>
-                <Package className="h-3 w-3 text-blue-600" />
+                <p className="text-xs font-medium text-primary">Activos</p>
+                <Package className="h-3 w-3 text-primary" />
               </div>
               <p className="text-xl font-bold">{stats.active}</p>
             </CardContent>
@@ -271,15 +271,15 @@ export default function TripsPage() {
           onClick={() => setStatusFilter('completed')}
           className={`text-left transition-all ${
             statusFilter === 'completed' 
-              ? 'ring-2 ring-green-600 shadow-md' 
+              ? 'ring-2 ring-success shadow-md' 
               : 'hover:shadow-md'
           }`}
         >
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-green-600">Completados</p>
-                <DollarSign className="h-3 w-3 text-green-600" />
+                <p className="text-xs font-medium text-success">Completados</p>
+                <DollarSign className="h-3 w-3 text-success" />
               </div>
               <p className="text-xl font-bold">{stats.todayCompleted}</p>
             </CardContent>
@@ -300,7 +300,7 @@ export default function TripsPage() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-chrome" />
             </div>
           ) : (
             <>
@@ -323,11 +323,11 @@ export default function TripsPage() {
                       <TableRow key={trip.id}>
                         <TableCell>
                           <div className="font-medium">{trip.tripNumber}</div>
-                          <div className="text-sm text-gray-500">ID: {trip.id}</div>
+                          <div className="text-sm text-muted-foreground">ID: {trip.id}</div>
                         </TableCell>
                         <TableCell>
                           <div>{trip.assignedUser?.name || 'Sin asignar'}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-muted-foreground">
                             {trip.assignedUser?.phone || ''}
                           </div>
                         </TableCell>
@@ -370,7 +370,7 @@ export default function TripsPage() {
                               <Button
                                 size="sm"
                                 onClick={() => handleSendClick(trip)}
-                                className="bg-blue-600 hover:bg-blue-700"
+                                className="bg-primary hover:bg-primary-hover"
                               >
                                 <Send className="h-4 w-4 mr-1" />
                                 Enviar
@@ -394,7 +394,7 @@ export default function TripsPage() {
                           <CardTitle className="text-base font-bold">
                             {trip.tripNumber}
                           </CardTitle>
-                          <p className="text-xs text-gray-500">ID: {trip.id}</p>
+                          <p className="text-xs text-muted-foreground">ID: {trip.id}</p>
                         </div>
                         {getStatusBadge(trip.status)}
                       </div>
@@ -403,12 +403,12 @@ export default function TripsPage() {
                     <CardContent className="space-y-3">
                       {/* Delivery Info */}
                       <div className="flex items-start gap-2">
-                        <Truck className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <Truck className="h-4 w-4 text-muted-foreground mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">
                             {trip.assignedUser?.name || 'Sin asignar'}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {trip.assignedUser?.phone || ''}
                           </p>
                         </div>
@@ -417,13 +417,13 @@ export default function TripsPage() {
                       {/* Stats */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-gray-500" />
+                          <Package className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
                             {trip.completedOrders}/{trip.totalOrders}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-green-600" />
+                          <DollarSign className="h-4 w-4 text-success" />
                           <span className="text-sm font-bold">
                             {formatCurrency(trip.totalAmount)}
                           </span>
@@ -431,7 +431,7 @@ export default function TripsPage() {
                       </div>
 
                       {/* Fecha */}
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {new Date(trip.createdAt).toLocaleDateString()}
                       </div>
@@ -462,7 +462,7 @@ export default function TripsPage() {
                           <Button
                             size="sm"
                             onClick={() => handleSendClick(trip)}
-                            className="flex-1 min-w-[90px] bg-blue-600 hover:bg-blue-700"
+                            className="flex-1 min-w-[90px] bg-primary hover:bg-primary-hover"
                           >
                             <Send className="h-4 w-4 mr-1" />
                             Enviar
@@ -477,7 +477,7 @@ export default function TripsPage() {
           )}
 
           {trips.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               No hay viajes en esta categoría
             </div>
           )}

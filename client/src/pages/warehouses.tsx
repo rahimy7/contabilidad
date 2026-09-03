@@ -195,18 +195,18 @@ export default function WarehousesPage() {
   const inactiveWarehouses = warehouses.filter((w) => !w.isActive);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-            <Warehouse className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-accent dark:bg-primary/30 rounded-lg">
+            <Warehouse className="h-6 w-6 text-primary dark:text-primary/70" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-[20px] font-semibold tracking-tight">
               Gestión de Almacenes
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Administra sucursales y puntos de almacenamiento
             </p>
           </div>
@@ -221,34 +221,34 @@ export default function WarehousesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Warehouse className="h-5 w-5 text-blue-600" />
+            <div className="p-3 bg-accent dark:bg-primary/30 rounded-lg">
+              <Warehouse className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Almacenes</p>
+              <p className="text-sm text-muted-foreground">Total Almacenes</p>
               <p className="text-2xl font-bold">{warehouses.length}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+            <div className="p-3 bg-success/10 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Activos</p>
-              <p className="text-2xl font-bold text-green-600">{activeWarehouses.length}</p>
+              <p className="text-sm text-muted-foreground">Activos</p>
+              <p className="text-2xl font-bold text-success">{activeWarehouses.length}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-              <Star className="h-5 w-5 text-yellow-600" />
+            <div className="p-3 bg-warning/15 rounded-lg">
+              <Star className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Predeterminado</p>
-              <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-400">
+              <p className="text-sm text-muted-foreground">Predeterminado</p>
+              <p className="text-sm font-semibold text-warning dark:text-warning">
                 {warehouses.find((w) => w.isDefault)?.name ?? "Ninguno"}
               </p>
             </div>
@@ -264,10 +264,10 @@ export default function WarehousesPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : activeWarehouses.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <Warehouse className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No hay almacenes registrados. Crea el primero.</p>
             </div>
@@ -290,22 +290,22 @@ export default function WarehousesPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{w.name}</span>
                         {w.isDefault && (
-                          <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-400" />
+                          <Star className="h-3.5 w-3.5 text-warning fill-warning" />
                         )}
                       </div>
                       {w.description && (
-                        <p className="text-xs text-gray-400 mt-0.5">{w.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{w.description}</p>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         {w.address ? (
                           <>
                             <MapPin className="h-3.5 w-3.5 shrink-0" />
                             {w.address}
                           </>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </div>
                     </TableCell>
@@ -313,11 +313,11 @@ export default function WarehousesPage() {
                       <div className="flex items-center gap-1 text-sm">
                         {w.manager ? (
                           <>
-                            <User className="h-3.5 w-3.5 text-gray-400" />
+                            <User className="h-3.5 w-3.5 text-muted-foreground" />
                             {w.manager}
                           </>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </div>
                     </TableCell>
@@ -325,11 +325,11 @@ export default function WarehousesPage() {
                       <div className="flex items-center gap-1 text-sm">
                         {w.phone ? (
                           <>
-                            <Phone className="h-3.5 w-3.5 text-gray-400" />
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                             {w.phone}
                           </>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </div>
                     </TableCell>
@@ -360,7 +360,7 @@ export default function WarehousesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-500 hover:text-red-700"
+                            className="text-destructive hover:text-destructive/80"
                             onClick={() => openDelete(w)}
                             title="Desactivar"
                           >
@@ -381,7 +381,7 @@ export default function WarehousesPage() {
       {inactiveWarehouses.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-gray-400">Almacenes Inactivos</CardTitle>
+            <CardTitle className="text-muted-foreground">Almacenes Inactivos</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -477,7 +477,7 @@ export default function WarehousesPage() {
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <p className="text-sm font-medium">Almacén predeterminado</p>
-                <p className="text-xs text-gray-400">Usado por defecto para nuevas operaciones</p>
+                <p className="text-xs text-muted-foreground">Usado por defecto para nuevas operaciones</p>
               </div>
               <Switch
                 checked={form.isDefault}
@@ -489,7 +489,7 @@ export default function WarehousesPage() {
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">Activo</p>
-                  <p className="text-xs text-gray-400">Desactivar oculta el almacén de las operaciones</p>
+                  <p className="text-xs text-muted-foreground">Desactivar oculta el almacén de las operaciones</p>
                 </div>
                 <Switch
                   checked={form.isActive}
@@ -519,7 +519,7 @@ export default function WarehousesPage() {
           <DialogHeader>
             <DialogTitle>Desactivar almacén</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             ¿Deseas desactivar el almacén <strong>{editing?.name}</strong>? No se eliminarán los datos,
             solo se ocultará de las operaciones.
           </p>
@@ -550,13 +550,13 @@ export default function WarehousesPage() {
 
           {loadingStock ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : stockItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Este almacén no tiene productos registrados aún.</p>
-              <p className="text-xs mt-1 text-gray-400">
+              <p className="text-xs mt-1 text-muted-foreground">
                 Los productos se agregan al completar transferencias o ajustes de inventario.
               </p>
             </div>
@@ -581,20 +581,20 @@ export default function WarehousesPage() {
                         <div>
                           <span className="font-medium">{item.productName}</span>
                           {item.productSku && (
-                            <span className="text-xs text-gray-400 ml-2">#{item.productSku}</span>
+                            <span className="text-xs text-muted-foreground ml-2">#{item.productSku}</span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-500">{item.productCategory}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{item.productCategory}</TableCell>
                       <TableCell className="text-right">
-                        <span className={isLow ? "text-red-600 font-semibold" : "font-medium"}>
+                        <span className={isLow ? "text-destructive font-semibold" : "font-medium"}>
                           {qty.toLocaleString("es-DO")}
                         </span>
                         {isLow && (
-                          <span className="ml-1 text-xs text-red-500">(bajo)</span>
+                          <span className="ml-1 text-xs text-destructive">(bajo)</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-gray-400">
+                      <TableCell className="text-right text-sm text-muted-foreground">
                         {min !== null ? min.toLocaleString("es-DO") : "—"}
                       </TableCell>
                     </TableRow>

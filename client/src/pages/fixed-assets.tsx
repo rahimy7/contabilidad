@@ -4,12 +4,37 @@ import { moduleApi } from "@/lib/accounting-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Calculator } from "lucide-react";
+import { DataGrid, PageHeader, StatusChip, amount, money, type Column } from "@/components/erp";
 
-const money = (v: string | number) =>
-  Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+interface Asset {
+  id: number;
+  name: string;
+  cost: string;
+  accumulated_depreciation: string;
+  book_value: string;
+  status: string;
+}
+
+/**
+ * El valor en libros va en seminegrita porque es la cifra que se consulta: el
+ * costo y la depreciación acumulada están para justificarla, no para leerse
+ * primero.
+ */
+const COLUMNS: Column<Asset>[] = [
+  { key: "name", header: "Activo", cell: (a) => a.name },
+  { key: "cost", header: "Costo", align: "right", cell: (a) => amount(a.cost) },
+  { key: "dep", header: "Depreciación acum.", align: "right", cell: (a) => amount(a.accumulated_depreciation) },
+  { key: "book", header: "Valor en libros", align: "right", cell: (a) => <span className="font-semibold">{amount(a.book_value)}</span> },
+  {
+    key: "status", header: "Estado", width: "110px",
+    cell: (a) =>
+      a.status === "active"
+        ? <StatusChip status="ok">En uso</StatusChip>
+        : <StatusChip status="draft">{a.status}</StatusChip>,
+  },
+];
 
 export default function FixedAssetsPage() {
   const { toast } = useToast();
@@ -34,46 +59,42 @@ export default function FixedAssetsPage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Activos Fijos</h1>
-        <Button variant="outline" size="sm" className="gap-1" disabled={depreciate.isPending} onClick={() => depreciate.mutate()}>
-          <Calculator className="h-4 w-4" /> Depreciar mes
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        subtitle="Registro de activos y su depreciación acumulada"
+        actions={
+          <Button variant="outline" className="gap-1" disabled={depreciate.isPending} onClick={() => depreciate.mutate()}>
+            <Calculator className="h-4 w-4" /> Depreciar mes
+          </Button>
+        }
+      />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Nuevo activo</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Nuevo activo</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
             <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
             <Input placeholder="Costo" value={cost} onChange={(e) => setCost(e.target.value)} className="max-w-[140px]" />
             <Input placeholder="Vida (meses)" value={life} onChange={(e) => setLife(e.target.value)} className="max-w-[140px]" />
-            <Button size="sm" className="gap-1" disabled={!name || !cost || add.isPending} onClick={() => add.mutate()}><Plus className="h-4 w-4" /> Agregar</Button>
+            <Button className="gap-1" disabled={!name || !cost || add.isPending} onClick={() => add.mutate()}><Plus className="h-4 w-4" /> Agregar</Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Registro</CardTitle></CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Activo</th><th className="py-1.5 text-right">Costo</th><th className="py-1.5 text-right">Depreciación acum.</th><th className="py-1.5 text-right">Valor en libros</th><th className="py-1.5">Estado</th></tr></thead>
-            <tbody>
-              {(assets.data?.assets ?? []).map((a) => (
-                <tr key={a.id} className="border-b last:border-0">
-                  <td className="py-1.5">{a.name}</td>
-                  <td className="py-1.5 text-right tabular-nums">{money(a.cost)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{money(a.accumulated_depreciation)}</td>
-                  <td className="py-1.5 text-right font-medium tabular-nums">{money(a.book_value)}</td>
-                  <td className="py-1.5"><Badge variant={a.status === "active" ? "secondary" : "outline"}>{a.status}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(assets.data?.assets ?? []).length === 0 && <p className="py-4 text-center text-muted-foreground">Sin activos registrados.</p>}
+        <CardHeader><CardTitle>Registro</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <DataGrid
+            className="border-0"
+            columns={COLUMNS}
+            rows={(assets.data?.assets ?? []) as Asset[]}
+            rowKey={(a) => a.id}
+            isLoading={assets.isLoading}
+            emptyMessage="Sin activos registrados."
+          />
         </CardContent>
       </Card>
+
     </div>
   );
 }

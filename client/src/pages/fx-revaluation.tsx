@@ -73,12 +73,12 @@ export default function FxRevaluationPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Coins className="w-8 h-8 text-yellow-600" />
+          <Coins className="w-8 h-8 text-warning" />
           <div>
-            <h1 className="text-2xl font-bold">Multi-Moneda + Revaluación FX</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Multi-Moneda + Revaluación FX</h1>
             <p className="text-muted-foreground">Tasas oficiales por fecha y cierre mensual de saldos en ME</p>
           </div>
         </div>
@@ -166,26 +166,26 @@ export default function FxRevaluationPage() {
                 <div className="space-y-4 pt-4 border-t">
                   <div className="grid grid-cols-3 gap-3">
                     <Card><CardContent className="pt-4">
-                      <div className="flex items-center gap-2 text-green-600">
+                      <div className="flex items-center gap-2 text-success">
                         <TrendingUp className="w-4 h-4" />
                         <p className="text-xs text-muted-foreground">Ganancia</p>
                       </div>
-                      <p className="text-2xl font-bold text-green-600 font-mono">
+                      <p className="text-2xl font-bold text-success font-mono">
                         RD$ {money(preview.totalGain)}
                       </p>
                     </CardContent></Card>
                     <Card><CardContent className="pt-4">
-                      <div className="flex items-center gap-2 text-red-600">
+                      <div className="flex items-center gap-2 text-destructive">
                         <TrendingDown className="w-4 h-4" />
                         <p className="text-xs text-muted-foreground">Pérdida</p>
                       </div>
-                      <p className="text-2xl font-bold text-red-600 font-mono">
+                      <p className="text-2xl font-bold text-destructive font-mono">
                         RD$ {money(preview.totalLoss)}
                       </p>
                     </CardContent></Card>
                     <Card><CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">Impacto neto</p>
-                      <p className={`text-2xl font-bold font-mono ${preview.netImpact >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <p className={`text-2xl font-bold font-mono ${preview.netImpact >= 0 ? "text-success" : "text-destructive"}`}>
                         RD$ {money(preview.netImpact)}
                       </p>
                     </CardContent></Card>
@@ -215,7 +215,7 @@ export default function FxRevaluationPage() {
                               <TableCell className="text-right">{c.itemCount}</TableCell>
                               <TableCell className="text-right font-mono">{money(c.ledgerDop)}</TableCell>
                               <TableCell className="text-right font-mono">{money(c.revaluedDop)}</TableCell>
-                              <TableCell className={`text-right font-mono font-bold ${c.difference > 0 ? "text-green-600" : c.difference < 0 ? "text-red-600" : ""}`}>
+                              <TableCell className={`text-right font-mono font-bold ${c.difference > 0 ? "text-success" : c.difference < 0 ? "text-destructive" : ""}`}>
                                 {c.difference > 0 ? "+" : ""}{money(c.difference)}
                               </TableCell>
                             </TableRow>
@@ -252,7 +252,7 @@ export default function FxRevaluationPage() {
                                 <TableCell className="text-right font-mono">{money(it.balanceCcy)}</TableCell>
                                 <TableCell className="text-right font-mono">{money(it.ledgerBalanceDop)}</TableCell>
                                 <TableCell className="text-right font-mono">{money(it.revaluedDop)}</TableCell>
-                                <TableCell className={`text-right font-mono ${it.difference > 0 ? "text-green-600" : it.difference < 0 ? "text-red-600" : ""}`}>
+                                <TableCell className={`text-right font-mono ${it.difference > 0 ? "text-success" : it.difference < 0 ? "text-destructive" : ""}`}>
                                   {it.difference > 0 ? "+" : ""}{money(it.difference)}
                                 </TableCell>
                               </TableRow>
@@ -298,13 +298,13 @@ export default function FxRevaluationPage() {
                       <TableRow key={r.id}>
                         <TableCell>{r.valuationDate}</TableCell>
                         <TableCell>
-                          <Badge className={r.status === "posted" ? "bg-green-600" : "bg-yellow-500"}>
+                          <Badge className={r.status === "posted" ? "bg-success" : "bg-warning"}>
                             {r.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-green-600">{money(r.totalGain)}</TableCell>
-                        <TableCell className="text-right font-mono text-red-600">{money(r.totalLoss)}</TableCell>
-                        <TableCell className={`text-right font-mono font-bold ${Number(r.netImpact) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        <TableCell className="text-right font-mono text-success">{money(r.totalGain)}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">{money(r.totalLoss)}</TableCell>
+                        <TableCell className={`text-right font-mono font-bold ${Number(r.netImpact) >= 0 ? "text-success" : "text-destructive"}`}>
                           {money(r.netImpact)}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{r.journalEntryId ? `#${r.journalEntryId}` : "—"}</TableCell>

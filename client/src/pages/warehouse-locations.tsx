@@ -80,10 +80,10 @@ export default function WarehouseLocationsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
             <MapPin className="h-6 w-6" /> Ubicaciones de almacén
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -227,10 +227,10 @@ function LocationTable({
       </CardHeader>
       <CardContent className="overflow-x-auto">
         {loading ? <p className="text-sm text-muted-foreground">Cargando…</p> : (
-          <table className="w-full text-sm">
+          <table className="w-full border-collapse text-[13px]">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
-                <th className="py-2">Código</th>
+                <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Código</th>
                 <th>Tipo</th>
                 <th>Ruta</th>
                 <th className="text-right">Productos</th>
@@ -243,7 +243,7 @@ function LocationTable({
             <tbody>
               {filtered.map((l) => (
                 <tr key={l.id} className="border-b last:border-0">
-                  <td className="py-2 font-mono font-medium">
+                  <td className="h-[34px] px-3 py-1.5 font-mono font-medium">
                     {l.code}
                     {!l.is_active && <Badge variant="outline" className="ml-2">inactiva</Badge>}
                     {l.is_active && !l.is_pickable && <Badge variant="secondary" className="ml-2">no despacha</Badge>}
@@ -256,7 +256,7 @@ function LocationTable({
                   <td className="text-right">{l.product_count}</td>
                   <td className="text-right">{qty(l.total_qty)}</td>
                   <td className="text-right">{money(l.total_value)}</td>
-                  <td className={l.next_expiration ? "text-amber-600" : "text-muted-foreground"}>
+                  <td className={l.next_expiration ? "text-warning" : "text-muted-foreground"}>
                     {l.next_expiration ?? "—"}
                   </td>
                   <td className="text-right">
@@ -468,10 +468,10 @@ function LocationStock({ warehouseId }: { warehouseId: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead className="text-left text-muted-foreground border-b">
             <tr>
-              <th className="py-2">Ubicación</th><th>Producto</th><th>Lote</th><th>Vence</th>
+              <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Ubicación</th><th>Producto</th><th>Lote</th><th>Vence</th>
               <th className="text-right">Cantidad</th><th className="text-right">Costo unit.</th>
               <th className="text-right">Valor</th><th />
             </tr>
@@ -479,7 +479,7 @@ function LocationStock({ warehouseId }: { warehouseId: number }) {
           <tbody>
             {rows.map((s: any) => (
               <tr key={s.id} className="border-b last:border-0">
-                <td className="py-2 font-mono">{s.location_code}</td>
+                <td className="h-[34px] px-3 py-1.5 font-mono">{s.location_code}</td>
                 <td>{s.product_name ?? `#${s.product_id}`}<div className="text-xs text-muted-foreground">{s.sku}</div></td>
                 <td className="font-mono text-xs">{s.lot_no ?? "—"}</td>
                 <td className={expiryClass(s.days_to_expire)}>{s.expiration_date ?? "—"}</td>
@@ -585,15 +585,15 @@ function ExpiringStock({ warehouseId }: { warehouseId: number }) {
         </Select>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead className="text-left text-muted-foreground border-b">
-            <tr><th className="py-2">Vence</th><th>Días</th><th>Ubicación</th><th>Producto</th><th>Lote</th>
+            <tr><th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Vence</th><th>Días</th><th>Ubicación</th><th>Producto</th><th>Lote</th>
               <th className="text-right">Cantidad</th><th className="text-right">Valor</th></tr>
           </thead>
           <tbody>
             {rows.map((r: any, i: number) => (
               <tr key={i} className="border-b last:border-0">
-                <td className="py-2">{r.expiration_date}</td>
+                <td className="h-[34px] px-3 py-1.5">{r.expiration_date}</td>
                 <td>
                   {r.is_expired
                     ? <Badge variant="destructive">vencido</Badge>
@@ -639,19 +639,19 @@ function DriftReport({ warehouseId }: { warehouseId: number }) {
           <p className="py-6 text-center text-muted-foreground">Todo cuadra.</p>
         ) : (
           <>
-            <table className="w-full text-sm">
+            <table className="w-full border-collapse text-[13px]">
               <thead className="text-left text-muted-foreground border-b">
-                <tr><th className="py-2">Producto</th><th className="text-right">Ubicado</th>
+                <tr><th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Producto</th><th className="text-right">Ubicado</th>
                   <th className="text-right">Valuado</th><th className="text-right">Diferencia</th>
                   <th className="text-right">Valor</th></tr>
               </thead>
               <tbody>
                 {rows.map((d: any, i: number) => (
                   <tr key={i} className="border-b last:border-0">
-                    <td className="py-2">{d.product_name ?? `#${d.product_id}`}</td>
+                    <td className="h-[34px] px-3 py-1.5">{d.product_name ?? `#${d.product_id}`}</td>
                     <td className="text-right">{qty(d.placed_qty)}</td>
                     <td className="text-right">{qty(d.valued_qty)}</td>
-                    <td className={`text-right font-medium ${Number(d.difference) < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    <td className={`text-right font-medium ${Number(d.difference) < 0 ? "text-destructive" : "text-success"}`}>
                       {qty(d.difference)}
                     </td>
                     <td className="text-right">{money(d.value_difference)}</td>
@@ -688,15 +688,15 @@ function MovesLog({ warehouseId }: { warehouseId: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead className="text-left text-muted-foreground border-b">
-            <tr><th className="py-2">Fecha</th><th>Tipo</th><th>Producto</th><th>Desde</th><th>Hacia</th>
+            <tr><th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Fecha</th><th>Tipo</th><th>Producto</th><th>Desde</th><th>Hacia</th>
               <th className="text-right">Cantidad</th><th>Origen</th><th>Usuario</th></tr>
           </thead>
           <tbody>
             {rows.map((m: any) => (
               <tr key={m.id} className="border-b last:border-0">
-                <td className="py-2">{new Date(m.created_at).toLocaleString("es-DO")}</td>
+                <td className="h-[34px] px-3 py-1.5">{new Date(m.created_at).toLocaleString("es-DO")}</td>
                 <td><Badge variant="outline">{KIND[m.kind] ?? m.kind}</Badge></td>
                 <td>{m.product_name ?? `#${m.product_id}`}</td>
                 <td className="font-mono">{m.from_location_code ?? "—"}</td>
@@ -719,7 +719,7 @@ function MovesLog({ warehouseId }: { warehouseId: number }) {
 // ── piezas compartidas ───────────────────────────────────────────────────────
 
 const expiryClass = (days: number | null) =>
-  days == null ? "text-muted-foreground" : days < 0 ? "text-red-600 font-medium" : days <= 30 ? "text-amber-600" : "";
+  days == null ? "text-muted-foreground" : days < 0 ? "text-destructive font-medium" : days <= 30 ? "text-warning" : "";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;

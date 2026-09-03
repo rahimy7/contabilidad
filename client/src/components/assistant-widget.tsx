@@ -25,10 +25,10 @@ import {
  */
 
 const CATEGORY_COLOR: Record<string, string> = {
-  setup: "bg-blue-500",
-  commercial: "bg-green-500",
-  operational: "bg-purple-500",
-  compliance: "bg-orange-500",
+  setup: "bg-primary",
+  commercial: "bg-success",
+  operational: "bg-primary",
+  compliance: "bg-warning",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -61,12 +61,12 @@ export function AssistantWidget() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all z-40 flex items-center justify-center group"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all z-40 flex items-center justify-center group"
         aria-label="Abrir asistente"
         data-testid="button-assistant-open"
       >
         <Sparkles className="w-6 h-6 group-hover:animate-pulse" />
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse hidden group-hover:block" />
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse hidden group-hover:block" />
       </button>
 
       {open && (
@@ -75,7 +75,7 @@ export function AssistantWidget() {
             className="w-full max-w-md h-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-t-lg">
+            <div className="p-4 border-b flex justify-between items-center bg-primary text-primary-foreground rounded-t-lg">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 <div>
@@ -83,7 +83,7 @@ export function AssistantWidget() {
                   <p className="text-xs opacity-90">¿En qué te puedo ayudar?</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="p-1 hover:bg-white/20 rounded" aria-label="Cerrar">
+              <button onClick={() => setOpen(false)} className="p-1 hover:bg-card/20 rounded" aria-label="Cerrar">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -132,7 +132,7 @@ function ChecklistTab() {
 
   return (
     <div className="space-y-4">
-      <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg">
+      <div className="p-3 bg-accent rounded-lg">
         <div className="flex justify-between items-center mb-2">
           <div>
             <p className="font-semibold">Progreso de configuración</p>
@@ -140,11 +140,11 @@ function ChecklistTab() {
               {data.completedCount} de {data.totalCount} tareas completadas
             </p>
           </div>
-          <div className="text-3xl font-bold text-indigo-600">{data.progressPct}%</div>
+          <div className="text-3xl font-bold text-primary">{data.progressPct}%</div>
         </div>
-        <div className="h-2 bg-white/50 dark:bg-black/30 rounded-full overflow-hidden">
+        <div className="h-2 bg-card/50 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all"
+            className="h-full bg-primary transition-all"
             style={{ width: `${data.progressPct}%` }}
           />
         </div>
@@ -162,7 +162,7 @@ function ChecklistTab() {
               <Link key={t.key} href={t.href}>
                 <div className={`flex items-start gap-2 p-2 rounded-lg hover:bg-muted cursor-pointer transition ${t.done ? "opacity-50" : ""}`}>
                   {t.done ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
                   ) : (
                     <Circle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
                   )}
@@ -198,8 +198,8 @@ function TipsTab({ path }: { path: string }) {
       {data.tips?.length ? (
         <div className="space-y-2">
           {data.tips.map((tip: string, i: number) => (
-            <div key={i} className="flex gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 rounded-lg">
-              <Lightbulb className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+            <div key={i} className="flex gap-2 p-3 bg-warning/15 border border-warning/40 rounded-lg">
+              <Lightbulb className="w-4 h-4 text-warning shrink-0 mt-0.5" />
               <p className="text-sm">{tip}</p>
             </div>
           ))}

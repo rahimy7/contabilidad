@@ -139,32 +139,32 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
           {/* Estado y Información Básica */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</label>
+              <label className="text-sm font-medium text-muted-foreground">Estado</label>
               <div>
                 <StatusBadge status={order.status} />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Total</label>
-              <div className="text-xl font-bold text-green-600">${getOrderTotal(order).toFixed(2)}</div>
+              <label className="text-sm font-medium text-muted-foreground">Total</label>
+              <div className="text-xl font-bold text-success">${getOrderTotal(order).toFixed(2)}</div>
             </div>
           </div>
 
           {/* Información del Cliente */}
-          <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+          <div className="border rounded-lg p-4 bg-subtle">
             <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <User className="w-5 h-5" />
               Información del Cliente
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Nombre</label>
-                <p className="text-gray-900 dark:text-white">{order.customer.name}</p>
+                <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                <p className="text-foreground">{order.customer.name}</p>
               </div>
               {order.customer.phone && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Teléfono</label>
-                  <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                  <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
+                  <p className="text-foreground flex items-center gap-2">
                     <Phone className="w-4 h-4" />
                     {order.customer.phone}
                   </p>
@@ -172,14 +172,14 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
               )}
               {order.customer.email && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
-                  <p className="text-gray-900 dark:text-white">{order.customer.email}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <p className="text-foreground">{order.customer.email}</p>
                 </div>
               )}
               {order.customer.address && (
                 <div className="md:col-span-2">
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Dirección</label>
-                  <p className="text-gray-900 dark:text-white flex items-start gap-2">
+                  <label className="text-sm font-medium text-muted-foreground">Dirección</label>
+                  <p className="text-foreground flex items-start gap-2">
                     <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
                     {order.customer.address}
                   </p>
@@ -197,17 +197,17 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
             {order.items && order.items.length > 0 ? (
               <div className="space-y-3">
                 {order.items.map((item, index) => (
-                  <div key={item.id || index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={item.id || index} className="flex justify-between items-center p-3 bg-subtle rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
+                      <h4 className="font-medium text-foreground">
                         {item.productName || `Producto ${item.productId}`}
                       </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-muted-foreground">
                         Cantidad: {item.quantity} × ${parseFloat(item.unitPrice).toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900 dark:text-white">
+                      <div className="font-semibold text-foreground">
                         ${(parseFloat(item.unitPrice) * item.quantity).toFixed(2)}
                       </div>
                     </div>
@@ -215,11 +215,11 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
                 ))}
                 <div className="border-t pt-3 flex justify-between items-center font-bold text-lg">
                   <span>Total:</span>
-                  <span className="text-green-600">${getOrderTotal(order).toFixed(2)}</span>
+                  <span className="text-success">${getOrderTotal(order).toFixed(2)}</span>
                 </div>
               </div>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+              <p className="text-muted-foreground text-center py-4">
                 No hay productos en esta orden
               </p>
             )}
@@ -227,19 +227,19 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
 
           {/* Información de Técnico Asignado */}
           {order.assignedUser && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+            <div className="border rounded-lg p-4 bg-accent dark:bg-primary/20">
               <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                 <User className="w-5 h-5" />
                 Técnico Asignado
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Usuario</label>
-                  <p className="text-gray-900 dark:text-white">{order.assignedUser.username}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Usuario</label>
+                  <p className="text-foreground">{order.assignedUser.username}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Nombre</label>
-                  <p className="text-gray-900 dark:text-white">
+                  <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                  <p className="text-foreground">
                     {order.assignedUser.firstName && order.assignedUser.lastName 
                       ? `${order.assignedUser.firstName} ${order.assignedUser.lastName}`
                       : order.assignedUser.username
@@ -253,8 +253,8 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
           {/* Información de Fechas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha de Creación</label>
-              <p className="text-gray-900 dark:text-white">
+              <label className="text-sm font-medium text-muted-foreground">Fecha de Creación</label>
+              <p className="text-foreground">
                 {new Date(order.createdAt).toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',
@@ -265,8 +265,8 @@ function OrderDetailModal({ order }: { order: OrderWithDetails }) {
               </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Última Actualización</label>
-              <p className="text-gray-900 dark:text-white">
+              <label className="text-sm font-medium text-muted-foreground">Última Actualización</label>
+              <p className="text-foreground">
                 {new Date(order.updatedAt).toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',
@@ -379,18 +379,18 @@ export default function TechnicianDashboard() {
   const filteredCompletedOrders = filteredOrders.filter(order => order.status === 'completed');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-subtle">
       {/* Header con logo y saludo personalizado */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b px-4 py-4">
+      <div className="bg-card shadow-sm border-b px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               {/* Logo */}
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Package className="w-5 h-5 text-white" />
               </div>
               {/* Nombre de la App */}
-              <span className="font-bold text-lg text-gray-900 dark:text-white hidden sm:block">
+              <span className="font-bold text-lg text-foreground hidden sm:block">
                 ServicePro
               </span>
             </div>
@@ -401,7 +401,7 @@ export default function TechnicianDashboard() {
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="w-5 h-5" />
               {notificationCount && notificationCount.unread > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {notificationCount.unread}
                 </span>
               )}
@@ -416,11 +416,11 @@ export default function TechnicianDashboard() {
         
         {/* Saludo personalizado */}
         <div className="mt-3">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Hola, {user?.name || 'Técnico'} 👋
+          <h1 className="text-[20px] font-semibold tracking-tight">
+            Hola, {user?.name || 'Técnico'}
           </h1>
           <div className="flex items-center gap-2 mt-1">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Estado:</div>
+            <div className="text-sm text-muted-foreground">Estado:</div>
             <div className="flex gap-1">
               <Button
                 variant={user?.status === 'active' ? 'default' : 'ghost'}
@@ -449,41 +449,41 @@ export default function TechnicianDashboard() {
 
       <div className="p-4 space-y-6">
         {/* Resumen rápido */}
-        <Card className="bg-white dark:bg-gray-800 shadow-sm border-0 rounded-lg">
+        <Card className="bg-card shadow-sm border-0 rounded-lg">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold">Resumen rápido</CardTitle>
           </CardHeader>
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">📦</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">{pendingOrders.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Asignados</div>
+              <div className="bg-accent dark:bg-primary/20 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-primary dark:text-primary/70">📦</div>
+                <div className="text-lg font-bold text-foreground">{pendingOrders.length}</div>
+                <div className="text-sm text-muted-foreground">Asignados</div>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">✅</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">{completedOrders.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Finalizados</div>
+              <div className="bg-success/10 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-success dark:text-success">✅</div>
+                <div className="text-lg font-bold text-foreground">{completedOrders.length}</div>
+                <div className="text-sm text-muted-foreground">Finalizados</div>
               </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">⏳</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">{inProgressOrders.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">En Proceso</div>
+              <div className="bg-warning/10 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-warning dark:text-warning">⏳</div>
+                <div className="text-lg font-bold text-foreground">{inProgressOrders.length}</div>
+                <div className="text-sm text-muted-foreground">En Proceso</div>
               </div>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">⚠️</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">{completedToday.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Hoy</div>
+              <div className="bg-destructive/10 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-destructive dark:text-destructive">⚠️</div>
+                <div className="text-lg font-bold text-foreground">{completedToday.length}</div>
+                <div className="text-sm text-muted-foreground">Hoy</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Solo búsqueda */}
-        <Card className="bg-white dark:bg-gray-800 shadow-sm border-0 rounded-lg">
+        <Card className="bg-card shadow-sm border-0 rounded-lg">
           <CardContent className="p-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="🔍 Buscar pedido o cliente"
                 value={searchTerm}
@@ -495,13 +495,13 @@ export default function TechnicianDashboard() {
         </Card>
 
         {/* Órdenes de Trabajo */}
-        <Card className="bg-white dark:bg-gray-800 shadow-sm border-0 rounded-lg">
+        <Card className="bg-card shadow-sm border-0 rounded-lg">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold">Mis Órdenes</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Tabs defaultValue="pending" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-12 bg-gray-50 dark:bg-gray-700/50 rounded-lg m-4 mb-0">
+              <TabsList className="grid w-full grid-cols-3 h-12 bg-subtle rounded-lg m-4 mb-0">
                 <TabsTrigger value="pending" className="text-sm font-medium">
                   Pendientes ({filteredPendingOrders.length})
                 </TabsTrigger>
@@ -515,20 +515,20 @@ export default function TechnicianDashboard() {
 
               <TabsContent value="pending" className="p-4 space-y-3">
                 {filteredPendingOrders.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-muted-foreground">
                     <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No se encontraron órdenes pendientes</p>
                   </div>
                 ) : (
                   filteredPendingOrders.map((order) => (
-                    <div key={order.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm">
+                    <div key={order.id} className="bg-card rounded-lg p-4 border border-border shadow-sm">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">#{order.orderNumber}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{getOrderProductName(order)}</p>
+                          <h3 className="font-semibold text-foreground">#{order.orderNumber}</h3>
+                          <p className="text-sm text-muted-foreground">{getOrderProductName(order)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 text-xs rounded-full">
+                          <span className="px-2 py-1 bg-warning/10 text-warning text-xs rounded-full">
                             🟠 Pendiente
                           </span>
                         </div>
@@ -541,28 +541,28 @@ export default function TechnicianDashboard() {
                         </div>
                         {order.customer.phone && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Phone className="w-4 h-4 text-gray-500" />
+                            <Phone className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">Teléfono:</span>
                             <span>{order.customer.phone}</span>
                           </div>
                         )}
                         {order.customer.address && (
                           <div className="flex items-center gap-2 text-sm">
-                            <MapPin className="w-4 h-4 text-gray-500" />
+                            <MapPin className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">Dirección:</span>
                             <span className="truncate">{order.customer.address}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium">Total:</span>
-                          <span className="font-bold text-green-600">${getOrderTotal(order).toFixed(2)}</span>
+                          <span className="font-bold text-success">${getOrderTotal(order).toFixed(2)}</span>
                         </div>
                       </div>
                       
                       <div className="flex gap-2">
                         <Button 
                           size="sm"
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          className="flex-1 bg-primary hover:bg-primary-hover text-primary-foreground"
                           onClick={() => updateOrderStatus.mutate({ orderId: order.id, status: 'processing' })}
                           disabled={updateOrderStatus.isPending}
                         >
@@ -578,20 +578,20 @@ export default function TechnicianDashboard() {
 
               <TabsContent value="progress" className="p-4 space-y-3">
                 {filteredInProgressOrders.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-muted-foreground">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No se encontraron órdenes en progreso</p>
                   </div>
                 ) : (
                   filteredInProgressOrders.map((order) => (
-                    <div key={order.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm">
+                    <div key={order.id} className="bg-card rounded-lg p-4 border border-border shadow-sm">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">#{order.orderNumber}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{getOrderProductName(order)}</p>
+                          <h3 className="font-semibold text-foreground">#{order.orderNumber}</h3>
+                          <p className="text-sm text-muted-foreground">{getOrderProductName(order)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">
+                          <span className="px-2 py-1 bg-warning/15 text-warning text-xs rounded-full">
                             🟡 En Progreso
                           </span>
                         </div>
@@ -604,28 +604,28 @@ export default function TechnicianDashboard() {
                         </div>
                         {order.customer.phone && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Phone className="w-4 h-4 text-gray-500" />
+                            <Phone className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">Teléfono:</span>
                             <span>{order.customer.phone}</span>
                           </div>
                         )}
                         {order.customer.address && (
                           <div className="flex items-center gap-2 text-sm">
-                            <MapPin className="w-4 h-4 text-gray-500" />
+                            <MapPin className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">Dirección:</span>
                             <span className="truncate">{order.customer.address}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium">Total:</span>
-                          <span className="font-bold text-green-600">${getOrderTotal(order).toFixed(2)}</span>
+                          <span className="font-bold text-success">${getOrderTotal(order).toFixed(2)}</span>
                         </div>
                       </div>
                       
                       <div className="flex gap-2">
                         <Button 
                           size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
                           onClick={() => updateOrderStatus.mutate({ orderId: order.id, status: 'completed' })}
                           disabled={updateOrderStatus.isPending}
                         >
@@ -641,20 +641,20 @@ export default function TechnicianDashboard() {
 
               <TabsContent value="completed" className="p-4 space-y-3">
                 {filteredCompletedOrders.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-muted-foreground">
                     <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No se encontraron órdenes completadas</p>
                   </div>
                 ) : (
                   filteredCompletedOrders.slice(0, 10).map((order) => (
-                    <div key={order.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm">
+                    <div key={order.id} className="bg-card rounded-lg p-4 border border-border shadow-sm">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">#{order.orderNumber}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{getOrderProductName(order)}</p>
+                          <h3 className="font-semibold text-foreground">#{order.orderNumber}</h3>
+                          <p className="text-sm text-muted-foreground">{getOrderProductName(order)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 text-xs rounded-full">
+                          <span className="px-2 py-1 bg-success/10 text-success text-xs rounded-full">
                             ✅ Completado
                           </span>
                         </div>
@@ -667,17 +667,17 @@ export default function TechnicianDashboard() {
                         </div>
                         {order.customer.phone && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Phone className="w-4 h-4 text-gray-500" />
+                            <Phone className="w-4 h-4 text-muted-foreground" />
                             <span>{order.customer.phone}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 text-sm">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <CheckCircle className="w-4 h-4 text-success" />
                           <span>Completado: {new Date(order.updatedAt).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium">Total:</span>
-                          <span className="font-bold text-green-600">${getOrderTotal(order).toFixed(2)}</span>
+                          <span className="font-bold text-success">${getOrderTotal(order).toFixed(2)}</span>
                         </div>
                       </div>
                       
@@ -692,7 +692,7 @@ export default function TechnicianDashboard() {
 
         {/* Acciones adicionales */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="bg-white dark:bg-gray-800 shadow-sm border-0 rounded-lg">
+          <Card className="bg-card shadow-sm border-0 rounded-lg">
             <CardContent className="p-4">
               <Button 
                 variant="outline" 
@@ -705,7 +705,7 @@ export default function TechnicianDashboard() {
             </CardContent>
           </Card>
           
-          <Card className="bg-white dark:bg-gray-800 shadow-sm border-0 rounded-lg">
+          <Card className="bg-card shadow-sm border-0 rounded-lg">
             <CardContent className="p-4">
               <Button 
                 variant="outline" 

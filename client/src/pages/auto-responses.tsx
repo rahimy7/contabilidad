@@ -86,7 +86,7 @@ function MenuOptionsEditor({ value, onChange }: { value?: string; onChange: (val
   return (
     <div className="space-y-3">
       {options.map((option, index) => (
-        <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+        <div key={index} className="border border-border rounded-lg p-3 bg-subtle">
           <div className="grid grid-cols-3 gap-2 mb-2">
             <div>
               <Label className="text-xs">Texto del Botón</Label>
@@ -121,7 +121,7 @@ function MenuOptionsEditor({ value, onChange }: { value?: string; onChange: (val
             variant="ghost"
             size="sm"
             onClick={() => removeOption(index)}
-            className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
+            className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="h-3 w-3 mr-1" />
             Eliminar
@@ -317,7 +317,7 @@ export default function AutoResponsesPage() {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
-          <Bot className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <Bot className="h-12 w-12 text-primary animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Cargando respuestas automáticas...</p>
         </div>
       </div>
@@ -325,13 +325,13 @@ export default function AutoResponsesPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-subtle">
       {/* Fixed Header */}
-      <div className="bg-white border-b border-gray-200 p-6 flex-shrink-0">
+      <div className="bg-card border-b border-border p-6 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Bot className="h-8 w-8 text-blue-600" />
+            <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
+              <Bot className="h-8 w-8 text-primary" />
               Respuestas Automáticas
             </h1>
             <p className="text-muted-foreground">
@@ -343,14 +343,14 @@ export default function AutoResponsesPage() {
               variant="outline" 
               onClick={() => resetToDefaultsMutation.mutate()}
               disabled={resetToDefaultsMutation.isPending}
-              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+              className="border-border text-primary hover:bg-accent"
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               {resetToDefaultsMutation.isPending ? "Restaurando..." : "Restaurar Valores"}
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={resetForm} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={resetForm} className="bg-primary hover:bg-primary-hover">
                   <Plus className="h-4 w-4 mr-2" />
                   Nueva Respuesta
                 </Button>
@@ -439,7 +439,7 @@ export default function AutoResponsesPage() {
                     <Button 
                       type="submit" 
                       disabled={createResponseMutation.isPending || updateResponseMutation.isPending}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-primary hover:bg-primary-hover"
                     >
                       {createResponseMutation.isPending || updateResponseMutation.isPending 
                         ? "Guardando..." 
@@ -460,22 +460,22 @@ export default function AutoResponsesPage() {
           <div className="p-6">
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {responses?.map((response) => (
-                <Card key={response.id} className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+                <Card key={response.id} className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold text-gray-900 mb-2">
+                        <CardTitle className="text-lg font-semibold text-foreground mb-2">
                           {response.name}
                         </CardTitle>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge 
                             variant={response.isActive ? "default" : "secondary"}
-                            className={response.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
+                            className={response.isActive ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}
                           >
                             <Zap className="h-3 w-3 mr-1" />
                             {response.isActive ? "Activa" : "Inactiva"}
                           </Badge>
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          <Badge variant="outline" className="bg-accent text-primary border-border">
                             <MessageSquare className="h-3 w-3 mr-1" />
                             {triggerLabels[response.trigger] || response.trigger}
                           </Badge>
@@ -493,20 +493,20 @@ export default function AutoResponsesPage() {
                   <CardContent className="pt-0">
                     <div className="space-y-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Comando de activación:</p>
-                        <code className="text-sm bg-gray-100 px-2 py-1 rounded text-blue-600 font-mono">
+                        <p className="text-sm font-medium text-foreground mb-1">Comando de activación:</p>
+                        <code className="text-sm bg-muted px-2 py-1 rounded text-primary font-mono">
                           {response.trigger}
                         </code>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Mensaje:</p>
-                        <p className="text-sm text-gray-600 line-clamp-3">
+                        <p className="text-sm font-medium text-foreground mb-1">Mensaje:</p>
+                        <p className="text-sm text-muted-foreground line-clamp-3">
                           {response.messageText}
                         </p>
                       </div>
                       {response.menuOptions && (
                         <div>
-                          <p className="text-sm font-medium text-gray-700 mb-1">Opciones de menú:</p>
+                          <p className="text-sm font-medium text-foreground mb-1">Opciones de menú:</p>
                           <div className="flex flex-wrap gap-1">
                             {(() => {
                               try {
@@ -524,12 +524,12 @@ export default function AutoResponsesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-100">
+                    <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-border">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(response)}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        className="text-primary border-border hover:bg-accent"
                       >
                         <Edit className="h-3 w-3 mr-1" />
                         Editar
@@ -539,7 +539,7 @@ export default function AutoResponsesPage() {
                         size="sm"
                         onClick={() => deleteResponseMutation.mutate(response.id)}
                         disabled={deleteResponseMutation.isPending}
-                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        className="text-destructive border-destructive/40 hover:bg-destructive/10"
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
                         Eliminar

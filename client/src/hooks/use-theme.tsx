@@ -12,8 +12,8 @@ const STORAGE_KEY = "app:theme";
  * use tokens (`bg-background`, `text-foreground`, los componentes de shadcn)
  * cambia solo.
  *
- * Ojo: las páginas heredadas del POS traen colores fijos (`bg-white`,
- * `text-gray-900`), así que en modo oscuro se ven claras hasta que se migren a
+ * Ojo: las páginas heredadas del POS traen colores fijos (`bg-card`,
+ * `text-foreground`), así que en modo oscuro se ven claras hasta que se migren a
  * tokens. El cambio es página por página, no una bandera global.
  */
 export function useTheme() {

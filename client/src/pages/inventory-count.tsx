@@ -68,10 +68,10 @@ function CountList({ onOpen }: { onOpen: (id: number) => void }) {
   const list: any[] = Array.isArray(warehouses.data) ? warehouses.data : (warehouses.data as any)?.warehouses ?? [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
             <ClipboardCheck className="h-6 w-6" /> Conteo físico de inventario
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -91,10 +91,10 @@ function CountList({ onOpen }: { onOpen: (id: number) => void }) {
 
       <Card>
         <CardContent className="pt-6 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full border-collapse text-[13px]">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
-                <th className="py-2">Conteo</th><th>Almacén</th><th>Tipo</th><th>Fecha</th><th>Estado</th>
+                <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Conteo</th><th>Almacén</th><th>Tipo</th><th>Fecha</th><th>Estado</th>
                 <th className="text-right">Líneas</th><th className="text-right">Diferencias</th>
                 <th className="text-right">Sobrante</th><th className="text-right">Faltante</th>
                 <th className="text-right">Neto</th>
@@ -107,7 +107,7 @@ function CountList({ onOpen }: { onOpen: (id: number) => void }) {
                   className="border-b last:border-0 cursor-pointer hover:bg-muted/50"
                   onClick={() => onOpen(c.id)}
                 >
-                  <td className="py-2 font-medium">
+                  <td className="h-[34px] px-3 py-1.5 font-medium">
                     {c.count_no}
                     {c.is_blind && (
                       <EyeOff className="inline h-3 w-3 ml-1 text-muted-foreground" aria-label="ciego" />
@@ -120,9 +120,9 @@ function CountList({ onOpen }: { onOpen: (id: number) => void }) {
                   <td><Badge variant={STATUS[c.status]?.variant}>{STATUS[c.status]?.label ?? c.status}</Badge></td>
                   <td className="text-right">{c.counted_lines}/{c.total_lines}</td>
                   <td className="text-right">{c.variance_lines}</td>
-                  <td className="text-right text-emerald-600">{money(c.surplus_value)}</td>
-                  <td className="text-right text-red-600">{money(c.shortage_value)}</td>
-                  <td className={`text-right font-medium ${Number(c.net_value) < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  <td className="text-right text-success">{money(c.surplus_value)}</td>
+                  <td className="text-right text-destructive">{money(c.shortage_value)}</td>
+                  <td className={`text-right font-medium ${Number(c.net_value) < 0 ? "text-destructive" : "text-success"}`}>
                     {money(c.net_value)}
                   </td>
                 </tr>
@@ -373,7 +373,7 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2 mb-1">
             <ArrowLeft className="h-4 w-4" /> Volver
           </Button>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
             {c.count_no}
             <Badge variant={STATUS[c.status]?.variant}>{STATUS[c.status]?.label ?? c.status}</Badge>
             {c.blindActive && (
@@ -414,11 +414,11 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
       </div>
 
       {c.status === "applied" && (
-        <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20">
+        <Card className="border-success/40 bg-success/50">
           <CardContent className="py-4 flex flex-wrap gap-6 text-sm">
             <Metric icon={<Lock className="h-4 w-4" />} label="Aplicado" value={new Date(c.applied_at!).toLocaleString("es-DO")} />
-            <Metric icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Sobrantes" value={money(c.surplus_value)} />
-            <Metric icon={<TrendingDown className="h-4 w-4 text-red-600" />} label="Faltantes" value={money(c.shortage_value)} />
+            <Metric icon={<TrendingUp className="h-4 w-4 text-success" />} label="Sobrantes" value={money(c.surplus_value)} />
+            <Metric icon={<TrendingDown className="h-4 w-4 text-destructive" />} label="Faltantes" value={money(c.shortage_value)} />
             <Metric label="Neto" value={money(c.net_value)} />
           </CardContent>
         </Card>
@@ -436,8 +436,8 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
           </CardHeader>
           <CardContent className="flex flex-wrap gap-6 text-sm">
             <Metric label="Líneas con diferencia" value={String(c.variance_lines)} />
-            <Metric icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Sobrantes" value={money(c.surplus_value)} />
-            <Metric icon={<TrendingDown className="h-4 w-4 text-red-600" />} label="Faltantes" value={money(c.shortage_value)} />
+            <Metric icon={<TrendingUp className="h-4 w-4 text-success" />} label="Sobrantes" value={money(c.surplus_value)} />
+            <Metric icon={<TrendingDown className="h-4 w-4 text-destructive" />} label="Faltantes" value={money(c.shortage_value)} />
             <Metric label="Efecto neto" value={money(c.net_value)} />
           </CardContent>
         </Card>
@@ -465,10 +465,10 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
             <CardTitle className="text-sm font-mono">{location}</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full border-collapse text-[13px]">
               <thead className="text-left text-muted-foreground border-b">
                 <tr>
-                  <th className="py-2">Producto</th><th>Lote</th><th>Vence</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Producto</th><th>Lote</th><th>Vence</th>
                   {!c.blindActive && <th className="text-right">Esperado</th>}
                   <th className="text-right w-32">Contado</th>
                   {!c.blindActive && <th className="text-right">Diferencia</th>}
@@ -482,7 +482,7 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
                   const variance = l.variance == null ? null : Number(l.variance);
                   return (
                     <tr key={l.id} className="border-b last:border-0">
-                      <td className="py-2">
+                      <td className="h-[34px] px-3 py-1.5">
                         {l.product_name ?? `#${l.product_id}`}
                         <div className="text-xs text-muted-foreground">{l.sku}</div>
                       </td>
@@ -500,7 +500,7 @@ function CountDetail({ countId, onBack }: { countId: number; onBack: () => void 
                       </td>
                       {!c.blindActive && (
                         <td className={`text-right font-medium ${
-                          variance == null || variance === 0 ? "" : variance < 0 ? "text-red-600" : "text-emerald-600"
+                          variance == null || variance === 0 ? "" : variance < 0 ? "text-destructive" : "text-success"
                         }`}>
                           {variance == null ? "—" : qty(l.variance)}
                         </td>

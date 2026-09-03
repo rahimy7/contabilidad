@@ -165,7 +165,7 @@ function CustomerCombobox({
                   setSearch('');
                   onAddNew();
                 }}
-                className="text-blue-600 font-medium"
+                className="text-primary font-medium"
               >
                 <UserPlus className="mr-2 h-4 w-4" />
                 Agregar nuevo cliente
@@ -445,7 +445,7 @@ export function AppointmentQuickCreateDialog({
                           (s: any) => s.category === 'programa_especial' && s.isActive,
                         ).length > 0 && (
                           <>
-                            <div className="px-2 py-1 text-xs font-semibold text-purple-700 flex items-center gap-1">
+                            <div className="px-2 py-1 text-xs font-semibold text-primary flex items-center gap-1">
                               <Star className="h-3 w-3" /> Programas Especiales
                             </div>
                             {(serviceTypes as any[])
@@ -461,7 +461,7 @@ export function AppointmentQuickCreateDialog({
                           (s: any) => s.category === 'general' && s.isActive,
                         ).length > 0 && (
                           <>
-                            <div className="px-2 py-1 text-xs font-semibold text-blue-700 flex items-center gap-1 mt-1">
+                            <div className="px-2 py-1 text-xs font-semibold text-primary flex items-center gap-1 mt-1">
                               <Stethoscope className="h-3 w-3" /> Servicios Generales
                             </div>
                             {(serviceTypes as any[])

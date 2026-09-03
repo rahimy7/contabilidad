@@ -54,11 +54,11 @@ function statusVariant(code: number | null): 'default' | 'destructive' | 'second
 
 function methodColor(method: string | null): string {
   switch ((method ?? '').toUpperCase()) {
-    case 'POST': return 'bg-emerald-600 hover:bg-emerald-600';
-    case 'PUT': return 'bg-amber-600 hover:bg-amber-600';
-    case 'PATCH': return 'bg-blue-600 hover:bg-blue-600';
-    case 'DELETE': return 'bg-red-600 hover:bg-red-600';
-    default: return 'bg-slate-600 hover:bg-slate-600';
+    case 'POST': return 'bg-success hover:bg-success';
+    case 'PUT': return 'bg-warning hover:bg-warning';
+    case 'PATCH': return 'bg-primary hover:bg-primary-hover';
+    case 'DELETE': return 'bg-destructive hover:bg-destructive';
+    default: return 'bg-muted-foreground hover:bg-muted-foreground';
   }
 }
 
@@ -103,11 +103,11 @@ export default function AuditLogPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-center gap-3">
         <FileClock className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Bitácora de auditoría</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Bitácora de auditoría</h1>
           <p className="text-sm text-muted-foreground">
             Rastro de escrituras autenticadas: quién hizo qué, cuándo y con qué resultado.
           </p>

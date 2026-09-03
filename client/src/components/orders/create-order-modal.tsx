@@ -250,21 +250,21 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
                                 setSelectedCustomer(customer);
                                 form.setValue("customerId", customer.id);
                               }}
-                              className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                              className="p-3 hover:bg-subtle cursor-pointer border-b last:border-b-0"
                             >
                               <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <User className="h-4 w-4 text-gray-600" />
+                                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                                  <User className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <div>
                                   <p className="font-medium">{customer.name}</p>
-                                  <p className="text-sm text-gray-500">{customer.phone}</p>
+                                  <p className="text-sm text-muted-foreground">{customer.phone}</p>
                                 </div>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="p-3 text-center text-gray-500">
+                          <div className="p-3 text-center text-muted-foreground">
                             No se encontraron clientes
                           </div>
                         )}
@@ -345,7 +345,7 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
                       </div>
                       <div>
                         <p className="font-medium">{selectedCustomer.name}</p>
-                        <p className="text-sm text-gray-500">{selectedCustomer.phone}</p>
+                        <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
                       </div>
                     </div>
                     <Button
@@ -375,12 +375,12 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3 flex-1">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Package className="h-5 w-5 text-gray-600" />
+                          <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-sm">{product.name}</h4>
-                            <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{product.description}</p>
                             <div className="flex items-center space-x-2 mt-2">
                               <Badge variant={(product as any).type === 'service' || product.category === "service" ? "secondary" : "default"} className="text-xs">
                                 {(product as any).type === 'service' || product.category === "service" ? "Servicio" : "Producto"}
@@ -470,7 +470,7 @@ export default function CreateOrderModal({ isOpen, onClose }: CreateOrderModalPr
                 rows={3}
               />
               {form.formState.errors.description && (
-                <p className="text-sm text-red-600">{form.formState.errors.description.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.description.message}</p>
               )}
             </div>
             

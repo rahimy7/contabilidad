@@ -71,8 +71,8 @@ type ServiceTypeForm = z.infer<typeof serviceTypeSchema>;
 // Category Labels
 // ================================
 const categoryLabels: Record<string, { label: string; color: string }> = {
-  general: { label: 'General', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  programa_especial: { label: 'Programa Especial', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  general: { label: 'General', color: 'bg-accent text-accent-foreground border-border' },
+  programa_especial: { label: 'Programa Especial', color: 'bg-accent text-accent-foreground border-border' },
 };
 
 // ================================
@@ -252,12 +252,12 @@ export default function AppointmentServicesPage() {
   const generalServices = services.filter((s: any) => s.category === 'general');
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Settings2 className="h-7 w-7 text-purple-600" />
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
+            <Settings2 className="h-7 w-7 text-primary" />
             Servicios de Consultas
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -270,25 +270,25 @@ export default function AppointmentServicesPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="text-2xl font-bold text-blue-600">{generalServices.length}</div>
+            <div className="text-2xl font-bold text-primary">{generalServices.length}</div>
             <p className="text-xs text-muted-foreground">Servicios Generales</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="text-2xl font-bold text-purple-600">{specialPrograms.length}</div>
+            <div className="text-2xl font-bold text-primary">{specialPrograms.length}</div>
             <p className="text-xs text-muted-foreground">Programas Especiales</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="text-2xl font-bold text-green-600">{titulares.length}</div>
+            <div className="text-2xl font-bold text-success">{titulares.length}</div>
             <p className="text-xs text-muted-foreground">Titulares</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-warning">
               {services.filter((s: any) => s.isActive).length}
             </div>
             <p className="text-xs text-muted-foreground">Servicios Activos</p>
@@ -325,7 +325,7 @@ export default function AppointmentServicesPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Star className="h-5 w-5 text-purple-600" />
+                <Star className="h-5 w-5 text-primary" />
                 Programas Especiales
               </CardTitle>
             </CardHeader>
@@ -353,7 +353,7 @@ export default function AppointmentServicesPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Stethoscope className="h-5 w-5 text-blue-600" />
+                <Stethoscope className="h-5 w-5 text-primary" />
                 Servicios Generales
               </CardTitle>
             </CardHeader>
@@ -407,8 +407,8 @@ export default function AppointmentServicesPage() {
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center">
-                          <User className="h-4 w-4 text-green-700" />
+                        <div className="h-9 w-9 rounded-full bg-success/10 flex items-center justify-center">
+                          <User className="h-4 w-4 text-success" />
                         </div>
                         <div>
                           <p className="font-medium">{titular.name}</p>
@@ -419,11 +419,11 @@ export default function AppointmentServicesPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {titular.isActive ? (
-                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 gap-1">
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/40 gap-1">
                             <CheckCircle2 className="h-3 w-3" /> Activo
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200 gap-1">
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border gap-1">
                             <XCircle className="h-3 w-3" /> Inactivo
                           </Badge>
                         )}
@@ -433,7 +433,7 @@ export default function AppointmentServicesPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive/80"
                           onClick={() => { setDeletingTitular(titular); setIsTitularDeleteOpen(true); }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -510,7 +510,7 @@ export default function AppointmentServicesPage() {
               {/* Pricing Fields */}
               <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                 <h4 className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-green-600" />
+                  <DollarSign className="h-4 w-4 text-success" />
                   Precio del Servicio
                 </h4>
 
@@ -693,24 +693,24 @@ function ServiceCard({ service, onEdit, onDelete }: { service: any; onEdit: () =
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
       <div className="flex items-center gap-3">
-        <div className={`h-9 w-9 rounded-full flex items-center justify-center ${service.category === 'programa_especial' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+        <div className={`h-9 w-9 rounded-full flex items-center justify-center ${service.category === 'programa_especial' ? 'bg-accent' : 'bg-accent'}`}>
           {service.category === 'programa_especial'
-            ? <Star className="h-4 w-4 text-purple-700" />
-            : <Stethoscope className="h-4 w-4 text-blue-700" />}
+            ? <Star className="h-4 w-4 text-primary" />
+            : <Stethoscope className="h-4 w-4 text-primary" />}
         </div>
         <div>
           <div className="flex items-center gap-2">
             <p className="font-medium">{service.name}</p>
             <Badge variant="outline" className={`text-xs ${cat.color}`}>{cat.label}</Badge>
             {!service.isActive && (
-              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Inactivo</Badge>
+              <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border">Inactivo</Badge>
             )}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
             {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
             {service.duration && <span className="text-xs text-muted-foreground">{service.duration} min</span>}
             {parseFloat(service.basePrice || service.base_price || '0') > 0 && (
-              <span className="text-sm font-semibold text-green-700">
+              <span className="text-sm font-semibold text-success">
                 RD$ {parseFloat(service.basePrice || service.base_price || '0').toFixed(2)}
                 {(service.priceType || service.price_type) === 'variable' && ' (variable)'}
                 {(service.priceType || service.price_type) === 'range' && (
@@ -727,7 +727,7 @@ function ServiceCard({ service, onEdit, onDelete }: { service: any; onEdit: () =
         <Button size="sm" variant="outline" onClick={onEdit}>
           <Pencil className="h-4 w-4" />
         </Button>
-        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={onDelete}>
+        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive/80" onClick={onDelete}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>

@@ -147,7 +147,7 @@ export default function BulkMessageModal({ isOpen, onClose }: BulkMessageModalPr
                 className="resize-none"
               />
               {form.formState.errors.message && (
-                <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.message.message}</p>
               )}
             </div>
 
@@ -188,7 +188,7 @@ export default function BulkMessageModal({ isOpen, onClose }: BulkMessageModalPr
                       className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
                         selectedCustomers.includes(customer.id)
                           ? "bg-primary bg-opacity-10 border-primary"
-                          : "hover:bg-gray-50"
+                          : "hover:bg-subtle"
                       }`}
                     >
                       <Checkbox
@@ -196,12 +196,12 @@ export default function BulkMessageModal({ isOpen, onClose }: BulkMessageModalPr
                         checked={selectedCustomers.includes(customer.id)}
                         onCheckedChange={(checked) => handleCustomerToggle(customer.id, !!checked)}
                       />
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <User className="h-4 w-4 text-gray-600" />
+                      <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                        <User className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-sm">{customer.name}</p>
-                        <p className="text-xs text-gray-500">{customer.phone}</p>
+                        <p className="text-xs text-muted-foreground">{customer.phone}</p>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         <MessageCircle className="h-3 w-3 mr-1" />
@@ -219,17 +219,17 @@ export default function BulkMessageModal({ isOpen, onClose }: BulkMessageModalPr
             <Card>
               <CardContent className="p-4">
                 <h4 className="font-medium mb-3">Vista Previa del Mensaje</h4>
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-subtle p-3 rounded-lg">
                   <p className="text-sm whitespace-pre-wrap">{form.watch("message")}</p>
                   {form.watch("includeOrderInfo") && (
-                    <div className="border-t pt-2 mt-2 text-xs text-gray-500">
+                    <div className="border-t pt-2 mt-2 text-xs text-muted-foreground">
                       --<br />
                       Este mensaje fue enviado desde OrderManager WhatsApp Business<br />
                       Para consultas: +52 55 1111-1111
                     </div>
                   )}
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
                   <span>Se enviará a {selectedCustomers.length} cliente(s)</span>
                   <span>{form.watch("message").length} caracteres</span>
                 </div>
@@ -245,7 +245,7 @@ export default function BulkMessageModal({ isOpen, onClose }: BulkMessageModalPr
             <Button 
               type="submit"
               disabled={sendBulkMessageMutation.isPending || selectedCustomers.length === 0 || !form.watch("message")}
-              className="whatsapp-bg hover:bg-green-600"
+              className="whatsapp-bg hover:bg-success"
             >
               {sendBulkMessageMutation.isPending ? (
                 <div className="flex items-center space-x-2">

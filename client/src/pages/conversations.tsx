@@ -223,19 +223,19 @@ export default function ConversationsPage() {
   const messageGroups = groupMessagesByDate(displayedMessages);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-subtle overflow-hidden">
       {/* Lista de conversaciones */}
-      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 bg-white border-r border-gray-200 h-full`}>
+      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 bg-card border-r border-border h-full`}>
         {/* Header de búsqueda */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input
               type="text"
               placeholder="Buscar conversaciones..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-success"
             />
           </div>
         </div>
@@ -244,10 +244,10 @@ export default function ConversationsPage() {
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success"></div>
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <p>No hay conversaciones</p>
             </div>
           ) : (
@@ -255,30 +255,30 @@ export default function ConversationsPage() {
               <div
                 key={conversation.id}
                 onClick={() => setSelectedConversation(conversation)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  selectedConversation?.id === conversation.id ? 'bg-emerald-50' : ''
+                className={`p-4 border-b border-border cursor-pointer hover:bg-subtle transition-colors ${
+                  selectedConversation?.id === conversation.id ? 'bg-success/10' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-success flex items-center justify-center text-success-foreground flex-shrink-0">
                     <User className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline">
-                      <h3 className="font-semibold text-gray-900 truncate">
+                      <h3 className="font-semibold text-foreground truncate">
                         {conversation.customer?.name || conversation.customerName || `Cliente ${conversation.customerId}`}
                       </h3>
                       {conversation.lastMessage && (
-                        <span className="text-xs text-gray-500 ml-2">
+                        <span className="text-xs text-muted-foreground ml-2">
                           {formatMessageTime(conversation.lastMessage.createdAt)}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 truncate">
+                    <p className="text-sm text-muted-foreground truncate">
                       {conversation.customer?.phone || conversation.customerPhone || 'Sin teléfono'}
                     </p>
                     {conversation.lastMessage && (
-                      <p className="text-sm text-gray-500 truncate mt-1">
+                      <p className="text-sm text-muted-foreground truncate mt-1">
                         {conversation.lastMessage.content}
                       </p>
                     )}
@@ -294,16 +294,16 @@ export default function ConversationsPage() {
       {selectedConversation ? (
         <div className="flex flex-col flex-1 h-full overflow-hidden">
           {/* Header del chat */}
-          <div className="flex-shrink-0 bg-emerald-600 px-4 py-3 flex items-center justify-between shadow-md z-10">
+          <div className="flex-shrink-0 bg-success px-4 py-3 flex items-center justify-between shadow-md z-10">
             <div className="flex items-center flex-1">
               <button
                 onClick={() => setSelectedConversation(null)}
-                className="md:hidden mr-3 text-white hover:bg-emerald-700 p-2 rounded-full transition-colors"
+                className="md:hidden mr-3 text-success-foreground hover:bg-success/90 p-2 rounded-full transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white mr-3">
+              <div className="w-10 h-10 rounded-full bg-card/20 flex items-center justify-center text-white mr-3">
                 <User className="w-5 h-5" />
               </div>
               
@@ -311,17 +311,17 @@ export default function ConversationsPage() {
                 <h2 className="text-white font-semibold truncate">
                   {selectedConversation.customer?.name || selectedConversation.customerName || `Cliente ${selectedConversation.customerId}`}
                 </h2>
-                <p className="text-emerald-100 text-sm truncate">
+                <p className="text-success-foreground/80 text-sm truncate">
                   {selectedConversation.customer?.phone || selectedConversation.customerPhone || 'Sin teléfono'}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <button className="text-white hover:bg-emerald-700 p-2 rounded-full transition-colors">
+              <button className="text-success-foreground hover:bg-success/90 p-2 rounded-full transition-colors">
                 <Phone className="w-5 h-5" />
               </button>
-              <button className="text-white hover:bg-emerald-700 p-2 rounded-full transition-colors">
+              <button className="text-success-foreground hover:bg-success/90 p-2 rounded-full transition-colors">
                 <MoreVertical className="w-5 h-5" />
               </button>
             </div>
@@ -342,14 +342,14 @@ export default function ConversationsPage() {
             {/* Loading indicator at top */}
             {isLoadingMore && (
               <div className="flex justify-center py-2">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-success"></div>
               </div>
             )}
 
             {/* "Load more" indicator */}
             {!isLoadingMore && hasMoreMessages && displayedMessages.length > 0 && (
               <div className="flex justify-center py-2">
-                <div className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+                <div className="text-xs text-muted-foreground bg-card/80 px-3 py-1 rounded-full">
                   ↑ Desliza hacia arriba para cargar más mensajes
                 </div>
               </div>
@@ -357,7 +357,7 @@ export default function ConversationsPage() {
 
             {displayedMessages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500 text-center">
+                <p className="text-muted-foreground text-center">
                   No hay mensajes en esta conversación
                 </p>
               </div>
@@ -367,7 +367,7 @@ export default function ConversationsPage() {
                   <div key={dateKey}>
                     {/* Date separator */}
                     <div className="flex justify-center my-4">
-                      <div className="bg-white/90 text-gray-600 text-xs px-3 py-1 rounded-lg shadow-sm">
+                      <div className="bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
                         {formatDateSeparator(messageGroups[dateKey][0].sentAt)}
                       </div>
                     </div>
@@ -388,13 +388,13 @@ export default function ConversationsPage() {
                           <div
                             className={`max-w-[70%] px-4 py-2 rounded-lg shadow-sm ${
                               isAgent
-                                ? 'bg-emerald-500 text-white rounded-br-none'
-                                : 'bg-white text-gray-900 rounded-bl-none'
+                                ? 'bg-success text-success-foreground rounded-br-none'
+                                : 'bg-card text-foreground rounded-bl-none'
                             }`}
                           >
                             <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
                             <div className={`flex items-center justify-end space-x-1 mt-1 ${
-                              isAgent ? 'text-emerald-100' : 'text-gray-500'
+                              isAgent ? 'text-success-foreground/80' : 'text-muted-foreground'
                             }`}>
                               <span className="text-xs">{formatMessageTime(message.sentAt)}</span>
                               {isAgent && (
@@ -419,7 +419,7 @@ export default function ConversationsPage() {
           </div>
 
           {/* Input de mensaje */}
-          <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 bg-card border-t border-border p-4">
             <div className="flex items-center space-x-2">
               <input
                 type="text"
@@ -427,13 +427,13 @@ export default function ConversationsPage() {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Escribe un mensaje..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="flex-1 px-4 py-2 border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-success"
                 disabled={sendMessageMutation.isPending}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || sendMessageMutation.isPending}
-                className="p-3 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 bg-success text-success-foreground rounded-full hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sendMessageMutation.isPending ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -445,10 +445,10 @@ export default function ConversationsPage() {
           </div>
         </div>
       ) : (
-        <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50">
-          <div className="text-center text-gray-500">
-            <div className="w-32 h-32 mx-auto mb-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-16 h-16 text-gray-400" />
+        <div className="hidden md:flex flex-1 items-center justify-center bg-subtle">
+          <div className="text-center text-muted-foreground">
+            <div className="w-32 h-32 mx-auto mb-6 bg-secondary rounded-full flex items-center justify-center">
+              <User className="w-16 h-16 text-muted-foreground" />
             </div>
             <h2 className="text-2xl font-semibold mb-2">WhatsApp Business</h2>
             <p>Selecciona una conversación para comenzar a chatear</p>

@@ -36,11 +36,11 @@ export default function ReportsExportPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <FileSpreadsheet className="w-8 h-8 text-green-600" />
+        <FileSpreadsheet className="w-8 h-8 text-success" />
         <div>
-          <h1 className="text-2xl font-bold">Reportes Excel</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Reportes Excel</h1>
           <p className="text-muted-foreground">Descarga reportes en formato .xlsx</p>
         </div>
       </div>

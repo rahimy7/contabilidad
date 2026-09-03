@@ -95,33 +95,33 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
 
         <div className="space-y-4">
           {/* Información del Viaje */}
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-accent p-4 rounded-lg border border-border">
             <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-              <Package className="h-5 w-5 text-blue-600" />
+              <Package className="h-5 w-5 text-primary" />
               {trip.tripNumber}
             </h3>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Delivery Asignado</p>
+                <p className="text-sm text-muted-foreground mb-1">Delivery Asignado</p>
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-500" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{trip.assignedUser.name}</span>
                 </div>
-                <p className="text-sm text-gray-500 ml-6">{trip.assignedUser.phone}</p>
+                <p className="text-sm text-muted-foreground ml-6">{trip.assignedUser.phone}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-600 mb-1">Resumen</p>
+                <p className="text-sm text-muted-foreground mb-1">Resumen</p>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" />
+                    <Package className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
                       <strong>{trip.totalOrders}</strong> pedidos
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-500" />
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
                       <strong>{formatCurrency(trip.totalAmount)}</strong>
                     </span>
@@ -137,19 +137,19 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
               Pedidos a entregar
               <Badge variant="secondary">{trip.orders.length}</Badge>
             </h4>
-            <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-3 bg-gray-50">
+            <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-3 bg-subtle">
               {trip.orders.map((order, index) => (
                 <div
                   key={order.orderNumber}
-                  className="flex items-center justify-between p-2 bg-white rounded border"
+                  className="flex items-center justify-between p-2 bg-card rounded border"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-semibold">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent text-primary text-xs font-semibold">
                       {index + 1}
                     </div>
                     <span className="font-medium">{order.orderNumber}</span>
                   </div>
-                  <span className="text-gray-600 font-medium">
+                  <span className="text-muted-foreground font-medium">
                     {formatCurrency(order.totalAmount)}
                   </span>
                 </div>
@@ -172,14 +172,14 @@ export function TripSummaryModal({ trip, open, onClose, onConfirm }: TripSummary
           </div>
 
           {/* Confirmación Visual */}
-          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+          <div className="bg-success/10 p-3 rounded-lg border border-success/40">
             <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+              <CheckCircle className="h-5 w-5 text-success mt-0.5" />
               <div className="text-sm">
-                <p className="font-semibold text-green-900">
+                <p className="font-semibold text-success">
                   Al confirmar, el viaje será enviado inmediatamente
                 </p>
-                <p className="text-green-700 mt-1">
+                <p className="text-success mt-1">
                   El delivery recibirá una notificación y podrá comenzar a marcar los pedidos como recogidos.
                 </p>
               </div>

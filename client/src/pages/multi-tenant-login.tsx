@@ -170,7 +170,7 @@ export default function MultiTenantLogin() {
               <Button
                 type="button"
                 variant="link"
-                className="text-sm text-primary hover:text-primary/80 dark:text-primary dark:hover:text-primary/80"
+                className="text-sm text-primary hover:text-primary/80"
                 onClick={() => setShowResetDialog(true)}
               >
                 <KeyRound className="mr-2 h-4 w-4" />

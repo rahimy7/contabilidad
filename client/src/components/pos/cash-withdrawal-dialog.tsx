@@ -155,7 +155,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-red-500" />
+                <TrendingDown className="h-5 w-5 text-destructive" />
                 Retiro de Efectivo
               </DialogTitle>
               <DialogDescription>
@@ -165,7 +165,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
 
             <div className="space-y-4 py-2">
               <div className="space-y-1">
-                <Label htmlFor="concept">Concepto <span className="text-red-500">*</span></Label>
+                <Label htmlFor="concept">Concepto <span className="text-destructive">*</span></Label>
                 <Textarea
                   id="concept"
                   placeholder="Ej: Pago de servicio eléctrico, Compra de suministros..."
@@ -177,7 +177,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="amount">Monto <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="amount">Monto <span className="text-destructive">*</span></Label>
                   <Input
                     id="amount"
                     type="number"
@@ -223,7 +223,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-amber-500" />
+                <ShieldCheck className="h-5 w-5 text-warning" />
                 Autorización Requerida
               </DialogTitle>
               <DialogDescription>
@@ -232,9 +232,9 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            <div className="bg-warning/15 border border-warning/40 rounded-lg p-3 text-sm text-warning">
               <strong>Concepto:</strong> {concept}
-              {notes && <><br /><span className="text-amber-600">{notes}</span></>}
+              {notes && <><br /><span className="text-warning">{notes}</span></>}
             </div>
 
             <div className="space-y-4 py-2">
@@ -267,7 +267,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
               <Button
                 onClick={handleSubmitAuth}
                 disabled={createMutation.isPending}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-destructive hover:bg-destructive/90"
               >
                 {createMutation.isPending ? 'Verificando...' : 'Autorizar y Registrar'}
               </Button>
@@ -280,7 +280,7 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 text-success" />
                 Retiro Registrado
               </DialogTitle>
               <DialogDescription>
@@ -288,21 +288,21 @@ export function CashWithdrawalDialog({ open, onClose, storeName }: Props) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-1">
+            <div className="bg-success/10 border border-success/40 rounded-lg p-4 space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-green-700 font-medium">No.</span>
+                <span className="text-success font-medium">No.</span>
                 <span className="font-bold">#{String(savedWithdrawal.id).padStart(6, '0')}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-green-700 font-medium">Concepto</span>
+                <span className="text-success font-medium">Concepto</span>
                 <span className="text-right max-w-[200px]">{savedWithdrawal.concept}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-green-700 font-medium">Monto</span>
-                <span className="font-bold text-red-600">{fmtMoney(savedWithdrawal.amount, savedWithdrawal.currency)}</span>
+                <span className="text-success font-medium">Monto</span>
+                <span className="font-bold text-destructive">{fmtMoney(savedWithdrawal.amount, savedWithdrawal.currency)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-green-700 font-medium">Autorizado por</span>
+                <span className="text-success font-medium">Autorizado por</span>
                 <span>{savedWithdrawal.authorizerName}</span>
               </div>
             </div>

@@ -608,8 +608,8 @@ export default function ProductUnitConversions({
         {product?.unitConversionEnabled && (
           <CardContent className="space-y-4">
             {/* Base Unit Selection */}
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <Label className="text-sm font-medium text-blue-900 mb-2 block">
+            <div className="p-4 bg-accent rounded-lg border border-border">
+              <Label className="text-sm font-medium text-accent-foreground mb-2 block">
                 Unidad Base del Producto
               </Label>
               <Select
@@ -628,7 +628,7 @@ export default function ProductUnitConversions({
                 </SelectContent>
               </Select>
               {baseUnit && (
-                <p className="text-xs text-blue-700 mt-2">
+                <p className="text-xs text-primary mt-2">
                   El inventario se manejará en <strong>{baseUnit.symbol}</strong>.
                   Stock actual: <strong>{product?.stockQuantity || 0} {baseUnit.symbol}</strong>
                 </p>
@@ -637,29 +637,29 @@ export default function ProductUnitConversions({
 
             {/* Precio y Puntos por Unidad Base */}
             {baseUnit && pricePerBaseUnitData.length > 0 && (
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <Label className="text-sm font-medium text-green-900 mb-3 flex items-center gap-2">
+              <div className="p-4 bg-success/10 rounded-lg border border-success/40">
+                <Label className="text-sm font-medium text-success mb-3 flex items-center gap-2">
                   <DollarSign className="w-4 h-4" />
                   Precio y Puntos por Unidad Base ({baseUnit.symbol})
                 </Label>
                 <div className="space-y-2">
                   {pricePerBaseUnitData.map(({ conv, factor, pricePerUnit, pointsPerUnit }) => (
-                    <div key={conv.id} className="rounded-md bg-white p-3 border border-green-100 text-sm">
-                      <div className="text-xs text-green-600 mb-2">
+                    <div key={conv.id} className="rounded-md bg-card p-3 border border-success/40 text-sm">
+                      <div className="text-xs text-success mb-2">
                         1 <strong>{conv.sourceUnit?.symbol}</strong> = {factor} {baseUnit.symbol}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-green-700 font-medium">Precio por 1 {baseUnit.symbol}</span>
-                        <Badge className="bg-green-100 text-green-800 border border-green-300 font-mono">
+                        <span className="text-success font-medium">Precio por 1 {baseUnit.symbol}</span>
+                        <Badge className="bg-success/10 text-success border border-success/40 font-mono">
                           {product?.currency === 'USD' ? '$' : 'RD$'} {pricePerUnit.toFixed(4)}
                         </Badge>
                       </div>
                       {pointsPerUnit !== null && pointsPerUnit > 0 && (
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-green-600 text-xs">
+                          <span className="text-success text-xs">
                             {product?.loyaltyPointsPropertyName || 'Puntos'} por 1 {baseUnit.symbol}
                           </span>
-                          <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+                          <Badge variant="outline" className="text-xs border-success/40 text-success">
                             {pointsPerUnit.toFixed(2)} {product?.loyaltyPointsPropertyName || 'pts'}
                           </Badge>
                         </div>
@@ -667,7 +667,7 @@ export default function ProductUnitConversions({
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-green-600 mt-2 italic">
+                <p className="text-xs text-success mt-2 italic">
                   * Calculado automáticamente: precio del producto (
                   {product?.currency === 'USD' ? '$' : 'RD$'}{parseFloat(product?.price || '0').toFixed(2)}) ÷ factor de conversión.
                 </p>
@@ -676,14 +676,14 @@ export default function ProductUnitConversions({
 
             {/* Quick Setup */}
             {baseUnit && unitsForSetup.length > 0 && (
-              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="p-4 bg-warning/15 rounded-lg border border-warning/40">
                 <div className="flex items-start gap-3">
-                  <Zap className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <Zap className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-amber-900 mb-1">
+                    <h4 className="text-sm font-medium text-warning mb-1">
                       Configuración Rápida
                     </h4>
-                    <p className="text-xs text-amber-700 mb-3">
+                    <p className="text-xs text-warning mb-3">
                       Configura conversiones comunes automáticamente desde la unidad base
                     </p>
                     <Button
@@ -691,7 +691,7 @@ export default function ProductUnitConversions({
                       size="sm"
                       variant="outline"
                       onClick={() => setShowSetupDialog(true)}
-                      className="bg-white"
+                      className="bg-card"
                     >
                       <Zap className="w-4 h-4 mr-2" />
                       Configurar Automáticamente
@@ -703,13 +703,13 @@ export default function ProductUnitConversions({
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-600">Conversiones configuradas</p>
-                <p className="text-2xl font-bold text-gray-900">{conversions.length}</p>
+              <div className="p-3 bg-subtle rounded-lg">
+                <p className="text-xs text-muted-foreground">Conversiones configuradas</p>
+                <p className="text-2xl font-bold text-foreground">{conversions.length}</p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-600">Unidades disponibles</p>
-                <p className="text-2xl font-bold text-gray-900">{availableUnits.length}</p>
+              <div className="p-3 bg-subtle rounded-lg">
+                <p className="text-xs text-muted-foreground">Unidades disponibles</p>
+                <p className="text-2xl font-bold text-foreground">{availableUnits.length}</p>
               </div>
             </div>
           </CardContent>
@@ -734,8 +734,8 @@ export default function ProductUnitConversions({
           </CardHeader>
           <CardContent>
             {conversions.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Scale className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-muted-foreground">
+                <Scale className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                 <p>No hay conversiones configuradas</p>
                 <p className="text-sm">Comienza agregando una conversión manual o usa la configuración rápida</p>
               </div>
@@ -758,14 +758,14 @@ export default function ProductUnitConversions({
                           <Badge variant="outline">
                             {conversion.sourceUnit?.symbol || 'N/A'}
                           </Badge>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-muted-foreground">
                             {conversion.sourceUnit?.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <ArrowRight className="w-4 h-4 text-gray-400" />
+                          <ArrowRight className="w-4 h-4 text-muted-foreground" />
                           <span className="font-mono text-sm font-medium">
                             ×{parseFloat(conversion.conversionFactor).toFixed(6)}
                           </span>
@@ -776,13 +776,13 @@ export default function ProductUnitConversions({
                           <Badge variant="outline">
                             {conversion.targetUnit?.symbol || 'N/A'}
                           </Badge>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-muted-foreground">
                             {conversion.targetUnit?.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-muted-foreground">
                           {conversion.notes || '-'}
                         </span>
                       </TableCell>
@@ -801,7 +801,7 @@ export default function ProductUnitConversions({
                             size="sm"
                             variant="outline"
                             onClick={() => openDeleteDialog(conversion)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive/80"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -820,11 +820,11 @@ export default function ProductUnitConversions({
       {!product?.unitConversionEnabled && (
         <Card>
           <CardContent className="text-center py-12">
-            <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Conversión de unidades desactivada
             </h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Activa la conversión de unidades para este producto para comenzar a configurar las conversiones
             </p>
           </CardContent>
@@ -872,7 +872,7 @@ export default function ProductUnitConversions({
                 </SelectContent>
               </Select>
               {createForm.formState.errors.sourceUnitId && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createForm.formState.errors.sourceUnitId.message}
                 </p>
               )}
@@ -908,7 +908,7 @@ export default function ProductUnitConversions({
                 </SelectContent>
               </Select>
               {createForm.formState.errors.targetUnitId && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createForm.formState.errors.targetUnitId.message}
                 </p>
               )}
@@ -924,11 +924,11 @@ export default function ProductUnitConversions({
                 {...createForm.register('conversionFactor')}
               />
               {createForm.formState.errors.conversionFactor && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createForm.formState.errors.conversionFactor.message}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Ejemplo: Para kg → g, el factor es 1000 (1 kg = 1000 g)
               </p>
             </div>
@@ -985,7 +985,7 @@ export default function ProductUnitConversions({
           <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
             <div>
               <Label>Conversión</Label>
-              <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-center gap-2">
+              <div className="p-3 bg-subtle rounded-lg flex items-center justify-center gap-2">
                 <Badge variant="outline">
                   {selectedConversion?.sourceUnit?.symbol}
                 </Badge>
@@ -1005,7 +1005,7 @@ export default function ProductUnitConversions({
                 {...editForm.register('conversionFactor')}
               />
               {editForm.formState.errors.conversionFactor && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {editForm.formState.errors.conversionFactor.message}
                 </p>
               )}
@@ -1050,7 +1050,7 @@ export default function ProductUnitConversions({
           </DialogHeader>
 
           {selectedConversion && (
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-subtle rounded-lg">
               <div className="flex items-center justify-center gap-2">
                 <Badge variant="outline">
                   {selectedConversion.sourceUnit?.name} ({selectedConversion.sourceUnit?.symbol})
@@ -1060,7 +1060,7 @@ export default function ProductUnitConversions({
                   {selectedConversion.targetUnit?.name} ({selectedConversion.targetUnit?.symbol})
                 </Badge>
               </div>
-              <p className="text-center text-sm text-gray-600 mt-2">
+              <p className="text-center text-sm text-muted-foreground mt-2">
                 Factor: {parseFloat(selectedConversion.conversionFactor).toFixed(6)}
               </p>
             </div>
@@ -1099,11 +1099,11 @@ export default function ProductUnitConversions({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-900">
+            <div className="p-3 bg-accent rounded-lg border border-border">
+              <p className="text-sm text-accent-foreground">
                 <strong>Unidad base:</strong> {baseUnit?.name} ({baseUnit?.symbol})
               </p>
-              <p className="text-xs text-blue-700 mt-1">
+              <p className="text-xs text-primary mt-1">
                 Se crearán conversiones bidireccionales automáticamente con factores comunes
               </p>
             </div>
@@ -1116,8 +1116,8 @@ export default function ProductUnitConversions({
                     key={unit.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                       selectedUnitsForSetup.includes(unit.symbol)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-primary bg-accent'
+                        : 'border-border hover:border-border'
                     }`}
                     onClick={() => {
                       setSelectedUnitsForSetup(prev =>
@@ -1130,10 +1130,10 @@ export default function ProductUnitConversions({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-sm">{unit.symbol}</p>
-                        <p className="text-xs text-gray-600">{unit.name}</p>
+                        <p className="text-xs text-muted-foreground">{unit.name}</p>
                       </div>
                       {selectedUnitsForSetup.includes(unit.symbol) && (
-                        <CheckCircle className="w-5 h-5 text-blue-600" />
+                        <CheckCircle className="w-5 h-5 text-primary" />
                       )}
                     </div>
                   </div>
@@ -1141,7 +1141,7 @@ export default function ProductUnitConversions({
               </div>
 
               {unitsForSetup.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No hay unidades disponibles para configurar. Ya se han configurado todas las conversiones posibles.
                 </p>
               )}
@@ -1188,7 +1188,7 @@ export default function ProductUnitConversions({
                 {...createUnitForm.register('name')}
               />
               {createUnitForm.formState.errors.name && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createUnitForm.formState.errors.name.message}
                 </p>
               )}
@@ -1202,11 +1202,11 @@ export default function ProductUnitConversions({
                 {...createUnitForm.register('symbol')}
               />
               {createUnitForm.formState.errors.symbol && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createUnitForm.formState.errors.symbol.message}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Abreviación corta para mostrar en la interfaz
               </p>
             </div>
@@ -1230,11 +1230,11 @@ export default function ProductUnitConversions({
                 </SelectContent>
               </Select>
               {createUnitForm.formState.errors.type && (
-                <p className="text-sm text-red-600 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {createUnitForm.formState.errors.type.message}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Solo podrás crear conversiones entre unidades del mismo tipo
               </p>
             </div>
@@ -1248,11 +1248,11 @@ export default function ProductUnitConversions({
               />
             </div>
 
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-blue-900">
+            <div className="p-3 bg-accent rounded-lg border border-border">
+              <p className="text-xs text-accent-foreground">
                 <strong>Ejemplos comunes:</strong>
               </p>
-              <ul className="text-xs text-blue-700 mt-1 space-y-1 list-disc list-inside">
+              <ul className="text-xs text-primary mt-1 space-y-1 list-disc list-inside">
                 <li>Pastilla (past) - Tipo: Unidad</li>
                 <li>Cucharada (cuch) - Tipo: Volumen</li>
                 <li>Sobre (sob) - Tipo: Unidad</li>

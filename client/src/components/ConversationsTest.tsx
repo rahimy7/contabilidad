@@ -199,9 +199,9 @@ export default function ConversationsTest() {
   if (isLoading) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">🧪 Test de Conversaciones</h1>
+        <h1 className="text-[20px] font-semibold tracking-tight mb-4">🧪 Test de Conversaciones</h1>
         <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
           <p>Cargando conversaciones...</p>
         </div>
       </div>
@@ -211,20 +211,20 @@ export default function ConversationsTest() {
   if (error) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">🧪 Test de Conversaciones</h1>
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <h1 className="text-[20px] font-semibold tracking-tight mb-4">🧪 Test de Conversaciones</h1>
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded mb-4">
           <strong>Error:</strong> {(error as Error).message}
         </div>
         <div className="flex gap-2">
           <button 
             onClick={testAuth}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-success text-success-foreground px-4 py-2 rounded hover:bg-success"
           >
             🔐 Test Auth
           </button>
           <button 
             onClick={runAllTests}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary-hover"
             disabled={isRunningTests}
           >
             {isRunningTests ? '⏳ Ejecutando...' : '🧪 Ejecutar Todas las Pruebas'}
@@ -236,41 +236,41 @@ export default function ConversationsTest() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🧪 Test Completo de Conversaciones</h1>
+      <h1 className="text-[20px] font-semibold tracking-tight mb-4">🧪 Test Completo de Conversaciones</h1>
       
       {/* Panel de control de pruebas */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="mb-6 p-4 bg-subtle rounded-lg">
         <h2 className="text-lg font-semibold mb-3">Panel de Control de Pruebas</h2>
         <div className="flex flex-wrap gap-2">
           <button 
             onClick={testAuth}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-success text-success-foreground px-4 py-2 rounded hover:bg-success"
           >
             🔐 Test Auth
           </button>
           <button 
             onClick={runAllTests}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary-hover"
             disabled={isRunningTests}
           >
             {isRunningTests ? '⏳ Ejecutando...' : '🧪 Ejecutar Todas las Pruebas'}
           </button>
           <button 
             onClick={handleCreateTestConversation}
-            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary"
             disabled={createConversationMutation.isPending}
           >
             {createConversationMutation.isPending ? '⏳' : '➕'} Crear Conversación Test
           </button>
           <button 
             onClick={() => (window as any).cleanupTestData?.()}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            className="bg-destructive text-destructive-foreground px-4 py-2 rounded hover:bg-destructive"
           >
             🧹 Limpiar Datos Test
           </button>
           <button 
             onClick={() => refetchConversations()}
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            className="bg-muted-foreground text-white px-4 py-2 rounded hover:bg-muted-foreground"
           >
             🔄 Refrescar
           </button>
@@ -279,39 +279,39 @@ export default function ConversationsTest() {
 
       {/* Resultados de pruebas automatizadas */}
       {testResults && (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+        <div className="mb-6 p-4 bg-accent rounded-lg">
           <h2 className="text-lg font-semibold mb-3">📊 Resultados de Pruebas Automatizadas</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary">
                 {testResults.conversations?.length || 0}
               </div>
-              <div className="text-sm text-gray-600">Conversaciones</div>
+              <div className="text-sm text-muted-foreground">Conversaciones</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-success">
                 {testResults.debug ? '✅' : '❌'}
               </div>
-              <div className="text-sm text-gray-600">Debug OK</div>
+              <div className="text-sm text-muted-foreground">Debug OK</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-primary">
                 {testResults.createConversation?.id ? '✅' : '❌'}
               </div>
-              <div className="text-sm text-gray-600">Crear Conv</div>
+              <div className="text-sm text-muted-foreground">Crear Conv</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-destructive">
                 {testResults.errors?.length || 0}
               </div>
-              <div className="text-sm text-gray-600">Errores</div>
+              <div className="text-sm text-muted-foreground">Errores</div>
             </div>
           </div>
           
           {testResults.errors && testResults.errors.length > 0 && (
-            <div className="bg-red-100 border border-red-300 rounded p-3">
-              <h3 className="font-semibold text-red-800 mb-2">Errores encontrados:</h3>
-              <ul className="text-sm text-red-700 space-y-1">
+            <div className="bg-destructive/10 border border-destructive/40 rounded p-3">
+              <h3 className="font-semibold text-destructive mb-2">Errores encontrados:</h3>
+              <ul className="text-sm text-destructive space-y-1">
                 {testResults.errors.map((error: string, index: number) => (
                   <li key={index}>• {error}</li>
                 ))}
@@ -323,21 +323,21 @@ export default function ConversationsTest() {
 
       {/* Debug info */}
       {debugData && (
-        <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
+        <div className="mb-6 p-4 bg-warning/15 rounded-lg">
           <h2 className="text-lg font-semibold mb-3">🐛 Información de Debug</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-3 rounded border">
+            <div className="bg-card p-3 rounded border">
               <h3 className="font-semibold">Usuario</h3>
               <p className="text-sm">ID: {debugData.user?.id}</p>
               <p className="text-sm">Store: {debugData.user?.storeId}</p>
               <p className="text-sm">Role: {debugData.user?.role}</p>
             </div>
-            <div className="bg-white p-3 rounded border">
+            <div className="bg-card p-3 rounded border">
               <h3 className="font-semibold">Conversaciones</h3>
               <p className="text-sm">Count: {debugData.data?.conversations?.count || 0}</p>
               <p className="text-sm">Sample: {debugData.data?.conversations?.sample?.length || 0}</p>
             </div>
-            <div className="bg-white p-3 rounded border">
+            <div className="bg-card p-3 rounded border">
               <h3 className="font-semibold">Mensajes</h3>
               <p className="text-sm">Count: {debugData.data?.messages?.count || 0}</p>
               <p className="text-sm">Sample: {debugData.data?.messages?.sample?.length || 0}</p>
@@ -355,10 +355,10 @@ export default function ConversationsTest() {
           
           {!conversations || conversations.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No hay conversaciones disponibles</p>
+              <p className="text-muted-foreground mb-4">No hay conversaciones disponibles</p>
               <button 
                 onClick={handleCreateTestConversation}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary-hover"
                 disabled={createConversationMutation.isPending}
               >
                 {createConversationMutation.isPending ? 'Creando...' : 'Crear Conversación de Prueba'}
@@ -370,8 +370,8 @@ export default function ConversationsTest() {
                 <div 
                   key={conversation.id}
                   onClick={() => setSelectedConversation(conversation)}
-                  className={"p-3 border rounded cursor-pointer hover:bg-gray-50 transition-colors " + (
-                    selectedConversation?.id === conversation.id ? 'bg-blue-50 border-blue-300' : ''
+                  className={"p-3 border rounded cursor-pointer hover:bg-subtle transition-colors " + (
+                    selectedConversation?.id === conversation.id ? 'bg-accent border-border' : ''
                   )}
                 >
                   <div className="flex justify-between items-start">
@@ -379,17 +379,17 @@ export default function ConversationsTest() {
                       <div className="font-medium">
                         {conversation.customerName || "Cliente " + conversation.customerId}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         {conversation.customerPhone} • {conversation.status}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-muted-foreground">
                         Tipo: {conversation.conversationType}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-muted-foreground">
                         {new Date(conversation.lastMessageAt).toLocaleString()}
                       </div>
                     </div>
-                    <div className="text-xs bg-gray-100 px-2 py-1 rounded">
+                    <div className="text-xs bg-muted px-2 py-1 rounded">
                       ID: {conversation.id}
                     </div>
                   </div>
@@ -410,27 +410,27 @@ export default function ConversationsTest() {
           
           {selectedConversation ? (
             <>
-              <div className="h-64 border rounded p-3 overflow-y-auto mb-3 bg-gray-50">
+              <div className="h-64 border rounded p-3 overflow-y-auto mb-3 bg-subtle">
                 {messages && messages.length > 0 ? (
                   messages.map((message: Message) => (
                     <div 
                       key={message.id}
                       className={"mb-2 p-2 rounded max-w-xs " + (
                         message.senderType === 'agent' 
-                          ? 'bg-blue-500 text-white ml-auto' 
-                          : 'bg-white border'
+                          ? 'bg-primary text-primary-foreground ml-auto' 
+                          : 'bg-card border'
                       )}
                     >
                       <div className="text-sm">{message.content}</div>
                       <div className={"text-xs opacity-75 " + (
-                        message.senderType === 'agent' ? 'text-blue-100' : 'text-gray-500'
+                        message.senderType === 'agent' ? 'text-primary/70' : 'text-muted-foreground'
                       )}>
                         {message.senderType} • {new Date(message.sentAt).toLocaleTimeString()}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 text-center">No hay mensajes</p>
+                  <p className="text-muted-foreground text-center">No hay mensajes</p>
                 )}
               </div>
               
@@ -446,14 +446,14 @@ export default function ConversationsTest() {
                 <button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || createMessageMutation.isPending}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary-hover disabled:opacity-50"
                 >
                   {createMessageMutation.isPending ? '...' : 'Enviar'}
                 </button>
               </div>
             </>
           ) : (
-            <p className="text-gray-500 text-center py-8">
+            <p className="text-muted-foreground text-center py-8">
               Selecciona una conversación para ver los mensajes
             </p>
           )}
@@ -461,7 +461,7 @@ export default function ConversationsTest() {
       </div>
       
       {/* Estado detallado de la API */}
-      <div className="mt-6 p-4 bg-gray-100 rounded">
+      <div className="mt-6 p-4 bg-muted rounded">
         <h3 className="font-semibold mb-2">📊 Estado Detallado de la API:</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
@@ -493,26 +493,26 @@ export default function ConversationsTest() {
             <a 
               href="/api/debug/conversations" 
               target="_blank"
-              className="text-blue-600 hover:underline"
+              className="text-primary hover:underline"
             >
               Debug API
             </a>
             <a 
               href="/api/conversations" 
               target="_blank"
-              className="text-blue-600 hover:underline"
+              className="text-primary hover:underline"
             >
               Conversations API
             </a>
             <button 
               onClick={() => console.log('Debug data:', debugData)}
-              className="text-blue-600 hover:underline"
+              className="text-primary hover:underline"
             >
               Log Debug to Console
             </button>
             <button 
               onClick={() => console.log('Conversations:', conversations)}
-              className="text-blue-600 hover:underline"
+              className="text-primary hover:underline"
             >
               Log Conversations to Console
             </button>

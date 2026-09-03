@@ -106,12 +106,12 @@ export default function CashFlowPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <TrendingUp className="w-8 h-8 text-blue-600" />
+          <TrendingUp className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Flujo de Caja Proyectado</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Flujo de Caja Proyectado</h1>
             <p className="text-muted-foreground">Bancos + AR + AP + gastos recurrentes en 13 semanas</p>
           </div>
         </div>
@@ -158,24 +158,24 @@ export default function CashFlowPage() {
             <>
               <div className="grid grid-cols-5 gap-3">
                 <StatCard label="Balance inicial" value={money(forecast.startingBalance)} />
-                <StatCard label="Total entradas" value={money(forecast.totalInflow)} color="text-green-600" />
-                <StatCard label="Total salidas" value={money(forecast.totalOutflow)} color="text-red-600" />
-                <StatCard label="Balance final" value={money(forecast.endingBalance)} bold color={Number(forecast.endingBalance) < 0 ? "text-red-600" : "text-green-600"} />
+                <StatCard label="Total entradas" value={money(forecast.totalInflow)} color="text-success" />
+                <StatCard label="Total salidas" value={money(forecast.totalOutflow)} color="text-destructive" />
+                <StatCard label="Balance final" value={money(forecast.endingBalance)} bold color={Number(forecast.endingBalance) < 0 ? "text-destructive" : "text-success"} />
                 <StatCard
                   label="Balance mínimo"
                   value={money(forecast.minBalance)}
                   bold
-                  color={Number(forecast.minBalance) < 0 ? "text-red-600" : "text-blue-600"}
+                  color={Number(forecast.minBalance) < 0 ? "text-destructive" : "text-primary"}
                   subtitle={`semana del ${forecast.minBalanceWeek}`}
                 />
               </div>
 
               {Number(forecast.minBalance) < 0 && (
-                <Card className="border-red-500">
+                <Card className="border-destructive">
                   <CardContent className="pt-4 flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
                     <div>
-                      <p className="font-semibold text-red-600">Alerta de liquidez</p>
+                      <p className="font-semibold text-destructive">Alerta de liquidez</p>
                       <p className="text-sm text-muted-foreground">
                         El balance proyectado quedará negativo en la semana del {forecast.minBalanceWeek}
                         (RD$ {money(forecast.minBalance)}). Considera adelantar cobros, retrasar pagos o
@@ -209,21 +209,21 @@ export default function CashFlowPage() {
                       {forecast.buckets.map((b: any, i: number) => (
                         <Fragment key={i}>
                           <TableRow
-                            className={`cursor-pointer ${Number(b.closingBalance) < 0 ? "bg-red-50 dark:bg-red-950/20" : ""}`}
+                            className={`cursor-pointer ${Number(b.closingBalance) < 0 ? "bg-destructive/10" : ""}`}
                             onClick={() => setExpanded(expanded === i ? null : i)}
                           >
                             <TableCell className="font-mono text-xs">
                               {b.weekStart} → {b.weekEnd}
                             </TableCell>
                             <TableCell className="text-right font-mono">{money(b.openingBalance)}</TableCell>
-                            <TableCell className="text-right font-mono text-green-600">{b.inflowAR > 0 ? `+${money(b.inflowAR)}` : "—"}</TableCell>
-                            <TableCell className="text-right font-mono text-green-600">{b.inflowOther > 0 ? `+${money(b.inflowOther)}` : "—"}</TableCell>
-                            <TableCell className="text-right font-mono text-red-600">{b.outflowAP > 0 ? `-${money(b.outflowAP)}` : "—"}</TableCell>
-                            <TableCell className="text-right font-mono text-red-600">{b.outflowOther > 0 ? `-${money(b.outflowOther)}` : "—"}</TableCell>
-                            <TableCell className={`text-right font-mono font-bold ${b.netFlow > 0 ? "text-green-600" : b.netFlow < 0 ? "text-red-600" : ""}`}>
+                            <TableCell className="text-right font-mono text-success">{b.inflowAR > 0 ? `+${money(b.inflowAR)}` : "—"}</TableCell>
+                            <TableCell className="text-right font-mono text-success">{b.inflowOther > 0 ? `+${money(b.inflowOther)}` : "—"}</TableCell>
+                            <TableCell className="text-right font-mono text-destructive">{b.outflowAP > 0 ? `-${money(b.outflowAP)}` : "—"}</TableCell>
+                            <TableCell className="text-right font-mono text-destructive">{b.outflowOther > 0 ? `-${money(b.outflowOther)}` : "—"}</TableCell>
+                            <TableCell className={`text-right font-mono font-bold ${b.netFlow > 0 ? "text-success" : b.netFlow < 0 ? "text-destructive" : ""}`}>
                               {b.netFlow > 0 ? "+" : ""}{money(b.netFlow)}
                             </TableCell>
-                            <TableCell className={`text-right font-mono font-bold ${Number(b.closingBalance) < 0 ? "text-red-600" : ""}`}>
+                            <TableCell className={`text-right font-mono font-bold ${Number(b.closingBalance) < 0 ? "text-destructive" : ""}`}>
                               {money(b.closingBalance)}
                             </TableCell>
                           </TableRow>
@@ -239,7 +239,7 @@ export default function CashFlowPage() {
                                         <Badge variant="outline" className="text-xs h-4">{it.source}</Badge>
                                         <span>{it.label}</span>
                                       </span>
-                                      <span className={`font-mono ${it.direction === "inflow" ? "text-green-600" : "text-red-600"}`}>
+                                      <span className={`font-mono ${it.direction === "inflow" ? "text-success" : "text-destructive"}`}>
                                         {it.direction === "inflow" ? "+" : "-"}{money(it.amount)}
                                       </span>
                                     </div>
@@ -290,7 +290,7 @@ export default function CashFlowPage() {
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.name}</TableCell>
                         <TableCell>
-                          <Badge className={e.direction === "inflow" ? "bg-green-600" : "bg-red-500"}>
+                          <Badge className={e.direction === "inflow" ? "bg-success" : "bg-destructive"}>
                             {e.direction === "inflow" ? "Entrada" : "Salida"}
                           </Badge>
                         </TableCell>
@@ -301,9 +301,9 @@ export default function CashFlowPage() {
                         <TableCell className="text-right font-mono">{money(e.amount)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={
-                            e.confidence === "high" ? "border-green-500 text-green-600" :
-                            e.confidence === "medium" ? "border-yellow-500 text-yellow-600" :
-                            "border-red-500 text-red-600"
+                            e.confidence === "high" ? "border-success text-success" :
+                            e.confidence === "medium" ? "border-warning text-warning" :
+                            "border-destructive text-destructive"
                           }>{e.confidence}</Badge>
                         </TableCell>
                         <TableCell>
@@ -348,8 +348,8 @@ export default function CashFlowPage() {
                         <TableCell>{s.forecastDate}</TableCell>
                         <TableCell className="text-right">{s.horizonWeeks}</TableCell>
                         <TableCell className="text-right font-mono">{money(s.startingBalance)}</TableCell>
-                        <TableCell className="text-right font-mono text-green-600">{money(s.totalInflow)}</TableCell>
-                        <TableCell className="text-right font-mono text-red-600">{money(s.totalOutflow)}</TableCell>
+                        <TableCell className="text-right font-mono text-success">{money(s.totalInflow)}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">{money(s.totalOutflow)}</TableCell>
                         <TableCell className="text-right font-mono font-bold">{money(s.endingBalance)}</TableCell>
                         <TableCell className="text-xs">{s.notes ?? "—"}</TableCell>
                       </TableRow>

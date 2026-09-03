@@ -6,6 +6,62 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { DataGrid, PageHeader, amount, type Column } from "@/components/erp";
+
+interface Member {
+  company_id: number; legal_name: string; rnc: string;
+  ownership_pct: string; consol_method: string;
+}
+
+interface TrialLine {
+  account_code: string; account_name: string;
+  debit: string; credit: string; note?: string;
+}
+
+const METHOD_LABEL: Record<string, string> = {
+  full: "Integración global",
+  proportional: "Integración proporcional",
+  equity: "Puesta en equivalencia",
+};
+
+const MEMBER_COLUMNS: Column<Member>[] = [
+  { key: "name", header: "Empresa", cell: (m) => m.legal_name },
+  { key: "rnc", header: "RNC", width: "130px", cell: (m) => m.rnc },
+  {
+    key: "pct", header: "Propiedad", align: "right", width: "110px",
+    cell: (m) => `${(Number(m.ownership_pct) * 100).toFixed(2)}%`,
+  },
+  {
+    key: "method", header: "Método", width: "200px",
+    cell: (m) => METHOD_LABEL[m.consol_method] ?? m.consol_method,
+  },
+];
+
+/** La cuenta lleva su código delante: es como se busca en el plan. */
+const accountCell = (l: TrialLine) => (
+  <span>
+    <span className="font-mono text-[12px] text-muted-foreground">{l.account_code}</span> {l.account_name}
+  </span>
+);
+
+/** El cero se deja en blanco: en un balance, la columna que importa es la que tiene cifra. */
+const nz = (v: string) => (Number(v) ? amount(v) : "");
+
+const TRIAL_COLUMNS: Column<TrialLine>[] = [
+  { key: "account", header: "Cuenta", cell: accountCell },
+  { key: "debit", header: "Débito", align: "right", width: "160px", cell: (l) => nz(l.debit) },
+  { key: "credit", header: "Crédito", align: "right", width: "160px", cell: (l) => nz(l.credit) },
+];
+
+const ELIMINATION_COLUMNS: Column<TrialLine>[] = [
+  { key: "account", header: "Cuenta", cell: accountCell },
+  {
+    key: "note", header: "Concepto",
+    cell: (l) => <span className="text-[12px] text-muted-foreground">{l.note}</span>,
+  },
+  { key: "debit", header: "Débito", align: "right", width: "150px", cell: (l) => nz(l.debit) },
+  { key: "credit", header: "Crédito", align: "right", width: "150px", cell: (l) => nz(l.credit) },
+];
 import { Network, Plus, Layers } from "lucide-react";
 
 const money = (v: string | number) =>
@@ -17,11 +73,8 @@ export default function ConsolidationPage() {
   const groups = useQuery({ queryKey: ["/api/consolidation/groups"], queryFn: () => consolidationApi.groups() });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Network className="h-6 w-6" />
-        <h1 className="text-2xl font-semibold">Consolidación de Grupos</h1>
-      </div>
+    <div className="space-y-4">
+      <PageHeader subtitle="Balance consolidado del grupo y eliminaciones intercompañía" />
 
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <GroupsCard groups={groups.data?.groups ?? []} selectedId={groupId} onSelect={(id) => { setGroupId(id); setRunId(null); }} />
@@ -51,7 +104,7 @@ function GroupsCard({ groups, selectedId, onSelect }: { groups: any[]; selectedI
 
   return (
     <Card className="h-fit">
-      <CardHeader><CardTitle className="text-base">Grupos</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Grupos</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {groups.map((g) => (
           <button key={g.id} onClick={() => onSelect(g.id)}
@@ -87,32 +140,25 @@ function MembersCard({ groupId }: { groupId: number }) {
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Empresas del grupo</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Empresas del grupo</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Empresa</th><th className="py-1.5">RNC</th><th className="py-1.5 text-right">Propiedad</th><th className="py-1.5">Método</th></tr></thead>
-          <tbody>
-            {(members.data?.members ?? []).map((m) => (
-              <tr key={m.company_id} className="border-b last:border-0">
-                <td className="py-1.5">{m.legal_name}</td>
-                <td className="py-1.5 tabular-nums">{m.rnc}</td>
-                <td className="py-1.5 text-right tabular-nums">{(Number(m.ownership_pct) * 100).toFixed(2)}%</td>
-                <td className="py-1.5">{m.consol_method}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {(members.data?.members ?? []).length === 0 && <p className="py-2 text-center text-muted-foreground">Sin empresas en el grupo.</p>}
+        <DataGrid
+          columns={MEMBER_COLUMNS}
+          rows={(members.data?.members ?? []) as Member[]}
+          rowKey={(m) => m.company_id}
+          isLoading={members.isLoading}
+          emptyMessage="El grupo todavía no tiene empresas."
+        />
 
         <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-          <label className="text-sm">Empresa
-            <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="mt-1 block h-9 w-56 rounded-md border border-input bg-transparent px-2 text-sm">
+          <label className="text-[13px]">Empresa
+            <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="mt-1 block h-8 w-56 rounded-sm border border-input bg-background px-2 text-[13px]">
               <option value="">Selecciona…</option>
               {(companies.data?.companies ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.legal_name}</option>)}
             </select>
           </label>
-          <label className="text-sm">% propiedad<Input value={pct} onChange={(e) => setPct(e.target.value)} className="w-24" /></label>
-          <label className="text-sm">Método
+          <label className="text-[13px]">% propiedad<Input value={pct} onChange={(e) => setPct(e.target.value)} className="w-24" /></label>
+          <label className="text-[13px]">Método
             <select value={method} onChange={(e) => setMethod(e.target.value)} className="mt-1 block h-9 w-36 rounded-md border border-input bg-transparent px-2 text-sm">
               <option value="full">Integración</option>
               <option value="proportional">Proporcional</option>
@@ -142,15 +188,15 @@ function RunsCard({ groupId, onOpenRun }: { groupId: number; onOpenRun: (id: num
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Corridas de consolidación</CardTitle>
+        <CardTitle>Corridas de consolidación</CardTitle>
         <div className="flex items-end gap-2">
-          <label className="text-sm">Año<Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="h-8 w-24" /></label>
+          <label className="text-[13px]">Año<Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="h-8 w-24" /></label>
           <Button size="sm" className="gap-1" disabled={consolidate.isPending} onClick={() => consolidate.mutate()}><Layers className="h-4 w-4" /> Consolidar</Button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
         {(runs.data?.runs ?? []).map((r) => (
-          <button key={r.id} onClick={() => onOpenRun(r.id)} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50">
+          <button key={r.id} onClick={() => onOpenRun(r.id)} className="rounded-sm border border-border px-2.5 py-1 text-[13px] hover:bg-muted">
             {r.fiscal_year}{r.period_no ? `-${String(r.period_no).padStart(2, "0")}` : ""} · {r.member_count} emp.
           </button>
         ))}
@@ -167,46 +213,34 @@ function ConsolidatedStatement({ runId }: { runId: number }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Balance de comprobación consolidado</CardTitle>
+        <CardTitle>Balance de comprobación consolidado</CardTitle>
         {d && <Badge variant={d.balanced ? "secondary" : "destructive"}>{d.balanced ? "Cuadrado" : "Descuadrado"}</Badge>}
       </CardHeader>
       <CardContent>
         {d ? (
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Cuenta</th><th className="py-1.5 text-right">Débito</th><th className="py-1.5 text-right">Crédito</th></tr></thead>
-            <tbody>
-              {d.lines.map((l: any) => (
-                <tr key={l.account_code} className="border-b last:border-0">
-                  <td className="py-1.5"><span className="tabular-nums text-muted-foreground">{l.account_code}</span> {l.account_name}</td>
-                  <td className="py-1.5 text-right tabular-nums">{Number(l.debit) ? money(l.debit) : ""}</td>
-                  <td className="py-1.5 text-right tabular-nums">{Number(l.credit) ? money(l.credit) : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot><tr className="border-t-2 font-semibold"><td className="py-1.5">Totales</td><td className="py-1.5 text-right tabular-nums">{money(d.totalDebit)}</td><td className="py-1.5 text-right tabular-nums">{money(d.totalCredit)}</td></tr></tfoot>
-          </table>
-        ) : <p className="text-muted-foreground">Cargando…</p>}
+          <DataGrid
+            columns={TRIAL_COLUMNS}
+            rows={d.lines as TrialLine[]}
+            rowKey={(l) => l.account_code}
+            emptyMessage="La corrida no produjo líneas."
+            totalsLabel="Totales"
+            totals={{ debit: amount(d.totalDebit), credit: amount(d.totalCredit) }}
+          />
+        ) : <p className="py-6 text-center text-[13px] text-muted-foreground">Cargando…</p>}
 
         {d && d.eliminations.length > 0 && (
           <div className="mt-5 border-t pt-4">
-            <p className="mb-2 text-sm font-medium">Eliminaciones intercompañía</p>
-            <p className="mb-2 text-xs text-muted-foreground">
+            <h3 className="erp-label mb-1.5">Eliminaciones intercompañía</h3>
+            <p className="mb-2 text-[12px] text-muted-foreground">
               Lo que el grupo hizo consigo mismo se cancela: la venta interna, su costo, el margen aún no realizado
               en inventario, y la deuda entre filiales.
             </p>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1">Cuenta</th><th className="py-1">Concepto</th><th className="py-1 text-right">Débito</th><th className="py-1 text-right">Crédito</th></tr></thead>
-              <tbody>
-                {d.eliminations.map((l: any, i: number) => (
-                  <tr key={i} className="border-b last:border-0">
-                    <td className="py-1"><span className="tabular-nums text-muted-foreground">{l.account_code}</span> {l.account_name}</td>
-                    <td className="py-1 text-xs text-muted-foreground">{l.note}</td>
-                    <td className="py-1 text-right tabular-nums">{Number(l.debit) ? money(l.debit) : ""}</td>
-                    <td className="py-1 text-right tabular-nums">{Number(l.credit) ? money(l.credit) : ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataGrid
+              columns={ELIMINATION_COLUMNS}
+              rows={d.eliminations as TrialLine[]}
+              rowKey={(_, i) => i}
+              emptyMessage="Sin eliminaciones."
+            />
           </div>
         )}
       </CardContent>

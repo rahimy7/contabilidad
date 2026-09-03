@@ -255,7 +255,7 @@ const BrandsManagement = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Marcas</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Marcas</h1>
           <p className="text-muted-foreground">
             Administra las marcas de productos de tu tienda
           </p>
@@ -388,19 +388,19 @@ const BrandsManagement = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Activas</CardTitle>
-            <Eye className="h-4 w-4 text-green-600" />
+            <Eye className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-success">{stats.active}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Inactivas</CardTitle>
-            <EyeOff className="h-4 w-4 text-red-600" />
+            <EyeOff className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+            <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
           </CardContent>
         </Card>
         <Card>
@@ -408,7 +408,7 @@ const BrandsManagement = () => {
             <CardTitle className="text-sm font-medium">Con Sitio Web</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.withWebsite}</div>
+            <div className="text-2xl font-bold text-primary">{stats.withWebsite}</div>
           </CardContent>
         </Card>
       </div>
@@ -452,8 +452,8 @@ const BrandsManagement = () => {
                       }}
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
-                      <Building2 className="h-5 w-5 text-gray-400" />
+                    <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
                     </div>
                   )}
                   <div>
@@ -475,7 +475,7 @@ const BrandsManagement = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(brand)}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-destructive hover:text-destructive/80"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -497,7 +497,7 @@ const BrandsManagement = () => {
                     href={brand.website} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-primary hover:text-accent-foreground"
                   >
                     Sitio Web
                   </a>

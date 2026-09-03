@@ -62,10 +62,10 @@ interface Order {
 }
 
 const statusConfig = {
-  pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800", icon: Clock },
-  processing: { label: "En Progreso", color: "bg-orange-100 text-orange-800", icon: AlertCircle },
-  completed: { label: "Completado", color: "bg-green-100 text-green-800", icon: CheckCircle },
-  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-800", icon: XCircle },
+  pending: { label: "Pendiente", color: "bg-warning/15 text-warning", icon: Clock },
+  processing: { label: "En Progreso", color: "bg-warning/10 text-warning", icon: AlertCircle },
+  completed: { label: "Completado", color: "bg-success/10 text-success", icon: CheckCircle },
+  cancelled: { label: "Cancelado", color: "bg-destructive/10 text-destructive", icon: XCircle },
 };
 
 export default function OrderManagement() {
@@ -143,11 +143,11 @@ export default function OrderManagement() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <div>
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-8 bg-secondary rounded w-1/4"></div>
+          <div className="h-32 bg-secondary rounded"></div>
+          <div className="h-64 bg-secondary rounded"></div>
         </div>
       </div>
     );
@@ -158,11 +158,11 @@ export default function OrderManagement() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-3">
             <ShoppingBag className="h-8 w-8 text-primary" />
             Gestión de Órdenes
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-muted-foreground mt-2">
             Administra y supervisa todas las órdenes de manera centralizada
           </p>
         </div>
@@ -180,7 +180,7 @@ export default function OrderManagement() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por número de orden, cliente o teléfono..."
                   value={searchTerm}
@@ -222,8 +222,8 @@ export default function OrderManagement() {
                     <Icon className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{config.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{count}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{config.label}</p>
+                    <p className="text-2xl font-bold text-foreground">{count}</p>
                   </div>
                 </div>
               </CardContent>
@@ -242,11 +242,11 @@ export default function OrderManagement() {
         <CardContent>
           {filteredOrders.length === 0 ? (
             <div className="text-center py-12">
-              <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 No se encontraron órdenes
               </h3>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 {searchTerm || statusFilter !== "all" 
                   ? "Intenta ajustar los filtros de búsqueda"
                   : "Aún no hay órdenes registradas en el sistema"
@@ -272,17 +272,17 @@ export default function OrderManagement() {
                     const StatusIcon = statusInfo.icon;
                     
                     return (
-                      <TableRow key={order.id} className="hover:bg-gray-50">
+                      <TableRow key={order.id} className="hover:bg-subtle">
                         <TableCell>
                           <div>
                             <p className="font-medium">{order.orderNumber}</p>
-                            <p className="text-sm text-gray-500">ID: {order.id}</p>
+                            <p className="text-sm text-muted-foreground">ID: {order.id}</p>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{order.customer?.name || 'N/A'}</p>
-                            <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Phone className="h-3 w-3" />
                               {order.customer?.phone || 'N/A'}
                             </div>
@@ -302,7 +302,7 @@ export default function OrderManagement() {
                         <TableCell>
                           <div className="text-sm">
                             <p>{new Date(order.createdAt).toLocaleDateString('es-MX')}</p>
-                            <p className="text-gray-500">
+                            <p className="text-muted-foreground">
                               {new Date(order.createdAt).toLocaleTimeString('es-MX', { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
@@ -338,7 +338,7 @@ export default function OrderManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteOrder(order.id)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -377,24 +377,24 @@ function OrderDetailsModal({
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-gray-600">Número de Orden</p>
+              <p className="text-sm font-medium text-muted-foreground">Número de Orden</p>
               <p className="text-lg font-semibold">{order.orderNumber}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Estado</p>
+              <p className="text-sm font-medium text-muted-foreground">Estado</p>
               <Badge className={`${statusInfo.color} border-0 mt-1`}>
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {statusInfo.label}
               </Badge>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-lg font-semibold text-green-600">
+              <p className="text-sm font-medium text-muted-foreground">Total</p>
+              <p className="text-lg font-semibold text-success">
                 ${parseFloat(order.totalAmount || "0").toLocaleString('es-MX')}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Fecha de Creación</p>
+              <p className="text-sm font-medium text-muted-foreground">Fecha de Creación</p>
               <p>{new Date(order.createdAt).toLocaleString('es-MX')}</p>
             </div>
           </CardContent>
@@ -406,15 +406,15 @@ function OrderDetailsModal({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-gray-400" />
+              <User className="h-4 w-4 text-muted-foreground" />
               <span>{order.customer?.name || 'N/A'}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-gray-400" />
+              <Phone className="h-4 w-4 text-muted-foreground" />
               <span>{order.customer?.phone || 'N/A'}</span>
             </div>
             <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
               <span className="text-sm">{order.customer?.address || 'Dirección no disponible'}</span>
             </div>
           </CardContent>
@@ -433,10 +433,10 @@ function OrderDetailsModal({
           <CardContent>
             <div className="space-y-3">
               {order.items.map((item, index) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={item.id} className="flex items-center justify-between p-3 bg-subtle rounded-lg">
                   <div>
                     <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       Categoría: {item.product.category} | Cantidad: {item.quantity}
                     </p>
                   </div>
@@ -444,7 +444,7 @@ function OrderDetailsModal({
                     <p className="font-medium">
                       ${parseFloat(item.totalPrice).toLocaleString('es-MX')}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       ${parseFloat(item.unitPrice).toLocaleString('es-MX')} c/u
                     </p>
                   </div>
@@ -462,7 +462,7 @@ function OrderDetailsModal({
             <CardTitle>Notas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-700">{order.notes}</p>
+            <p className="text-sm text-foreground">{order.notes}</p>
           </CardContent>
         </Card>
       )}

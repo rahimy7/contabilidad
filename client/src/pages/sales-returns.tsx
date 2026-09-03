@@ -42,7 +42,7 @@ export default function SalesReturnsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
+        <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
           <Undo2 className="h-6 w-6" /> Devolución de mercancía
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -97,10 +97,10 @@ function InvoicePicker({ onPick }: { onPick: (id: number) => void }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full border-collapse text-[13px]">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
-                <th className="py-2">NCF</th>
+                <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">NCF</th>
                 <th>Cliente</th>
                 <th>Fecha</th>
                 <th className="text-right">Total</th>
@@ -113,7 +113,7 @@ function InvoicePicker({ onPick }: { onPick: (id: number) => void }) {
               )}
               {!isLoading && invoices.map((d: FiscalDocument) => (
                 <tr key={d.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="py-2 font-mono">
+                  <td className="h-[34px] px-3 py-1.5 font-mono">
                     {d.ncf ?? "—"}
                     {d.is_ecf && <Badge variant="outline" className="ml-1.5 text-[10px]">e-CF</Badge>}
                   </td>
@@ -230,7 +230,7 @@ function ReturnForm({ invoiceId, onBack }: { invoiceId: number; onBack: () => vo
     return (
       <Card>
         <CardContent className="py-10 text-center space-y-3">
-          <AlertTriangle className="mx-auto h-8 w-8 text-amber-500" />
+          <AlertTriangle className="mx-auto h-8 w-8 text-warning" />
           <p className="text-sm">{(error as Error)?.message}</p>
           <Button variant="outline" onClick={onBack}>Elegir otra factura</Button>
         </CardContent>
@@ -259,16 +259,16 @@ function ReturnForm({ invoiceId, onBack }: { invoiceId: number; onBack: () => vo
 
         <CardContent className="space-y-4">
           {nothingLeft && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
+            <div className="rounded-md border border-warning/40 bg-warning/15 px-3 py-2 text-sm text-warning dark:text-warning">
               Esta factura ya fue acreditada por completo. No queda nada por devolver.
             </div>
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full border-collapse text-[13px]">
               <thead className="text-left text-muted-foreground border-b">
                 <tr>
-                  <th className="py-2">Descripción</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Descripción</th>
                   <th className="text-right">Facturado</th>
                   <th className="text-right">Ya devuelto</th>
                   <th className="text-right">Disponible</th>
@@ -283,7 +283,7 @@ function ReturnForm({ invoiceId, onBack }: { invoiceId: number; onBack: () => vo
                   const q = Number(returnQty[l.lineNo] ?? 0);
                   return (
                     <tr key={l.lineNo} className={`border-b last:border-0 ${remaining <= 0 ? "opacity-50" : ""}`}>
-                      <td className="py-2">{l.description}</td>
+                      <td className="h-[34px] px-3 py-1.5">{l.description}</td>
                       <td className="text-right tabular-nums">{qty(l.invoicedQty)}</td>
                       <td className="text-right tabular-nums text-muted-foreground">
                         {Number(l.creditedQty) > 0 ? qty(l.creditedQty) : "—"}

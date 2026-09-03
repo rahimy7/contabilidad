@@ -229,12 +229,12 @@ export  function AssignmentRulesPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Reglas de Asignación Automática</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-[20px] font-semibold tracking-tight">Reglas de Asignación Automática</h1>
+          <p className="text-muted-foreground mt-1">
             Configura reglas para asignar órdenes automáticamente a técnicos
           </p>
         </div>
@@ -279,7 +279,7 @@ export  function AssignmentRulesPage() {
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <Label>Regla Activa</Label>
-                      <p className="text-sm text-gray-600">Se evaluará para nuevas órdenes</p>
+                      <p className="text-sm text-muted-foreground">Se evaluará para nuevas órdenes</p>
                     </div>
                     <Switch 
                       checked={form.watch("isActive")}
@@ -287,10 +287,10 @@ export  function AssignmentRulesPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200">
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-accent border-border">
                     <div>
-                      <Label className="text-blue-900">🤖 Auto-Asignar al Crear Orden</Label>
-                      <p className="text-sm text-blue-700">Ejecutar automáticamente</p>
+                      <Label className="text-accent-foreground">🤖 Auto-Asignar al Crear Orden</Label>
+                      <p className="text-sm text-primary">Ejecutar automáticamente</p>
                     </div>
                     <Switch 
                       checked={form.watch("autoAssign")}
@@ -329,15 +329,15 @@ export  function AssignmentRulesPage() {
                   </div>
 
                   {form.watch("assignmentMethod") === "specific_users" && (
-                    <div className="space-y-2 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
-                      <Label className="text-blue-900">Usuarios Específicos</Label>
-                      <p className="text-sm text-blue-700 mb-2">
+                    <div className="space-y-2 p-4 border-2 border-border rounded-lg bg-accent">
+                      <Label className="text-accent-foreground">Usuarios Específicos</Label>
+                      <p className="text-sm text-primary mb-2">
                         Solo estos usuarios recibirán órdenes de esta regla
                       </p>
                       
                       <div className="space-y-2">
                         {users.map((user) => (
-                          <div key={user.id} className="flex items-center space-x-2 p-2 border rounded bg-white">
+                          <div key={user.id} className="flex items-center space-x-2 p-2 border rounded bg-card">
                             <input
                               type="checkbox"
                               id={`user-${user.id}`}
@@ -363,7 +363,7 @@ export  function AssignmentRulesPage() {
                       </div>
 
                       {(form.watch("assignedUserIds") || []).length === 0 && (
-                        <p className="text-sm text-red-600 mt-2">
+                        <p className="text-sm text-destructive mt-2">
                           ⚠️ Debes seleccionar al menos un usuario
                         </p>
                       )}
@@ -400,7 +400,7 @@ export  function AssignmentRulesPage() {
                   </div>
 
                   {form.watch("useSectorBased") && (
-                    <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                    <div className="space-y-4 pl-4 border-l-2 border-border">
                       <div className="space-y-2">
                         <Label>Provincia Requerida</Label>
                         <Select
@@ -445,7 +445,7 @@ export  function AssignmentRulesPage() {
                   </div>
 
                   {form.watch("useWorkloadBased") && (
-                    <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                    <div className="space-y-2 pl-4 border-l-2 border-border">
                       <Label>Máximo de órdenes por técnico</Label>
                       <Input
                         type="number"
@@ -483,7 +483,7 @@ export  function AssignmentRulesPage() {
           {loading ? (
             <div className="text-center py-8">Cargando reglas...</div>
           ) : rules.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No hay reglas configuradas. Crea una nueva regla para comenzar.
             </div>
           ) : (
@@ -491,7 +491,7 @@ export  function AssignmentRulesPage() {
               {/* Custom Table */}
               <div className="min-w-full">
                 {/* Table Header */}
-                <div className="grid grid-cols-7 gap-4 p-4 bg-gray-50 font-semibold text-sm border-b">
+                <div className="grid grid-cols-7 gap-4 p-4 bg-subtle font-semibold text-sm border-b">
                   <div>Nombre</div>
                   <div className="text-center">Prioridad</div>
                   <div>Método</div>
@@ -503,7 +503,7 @@ export  function AssignmentRulesPage() {
                 
                 {/* Table Body */}
                 {rules.map((rule) => (
-                  <div key={rule.id} className="grid grid-cols-7 gap-4 p-4 border-b hover:bg-gray-50 items-center">
+                  <div key={rule.id} className="grid grid-cols-7 gap-4 p-4 border-b hover:bg-subtle items-center">
                     <div className="font-medium">{rule.name}</div>
                     <div className="text-center">
                       <Badge variant={rule.priority >= 8 ? "default" : "secondary"}>
@@ -522,19 +522,19 @@ export  function AssignmentRulesPage() {
                     </div>
                     <div>
                       {rule.requiredProvince || (
-                        <span className="text-gray-400">Todas</span>
+                        <span className="text-muted-foreground">Todas</span>
                       )}
                     </div>
                     <div className="text-center">
                       {rule.isActive ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 inline" />
+                        <CheckCircle className="h-5 w-5 text-success inline" />
                       ) : (
-                        <XCircle className="h-5 w-5 text-gray-400 inline" />
+                        <XCircle className="h-5 w-5 text-muted-foreground inline" />
                       )}
                     </div>
                     <div className="text-center">
                       {rule.autoAssign ? (
-                        <Badge variant="default" className="bg-blue-600">
+                        <Badge variant="default" className="bg-primary">
                           Sí
                         </Badge>
                       ) : (
@@ -555,7 +555,7 @@ export  function AssignmentRulesPage() {
                           size="sm"
                           onClick={() => handleDelete(rule.id)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-600" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>

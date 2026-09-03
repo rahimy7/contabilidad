@@ -9,10 +9,49 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Landmark, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { DataGrid, PageHeader, StatusChip, amount, money, type Column } from "@/components/erp";
 
-const money = (v: string | number) =>
-  Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date().toISOString().slice(0, 10);
+
+interface Movement {
+  id: number; txn_date: string; kind: string; memo?: string | null;
+  direction: "in" | "out"; amount: string; cleared: boolean;
+}
+
+/**
+ * El signo y el color dicen lo mismo dos veces a propósito: en una lista de
+ * movimientos, distinguir una entrada de una salida no puede depender de que la
+ * pantalla reproduzca bien el verde.
+ */
+const MOVEMENT_COLUMNS: Column<Movement>[] = [
+  { key: "date", header: "Fecha", width: "110px", cell: (m) => String(m.txn_date).slice(0, 10) },
+  {
+    key: "memo", header: "Concepto",
+    cell: (m) => (
+      <span className="inline-flex items-center gap-1.5">
+        {m.direction === "in"
+          ? <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
+          : <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-destructive" />}
+        {m.memo ?? m.kind}
+      </span>
+    ),
+  },
+  {
+    key: "amount", header: "Monto", align: "right", width: "150px",
+    cell: (m) => (
+      <span className={m.direction === "in" ? "text-success" : ""}>
+        {m.direction === "in" ? "+" : "−"}{amount(m.amount)}
+      </span>
+    ),
+  },
+  {
+    key: "cleared", header: "Estado", width: "120px",
+    cell: (m) =>
+      m.cleared
+        ? <StatusChip status="ok">Conciliado</StatusChip>
+        : <StatusChip status="pending">Pendiente</StatusChip>,
+  },
+];
 
 export default function TreasuryPage() {
   const [accountId, setAccountId] = useState<number | null>(null);
@@ -20,11 +59,8 @@ export default function TreasuryPage() {
   const selected = (accounts.data?.accounts ?? []).find((a) => a.id === accountId) ?? null;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Landmark className="h-6 w-6" />
-        <h1 className="text-2xl font-semibold">Tesorería</h1>
-      </div>
+    <div className="space-y-4">
+      <PageHeader subtitle="Cuentas bancarias, movimientos y conciliación" />
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <AccountsCard
@@ -52,7 +88,7 @@ function AccountsCard({ accounts, selectedId, onSelect }: { accounts: any[]; sel
   return (
     <Card className="h-fit">
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Cuentas bancarias</CardTitle>
+        <CardTitle>Cuentas bancarias</CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm" variant="outline" className="gap-1"><Plus className="h-4 w-4" /> Nueva</Button></DialogTrigger>
           <NewAccountDialog onDone={() => setOpen(false)} />
@@ -123,36 +159,23 @@ function MovementsCard({ account }: { account: any }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle className="text-base">{account.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">Saldo en libros: <span className="font-medium tabular-nums">{money(account.balance)}</span></p>
+          <CardTitle>{account.name}</CardTitle>
+          <p className="text-[12px] text-muted-foreground">Saldo en libros: <span className="font-medium tabular-nums">{money(account.balance)}</span></p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> Movimiento</Button></DialogTrigger>
           <NewMovementDialog account={account} onDone={() => setOpen(false)} />
         </Dialog>
       </CardHeader>
-      <CardContent>
-        <table className="w-full text-sm">
-          <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Fecha</th><th className="py-1.5">Concepto</th><th className="py-1.5 text-right">Monto</th><th className="py-1.5">Estado</th></tr></thead>
-          <tbody>
-            {(movements.data?.movements ?? []).map((m) => (
-              <tr key={m.id} className="border-b last:border-0">
-                <td className="py-1.5">{String(m.txn_date).slice(0, 10)}</td>
-                <td className="py-1.5">
-                  <span className="inline-flex items-center gap-1">
-                    {m.direction === "in" ? <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600" /> : <ArrowUpRight className="h-3.5 w-3.5 text-rose-600" />}
-                    {m.memo ?? m.kind}
-                  </span>
-                </td>
-                <td className={`py-1.5 text-right tabular-nums ${m.direction === "in" ? "text-emerald-600" : ""}`}>
-                  {m.direction === "in" ? "+" : "−"}{money(m.amount)}
-                </td>
-                <td className="py-1.5"><Badge variant={m.cleared ? "secondary" : "outline"}>{m.cleared ? "conciliado" : "pendiente"}</Badge></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {(movements.data?.movements ?? []).length === 0 && <p className="py-4 text-center text-muted-foreground">Sin movimientos.</p>}
+      <CardContent className="p-0">
+        <DataGrid
+          className="border-0"
+          columns={MOVEMENT_COLUMNS}
+          rows={(movements.data?.movements ?? []) as Movement[]}
+          rowKey={(m) => m.id}
+          isLoading={movements.isLoading}
+          emptyMessage="Esta cuenta no tiene movimientos."
+        />
       </CardContent>
     </Card>
   );
@@ -249,7 +272,7 @@ function ReconciliationCard({ account }: { account: any }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Conciliación bancaria</CardTitle>
+        <CardTitle>Conciliación bancaria</CardTitle>
         {!starting && <Button size="sm" variant="outline" className="gap-1" onClick={() => setStarting(true)}><Plus className="h-4 w-4" /> Nueva conciliación</Button>}
       </CardHeader>
       <CardContent className="space-y-4">
@@ -280,30 +303,39 @@ function ReconciliationCard({ account }: { account: any }) {
               <Metric label="Depósitos en tránsito" value={s.depositsInTransit} />
               <Metric label="Cheques pendientes" value={s.outstandingChecks} />
             </div>
-            <div className={`flex items-center justify-between rounded-md border p-3 ${s.reconciled ? "border-emerald-500/50 bg-emerald-500/5" : "border-amber-500/50 bg-amber-500/5"}`}>
-              <span className="text-sm">Diferencia: <span className="font-semibold tabular-nums">{money(s.difference)}</span></span>
+            <div className={`flex items-center justify-between border p-2.5 ${s.reconciled ? "border-success/40 bg-success/5" : "border-warning/40 bg-warning/10"}`}>
+              <span className="text-[13px]">Diferencia: <span className="font-semibold tabular-nums">{money(s.difference)}</span></span>
               {isDraft && <Button size="sm" disabled={!s.reconciled || complete.isPending} onClick={() => complete.mutate()}>Completar conciliación</Button>}
               {!isDraft && <Badge variant="secondary">Completada</Badge>}
             </div>
 
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5 w-8" /><th className="py-1.5">Fecha</th><th className="py-1.5">Concepto</th><th className="py-1.5 text-right">Monto</th></tr></thead>
-              <tbody>
-                {s.items.map((it: any) => (
-                  <tr key={it.id} className="border-b last:border-0">
-                    <td className="py-1.5">
-                      <Checkbox checked={it.cleared} disabled={!isDraft || toggle.isPending} onCheckedChange={() => toggle.mutate({ id: it.id, cleared: it.cleared })} />
-                    </td>
-                    <td className="py-1.5">{String(it.txn_date).slice(0, 10)}</td>
-                    <td className="py-1.5">{it.memo ?? it.kind}</td>
-                    <td className={`py-1.5 text-right tabular-nums ${it.direction === "in" ? "text-emerald-600" : ""}`}>
-                      {it.direction === "in" ? "+" : "−"}{money(it.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {s.items.length === 0 && <p className="py-4 text-center text-muted-foreground">No hay movimientos hasta la fecha del estado.</p>}
+            <DataGrid
+              columns={[
+                {
+                  key: "check", header: "", width: "40px",
+                  cell: (it: any) => (
+                    <Checkbox
+                      checked={it.cleared}
+                      disabled={!isDraft || toggle.isPending}
+                      onCheckedChange={() => toggle.mutate({ id: it.id, cleared: it.cleared })}
+                    />
+                  ),
+                },
+                { key: "date", header: "Fecha", width: "110px", cell: (it: any) => String(it.txn_date).slice(0, 10) },
+                { key: "memo", header: "Concepto", cell: (it: any) => it.memo ?? it.kind },
+                {
+                  key: "amount", header: "Monto", align: "right", width: "150px",
+                  cell: (it: any) => (
+                    <span className={it.direction === "in" ? "text-success" : ""}>
+                      {it.direction === "in" ? "+" : "−"}{amount(it.amount)}
+                    </span>
+                  ),
+                },
+              ]}
+              rows={s.items as any[]}
+              rowKey={(it: any) => it.id}
+              emptyMessage="No hay movimientos hasta la fecha del estado."
+            />
           </>
         )}
       </CardContent>
@@ -313,9 +345,9 @@ function ReconciliationCard({ account }: { account: any }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-semibold tabular-nums">{money(value)}</div>
+    <div className="border border-border p-2.5">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-[17px] font-light tabular-nums">{amount(value)}</div>
     </div>
   );
 }

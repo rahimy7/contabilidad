@@ -125,8 +125,8 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Alerta informativa */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
+        <div className="p-3 bg-accent border border-border rounded-lg">
+          <p className="text-sm text-accent-foreground">
             <strong>💡 Importante:</strong> La ubicación precisa ayuda a asignar el técnico más cercano.
             Completa todos los campos para mejor asignación automática.
           </p>
@@ -138,7 +138,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
           <div className="space-y-2">
             <Label>
               Provincia *
-              <span className="text-red-500 ml-1">●</span>
+              <span className="text-destructive ml-1">●</span>
             </Label>
             <Select
               value={form.watch("customerProvince") || ""}
@@ -162,7 +162,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
               </SelectContent>
             </Select>
             {form.formState.errors.customerProvince && (
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-destructive">
                 {form.formState.errors.customerProvince.message as string}
               </p>
             )}
@@ -172,7 +172,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
           <div className="space-y-2">
             <Label>
               Municipio *
-              <span className="text-red-500 ml-1">●</span>
+              <span className="text-destructive ml-1">●</span>
             </Label>
             <Select
               value={form.watch("customerMunicipality") || ""}
@@ -191,10 +191,10 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
               </SelectContent>
             </Select>
             {!selectedProvince && (
-              <p className="text-xs text-gray-500">Primero selecciona una provincia</p>
+              <p className="text-xs text-muted-foreground">Primero selecciona una provincia</p>
             )}
             {form.formState.errors.customerMunicipality && (
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-destructive">
                 {form.formState.errors.customerMunicipality.message as string}
               </p>
             )}
@@ -204,7 +204,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
           <div className="space-y-2">
             <Label>
               Sector / Barrio *
-              <span className="text-red-500 ml-1">●</span>
+              <span className="text-destructive ml-1">●</span>
             </Label>
             <Input
               value={form.watch("customerSector") || ""}
@@ -218,7 +218,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
               ))}
             </datalist>
             {form.formState.errors.customerSector && (
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-destructive">
                 {form.formState.errors.customerSector.message as string}
               </p>
             )}
@@ -229,18 +229,18 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
         <div className="space-y-2">
           <Label>
             Dirección Completa *
-            <span className="text-red-500 ml-1">●</span>
+            <span className="text-destructive ml-1">●</span>
           </Label>
           <Input
             value={form.watch("customerAddress") || ""}
             onChange={(e) => form.setValue("customerAddress", e.target.value)}
             placeholder="Calle, número, referencias, etc."
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Incluye detalles como número de casa, edificio, referencias cercanas
           </p>
           {form.formState.errors.customerAddress && (
-            <p className="text-xs text-red-500">
+            <p className="text-xs text-destructive">
               {form.formState.errors.customerAddress.message as string}
             </p>
           )}
@@ -255,17 +255,17 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
             placeholder="809-555-1234"
             type="tel"
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Si es diferente al teléfono principal del cliente
           </p>
         </div>
 
         {/* Coordenadas GPS (opcional pero útil) */}
-        <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+        <div className="space-y-4 p-4 border rounded-lg bg-subtle">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-semibold text-sm">Coordenadas GPS (Opcional)</h4>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 Permite cálculos de distancia más precisos
               </p>
             </div>
@@ -290,7 +290,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
                 onChange={(e) => form.setValue("customerLatitude", e.target.value)}
                 placeholder="18.4861"
                 readOnly
-                className="bg-white"
+                className="bg-card"
               />
             </div>
             <div className="space-y-2">
@@ -301,7 +301,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
                 onChange={(e) => form.setValue("customerLongitude", e.target.value)}
                 placeholder="-69.8908"
                 readOnly
-                className="bg-white"
+                className="bg-card"
               />
             </div>
           </div>
@@ -309,8 +309,8 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
 
         {/* Resumen visual de ubicación */}
         {form.watch("customerProvince") && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h4 className="font-semibold text-sm text-green-900 mb-2">
+          <div className="p-4 bg-success/10 border border-success/40 rounded-lg">
+            <h4 className="font-semibold text-sm text-success mb-2">
               📍 Ubicación Seleccionada
             </h4>
             <div className="space-y-1 text-sm">
@@ -328,7 +328,7 @@ export default function OrderLocationFields({ form }: OrderLocationFieldsProps) 
                 </p>
               )}
               {form.watch("customerAddress") && (
-                <p className="text-gray-700">
+                <p className="text-foreground">
                   {form.watch("customerAddress")}
                 </p>
               )}

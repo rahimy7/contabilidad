@@ -1,17 +1,34 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { DataGrid, PageHeader, type Column } from "@/components/erp";
 
-/** Formats a decimal string as DOP money, blank for zero to keep the grid quiet. */
+/**
+ * Balance de comprobación.
+ *
+ * El cero se deja en blanco a propósito: en una rejilla de cientos de cuentas,
+ * una columna llena de "0.00" es ruido que esconde las cifras que sí hay.
+ */
 const money = (v: string) => {
   const n = Number(v);
   if (!n) return "";
   return n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+interface Row { code: string; name: string; debit: string; credit: string }
+
+const COLUMNS: Column<Row>[] = [
+  {
+    key: "code", header: "Código", width: "150px",
+    cell: (r) => <span className="font-mono text-[12px] text-muted-foreground">{r.code}</span>,
+  },
+  { key: "name", header: "Cuenta", cell: (r) => r.name },
+  { key: "debit", header: "Débito", align: "right", width: "160px", cell: (r) => money(r.debit) },
+  { key: "credit", header: "Crédito", align: "right", width: "160px", cell: (r) => money(r.credit) },
+];
 
 export default function TrialBalancePage() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -21,79 +38,67 @@ export default function TrialBalancePage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Balance de Comprobación</h1>
-          <p className="text-sm text-muted-foreground">Sumas y saldos por cuenta</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">Año</label>
-          <Input
-            type="number"
-            className="w-24"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          />
-        </div>
-      </div>
+    <div className="space-y-3">
+      <PageHeader
+        subtitle="Sumas y saldos por cuenta"
+        actions={
+          <>
+            {data && <BalanceChip balanced={data.balanced} />}
+            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              Año
+              <Input
+                type="number"
+                className="w-[88px]"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+              />
+            </label>
+          </>
+        }
+      />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          {data && (
-            <Badge variant={data.balanced ? "secondary" : "destructive"} className="gap-1">
-              {data.balanced ? (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              ) : (
-                <AlertTriangle className="h-3.5 w-3.5" />
-              )}
-              {data.balanced ? "Cuadrado" : "Descuadrado"}
-            </Badge>
-          )}
-        </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-muted-foreground">Cargando…</p>}
-          {error && <p className="text-destructive">No se pudo cargar el balance.</p>}
-          {data && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">Código</th>
-                    <th className="py-2 pr-4 font-medium">Cuenta</th>
-                    <th className="py-2 pr-4 text-right font-medium">Débito</th>
-                    <th className="py-2 pr-4 text-right font-medium">Crédito</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.rows.map((r) => (
-                    <tr key={r.code} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="py-1.5 pr-4 font-mono text-xs text-muted-foreground">{r.code}</td>
-                      <td className="py-1.5 pr-4">{r.name}</td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">{money(r.debit)}</td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">{money(r.credit)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 font-semibold">
-                    <td className="py-2 pr-4" colSpan={2}>
-                      Totales
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{money(data.totalDebit)}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{money(data.totalCredit)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-              {data.rows.length === 0 && (
-                <p className="py-6 text-center text-muted-foreground">
-                  No hay movimientos contables en {year}.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {error ? (
+        <Card>
+          <CardContent className="py-8 text-center text-[13px] text-destructive">
+            No se pudo cargar el balance.
+          </CardContent>
+        </Card>
+      ) : (
+        <DataGrid
+          columns={COLUMNS}
+          rows={(data?.rows ?? []) as Row[]}
+          rowKey={(r) => r.code}
+          isLoading={isLoading}
+          emptyMessage={`No hay movimientos contables en ${year}.`}
+          totalsLabel="Totales"
+          totals={{
+            debit: money(data?.totalDebit ?? "0"),
+            credit: money(data?.totalCredit ?? "0"),
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Cuadrado o descuadrado.
+ *
+ * Es lo primero que se mira al abrir la pantalla, así que va arriba y no al pie:
+ * si el balance no cuadra, el resto de la rejilla no se lee todavía.
+ */
+function BalanceChip({ balanced }: { balanced: boolean }) {
+  return (
+    <span
+      className={[
+        "flex h-8 items-center gap-1.5 rounded-sm border px-2.5 text-[13px] font-medium",
+        balanced
+          ? "border-success/40 bg-success/10 text-success"
+          : "border-destructive/40 bg-destructive/10 text-destructive",
+      ].join(" ")}
+    >
+      {balanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+      {balanced ? "Cuadrado" : "Descuadrado"}
+    </span>
   );
 }

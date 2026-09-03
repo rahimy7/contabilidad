@@ -27,7 +27,7 @@ const fmt = (value: string | number | null | undefined) => {
 };
 
 const diffColor = (diff: number) =>
-  diff > 0 ? "text-green-600" : diff < 0 ? "text-red-600" : "text-gray-600";
+  diff > 0 ? "text-success" : diff < 0 ? "text-destructive" : "text-muted-foreground";
 
 interface CloseWizardProps {
   open: boolean;
@@ -175,7 +175,7 @@ export function CloseWizard({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-blue-600" />
+            <Landmark className="h-5 w-5 text-primary" />
             Cierre de Caja Asistido
           </DialogTitle>
           {/* Step indicator */}
@@ -184,14 +184,14 @@ export function CloseWizard({
               <div
                 key={s}
                 className={`h-1.5 flex-1 rounded-full transition-all ${
-                  i < currentIndex   ? "bg-blue-500" :
-                  i === currentIndex ? "bg-blue-400" :
-                                       "bg-gray-200"
+                  i < currentIndex   ? "bg-primary" :
+                  i === currentIndex ? "bg-primary" :
+                                       "bg-secondary"
                 }`}
               />
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Paso {currentIndex + 1} de {totalSteps} — {stepTitle[step]}
           </p>
         </DialogHeader>
@@ -200,20 +200,20 @@ export function CloseWizard({
           {/* ── Step: Mode ────────────────────────────────────────────── */}
           {step === "mode" && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">¿Qué tipo de cierre vas a registrar?</p>
+              <p className="text-sm text-muted-foreground">¿Qué tipo de cierre vas a registrar?</p>
               <button
                 type="button"
                 onClick={() => setScope("general")}
                 className={`w-full flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
                   scope === "general"
-                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-300"
-                    : "border-gray-200 hover:border-blue-300"
+                    ? "border-primary bg-accent ring-1 ring-primary"
+                    : "border-border hover:border-border"
                 }`}
               >
-                <Users className={`h-6 w-6 ${scope === "general" ? "text-blue-600" : "text-gray-400"}`} />
+                <Users className={`h-6 w-6 ${scope === "general" ? "text-primary" : "text-muted-foreground"}`} />
                 <div>
                   <p className="font-semibold text-sm">Caja General (Día)</p>
-                  <p className="text-xs text-gray-500">Cierre del día completo, todas las ventas.</p>
+                  <p className="text-xs text-muted-foreground">Cierre del día completo, todas las ventas.</p>
                 </div>
               </button>
               <button
@@ -221,14 +221,14 @@ export function CloseWizard({
                 onClick={() => setScope("user")}
                 className={`w-full flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
                   scope === "user"
-                    ? "border-purple-500 bg-purple-50 ring-1 ring-purple-300"
-                    : "border-gray-200 hover:border-purple-300"
+                    ? "border-primary bg-accent ring-1 ring-primary"
+                    : "border-border hover:border-border"
                 }`}
               >
-                <User className={`h-6 w-6 ${scope === "user" ? "text-purple-600" : "text-gray-400"}`} />
+                <User className={`h-6 w-6 ${scope === "user" ? "text-primary" : "text-muted-foreground"}`} />
                 <div>
                   <p className="font-semibold text-sm">Turno por Cajero</p>
-                  <p className="text-xs text-gray-500">Cierre del turno de un cajero específico.</p>
+                  <p className="text-xs text-muted-foreground">Cierre del turno de un cajero específico.</p>
                 </div>
               </button>
             </div>
@@ -251,9 +251,9 @@ export function CloseWizard({
                 </SelectContent>
               </Select>
               {selectedCashier && (
-                <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-                  <p className="text-sm font-medium text-purple-900">{selectedCashier.name}</p>
-                  <p className="text-xs text-purple-600">
+                <div className="p-3 rounded-lg bg-accent border border-border">
+                  <p className="text-sm font-medium text-accent-foreground">{selectedCashier.name}</p>
+                  <p className="text-xs text-primary">
                     Se cargarán únicamente las ventas asignadas a este cajero.
                   </p>
                 </div>
@@ -264,19 +264,19 @@ export function CloseWizard({
           {/* ── Step: Opening Amount ─────────────────────────────────── */}
           {step === "opening" && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 ¿Con cuánto efectivo se inició la caja?
               </p>
-              <div className="p-4 rounded-xl border-2 border-blue-200 bg-blue-50">
-                <Label className="text-xs text-blue-700">Fondo inicial (RD$)</Label>
+              <div className="p-4 rounded-xl border-2 border-border bg-accent">
+                <Label className="text-xs text-primary">Fondo inicial (RD$)</Label>
                 <Input
                   type="number" step="0.01" min="0" autoFocus
-                  className="mt-1 text-2xl font-bold text-center bg-white border-blue-300"
+                  className="mt-1 text-2xl font-bold text-center bg-card border-border"
                   placeholder="0.00"
                   value={openingAmount || ""}
                   onChange={(e) => setOpeningAmount(parseFloat(e.target.value) || 0)}
                 />
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-primary mt-2">
                   Este monto se sumará al efectivo esperado en gaveta.
                 </p>
               </div>
@@ -286,23 +286,23 @@ export function CloseWizard({
           {/* ── Step: Cash ───────────────────────────────────────────── */}
           {step === "cash" && (
             <PaymentStep
-              icon={<Banknote className="h-6 w-6 text-emerald-600" />}
+              icon={<Banknote className="h-6 w-6 text-success" />}
               title="Efectivo contado"
               description="Cuenta el efectivo físico en gaveta."
               expected={cashExpected}
               reported={cashReported}
               onChange={setCashReported}
               detail={
-                <div className="text-xs space-y-1 text-gray-600 mt-2">
+                <div className="text-xs space-y-1 text-muted-foreground mt-2">
                   <div className="flex justify-between"><span>Fondo inicial:</span><span>{fmt(openingAmount)}</span></div>
                   <div className="flex justify-between"><span>Ventas en efectivo:</span><span>+{fmt(cashSalesNet + cashWithdrawalsTotal)}</span></div>
                   {cashWithdrawalsCount > 0 && (
-                    <div className="flex justify-between text-red-600">
+                    <div className="flex justify-between text-destructive">
                       <span>Retiros ({cashWithdrawalsCount}):</span>
                       <span>−{fmt(cashWithdrawalsTotal)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-semibold text-emerald-700 border-t pt-1">
+                  <div className="flex justify-between font-semibold text-success border-t pt-1">
                     <span>Esperado en gaveta:</span><span>{fmt(cashExpected)}</span>
                   </div>
                 </div>
@@ -313,7 +313,7 @@ export function CloseWizard({
           {/* ── Step: Card ───────────────────────────────────────────── */}
           {step === "card" && (
             <PaymentStep
-              icon={<CreditCard className="h-6 w-6 text-blue-600" />}
+              icon={<CreditCard className="h-6 w-6 text-primary" />}
               title="Pagos con tarjeta"
               description="Total cobrado por terminal de tarjeta."
               expected={cardExpected}
@@ -325,7 +325,7 @@ export function CloseWizard({
           {/* ── Step: Transfer ───────────────────────────────────────── */}
           {step === "transfer" && (
             <PaymentStep
-              icon={<ArrowRightLeft className="h-6 w-6 text-cyan-600" />}
+              icon={<ArrowRightLeft className="h-6 w-6 text-primary" />}
               title="Transferencias"
               description="Total recibido por transferencia bancaria."
               expected={transferExpected}
@@ -337,7 +337,7 @@ export function CloseWizard({
           {/* ── Step: Credit ─────────────────────────────────────────── */}
           {step === "credit" && (
             <PaymentStep
-              icon={<Clock className="h-6 w-6 text-amber-600" />}
+              icon={<Clock className="h-6 w-6 text-warning" />}
               title="Crédito"
               description="Ventas a crédito (cuenta por cobrar)."
               expected={creditExpected}
@@ -349,13 +349,13 @@ export function CloseWizard({
           {/* ── Step: Note ───────────────────────────────────────────── */}
           {step === "note" && (
             <div className="space-y-3">
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/15 border border-warning/40">
+                <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-semibold text-amber-900">
+                  <p className="font-semibold text-warning">
                     Diferencia de {fmt(totalDiff)} ({totalDiff > 0 ? "sobrante" : "faltante"})
                   </p>
-                  <p className="text-amber-700 text-xs mt-0.5">
+                  <p className="text-warning text-xs mt-0.5">
                     Supera el límite de {fmt(DISCREPANCY_THRESHOLD)}. Indica el motivo.
                   </p>
                 </div>
@@ -372,17 +372,17 @@ export function CloseWizard({
           {/* ── Step: Review ─────────────────────────────────────────── */}
           {step === "review" && (
             <div className="space-y-3">
-              <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-2 text-sm">
+              <div className="rounded-xl border-2 border-border bg-accent p-4 space-y-2 text-sm">
                 <Row label="Tipo" value={
                   scope === "general"
                     ? <Badge variant="default">Caja General</Badge>
                     : <Badge variant="secondary">Turno: {selectedCashier?.name ?? "—"}</Badge>
                 } />
-                <Row label="Fondo inicial" value={<span className="font-semibold text-blue-700">{fmt(openingAmount)}</span>} />
+                <Row label="Fondo inicial" value={<span className="font-semibold text-primary">{fmt(openingAmount)}</span>} />
               </div>
 
-              <div className="rounded-xl border bg-white p-4 space-y-1 text-sm">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Cuadre</p>
+              <div className="rounded-xl border bg-card p-4 space-y-1 text-sm">
+                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Cuadre</p>
                 <ReviewLine label="Efectivo"      exp={cashExpected}     rep={cashReported} />
                 <ReviewLine label="Tarjeta"       exp={cardExpected}     rep={cardReported} />
                 <ReviewLine label="Transferencia" exp={transferExpected} rep={transferReported} />
@@ -401,14 +401,14 @@ export function CloseWizard({
               </div>
 
               {discrepancyNote && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-                  <p className="text-xs font-semibold text-amber-800 uppercase mb-1">Nota de discrepancia</p>
-                  <p className="text-sm text-amber-900">{discrepancyNote}</p>
+                <div className="rounded-lg bg-warning/15 border border-warning/40 p-3">
+                  <p className="text-xs font-semibold text-warning uppercase mb-1">Nota de discrepancia</p>
+                  <p className="text-sm text-warning">{discrepancyNote}</p>
                 </div>
               )}
 
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500 flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
                   <FileText className="h-3 w-3" /> Notas adicionales (opcional)
                 </Label>
                 <Textarea
@@ -422,7 +422,7 @@ export function CloseWizard({
           )}
 
           {isLoadingStats && (
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mt-3">
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-3">
               <Loader2 className="h-3 w-3 animate-spin" />
               Cargando datos del período…
             </div>
@@ -443,7 +443,7 @@ export function CloseWizard({
             <Button
               onClick={handleSubmit}
               disabled={isPending || !canAdvance}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary-hover"
             >
               {isPending
                 ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Registrando…</>
@@ -480,20 +480,20 @@ function PaymentStep({
         {icon}
         <div>
           <p className="font-semibold text-sm">{title}</p>
-          <p className="text-xs text-gray-500">{description}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="rounded-lg bg-gray-50 border p-3">
-          <p className="text-xs text-gray-500">Sistema esperaba</p>
-          <p className="font-bold text-gray-900">{fmt(expected)}</p>
+        <div className="rounded-lg bg-subtle border p-3">
+          <p className="text-xs text-muted-foreground">Sistema esperaba</p>
+          <p className="font-bold text-foreground">{fmt(expected)}</p>
         </div>
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-          <p className="text-xs text-emerald-700">Ingresa lo contado</p>
+        <div className="rounded-lg bg-success/10 border border-success/40 p-3">
+          <p className="text-xs text-success">Ingresa lo contado</p>
           <Input
             type="number" step="0.01" min="0" autoFocus
-            className="mt-1 font-bold text-lg bg-white"
+            className="mt-1 font-bold text-lg bg-card"
             placeholder="0.00"
             value={reported || ""}
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
@@ -516,7 +516,7 @@ function PaymentStep({
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-gray-600">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       {value}
     </div>
   );
@@ -526,7 +526,7 @@ function ReviewLine({ label, exp, rep }: { label: string; exp: number; rep: numb
   const diff = rep - exp;
   return (
     <div className="flex justify-between text-xs">
-      <span className="text-gray-600">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <span>
         {fmt(rep)} / {fmt(exp)}
         {Math.abs(diff) > 0.01 && (

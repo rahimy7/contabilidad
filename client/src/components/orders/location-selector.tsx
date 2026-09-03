@@ -163,7 +163,7 @@ export default function LocationSelector({ onLocationSelected, selectedLocation 
               >
                 <div className="truncate">
                   <div className="font-medium">{location.name}</div>
-                  <div className="text-xs text-gray-500 truncate">{location.address}</div>
+                  <div className="text-xs text-muted-foreground truncate">{location.address}</div>
                 </div>
               </Button>
             ))}
@@ -215,13 +215,13 @@ export default function LocationSelector({ onLocationSelected, selectedLocation 
 
         {/* Selected Location Display */}
         {selectedLocation && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="p-3 bg-success/10 border border-success/40 rounded-lg">
             <div className="flex items-start space-x-2">
-              <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+              <MapPin className="h-4 w-4 text-success mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800">Ubicación seleccionada</p>
-                <p className="text-xs text-green-700 truncate">{selectedLocation.address}</p>
-                <p className="text-xs text-green-600">
+                <p className="text-sm font-medium text-success">Ubicación seleccionada</p>
+                <p className="text-xs text-success truncate">{selectedLocation.address}</p>
+                <p className="text-xs text-success">
                   {selectedLocation.latitude}, {selectedLocation.longitude}
                 </p>
               </div>

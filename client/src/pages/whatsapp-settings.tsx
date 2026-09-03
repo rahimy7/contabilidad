@@ -196,12 +196,12 @@ export default function WhatsAppSettings({ storeId: propStoreId }: Props) {
 
   if (!effectiveStoreId) {
     return (
-      <div className="p-8">
+      <div>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-600 mb-4">
+          <h1 className="text-[20px] font-semibold tracking-tight mb-4">
             ID de tienda requerido
           </h1>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             No se pudo determinar la tienda para configurar WhatsApp
           </p>
         </div>
@@ -213,8 +213,8 @@ export default function WhatsAppSettings({ storeId: propStoreId }: Props) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-4 bg-secondary rounded w-1/4 mb-4"></div>
+          <div className="h-64 bg-secondary rounded"></div>
         </div>
       </div>
     );
@@ -253,7 +253,7 @@ export default function WhatsAppSettings({ storeId: propStoreId }: Props) {
                 size="sm" 
                 onClick={handleTestConnection}
                 disabled={testConnectionMutation.isPending}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success hover:bg-success/90"
               >
                 {testConnectionMutation.isPending ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -407,7 +407,7 @@ export default function WhatsAppSettings({ storeId: propStoreId }: Props) {
                 <Input
                   value={status.webhookUrl}
                   readOnly
-                  className="bg-gray-50"
+                  className="bg-subtle"
                 />
                 <Button
                   type="button"
@@ -418,7 +418,7 @@ export default function WhatsAppSettings({ storeId: propStoreId }: Props) {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Usa esta URL en la configuración de tu webhook en Meta Developers
               </p>
             </div>

@@ -42,7 +42,7 @@ interface Warehouse { id: number; name: string; }
 
 const money = (v: string) => Number(v).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const priorityLabel = (p: string | null) => p === 'high' ? 'Alta' : p === 'low' ? 'Baja' : 'Normal';
-const priorityClass = (p: string | null) => p === 'high' ? 'bg-red-600 hover:bg-red-600' : p === 'low' ? '' : 'bg-blue-600 hover:bg-blue-600';
+const priorityClass = (p: string | null) => p === 'high' ? 'bg-destructive hover:bg-destructive' : p === 'low' ? '' : 'bg-primary hover:bg-primary-hover';
 
 export default function PickingPage() {
   const [warehouseId, setWarehouseId] = useState<string>('all');
@@ -63,11 +63,11 @@ export default function PickingPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-center gap-3">
         <PackageCheck className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Despacho / Picking</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Despacho / Picking</h1>
           <p className="text-sm text-muted-foreground">
             Pedidos listos para sacar del almacén. Cuando el almacén tiene WMS activado se propone la ubicación.
           </p>

@@ -10,15 +10,15 @@ export default function TeamStatus() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-500";
+        return "bg-success";
       case "busy":
-        return "bg-yellow-500";
+        return "bg-warning";
       case "break":
-        return "bg-gray-400";
+        return "bg-muted-foreground";
       case "offline":
-        return "bg-red-500";
+        return "bg-destructive";
       default:
-        return "bg-gray-400";
+        return "bg-muted-foreground";
     }
   };
 
@@ -59,7 +59,7 @@ export default function TeamStatus() {
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse h-12 bg-gray-200 rounded"></div>
+              <div key={i} className="animate-pulse h-12 bg-secondary rounded"></div>
             ))}
           </div>
         </CardContent>
@@ -75,7 +75,7 @@ export default function TeamStatus() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-900">Estado del Equipo</CardTitle>
+        <CardTitle className="text-lg font-semibold text-foreground">Estado del Equipo</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -83,24 +83,24 @@ export default function TeamStatus() {
             <div key={member.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  member.status === "active" ? "bg-green-100" :
-                  member.status === "busy" ? "bg-blue-100" : "bg-gray-100"
+                  member.status === "active" ? "bg-success/10" :
+                  member.status === "busy" ? "bg-accent" : "bg-muted"
                 }`}>
                   <span className={`text-xs font-medium ${
-                    member.status === "active" ? "text-green-700" :
-                    member.status === "busy" ? "text-blue-700" : "text-gray-700"
+                    member.status === "active" ? "text-success" :
+                    member.status === "busy" ? "text-primary" : "text-foreground"
                   }`}>
                     {member.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                  <p className="text-xs text-gray-500">{getRoleLabel(member.role)}</p>
+                  <p className="text-sm font-medium text-foreground">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">{getRoleLabel(member.role)}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <span className={`w-2 h-2 rounded-full ${getStatusColor(member.status)}`}></span>
-                <span className="text-xs text-gray-500">{getStatusText(member.status)}</span>
+                <span className="text-xs text-muted-foreground">{getStatusText(member.status)}</span>
               </div>
             </div>
           ))}

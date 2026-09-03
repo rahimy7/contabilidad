@@ -23,14 +23,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  b2b_wholesale: "bg-purple-500",
-  b2b_distributor: "bg-orange-500",
-  b2c_retail: "bg-blue-500",
-  b2c_vip: "bg-yellow-500",
-  b2c_frequent: "bg-green-500",
-  inactive: "bg-gray-500",
-  at_risk: "bg-red-500",
-  custom: "bg-slate-500",
+  b2b_wholesale: "bg-primary",
+  b2b_distributor: "bg-warning",
+  b2c_retail: "bg-primary",
+  b2c_vip: "bg-warning",
+  b2c_frequent: "bg-success",
+  inactive: "bg-muted-foreground",
+  at_risk: "bg-destructive",
+  custom: "bg-muted-foreground",
 };
 
 export default function MarketingSegmentsPage() {
@@ -60,12 +60,12 @@ export default function MarketingSegmentsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Users className="w-8 h-8" />
           <div>
-            <h1 className="text-2xl font-bold">Segmentos de Clientes</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Segmentos de Clientes</h1>
             <p className="text-muted-foreground">Agrupa clientes por comportamiento y perfil</p>
           </div>
         </div>

@@ -144,7 +144,7 @@ function StoreSettings() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center">
         <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     );
@@ -154,10 +154,10 @@ function StoreSettings() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <SettingsIcon className="h-5 w-5 text-blue-600" />
+          <SettingsIcon className="h-5 w-5 text-primary" />
           <span>Configuración de la Tienda</span>
         </CardTitle>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Configura la información básica de tu tienda y el número de WhatsApp para pedidos del catálogo público
         </p>
       </CardHeader>
@@ -176,7 +176,7 @@ function StoreSettings() {
                 placeholder="Ej: ServicePro Climatización"
               />
               {form.formState.errors.storeName && (
-                <p className="text-sm text-red-600">{form.formState.errors.storeName.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.storeName.message}</p>
               )}
             </div>
 
@@ -192,7 +192,7 @@ function StoreSettings() {
                 placeholder="Ej: Av. Principal 123, Ciudad"
               />
               {form.formState.errors.storeAddress && (
-                <p className="text-sm text-red-600">{form.formState.errors.storeAddress.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.storeAddress.message}</p>
               )}
             </div>
 
@@ -209,7 +209,7 @@ function StoreSettings() {
                 type="email"
               />
               {form.formState.errors.storeEmail && (
-                <p className="text-sm text-red-600">{form.formState.errors.storeEmail.message}</p>
+                <p className="text-sm text-destructive">{form.formState.errors.storeEmail.message}</p>
               )}
             </div>
           </div>
@@ -218,7 +218,7 @@ function StoreSettings() {
             <Button
               type="submit"
               disabled={saveStoreConfigMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary-hover"
             >
               {saveStoreConfigMutation.isPending && (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -479,7 +479,7 @@ export default function Settings() {
     }
     
     return connectionStatus.connected ? (
-      <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+      <Badge variant="default" className="bg-success/10 text-success border-success/40">
         <CheckCircle className="h-3 w-3 mr-1" />
         Conectado
       </Badge>
@@ -495,8 +495,8 @@ export default function Settings() {
     <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
-            <p className="text-gray-600">Gestiona las configuraciones del sistema y API de WhatsApp</p>
+            <h1 className="text-[20px] font-semibold tracking-tight">Configuración</h1>
+            <p className="text-muted-foreground">Gestiona las configuraciones del sistema y API de WhatsApp</p>
           </div>
           {getConnectionStatusBadge()}
         </div>
@@ -526,10 +526,10 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Phone className="h-5 w-5 text-green-600" />
+                  <Phone className="h-5 w-5 text-success" />
                   <span>Configuración WhatsApp Business API</span>
                 </CardTitle>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Configura las credenciales para conectar con WhatsApp Business API
                 </p>
               </CardHeader>
@@ -559,7 +559,7 @@ export default function Settings() {
                         className="font-mono"
                       />
                       {form.formState.errors.metaAppId && (
-                        <p className="text-sm text-red-600">{form.formState.errors.metaAppId.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.metaAppId.message}</p>
                       )}
                     </div>
 
@@ -592,7 +592,7 @@ export default function Settings() {
                         </Button>
                       </div>
                       {form.formState.errors.metaAppSecret && (
-                        <p className="text-sm text-red-600">{form.formState.errors.metaAppSecret.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.metaAppSecret.message}</p>
                       )}
                     </div>
 
@@ -609,7 +609,7 @@ export default function Settings() {
                         className="font-mono"
                       />
                       {form.formState.errors.whatsappBusinessAccountId && (
-                        <p className="text-sm text-red-600">{form.formState.errors.whatsappBusinessAccountId.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.whatsappBusinessAccountId.message}</p>
                       )}
                     </div>
 
@@ -626,7 +626,7 @@ export default function Settings() {
                         className="font-mono"
                       />
                       {form.formState.errors.whatsappPhoneNumberId && (
-                        <p className="text-sm text-red-600">{form.formState.errors.whatsappPhoneNumberId.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.whatsappPhoneNumberId.message}</p>
                       )}
                     </div>
 
@@ -659,7 +659,7 @@ export default function Settings() {
                         </Button>
                       </div>
                       {form.formState.errors.whatsappToken && (
-                        <p className="text-sm text-red-600">{form.formState.errors.whatsappToken.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.whatsappToken.message}</p>
                       )}
                     </div>
 
@@ -692,7 +692,7 @@ export default function Settings() {
                         </Button>
                       </div>
                       {form.formState.errors.whatsappVerifyToken && (
-                        <p className="text-sm text-red-600">{form.formState.errors.whatsappVerifyToken.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.whatsappVerifyToken.message}</p>
                       )}
                     </div>
 
@@ -709,9 +709,9 @@ export default function Settings() {
                         className="font-mono"
                       />
                       {form.formState.errors.webhookUrl && (
-                        <p className="text-sm text-red-600">{form.formState.errors.webhookUrl.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.webhookUrl.message}</p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Esta URL recibirá las notificaciones de mensajes de WhatsApp
                       </p>
                     </div>
@@ -719,7 +719,7 @@ export default function Settings() {
                     {/* Número de WhatsApp para pedidos */}
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="storeWhatsAppNumber" className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-green-600" />
+                        <Phone className="h-4 w-4 text-success" />
                         <span>WhatsApp para Pedidos</span>
                       </Label>
                       <Input
@@ -729,9 +729,9 @@ export default function Settings() {
                         className="font-mono"
                       />
                       {form.formState.errors.storeWhatsAppNumber && (
-                        <p className="text-sm text-red-600">{form.formState.errors.storeWhatsAppNumber.message}</p>
+                        <p className="text-sm text-destructive">{form.formState.errors.storeWhatsAppNumber.message}</p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Número de WhatsApp donde se enviarán los pedidos del catálogo público (incluir código país: 52)
                       </p>
                     </div>
@@ -761,7 +761,7 @@ export default function Settings() {
                     <Button
                       type="submit"
                       disabled={saveConfigMutation.isPending}
-                      className="whatsapp-bg hover:bg-green-600"
+                      className="whatsapp-bg hover:bg-success"
                     >
                       {saveConfigMutation.isPending ? (
                         <div className="flex items-center space-x-2">
@@ -782,7 +782,7 @@ export default function Settings() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-success" />
                     <span>Estado de Conexión</span>
                   </CardTitle>
                 </CardHeader>
@@ -794,7 +794,7 @@ export default function Settings() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Última verificación</Label>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {connectionStatus.lastCheck ? 
                           new Date(connectionStatus.lastCheck).toLocaleString() : 
                           "Nunca"
@@ -824,7 +824,7 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Activity className="h-5 w-5 text-blue-600" />
+                    <Activity className="h-5 w-5 text-primary" />
                     <span>Logs de Comunicación WhatsApp</span>
                   </div>
                   <div className="flex items-center space-x-4">
@@ -850,7 +850,7 @@ export default function Settings() {
                     </Button>
                   </div>
                 </CardTitle>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Monitorea en tiempo real las comunicaciones con la API de WhatsApp Business
                 </p>
               </CardHeader>
@@ -861,21 +861,21 @@ export default function Settings() {
                     <Globe className="h-4 w-4" />
                     <AlertDescription>
                       <strong>Webhook URL configurada:</strong><br />
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                      <code className="text-xs bg-muted px-2 py-1 rounded">
                         https://delivery-web-production.up.railway.app/webhook
                       </code>
                     </AlertDescription>
                   </Alert>
 
                   {/* Logs Container */}
-                  <div className="bg-gray-900 text-gray-100 rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
+                  <div className="bg-chrome text-background rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
                     {logsLoading ? (
                       <div className="flex items-center justify-center h-full">
-                        <RefreshCw className="h-6 w-6 animate-spin text-blue-400" />
-                        <span className="ml-2 text-blue-400">Cargando logs...</span>
+                        <RefreshCw className="h-6 w-6 animate-spin text-primary/70" />
+                        <span className="ml-2 text-primary/70">Cargando logs...</span>
                       </div>
                     ) : whatsappLogs.length === 0 ? (
-                      <div className="text-center text-gray-400 mt-8">
+                      <div className="text-center text-muted-foreground mt-8">
                         <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>No hay logs disponibles aún</p>
                         <p className="text-xs mt-1">Los logs aparecerán aquí cuando se reciban mensajes de WhatsApp</p>
@@ -884,15 +884,15 @@ export default function Settings() {
                       <div className="space-y-2">
                         {Array.isArray(whatsappLogs) && whatsappLogs.map((log: WhatsAppLog) => (
 
-                          <div key={log.id} className="border-b border-gray-700 pb-2">
+                          <div key={log.id} className="border-b border-chrome pb-2">
                             <div className="flex justify-between items-start">
-                              <span className="text-blue-300">
+                              <span className="text-primary/70">
                                 [{new Date(log.timestamp).toLocaleTimeString()}]
                               </span>
                               <span className={`px-2 py-1 rounded text-xs ${
-                                log.type === 'incoming' ? 'bg-green-600' :
-                                log.type === 'outgoing' ? 'bg-blue-600' :
-                                log.type === 'error' ? 'bg-red-600' : 'bg-gray-600'
+                                log.type === 'incoming' ? 'bg-success' :
+                                log.type === 'outgoing' ? 'bg-primary' :
+                                log.type === 'error' ? 'bg-destructive' : 'bg-muted-foreground'
                               }`}>
                                 {log.type || 'info'}
                               </span>
@@ -900,7 +900,7 @@ export default function Settings() {
                             <div className="mt-1">
                               <p className="text-white">{log.messageContent || log.errorMessage}</p>
                               {log.rawData && (
-                                <pre className="text-gray-300 text-xs mt-1 overflow-x-auto">
+                                <pre className="text-muted-foreground text-xs mt-1 overflow-x-auto">
                                   {typeof log.rawData === 'string' ? log.rawData : JSON.stringify(log.rawData, null, 2)}
                                 </pre>
                               )}
@@ -913,21 +913,21 @@ export default function Settings() {
 
                   {/* Connection Stats */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-blue-800">Total Logs</p>
-                      <p className="text-lg font-bold text-blue-900">
+                    <div className="bg-accent p-3 rounded-lg">
+                      <p className="text-sm font-medium text-accent-foreground">Total Logs</p>
+                      <p className="text-lg font-bold text-accent-foreground">
                         {logsStats?.total || whatsappLogs.length}
                       </p>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-green-800">Mensajes Entrantes</p>
-                      <p className="text-lg font-bold text-green-900">
+                    <div className="bg-success/10 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-success">Mensajes Entrantes</p>
+                      <p className="text-lg font-bold text-success">
                         {whatsappLogs.filter((log: WhatsAppLog) => log.type === 'incoming').length}
                       </p>
                     </div>
-                    <div className="bg-orange-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-orange-800">Mensajes Salientes</p>
-                      <p className="text-lg font-bold text-orange-900">
+                    <div className="bg-warning/10 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-warning">Mensajes Salientes</p>
+                      <p className="text-lg font-bold text-warning">
                         {whatsappLogs.filter((log: WhatsAppLog) => log.type === 'outgoing').length}
                       </p>
                     </div>

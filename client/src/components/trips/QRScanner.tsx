@@ -140,10 +140,10 @@ export function QRScanner({ tripId, open, onClose, onSuccess }: QRScannerProps) 
                 {/* Overlay de guía */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-64 h-64 border-4 border-white rounded-lg shadow-lg">
-                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500" />
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary" />
                   </div>
                 </div>
 
@@ -178,7 +178,7 @@ export function QRScanner({ tripId, open, onClose, onSuccess }: QRScannerProps) 
                   disabled={scanning}
                   autoFocus
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Ingresa el código completo del QR
                 </p>
               </div>

@@ -56,12 +56,12 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Key className="w-8 h-8 text-indigo-600" />
+          <Key className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">API Keys</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">API Keys</h1>
             <p className="text-muted-foreground">Tokens para integraciones externas · API pública v1</p>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function ApiKeysPage() {
                       {k.revokedAt ? (
                         <Badge variant="destructive">Revocada</Badge>
                       ) : k.isActive ? (
-                        <Badge className="bg-green-600">Activa</Badge>
+                        <Badge className="bg-success">Activa</Badge>
                       ) : (
                         <Badge variant="secondary">Inactiva</Badge>
                       )}
@@ -210,7 +210,7 @@ export default function ApiKeysPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nueva API key emitida</DialogTitle>
-            <DialogDescription className="text-red-600">
+            <DialogDescription className="text-destructive">
               ⚠️ Guarda este token ahora. No podrás verlo de nuevo.
             </DialogDescription>
           </DialogHeader>

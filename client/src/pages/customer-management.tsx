@@ -136,7 +136,7 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
 
   const paymentLabels: Record<string, string> = { cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia', credit: '📋 Crédito' };
   const statusLabels: Record<string, string> = { completed: 'Completada', pending: 'Pendiente', cancelled: 'Cancelada', scheduled: 'Programada', confirmed: 'Confirmada', no_show: 'No asistió' };
-  const statusColors: Record<string, string> = { completed: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', cancelled: 'bg-red-100 text-red-800', scheduled: 'bg-blue-100 text-blue-800', confirmed: 'bg-teal-100 text-teal-800', no_show: 'bg-gray-100 text-gray-600' };
+  const statusColors: Record<string, string> = { completed: 'bg-success/10 text-success', pending: 'bg-warning/15 text-warning', cancelled: 'bg-destructive/10 text-destructive', scheduled: 'bg-accent text-accent-foreground', confirmed: 'bg-primary/10 text-primary', no_show: 'bg-muted text-muted-foreground' };
 
   const loyaltyTxs: any[] = customerDetail?.recentTransactions ?? [];
   const loyaltyBalance = customerDetail?.loyaltyBalance ?? customer.loyaltyBalance;
@@ -161,17 +161,17 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
     <div className="flex-1 overflow-hidden flex flex-col">
       {/* Stats header */}
       <div className="grid grid-cols-3 gap-3 mb-4 flex-shrink-0">
-        <div className="bg-blue-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-blue-700">{customer.totalOrders || orders.length}</p>
-          <p className="text-xs text-blue-600 font-medium">Compras</p>
+        <div className="bg-accent rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-primary">{customer.totalOrders || orders.length}</p>
+          <p className="text-xs text-primary font-medium">Compras</p>
         </div>
-        <div className="bg-green-50 rounded-lg p-3 text-center">
-          <p className="text-lg font-bold text-green-700">{fmt(parseFloat(customer.totalSpent || '0'))}</p>
-          <p className="text-xs text-green-600 font-medium">Total gastado</p>
+        <div className="bg-success/10 rounded-lg p-3 text-center">
+          <p className="text-lg font-bold text-success">{fmt(parseFloat(customer.totalSpent || '0'))}</p>
+          <p className="text-xs text-success font-medium">Total gastado</p>
         </div>
-        <div className="bg-amber-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-amber-700">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(0)}</p>
-          <p className="text-xs text-amber-600 font-medium">{loyaltyBalance?.pointsPropertyName || 'Puntos'}</p>
+        <div className="bg-warning/15 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-warning">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(0)}</p>
+          <p className="text-xs text-warning font-medium">{loyaltyBalance?.pointsPropertyName || 'Puntos'}</p>
         </div>
       </div>
 
@@ -190,38 +190,38 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
             <div>
               <button
                 onClick={() => { setSelectedOrder(null); setOrderItems([]); }}
-                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-semibold mb-3"
+                className="flex items-center gap-1 text-sm text-primary hover:text-accent-foreground font-semibold mb-3"
               >
                 ← Volver al historial
               </button>
 
               {/* Order header card */}
-              <div className="rounded-xl border border-blue-200 overflow-hidden mb-4">
-                <div className="bg-blue-50 px-4 py-3 border-b border-blue-200 flex items-center justify-between flex-wrap gap-2">
+              <div className="rounded-xl border border-border overflow-hidden mb-4">
+                <div className="bg-accent px-4 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <p className="font-bold text-gray-900">{selectedOrder.orderNumber || `#${selectedOrder.id}`}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{fmtDateTime(selectedOrder.createdAt)}</p>
+                    <p className="font-bold text-foreground">{selectedOrder.orderNumber || `#${selectedOrder.id}`}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{fmtDateTime(selectedOrder.createdAt)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-blue-700">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</p>
-                    <p className="text-xs text-gray-500">{paymentLabels[selectedOrder.paymentMethod || selectedOrder.payment_method] || selectedOrder.paymentMethod}</p>
+                    <p className="text-xl font-bold text-primary">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</p>
+                    <p className="text-xs text-muted-foreground">{paymentLabels[selectedOrder.paymentMethod || selectedOrder.payment_method] || selectedOrder.paymentMethod}</p>
                   </div>
                 </div>
-                <div className="bg-white px-4 py-3 grid grid-cols-3 gap-3 text-center">
+                <div className="bg-card px-4 py-3 grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-xs text-gray-500">Subtotal</p>
+                    <p className="text-xs text-muted-foreground">Subtotal</p>
                     <p className="font-semibold text-sm">{fmt(parseFloat(selectedOrder.subtotalAmount || selectedOrder.subtotal_amount || '0'))}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Descuento</p>
-                    <p className="font-semibold text-sm text-orange-600">
+                    <p className="text-xs text-muted-foreground">Descuento</p>
+                    <p className="font-semibold text-sm text-warning">
                       {selectedOrder.discountPercentage ? `${selectedOrder.discountPercentage}%` : '—'}
                       {selectedOrder.discountAmount && parseFloat(selectedOrder.discountAmount) > 0 ? ` (-${fmt(parseFloat(selectedOrder.discountAmount))})` : ''}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Estado</p>
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[selectedOrder.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <p className="text-xs text-muted-foreground">Estado</p>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[selectedOrder.status] || 'bg-muted text-muted-foreground'}`}>
                       {statusLabels[selectedOrder.status] || selectedOrder.status}
                     </span>
                   </div>
@@ -229,32 +229,32 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
               </div>
 
               {/* Items */}
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Artículos</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Artículos</p>
               {loadingItems ? (
-                <div className="flex items-center justify-center py-6 text-gray-400">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
                   <span className="text-sm">Cargando artículos...</span>
                 </div>
               ) : orderItems.length === 0 ? (
                 /* Órdenes de citas/servicios no tienen items — mostrar descripción */
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-xl border border-teal-200">
-                    <div className="bg-teal-100 rounded-lg p-2 flex-shrink-0">
-                      <Receipt className="w-4 h-4 text-teal-600" />
+                  <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl border border-primary/40">
+                    <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
+                      <Receipt className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-900">
+                      <p className="font-semibold text-sm text-foreground">
                         {selectedOrder.notes || selectedOrder.description || 'Servicio / Cita'}
                       </p>
-                      <p className="text-xs text-teal-600 mt-0.5 capitalize">
+                      <p className="text-xs text-primary mt-0.5 capitalize">
                         {selectedOrder.orderType === 'appointment' ? 'Cobro de cita' : selectedOrder.orderType || 'Servicio'}
                       </p>
                     </div>
-                    <p className="font-bold text-gray-900 flex-shrink-0">
+                    <p className="font-bold text-foreground flex-shrink-0">
                       {fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                  <div className="flex items-center justify-between p-3 bg-primary rounded-xl mt-1">
                     <span className="font-bold text-white text-sm">TOTAL</span>
                     <span className="font-bold text-white text-base">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</span>
                   </div>
@@ -267,23 +267,23 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
                     const unitPrice = parseFloat(item.unitPrice || item.unit_price || '0');
                     const total = parseFloat(item.totalPrice || item.total_price || String(unitPrice * qty));
                     return (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-subtle rounded-xl border border-border">
                         <div className="bg-primary/10 rounded-lg p-2 flex-shrink-0">
                           <Package className="w-4 h-4 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-gray-900 truncate">{name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="font-semibold text-sm text-foreground truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {qty} × {fmt(unitPrice)}
                             {item.unitSymbol || item.unit_symbol ? ` / ${item.unitSymbol || item.unit_symbol}` : ''}
                           </p>
                         </div>
-                        <p className="font-bold text-gray-900 flex-shrink-0">{fmt(total)}</p>
+                        <p className="font-bold text-foreground flex-shrink-0">{fmt(total)}</p>
                       </div>
                     );
                   })}
                   {/* Total row */}
-                  <div className="flex items-center justify-between p-3 bg-blue-600 rounded-xl mt-1">
+                  <div className="flex items-center justify-between p-3 bg-primary rounded-xl mt-1">
                     <span className="font-bold text-white text-sm">TOTAL</span>
                     <span className="font-bold text-white text-base">{fmt(parseFloat(selectedOrder.totalAmount || selectedOrder.total_amount || '0'))}</span>
                   </div>
@@ -294,35 +294,35 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
             /* ── Lista de órdenes ── */
             <>
               {loadingOrders ? (
-                <p className="text-center text-sm text-gray-400 py-6">Cargando...</p>
+                <p className="text-center text-sm text-muted-foreground py-6">Cargando...</p>
               ) : orders.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-6">Sin compras registradas</p>
+                <p className="text-center text-sm text-muted-foreground py-6">Sin compras registradas</p>
               ) : (
                 <div className="space-y-2">
                   {orders.map((o: any) => (
                     <button
                       key={o.id}
                       onClick={() => openOrderDetail(o)}
-                      className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all group"
+                      className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all group"
                     >
-                      <div className="bg-blue-100 text-blue-600 rounded-lg p-2 flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                      <div className="bg-accent text-primary rounded-lg p-2 flex-shrink-0 group-hover:bg-primary-hover group-hover:text-primary-foreground transition-all">
                         <Receipt className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm text-gray-900">{o.orderNumber || `#${o.id}`}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[o.status] || 'bg-gray-100 text-gray-600'}`}>
+                          <span className="font-semibold text-sm text-foreground">{o.orderNumber || `#${o.id}`}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[o.status] || 'bg-muted text-muted-foreground'}`}>
                             {statusLabels[o.status] || o.status}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-xs text-gray-500">{fmtDate(o.createdAt)}</span>
-                          <span className="text-xs text-gray-500">{paymentLabels[o.paymentMethod] || o.paymentMethod}</span>
+                          <span className="text-xs text-muted-foreground">{fmtDate(o.createdAt)}</span>
+                          <span className="text-xs text-muted-foreground">{paymentLabels[o.paymentMethod] || o.paymentMethod}</span>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-blue-700">{fmt(parseFloat(o.totalAmount || '0'))}</p>
-                        <p className="text-xs text-gray-400 group-hover:text-blue-500">Ver detalle →</p>
+                        <p className="font-bold text-primary">{fmt(parseFloat(o.totalAmount || '0'))}</p>
+                        <p className="text-xs text-muted-foreground group-hover:text-primary">Ver detalle →</p>
                       </div>
                     </button>
                   ))}
@@ -334,27 +334,27 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
 
         {/* Citas */}
         <TabsContent value="appointments" className="flex-1 overflow-y-auto mt-2">
-          {loadingApts ? <p className="text-center text-sm text-gray-400 py-6">Cargando...</p> : appointments.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-6">Sin citas registradas</p>
+          {loadingApts ? <p className="text-center text-sm text-muted-foreground py-6">Cargando...</p> : appointments.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Sin citas registradas</p>
           ) : (
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b text-left text-gray-500">
-                  <th className="py-2 pr-2">Fecha</th>
-                  <th className="py-2 pr-2">Cita</th>
-                  <th className="py-2 pr-2">Servicio</th>
-                  <th className="py-2 pr-2">Estado</th>
-                  <th className="py-2 text-right">Precio</th>
+                <tr className="border-b border-border-strong bg-subtle text-left">
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Fecha</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Cita</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Servicio</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Estado</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground text-right">Precio</th>
                 </tr>
               </thead>
               <tbody>
                 {appointments.map((a: any) => (
-                  <tr key={a.id} className="border-b hover:bg-gray-50">
-                    <td className="py-1.5 pr-2 text-gray-600">{a.appointmentDate ? new Date(a.appointmentDate).toLocaleDateString('es-DO') : '—'}</td>
-                    <td className="py-1.5 pr-2 font-semibold truncate max-w-[120px]">{a.title}</td>
-                    <td className="py-1.5 pr-2 text-gray-500">{a.serviceTypeName || '—'}</td>
-                    <td className="py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${statusColors[a.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[a.status] || a.status}</span></td>
-                    <td className="py-1.5 text-right font-bold">{fmt(parseFloat(a.price || '0'))}</td>
+                  <tr key={a.id} className="border-b hover:bg-subtle">
+                    <td className="h-[34px] px-3 py-1.5 pr-2 text-muted-foreground">{a.appointmentDate ? new Date(a.appointmentDate).toLocaleDateString('es-DO') : '—'}</td>
+                    <td className="h-[34px] px-3 py-1.5 pr-2 font-semibold truncate max-w-[120px]">{a.title}</td>
+                    <td className="h-[34px] px-3 py-1.5 pr-2 text-muted-foreground">{a.serviceTypeName || '—'}</td>
+                    <td className="h-[34px] px-3 py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${statusColors[a.status] || 'bg-muted text-muted-foreground'}`}>{statusLabels[a.status] || a.status}</span></td>
+                    <td className="h-[34px] px-3 py-1.5 text-right font-bold">{fmt(parseFloat(a.price || '0'))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -365,37 +365,37 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
         {/* Lealtad */}
         <TabsContent value="loyalty" className="flex-1 overflow-y-auto mt-2 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-amber-50 rounded-lg p-3">
-              <p className="text-xs text-amber-600 font-medium">Saldo actual</p>
-              <p className="text-xl font-bold text-amber-700">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(2)} {loyaltyBalance?.pointsPropertyName || 'LP'}</p>
+            <div className="bg-warning/15 rounded-lg p-3">
+              <p className="text-xs text-warning font-medium">Saldo actual</p>
+              <p className="text-xl font-bold text-warning">{parseFloat(loyaltyBalance?.currentBalance || '0').toFixed(2)} {loyaltyBalance?.pointsPropertyName || 'LP'}</p>
             </div>
-            <div className="bg-green-50 rounded-lg p-3">
-              <p className="text-xs text-green-600 font-medium">Total acumulado</p>
-              <p className="text-xl font-bold text-green-700">{parseFloat(loyaltyBalance?.totalPointsEarned || '0').toFixed(2)}</p>
+            <div className="bg-success/10 rounded-lg p-3">
+              <p className="text-xs text-success font-medium">Total acumulado</p>
+              <p className="text-xl font-bold text-success">{parseFloat(loyaltyBalance?.totalPointsEarned || '0').toFixed(2)}</p>
             </div>
           </div>
           {loyaltyTxs.length > 0 ? (
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="border-b text-left text-gray-500">
-                  <th className="py-2 pr-2">Fecha</th>
-                  <th className="py-2 pr-2">Tipo</th>
-                  <th className="py-2 pr-2">Descripción</th>
-                  <th className="py-2 text-right">Puntos</th>
+                <tr className="border-b border-border-strong bg-subtle text-left">
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Fecha</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Tipo</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Descripción</th>
+                  <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground text-right">Puntos</th>
                 </tr>
               </thead>
               <tbody>
                 {loyaltyTxs.map((tx: any) => (
-                  <tr key={tx.id} className="border-b hover:bg-gray-50">
-                    <td className="py-1.5 pr-2 text-gray-600">{fmtDate(tx.createdAt)}</td>
-                    <td className="py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${tx.type === 'earned' ? 'bg-green-100 text-green-700' : tx.type === 'redeemed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{tx.type}</span></td>
-                    <td className="py-1.5 pr-2 text-gray-600 truncate max-w-[140px]">{tx.description}</td>
-                    <td className={`py-1.5 text-right font-bold ${parseFloat(tx.points) >= 0 ? 'text-green-700' : 'text-red-700'}`}>{parseFloat(tx.points) >= 0 ? '+' : ''}{parseFloat(tx.points).toFixed(2)}</td>
+                  <tr key={tx.id} className="border-b hover:bg-subtle">
+                    <td className="h-[34px] px-3 py-1.5 pr-2 text-muted-foreground">{fmtDate(tx.createdAt)}</td>
+                    <td className="h-[34px] px-3 py-1.5 pr-2"><span className={`px-1.5 py-0.5 rounded text-xs ${tx.type === 'earned' ? 'bg-success/10 text-success' : tx.type === 'redeemed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>{tx.type}</span></td>
+                    <td className="h-[34px] px-3 py-1.5 pr-2 text-muted-foreground truncate max-w-[140px]">{tx.description}</td>
+                    <td className={`h-[34px] px-3 py-1.5 text-right font-bold ${parseFloat(tx.points) >= 0 ? 'text-success' : 'text-destructive'}`}>{parseFloat(tx.points) >= 0 ? '+' : ''}{parseFloat(tx.points).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          ) : <p className="text-center text-sm text-gray-400 py-4">Sin transacciones de lealtad</p>}
+          ) : <p className="text-center text-sm text-muted-foreground py-4">Sin transacciones de lealtad</p>}
         </TabsContent>
 
         {/* Datos del cliente */}
@@ -413,9 +413,9 @@ function CustomerProfileTabs({ customer }: { customer: Customer }) {
               { label: 'Registro', value: fmtDate(customer.registrationDate) },
               { label: 'Último contacto', value: customer.lastContact ? fmtDate(customer.lastContact) : '—' },
             ].map(({ label, value }) => value ? (
-              <div key={label} className="flex gap-3 py-1 border-b border-gray-100">
-                <span className="text-gray-500 w-32 flex-shrink-0">{label}</span>
-                <span className="font-medium text-gray-800">{value}</span>
+              <div key={label} className="flex gap-3 py-1 border-b border-border">
+                <span className="text-muted-foreground w-32 flex-shrink-0">{label}</span>
+                <span className="font-medium text-foreground">{value}</span>
               </div>
             ) : null)}
           </div>
@@ -732,20 +732,20 @@ export default function CustomerManagement() {
   };
 
   const categoryColors: Record<string, string> = {
-    regular: 'bg-blue-100 text-blue-800',
-    vip: 'bg-purple-100 text-purple-800',
-    wholesale: 'bg-green-100 text-green-800',
-    reseller: 'bg-orange-100 text-orange-800',
+    regular: 'bg-accent text-accent-foreground',
+    vip: 'bg-accent text-accent-foreground',
+    wholesale: 'bg-success/10 text-success',
+    reseller: 'bg-warning/10 text-warning',
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-subtle p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gestión de Clientes</h1>
-            <p className="text-gray-600 mt-1">Administra tus clientes, tipos y programas de lealtad</p>
+            <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Clientes</h1>
+            <p className="text-muted-foreground mt-1">Administra tus clientes, tipos y programas de lealtad</p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -769,10 +769,10 @@ export default function CustomerManagement() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Clientes</p>
+                  <p className="text-sm text-muted-foreground">Total Clientes</p>
                   <p className="text-2xl font-bold">{stats?.totalCustomers || 0}</p>
                 </div>
-                <Users className="w-10 h-10 text-blue-500" />
+                <Users className="w-10 h-10 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -781,10 +781,10 @@ export default function CustomerManagement() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Clientes Activos</p>
+                  <p className="text-sm text-muted-foreground">Clientes Activos</p>
                   <p className="text-2xl font-bold">{stats?.activeCustomers || 0}</p>
                 </div>
-                <TrendingUp className="w-10 h-10 text-green-500" />
+                <TrendingUp className="w-10 h-10 text-success" />
               </div>
             </CardContent>
           </Card>
@@ -793,10 +793,10 @@ export default function CustomerManagement() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Clientes VIP</p>
+                  <p className="text-sm text-muted-foreground">Clientes VIP</p>
                   <p className="text-2xl font-bold">{stats?.vipCustomers || 0}</p>
                 </div>
-                <Star className="w-10 h-10 text-purple-500" />
+                <Star className="w-10 h-10 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -805,10 +805,10 @@ export default function CustomerManagement() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Tipos Definidos</p>
+                  <p className="text-sm text-muted-foreground">Tipos Definidos</p>
                   <p className="text-2xl font-bold">{customerTypes.length}</p>
                 </div>
-                <Tag className="w-10 h-10 text-orange-500" />
+                <Tag className="w-10 h-10 text-warning" />
               </div>
             </CardContent>
           </Card>
@@ -819,7 +819,7 @@ export default function CustomerManagement() {
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nombre, teléfono o email..."
                   value={searchQuery}
@@ -875,49 +875,49 @@ export default function CustomerManagement() {
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8">
-                <p className="text-gray-500">Cargando clientes...</p>
+                <p className="text-muted-foreground">Cargando clientes...</p>
               </div>
             ) : filteredCustomers.length === 0 ? (
               <div className="text-center py-8">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No se encontraron clientes</p>
+                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No se encontraron clientes</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-subtle border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Cliente</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Contacto</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Tipo</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Categoría</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Órdenes</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Total Gastado</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Puntos</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Crédito</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Estado</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Acciones</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Cliente</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Contacto</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Categoría</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Órdenes</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Total Gastado</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Puntos</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Crédito</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Estado</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {filteredCustomers.map((customer) => (
-                      <tr key={customer.id} className="hover:bg-gray-50">
+                      <tr key={customer.id} className="hover:bg-subtle">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold">
+                            <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center text-success-foreground font-semibold">
                               {(customer.name || 'S').charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">{customer.name || 'Sin nombre'}</p>
+                              <p className="font-medium text-foreground">{customer.name || 'Sin nombre'}</p>
                               <div className="flex gap-1 mt-1">
                                 {customer.isVip && (
-                                  <Badge className="bg-purple-100 text-purple-800 text-xs">
+                                  <Badge className="bg-accent text-accent-foreground text-xs">
                                     <Star className="w-3 h-3 mr-1" />
                                     VIP
                                   </Badge>
                                 )}
                                 {customer.parentCustomerId && customer.parentCustomer && (
-                                  <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                  <Badge className="bg-accent text-accent-foreground text-xs">
                                     <Link2 className="w-3 h-3 mr-1" />
                                     Vinculado a: {customer.parentCustomer.name}
                                   </Badge>
@@ -928,11 +928,11 @@ export default function CustomerManagement() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Phone className="w-4 h-4" />
                               {customer.phone || 'N/A'}
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Mail className="w-4 h-4" />
                               {customer.email || 'N/A'}
                             </div>
@@ -951,41 +951,41 @@ export default function CustomerManagement() {
                               )}
                             </Badge>
                           ) : (
-                            <span className="text-gray-400 text-sm">Sin tipo</span>
+                            <span className="text-muted-foreground text-sm">Sin tipo</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge className={categoryColors[customer.category] || 'bg-gray-100 text-gray-800'}>
+                          <Badge className={categoryColors[customer.category] || 'bg-muted text-foreground'}>
                             {customer.category}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{customer.totalOrders || 0}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                        <td className="px-4 py-3 text-sm text-foreground">{customer.totalOrders || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-foreground">
                           {formatCurrency(customer.totalSpent || '0')}
                         </td>
                         <td className="px-4 py-3">
                           {customer.loyaltyBalance && customer.loyaltyBalance.currentBalance !== null && customer.loyaltyBalance.currentBalance !== undefined ? (
                             <div className="flex items-center gap-1 text-sm">
-                              <Award className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "w-4 h-4 text-amber-500" : "w-4 h-4 text-gray-400"} />
-                              <span className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "font-semibold text-amber-700" : "text-gray-600"}>
+                              <Award className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "w-4 h-4 text-warning" : "w-4 h-4 text-muted-foreground"} />
+                              <span className={parseFloat(customer.loyaltyBalance.currentBalance) > 0 ? "font-semibold text-warning" : "text-muted-foreground"}>
                                 {parseFloat(customer.loyaltyBalance.currentBalance).toFixed(2)} {customer.loyaltyBalance.pointsPropertyName || 'pts'}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-gray-400 text-sm">Sin datos</span>
+                            <span className="text-muted-foreground text-sm">Sin datos</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
                           {(customer as any).creditBalance && parseFloat((customer as any).creditBalance) > 0 ? (
-                            <span className="text-sm font-semibold text-red-600">
+                            <span className="text-sm font-semibold text-destructive">
                               RD$ {parseFloat((customer as any).creditBalance).toFixed(2)}
                             </span>
                           ) : (
-                            <span className="text-gray-400 text-sm">Sin deuda</span>
+                            <span className="text-muted-foreground text-sm">Sin deuda</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge className={customer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          <Badge className={customer.isActive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}>
                             {customer.isActive ? 'Activo' : 'Inactivo'}
                           </Badge>
                         </td>
@@ -994,7 +994,7 @@ export default function CustomerManagement() {
                             <Button
                               size="sm"
                               onClick={() => { setProfileCustomer(customer); setShowProfileDialog(true); }}
-                              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 h-auto"
+                              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground text-xs px-2.5 py-1.5 h-auto"
                               title="Ver perfil completo"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -1013,7 +1013,7 @@ export default function CustomerManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteCustomer(customer.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                              className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 h-8 w-8 p-0"
                               title="Eliminar cliente"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1034,28 +1034,28 @@ export default function CustomerManagement() {
       <Dialog open={showProfileDialog} onOpenChange={(open) => { setShowProfileDialog(open); if (!open) setProfileCustomer(null); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl">
           {/* Header */}
-          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 py-5 flex-shrink-0 rounded-t-2xl">
+          <div className="bg-primary px-6 py-5 flex-shrink-0 rounded-t-2xl">
             <div className="flex items-center gap-4">
-              <div className="bg-white/20 p-3 rounded-xl shadow-inner">
+              <div className="bg-card/20 p-3 rounded-xl shadow-inner">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-white font-bold text-xl leading-tight truncate">{profileCustomer?.name || 'Perfil del Cliente'}</h2>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
                   {profileCustomer?.phone && (
-                    <span className="text-blue-100 text-sm flex items-center gap-1"><Phone className="w-3 h-3" />{profileCustomer.phone}</span>
+                    <span className="text-primary/70 text-sm flex items-center gap-1"><Phone className="w-3 h-3" />{profileCustomer.phone}</span>
                   )}
                   {profileCustomer?.email && (
-                    <span className="text-blue-100 text-sm flex items-center gap-1"><Mail className="w-3 h-3" />{profileCustomer.email}</span>
+                    <span className="text-primary/70 text-sm flex items-center gap-1"><Mail className="w-3 h-3" />{profileCustomer.email}</span>
                   )}
                   {profileCustomer?.isVip && (
-                    <span className="bg-purple-400/30 text-white text-xs px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Star className="w-3 h-3" />VIP</span>
+                    <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"><Star className="w-3 h-3" />VIP</span>
                   )}
                 </div>
               </div>
               {profileCustomer?.category && (
                 <div className="text-right flex-shrink-0">
-                  <p className="text-blue-200 text-xs">Categoría</p>
+                  <p className="text-primary/70 text-xs">Categoría</p>
                   <p className="text-white font-bold capitalize">{profileCustomer.category}</p>
                 </div>
               )}
@@ -1155,7 +1155,7 @@ export default function CustomerManagement() {
             <div>
               <label className="text-sm font-medium">Teléfono *</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="(809) 123-4567"
                   value={customerFormData.phone}
@@ -1167,7 +1167,7 @@ export default function CustomerManagement() {
             <div>
               <label className="text-sm font-medium">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="email"
                   placeholder="cliente@ejemplo.com"
@@ -1180,7 +1180,7 @@ export default function CustomerManagement() {
             <div className="col-span-2">
               <label className="text-sm font-medium">Dirección</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Calle, número, sector"
                   value={customerFormData.address}
@@ -1224,27 +1224,27 @@ export default function CustomerManagement() {
               <label className="text-sm font-medium">Cliente Padre (Opcional)</label>
 
               {selectedParent ? (
-                <div className="flex items-center gap-2 p-3 border rounded-md bg-blue-50">
+                <div className="flex items-center gap-2 p-3 border rounded-md bg-accent">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Link2 className="w-4 h-4 text-blue-600" />
-                      <span className="font-medium text-blue-900">{selectedParent.name}</span>
+                      <Link2 className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-accent-foreground">{selectedParent.name}</span>
                     </div>
-                    <p className="text-xs text-blue-600 mt-1">Cliente padre seleccionado</p>
+                    <p className="text-xs text-primary mt-1">Cliente padre seleccionado</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleClearParent}
-                    className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+                    className="p-1 hover:bg-accent rounded-full transition-colors"
                     title="Eliminar cliente padre"
                   >
-                    <X className="w-4 h-4 text-blue-600" />
+                    <X className="w-4 h-4 text-primary" />
                   </button>
                 </div>
               ) : (
                 <div className="relative" ref={parentSearchRef}>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Buscar por nombre o teléfono..."
                       value={parentSearchQuery}
@@ -1258,20 +1258,20 @@ export default function CustomerManagement() {
                   </div>
 
                   {showParentDropdown && parentSearchResults.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {parentSearchResults.map((customer) => (
                         <button
                           key={customer.id}
                           type="button"
                           onClick={() => handleSelectParent(customer)}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 border-b last:border-b-0"
+                          className="w-full px-4 py-2 text-left hover:bg-subtle flex items-center gap-3 border-b last:border-b-0"
                         >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                          <div className="w-8 h-8 rounded-full bg-success flex items-center justify-center text-success-foreground text-sm font-semibold">
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">{customer.name}</p>
-                            <p className="text-xs text-gray-500">{customer.phone}</p>
+                            <p className="font-medium text-foreground">{customer.name}</p>
+                            <p className="text-xs text-muted-foreground">{customer.phone}</p>
                           </div>
                         </button>
                       ))}
@@ -1279,14 +1279,14 @@ export default function CustomerManagement() {
                   )}
 
                   {showParentDropdown && parentSearchQuery.length >= 2 && parentSearchResults.length === 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg p-4 text-center text-gray-500 text-sm">
+                    <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg p-4 text-center text-muted-foreground text-sm">
                       No se encontraron clientes
                     </div>
                   )}
                 </div>
               )}
 
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Los puntos de lealtad ganados por este cliente se acumularán al cliente padre seleccionado
               </p>
             </div>
@@ -1298,7 +1298,7 @@ export default function CustomerManagement() {
                   onChange={(e) => setCustomerFormData({ ...customerFormData, isVip: e.target.checked })}
                   className="w-4 h-4"
                 />
-                <Star className="w-4 h-4 text-purple-500" />
+                <Star className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium">Cliente VIP</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">

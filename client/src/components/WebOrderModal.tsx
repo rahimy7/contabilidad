@@ -169,13 +169,13 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-blue-600" />
+              <ShoppingCart className="w-5 h-5 text-primary" />
               Realizar Pedido Web
             </DialogTitle>
             {!isSubmitting && (
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -185,8 +185,8 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Resumen del pedido */}
-          <div className="bg-gray-50 p-4 rounded-lg border">
-            <h3 className="font-semibold mb-3 text-gray-900">Resumen del pedido:</h3>
+          <div className="bg-subtle p-4 rounded-lg border">
+            <h3 className="font-semibold mb-3 text-foreground">Resumen del pedido:</h3>
             <div className="space-y-2">
               {cart.map((item, index) => {
                 const unitPrice = item.cartPrice || item.convertedPrice || parseFloat(item.price);
@@ -196,7 +196,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
                   <div key={index} className="flex justify-between text-sm">
                     <div className="flex-1 pr-2">
                       <span className="font-medium">{item.name}</span>
-                      <span className="text-gray-600"> x{item.quantity}</span>
+                      <span className="text-muted-foreground"> x{item.quantity}</span>
                     </div>
                     <span className="font-medium">${formatCurrency(subtotal)}</span>
                   </div>
@@ -205,7 +205,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
               <div className="border-t pt-2 mt-2">
                 <div className="flex justify-between font-bold text-base">
                   <span>Total:</span>
-                  <span className="text-blue-600">${formatCurrency(cartTotal)}</span>
+                  <span className="text-primary">${formatCurrency(cartTotal)}</span>
                 </div>
               </div>
             </div>
@@ -214,7 +214,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
           {/* Campo de teléfono */}
           <div className="space-y-2">
             <Label htmlFor="phone" className="flex items-center gap-2 font-medium">
-              <Phone className="w-4 h-4 text-blue-600" />
+              <Phone className="w-4 h-4 text-primary" />
               Número de teléfono *
             </Label>
             <Input
@@ -223,12 +223,12 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
               placeholder="Ej: 809-555-1234 o +1-809-555-1234"
               value={orderData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
-              className={`${errors.phone ? 'border-red-500 focus:border-red-500' : 'focus:border-blue-500'}`}
+              className={`${errors.phone ? 'border-destructive focus:border-destructive' : 'focus:border-primary'}`}
               disabled={isSubmitting}
               autoComplete="tel"
             />
             {errors.phone && (
-              <p className="text-red-500 text-sm flex items-center gap-1">
+              <p className="text-destructive text-sm flex items-center gap-1">
                 <span>⚠️</span>
                 {errors.phone}
               </p>
@@ -238,7 +238,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
           {/* Campo de dirección */}
           <div className="space-y-2">
             <Label htmlFor="address" className="flex items-center gap-2 font-medium">
-              <MapPin className="w-4 h-4 text-blue-600" />
+              <MapPin className="w-4 h-4 text-primary" />
               Dirección de entrega *
             </Label>
             <Textarea
@@ -246,13 +246,13 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
               placeholder="Ingresa tu dirección completa: calle, número, sector, ciudad..."
               value={orderData.address}
               onChange={(e) => handleInputChange('address', e.target.value)}
-              className={`${errors.address ? 'border-red-500 focus:border-red-500' : 'focus:border-blue-500'} min-h-[80px]`}
+              className={`${errors.address ? 'border-destructive focus:border-destructive' : 'focus:border-primary'} min-h-[80px]`}
               disabled={isSubmitting}
               rows={3}
               autoComplete="street-address"
             />
             {errors.address && (
-              <p className="text-red-500 text-sm flex items-center gap-1">
+              <p className="text-destructive text-sm flex items-center gap-1">
                 <span>⚠️</span>
                 {errors.address}
               </p>
@@ -261,7 +261,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
 
           {/* Campo de notas (opcional) */}
           <div className="space-y-2">
-            <Label htmlFor="notes" className="font-medium text-gray-700">
+            <Label htmlFor="notes" className="font-medium text-foreground">
               Notas adicionales (opcional)
             </Label>
             <Textarea
@@ -271,12 +271,12 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
               onChange={(e) => handleInputChange('notes', e.target.value)}
               disabled={isSubmitting}
               rows={2}
-              className="focus:border-blue-500"
+              className="focus:border-primary"
             />
           </div>
 
           {/* Información adicional */}
-          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 border border-blue-200">
+          <div className="bg-accent p-3 rounded-lg text-sm text-accent-foreground border border-border">
             <p className="font-medium mb-1">ℹ️ Información importante:</p>
             <ul className="text-xs space-y-1">
               <li>• Tu pedido será procesado inmediatamente</li>
@@ -299,7 +299,7 @@ export const WebOrderModal: React.FC<WebOrderModalProps> = ({
             <Button
               type="submit"
               disabled={isSubmitting || cart.length === 0}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 bg-primary hover:bg-primary-hover"
             >
               {isSubmitting ? (
                 <>

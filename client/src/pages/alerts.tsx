@@ -14,9 +14,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { Bell, Plus, Play, CheckCircle2, X, Trash2, Zap, AlertTriangle } from "lucide-react";
 
 const SEVERITY_COLOR: Record<string, string> = {
-  info: "bg-blue-500",
-  warning: "bg-yellow-500",
-  critical: "bg-red-500",
+  info: "bg-primary",
+  warning: "bg-warning",
+  critical: "bg-destructive",
 };
 
 const RULE_TYPE_LABELS: Record<string, string> = {
@@ -31,10 +31,10 @@ const RULE_TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  new: "bg-red-500",
-  acknowledged: "bg-yellow-500",
-  resolved: "bg-green-600",
-  dismissed: "bg-gray-500",
+  new: "bg-destructive",
+  acknowledged: "bg-warning",
+  resolved: "bg-success",
+  dismissed: "bg-muted-foreground",
 };
 
 /** Alertas proactivas: reglas + eventos + evaluación manual. */
@@ -42,12 +42,12 @@ export default function AlertsPage() {
   const [tab, setTab] = useState("events");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Bell className="w-8 h-8 text-orange-500" />
+          <Bell className="w-8 h-8 text-warning" />
           <div>
-            <h1 className="text-2xl font-bold">Alertas y Notificaciones</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Alertas y Notificaciones</h1>
             <p className="text-muted-foreground">Reglas configurables + eventos + delivery multi-canal</p>
           </div>
         </div>
@@ -127,8 +127,8 @@ function EventsSection() {
             <div className="space-y-2">
               {events.data.rows.map((e: any) => (
                 <Card key={e.id} className={`border-l-4 ${
-                  e.severity === "critical" ? "border-l-red-500" :
-                  e.severity === "warning" ? "border-l-yellow-500" : "border-l-blue-500"
+                  e.severity === "critical" ? "border-l-destructive" :
+                  e.severity === "warning" ? "border-l-warning" : "border-l-primary"
                 }`}>
                   <CardContent className="pt-3 pb-3">
                     <div className="flex justify-between items-start gap-3">

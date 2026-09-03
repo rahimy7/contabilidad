@@ -334,15 +334,15 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-[20px] font-semibold tracking-tight">Clientes</h1>
+          <p className="text-muted-foreground mt-1">
             Gestiona la base de datos de clientes y su historial
           </p>
         </div>
         {isAdmin && (
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-primary hover:bg-primary-hover">
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Cliente
               </Button>
@@ -421,7 +421,7 @@ export default function CustomersPage() {
                     <Button
                       type="submit"
                       disabled={createCustomerMutation.isPending}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-primary hover:bg-primary-hover"
                     >
                       {createCustomerMutation.isPending ? "Creando..." : "Crear Cliente"}
                     </Button>
@@ -439,25 +439,11 @@ export default function CustomersPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Clientes</p>
-                <p className="text-2xl font-bold text-gray-900">{processedCustomers.stats.total}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Clientes</p>
+                <p className="text-2xl font-bold text-foreground">{processedCustomers.stats.total}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Clientes VIP</p>
-                <p className="text-2xl font-bold text-yellow-600">{processedCustomers.stats.vipCount}</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Star className="h-6 w-6 text-yellow-600" />
+              <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -467,11 +453,11 @@ export default function CustomersPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Activos (30 días)</p>
-                <p className="text-2xl font-bold text-green-600">{processedCustomers.stats.activeCount}</p>
+                <p className="text-sm font-medium text-muted-foreground">Clientes VIP</p>
+                <p className="text-2xl font-bold text-warning">{processedCustomers.stats.vipCount}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="w-12 h-12 bg-warning/15 rounded-lg flex items-center justify-center">
+                <Star className="h-6 w-6 text-warning" />
               </div>
             </div>
           </CardContent>
@@ -481,11 +467,25 @@ export default function CustomersPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Registrados Hoy</p>
-                <p className="text-2xl font-bold text-purple-600">{processedCustomers.stats.recentCount}</p>
+                <p className="text-sm font-medium text-muted-foreground">Activos (30 días)</p>
+                <p className="text-2xl font-bold text-success">{processedCustomers.stats.activeCount}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-purple-600" />
+              <div className="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Registrados Hoy</p>
+                <p className="text-2xl font-bold text-primary">{processedCustomers.stats.recentCount}</p>
+              </div>
+              <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -495,7 +495,7 @@ export default function CustomersPage() {
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Buscar clientes..."
             value={searchTerm}
@@ -544,7 +544,7 @@ export default function CustomersPage() {
             <CardTitle>
               Lista de Clientes 
               {filterType !== 'all' && (
-                <span className="text-sm font-normal text-gray-500 ml-2">
+                <span className="text-sm font-normal text-muted-foreground ml-2">
                   ({currentCustomers.length} {filterType === 'vip' ? 'VIP' : filterType === 'active' ? 'activos' : 'recientes'})
                 </span>
               )}
@@ -555,8 +555,8 @@ export default function CustomersPage() {
               <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-4 bg-secondary rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-secondary rounded w-1/2"></div>
                   </div>
                 ))}
               </div>
@@ -567,22 +567,22 @@ export default function CustomersPage() {
                     key={customer.id}
                     className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                       selectedCustomer?.id === customer.id
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-primary bg-accent"
+                        : "border-border hover:border-border"
                     }`}
                     onClick={() => setSelectedCustomer(customer)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900">{getCustomerDisplayName(customer)}</h3>
+                          <h3 className="font-medium text-foreground">{getCustomerDisplayName(customer)}</h3>
                           {isVipCustomer(customer) && (
-                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                            <Badge className="bg-warning/15 text-warning border-warning/40">
                               ⭐ VIP
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
                           <span className="flex items-center">
                             <Phone className="h-3 w-3 mr-1" />
                             {getCustomerDisplayPhone(customer)}
@@ -614,7 +614,7 @@ export default function CustomersPage() {
                               e.stopPropagation();
                               handleDeleteCustomer(customer);
                             }}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                            className="text-destructive hover:text-destructive/80 hover:border-destructive/40"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -624,7 +624,7 @@ export default function CustomersPage() {
                   </div>
                 ))}
                 {currentCustomers.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     {searchTerm ? "No se encontraron clientes que coincidan con la búsqueda" : "No hay clientes en esta categoría"}
                   </div>
                 )}
@@ -649,7 +649,7 @@ export default function CustomersPage() {
                   <div className="flex items-center space-x-2 mb-3">
                     <h3 className="text-lg font-semibold">{getCustomerDisplayName(selectedCustomer)}</h3>
                     {isVipCustomer(selectedCustomer) && (
-                      <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                      <Badge className="bg-warning/15 text-warning border-warning/40">
                         ⭐ VIP
                       </Badge>
                     )}
@@ -657,19 +657,19 @@ export default function CustomersPage() {
                   
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                      <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
                       <span>{getCustomerDisplayPhone(selectedCustomer)}</span>
                     </div>
                     
                     {selectedCustomer.address && (
                       <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                        <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
                         <span>{selectedCustomer.address}</span>
                       </div>
                     )}
                     
                     <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
                       <span>Registrado: {formatDate(selectedCustomer.registrationDate || selectedCustomer.createdAt)}</span>
                     </div>
                   </div>
@@ -678,13 +678,13 @@ export default function CustomersPage() {
                 {/* Statistics */}
                 {customerDetails && ((customerDetails.totalOrders && customerDetails.totalOrders > 0) || (customerDetails.totalSpent && customerDetails.totalSpent > 0)) && (
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-sm text-blue-600 font-medium">Total Pedidos</p>
-                      <p className="text-xl font-bold text-blue-900">{customerDetails.totalOrders || 0}</p>
+                    <div className="bg-accent p-3 rounded-lg">
+                      <p className="text-sm text-primary font-medium">Total Pedidos</p>
+                      <p className="text-xl font-bold text-accent-foreground">{customerDetails.totalOrders || 0}</p>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-sm text-green-600 font-medium">Total Gastado</p>
-                      <p className="text-xl font-bold text-green-900">${customerDetails.totalSpent || 0}</p>
+                    <div className="bg-success/10 p-3 rounded-lg">
+                      <p className="text-sm text-success font-medium">Total Gastado</p>
+                      <p className="text-xl font-bold text-success">${customerDetails.totalSpent || 0}</p>
                     </div>
                   </div>
                 )}
@@ -695,10 +695,10 @@ export default function CustomersPage() {
                     <h4 className="font-medium mb-3">Historial Reciente</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {customerDetails.history.slice(0, 10).map((entry: any) => (
-                        <div key={entry.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div key={entry.id} className="flex items-center justify-between p-2 bg-subtle rounded">
                           <div>
                             <p className="text-sm font-medium">{entry.description}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               {formatDate(entry.timestamp)}
                             </p>
                           </div>
@@ -714,15 +714,15 @@ export default function CustomersPage() {
                 )}
 
                 {(!customerDetails || (!customerDetails.totalOrders && !customerDetails.history?.length)) && (
-                  <div className="text-center py-8 text-gray-500">
-                    <History className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                     <p>Sin historial de pedidos</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Phone className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+              <div className="text-center py-8 text-muted-foreground">
+                <Phone className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p>Selecciona un cliente para ver sus detalles</p>
               </div>
             )}
@@ -806,7 +806,7 @@ export default function CustomersPage() {
                 <Button
                   type="submit"
                   disabled={editCustomerMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-primary hover:bg-primary-hover"
                 >
                   {editCustomerMutation.isPending ? "Actualizando..." : "Actualizar Cliente"}
                 </Button>
@@ -823,16 +823,16 @@ export default function CustomersPage() {
             <DialogTitle>Eliminar Cliente</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               ¿Estás seguro de que quieres eliminar a <strong>{getCustomerDisplayName(customerToDelete || {} as ExtendedCustomer)}</strong>?
               Esta acción no se puede deshacer.
             </p>
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-warning/15 border border-warning/40 rounded-lg p-3">
+              <p className="text-sm text-warning">
                 <strong>Advertencia:</strong> Se eliminarán automáticamente todos los datos relacionados:
               </p>
-              <ul className="list-disc list-inside text-xs text-yellow-700 mt-2 space-y-1">
+              <ul className="list-disc list-inside text-xs text-warning mt-2 space-y-1">
                 <li>Historial del cliente</li>
                 <li>Conversaciones de WhatsApp</li>
                 <li>Mensajes intercambiados</li>
@@ -853,7 +853,7 @@ export default function CustomersPage() {
               <Button
                 onClick={confirmDelete}
                 disabled={deleteCustomerMutation.isPending}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
                 {deleteCustomerMutation.isPending ? "Eliminando..." : "Eliminar Cliente"}
               </Button>

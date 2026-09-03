@@ -59,10 +59,10 @@ export default function EcfConsolePage() {
   const d = dash.data;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
             <FileCheck2 className="h-6 w-6" /> Facturación electrónica (e-CF)
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -80,7 +80,7 @@ export default function EcfConsolePage() {
       </div>
 
       {d && d.settings.environment !== "prod" && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm">
+        <div className="rounded-md border border-warning/40 bg-warning/15 px-4 py-3 text-sm">
           <span className="font-medium">Ambiente {ENV_LABEL[d.settings.environment]}.</span>{" "}
           Los comprobantes emitidos aquí no tienen validez fiscal. La representación impresa lo dice
           en su cara para que nadie la confunda con una factura real.
@@ -162,10 +162,10 @@ function Panel() {
       </div>
 
       {d.sequenceAlerts.length > 0 && (
-        <Card className="border-amber-300">
+        <Card className="border-warning/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" /> Secuencias por agotarse
+              <AlertTriangle className="h-4 w-4 text-warning" /> Secuencias por agotarse
             </CardTitle>
             <CardDescription>
               Quedarse sin eNCF a mitad de una venta detiene la facturación. Solicite el rango nuevo
@@ -210,10 +210,10 @@ function Panel() {
       </Card>
 
       {d.stuck.length > 0 && (
-        <Card className="border-red-300">
+        <Card className="border-destructive/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileX2 className="h-4 w-4 text-red-600" /> Requieren intervención
+              <FileX2 className="h-4 w-4 text-destructive" /> Requieren intervención
             </CardTitle>
             <CardDescription>
               Documentos que la cola ya no va a rescatar sola: o DGII los rechazó, o se agotaron los
@@ -221,15 +221,15 @@ function Panel() {
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full border-collapse text-[13px]">
               <thead className="text-left text-muted-foreground border-b">
-                <tr><th className="py-2">eNCF</th><th>Tipo</th><th className="text-right">Monto</th>
+                <tr><th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">eNCF</th><th>Tipo</th><th className="text-right">Monto</th>
                   <th>Estado</th><th className="text-right">Intentos</th><th>Último error</th><th /></tr>
               </thead>
               <tbody>
                 {d.stuck.map((s) => (
                   <tr key={s.id} className="border-b last:border-0">
-                    <td className="py-2 font-mono">{s.ncf ?? "—"}</td>
+                    <td className="h-[34px] px-3 py-1.5 font-mono">{s.ncf ?? "—"}</td>
                     <td>{s.ncf_type}</td>
                     <td className="text-right">{money(s.total)}</td>
                     <td><StatusBadge status={s.ecf_status} /></td>
@@ -275,10 +275,10 @@ function QueueTab() {
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead className="text-left text-muted-foreground border-b">
             <tr>
-              <th className="py-2">eNCF</th><th>Estado DGII</th><th>Cola</th>
+              <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">eNCF</th><th>Estado DGII</th><th>Cola</th>
               <th className="text-right">Intentos</th><th>Próximo intento</th>
               <th>TrackId</th><th>Último error</th><th />
             </tr>
@@ -286,7 +286,7 @@ function QueueTab() {
           <tbody>
             {rows.map((t: EcfQueueRow) => (
               <tr key={t.id} className="border-b last:border-0">
-                <td className="py-2 font-mono">{t.ncf ?? `#${t.document_id}`}</td>
+                <td className="h-[34px] px-3 py-1.5 font-mono">{t.ncf ?? `#${t.document_id}`}</td>
                 <td><StatusBadge status={t.ecf_status} /></td>
                 <td>
                   <Badge variant={t.state === "failed" || t.state === "abandoned" ? "destructive" : "outline"}>
@@ -402,10 +402,10 @@ function InboxTab() {
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full border-collapse text-[13px]">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
-                <th className="py-2">eNCF</th><th>Emisor</th><th>Fecha</th>
+                <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">eNCF</th><th>Emisor</th><th>Fecha</th>
                 <th className="text-right">ITBIS</th><th className="text-right">Total</th>
                 <th>Acuse</th><th>Aprobación</th><th />
               </tr>
@@ -413,7 +413,7 @@ function InboxTab() {
             <tbody>
               {rows.map((r: EcfReceivedRow) => (
                 <tr key={r.id} className="border-b last:border-0">
-                  <td className="py-2 font-mono">
+                  <td className="h-[34px] px-3 py-1.5 font-mono">
                     {r.encf}
                     <div className="text-xs text-muted-foreground font-sans">{r.ecf_type}</div>
                   </td>
@@ -437,7 +437,7 @@ function InboxTab() {
                       {r.approval_status}
                     </Badge>
                     {r.approval_overdue && (
-                      <div className="text-xs text-amber-600 mt-0.5">plazo vencido</div>
+                      <div className="text-xs text-warning mt-0.5">plazo vencido</div>
                     )}
                   </td>
                   <td className="text-right">
@@ -714,15 +714,15 @@ function SequenceVoids() {
         </Dialog>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead className="text-left text-muted-foreground border-b">
-            <tr><th className="py-2">Tipo</th><th>Rango</th><th className="text-right">Cantidad</th>
+            <tr><th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">Tipo</th><th>Rango</th><th className="text-right">Cantidad</th>
               <th>Motivo</th><th>Estado</th><th>Fecha</th></tr>
           </thead>
           <tbody>
             {(list.data?.voids ?? []).map((v: any) => (
               <tr key={v.id} className="border-b last:border-0">
-                <td className="py-2">{v.ecf_type}</td>
+                <td className="h-[34px] px-3 py-1.5">{v.ecf_type}</td>
                 <td className="font-mono text-xs">{v.range_from} — {v.range_to}</td>
                 <td className="text-right">{v.count}</td>
                 <td className="text-xs text-muted-foreground">{v.reason ?? "—"}</td>
@@ -838,7 +838,7 @@ function ReadinessCard() {
           <>
             <div className="flex items-center gap-2">
               {d.ready ? (
-                <Badge className="bg-green-600 hover:bg-green-600">Listo para {d.environment.toUpperCase()}</Badge>
+                <Badge className="bg-success hover:bg-success">Listo para {d.environment.toUpperCase()}</Badge>
               ) : (
                 <Badge variant="destructive">Faltan pasos</Badge>
               )}
@@ -849,8 +849,8 @@ function ReadinessCard() {
             <ul className="space-y-2">
               {d.checks.map((c) => (
                 <li key={c.id} className="flex items-start gap-2 text-sm">
-                  {c.status === "ok" && <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />}
-                  {c.status === "warn" && <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />}
+                  {c.status === "ok" && <CheckCircle2 className="h-4 w-4 text-success mt-0.5" />}
+                  {c.status === "warn" && <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />}
                   {c.status === "fail" && <XCircle className="h-4 w-4 text-destructive mt-0.5" />}
                   <div>
                     <div className="font-medium">{c.label}</div>

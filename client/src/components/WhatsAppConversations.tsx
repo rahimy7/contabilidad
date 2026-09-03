@@ -210,11 +210,11 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       <Card className="h-full">
         <CardContent className="h-[500px] flex items-center justify-center">
           <div className="text-center">
-            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Selecciona una conversación
             </h3>
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               Elige una conversación de la lista para comenzar a chatear
             </p>
           </div>
@@ -228,27 +228,27 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
   return (
     <Card className="h-full flex flex-col">
       {/* Header */}
-      <CardHeader className="bg-green-50 border-b border-green-100 pb-4 flex-shrink-0">
+      <CardHeader className="bg-success/10 border-b border-success/40 pb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-primary/80 rounded-full flex items-center justify-center shadow-lg">
                 <User className="text-white h-6 w-6" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-white"></div>
             </div>
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
-                <CardTitle className="text-lg font-semibold text-gray-900">
+                <CardTitle className="text-lg font-semibold text-foreground">
                   {conversation.customer.name}
                 </CardTitle>
                 {customerDetails?.isVip && (
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                  <Badge className="bg-warning/15 text-warning border-warning/40 text-xs">
                     ⭐ VIP
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Phone className="h-3 w-3" />
                 <span className="font-medium">{conversation.customer.phone}</span>
               </div>
@@ -274,14 +274,14 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
         {/* Loading indicator at top */}
         {isLoadingMore && (
           <div className="flex justify-center py-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-success"></div>
           </div>
         )}
 
         {/* "Load more" indicator */}
         {!isLoadingMore && hasMoreMessages && displayedMessages.length > 0 && (
           <div className="flex justify-center py-2">
-            <div className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+            <div className="text-xs text-muted-foreground bg-card/80 px-3 py-1 rounded-full">
               ↑ Desliza hacia arriba para cargar más mensajes
             </div>
           </div>
@@ -289,12 +289,12 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success"></div>
           </div>
         ) : displayedMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <MessageCircle className="h-16 w-16 text-gray-300 mb-4" />
-            <p className="text-gray-500 text-center">
+            <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">
               No hay mensajes aún<br />
               <span className="text-sm">Envía el primer mensaje para iniciar la conversación</span>
             </p>
@@ -305,7 +305,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
               <div key={dateKey}>
                 {/* Date separator - WhatsApp style */}
                 <div className="flex justify-center my-4">
-                  <div className="bg-white/90 text-gray-600 text-xs px-3 py-1 rounded-lg shadow-sm">
+                  <div className="bg-card/90 text-muted-foreground text-xs px-3 py-1 rounded-lg shadow-sm">
                     {formatDateSeparator(messageGroups[dateKey][0].sentAt)}
                   </div>
                 </div>
@@ -326,14 +326,14 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
                       <div
                         className={`max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
                           isAgent
-                            ? "bg-green-500 text-white rounded-br-none"
-                            : "bg-white text-gray-900 rounded-bl-none"
+                            ? "bg-success text-success-foreground rounded-br-none"
+                            : "bg-card text-foreground rounded-bl-none"
                         }`}
                       >
                         <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
                         <div
                           className={`flex items-center justify-end space-x-1 mt-1 ${
-                            isAgent ? "text-green-100" : "text-gray-500"
+                            isAgent ? "text-success-foreground/80" : "text-muted-foreground"
                           }`}
                         >
                           <span className="text-xs">{formatMessageTime(message.sentAt)}</span>
@@ -360,7 +360,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       </CardContent>
 
       {/* Input */}
-      <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
+      <div className="border-t border-border p-4 bg-card flex-shrink-0">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
           <Input
             value={newMessage}
@@ -372,7 +372,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
           <Button
             type="submit"
             disabled={!newMessage.trim() || sendMessageMutation.isPending}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-success hover:bg-success/90 text-success-foreground"
           >
             {sendMessageMutation.isPending ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

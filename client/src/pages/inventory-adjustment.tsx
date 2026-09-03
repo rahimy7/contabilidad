@@ -187,15 +187,15 @@ export default function InventoryAdjustmentPage() {
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="container mx-auto p-6">
+    <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <ClipboardList className="w-8 h-8 text-blue-600" />
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-3">
+            <ClipboardList className="w-8 h-8 text-primary" />
             Ajuste de Inventario
           </h1>
-          <p className="text-gray-600 mt-1">Corrige el stock real de tus productos y aplica el ajuste masivo</p>
+          <p className="text-muted-foreground mt-1">Corrige el stock real de tus productos y aplica el ajuste masivo</p>
         </div>
       </div>
 
@@ -216,44 +216,44 @@ export default function InventoryAdjustmentPage() {
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <Card className="border-blue-100 bg-blue-50">
+            <Card className="border-border bg-accent">
               <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Artículos modificados</p>
-                <p className="text-2xl font-bold text-blue-700 mt-1">{summary.totalChanged}</p>
+                <p className="text-xs text-primary font-medium uppercase tracking-wide">Artículos modificados</p>
+                <p className="text-2xl font-bold text-primary mt-1">{summary.totalChanged}</p>
               </CardContent>
             </Card>
-            <Card className="border-green-100 bg-green-50">
+            <Card className="border-success/40 bg-success/10">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                  <p className="text-xs text-green-600 font-medium uppercase tracking-wide">Con sobrante</p>
+                  <TrendingUp className="w-4 h-4 text-success" />
+                  <p className="text-xs text-success font-medium uppercase tracking-wide">Con sobrante</p>
                 </div>
-                <p className="text-2xl font-bold text-green-700 mt-1">{summary.surplusItems}</p>
-                <p className="text-xs text-green-600 mt-0.5">{formatCurrency(summary.surplusValue)}</p>
+                <p className="text-2xl font-bold text-success mt-1">{summary.surplusItems}</p>
+                <p className="text-xs text-success mt-0.5">{formatCurrency(summary.surplusValue)}</p>
               </CardContent>
             </Card>
-            <Card className="border-red-100 bg-red-50">
+            <Card className="border-destructive/40 bg-destructive/10">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <TrendingDown className="w-4 h-4 text-red-600" />
-                  <p className="text-xs text-red-600 font-medium uppercase tracking-wide">Con faltante</p>
+                  <TrendingDown className="w-4 h-4 text-destructive" />
+                  <p className="text-xs text-destructive font-medium uppercase tracking-wide">Con faltante</p>
                 </div>
-                <p className="text-2xl font-bold text-red-700 mt-1">{summary.deficitItems}</p>
-                <p className="text-xs text-red-600 mt-0.5">{formatCurrency(summary.deficitValue)}</p>
+                <p className="text-2xl font-bold text-destructive mt-1">{summary.deficitItems}</p>
+                <p className="text-xs text-destructive mt-0.5">{formatCurrency(summary.deficitValue)}</p>
               </CardContent>
             </Card>
-            <Card className="border-yellow-100 bg-yellow-50">
+            <Card className="border-warning/40 bg-warning/15">
               <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-yellow-700 font-medium uppercase tracking-wide">Valor sobrante</p>
-                <p className="text-xl font-bold text-yellow-700 mt-1">{formatCurrency(summary.surplusValue)}</p>
+                <p className="text-xs text-warning font-medium uppercase tracking-wide">Valor sobrante</p>
+                <p className="text-xl font-bold text-warning mt-1">{formatCurrency(summary.surplusValue)}</p>
               </CardContent>
             </Card>
-            <Card className={`${summary.netAdjustmentValue >= 0 ? "border-green-100 bg-green-50" : "border-red-100 bg-red-50"}`}>
+            <Card className={`${summary.netAdjustmentValue >= 0 ? "border-success/40 bg-success/10" : "border-destructive/40 bg-destructive/10"}`}>
               <CardContent className="pt-4 pb-4">
-                <p className={`text-xs font-medium uppercase tracking-wide ${summary.netAdjustmentValue >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <p className={`text-xs font-medium uppercase tracking-wide ${summary.netAdjustmentValue >= 0 ? "text-success" : "text-destructive"}`}>
                   Ajuste neto
                 </p>
-                <p className={`text-xl font-bold mt-1 ${summary.netAdjustmentValue >= 0 ? "text-green-700" : "text-red-700"}`}>
+                <p className={`text-xl font-bold mt-1 ${summary.netAdjustmentValue >= 0 ? "text-success" : "text-destructive"}`}>
                   {summary.netAdjustmentValue >= 0 ? "+" : ""}
                   {formatCurrency(summary.netAdjustmentValue)}
                 </p>
@@ -278,7 +278,7 @@ export default function InventoryAdjustmentPage() {
               </div>
               <div className="mt-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Buscar producto..."
                     value={search}
@@ -290,18 +290,18 @@ export default function InventoryAdjustmentPage() {
             </CardHeader>
             <CardContent className="p-0">
               {loadingProducts ? (
-                <p className="text-center py-10 text-gray-400">Cargando productos...</p>
+                <p className="text-center py-10 text-muted-foreground">Cargando productos...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead className="bg-subtle border-b">
                       <tr>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600">Producto</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600 w-32">Precio</th>
-                        <th className="text-center py-3 px-4 font-medium text-gray-600 w-28">Stock actual</th>
-                        <th className="text-center py-3 px-4 font-medium text-gray-600 w-32">Stock real</th>
-                        <th className="text-center py-3 px-4 font-medium text-gray-600 w-28">Diferencia</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-600 w-36">Monto ajuste</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Producto</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground w-32">Precio</th>
+                        <th className="text-center py-3 px-4 font-medium text-muted-foreground w-28">Stock actual</th>
+                        <th className="text-center py-3 px-4 font-medium text-muted-foreground w-32">Stock real</th>
+                        <th className="text-center py-3 px-4 font-medium text-muted-foreground w-28">Diferencia</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground w-36">Monto ajuste</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -317,19 +317,19 @@ export default function InventoryAdjustmentPage() {
                         const isChanged = realStock !== null && realStock !== currentStock;
                         const rowCls = isChanged
                           ? diff! > 0
-                            ? "bg-green-50 border-b"
-                            : "bg-red-50 border-b"
-                          : "border-b hover:bg-gray-50";
+                            ? "bg-success/10 border-b"
+                            : "bg-destructive/10 border-b"
+                          : "border-b hover:bg-subtle";
 
                         return (
                           <tr key={product.id} className={rowCls}>
-                            <td className="py-2 px-4 font-medium">
-                              <span className="text-gray-400 text-xs mr-2">#{product.id}</span>
+                            <td className="h-[34px] px-3 py-1.5 px-4 font-medium">
+                              <span className="text-muted-foreground text-xs mr-2">#{product.id}</span>
                               {product.name}
                             </td>
-                            <td className="py-2 px-4 text-right text-gray-600">{formatCurrency(unitPrice, currency)}</td>
-                            <td className="py-2 px-4 text-center text-gray-600">{currentStock}</td>
-                            <td className="py-2 px-4 text-center">
+                            <td className="h-[34px] px-3 py-1.5 px-4 text-right text-muted-foreground">{formatCurrency(unitPrice, currency)}</td>
+                            <td className="h-[34px] px-3 py-1.5 px-4 text-center text-muted-foreground">{currentStock}</td>
+                            <td className="h-[34px] px-3 py-1.5 px-4 text-center">
                               <Input
                                 type="number"
                                 min={0}
@@ -341,24 +341,24 @@ export default function InventoryAdjustmentPage() {
                                 className="w-24 mx-auto text-center"
                               />
                             </td>
-                            <td className="py-2 px-4 text-center">
+                            <td className="h-[34px] px-3 py-1.5 px-4 text-center">
                               {diff !== null && diff !== 0 ? (
-                                <span className={`flex items-center justify-center gap-1 font-semibold ${diff > 0 ? "text-green-600" : "text-red-600"}`}>
+                                <span className={`flex items-center justify-center gap-1 font-semibold ${diff > 0 ? "text-success" : "text-destructive"}`}>
                                   {diff > 0 ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                   {diff > 0 ? `+${diff}` : diff}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
-                            <td className="py-2 px-4 text-right">
+                            <td className="h-[34px] px-3 py-1.5 px-4 text-right">
                               {adjustmentAmt !== null && diff !== 0 ? (
-                                <span className={diff! > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                                <span className={diff! > 0 ? "text-success font-medium" : "text-destructive font-medium"}>
                                   {diff! > 0 ? "+" : "-"}
                                   {formatCurrency(adjustmentAmt, currency)}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
                           </tr>
@@ -366,7 +366,7 @@ export default function InventoryAdjustmentPage() {
                       })}
                       {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="text-center py-10 text-gray-400">
+                          <td colSpan={6} className="text-center py-10 text-muted-foreground">
                             No se encontraron productos
                           </td>
                         </tr>
@@ -391,9 +391,9 @@ export default function InventoryAdjustmentPage() {
             </CardHeader>
             <CardContent>
               {loadingHistory ? (
-                <p className="text-center py-10 text-gray-400">Cargando historial...</p>
+                <p className="text-center py-10 text-muted-foreground">Cargando historial...</p>
               ) : history.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
+                <div className="text-center py-16 text-muted-foreground">
                   <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>No hay ajustes registrados todavía</p>
                 </div>
@@ -405,62 +405,62 @@ export default function InventoryAdjustmentPage() {
                       <div key={adj.id} className="border rounded-lg overflow-hidden">
                         {/* Header row */}
                         <div
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-subtle"
                           onClick={() => setExpandedAdjustmentId(isExpanded ? null : adj.id)}
                         >
                           <div className="flex items-center gap-4 flex-wrap">
                             <div>
                               <p className="font-semibold text-sm">Ajuste #{adj.id}</p>
-                              <p className="text-xs text-gray-500">{formatDate(adj.createdAt)}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(adj.createdAt)}</p>
                               {adj.adjustedByName && (
-                                <p className="text-xs text-gray-400">Por: {adj.adjustedByName}</p>
+                                <p className="text-xs text-muted-foreground">Por: {adj.adjustedByName}</p>
                               )}
                             </div>
                             <div className="flex gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                              <Badge variant="outline" className="text-success border-success/40 bg-success/10">
                                 <TrendingUp className="w-3 h-3 mr-1" />
                                 {adj.surplusItems} sobrantes
                               </Badge>
-                              <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                              <Badge variant="outline" className="text-destructive border-destructive/40 bg-destructive/10">
                                 <TrendingDown className="w-3 h-3 mr-1" />
                                 {adj.deficitItems} faltantes
                               </Badge>
-                              <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                              <Badge variant="outline" className="text-primary border-border bg-accent">
                                 {adj.totalItems} producto(s)
                               </Badge>
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className="text-xs text-gray-500">Ajuste neto</p>
-                              <p className={`font-bold ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              <p className="text-xs text-muted-foreground">Ajuste neto</p>
+                              <p className={`font-bold ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-success" : "text-destructive"}`}>
                                 {parseFloat(adj.netAdjustmentValue) >= 0 ? "+" : ""}
                                 {formatCurrency(adj.netAdjustmentValue)}
                               </p>
                             </div>
-                            {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                           </div>
                         </div>
 
                         {/* Expanded detail */}
                         {isExpanded && (
-                          <div className="border-t bg-gray-50 p-4">
+                          <div className="border-t bg-subtle p-4">
                             {adj.notes && (
-                              <p className="text-sm text-gray-600 mb-3 italic">"{adj.notes}"</p>
+                              <p className="text-sm text-muted-foreground mb-3 italic">"{adj.notes}"</p>
                             )}
                             {/* Summary mini-cards */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                              <div className="bg-green-50 border border-green-100 rounded p-2 text-center">
-                                <p className="text-xs text-green-600">Valor sobrante</p>
-                                <p className="font-bold text-green-700 text-sm">{formatCurrency(adj.surplusValue)}</p>
+                              <div className="bg-success/10 border border-success/40 rounded p-2 text-center">
+                                <p className="text-xs text-success">Valor sobrante</p>
+                                <p className="font-bold text-success text-sm">{formatCurrency(adj.surplusValue)}</p>
                               </div>
-                              <div className="bg-red-50 border border-red-100 rounded p-2 text-center">
-                                <p className="text-xs text-red-600">Valor faltante</p>
-                                <p className="font-bold text-red-700 text-sm">{formatCurrency(adj.deficitValue)}</p>
+                              <div className="bg-destructive/10 border border-destructive/40 rounded p-2 text-center">
+                                <p className="text-xs text-destructive">Valor faltante</p>
+                                <p className="font-bold text-destructive text-sm">{formatCurrency(adj.deficitValue)}</p>
                               </div>
-                              <div className={`${parseFloat(adj.netAdjustmentValue) >= 0 ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"} border rounded p-2 text-center`}>
-                                <p className={`text-xs ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-green-600" : "text-red-600"}`}>Ajuste neto</p>
-                                <p className={`font-bold text-sm ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                              <div className={`${parseFloat(adj.netAdjustmentValue) >= 0 ? "bg-success/10 border-success/40" : "bg-destructive/10 border-destructive/40"} border rounded p-2 text-center`}>
+                                <p className={`text-xs ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-success" : "text-destructive"}`}>Ajuste neto</p>
+                                <p className={`font-bold text-sm ${parseFloat(adj.netAdjustmentValue) >= 0 ? "text-success" : "text-destructive"}`}>
                                   {formatCurrency(adj.netAdjustmentValue)}
                                 </p>
                               </div>
@@ -470,28 +470,28 @@ export default function InventoryAdjustmentPage() {
                             {expandedDetail && expandedDetail.id === adj.id ? (
                               <div className="overflow-x-auto">
                                 <table className="w-full text-xs">
-                                  <thead className="bg-white border-b">
+                                  <thead className="bg-card border-b">
                                     <tr>
-                                      <th className="text-left py-2 px-3 font-medium text-gray-600">Producto</th>
-                                      <th className="text-center py-2 px-3 font-medium text-gray-600">Stock anterior</th>
-                                      <th className="text-center py-2 px-3 font-medium text-gray-600">Stock real</th>
-                                      <th className="text-center py-2 px-3 font-medium text-gray-600">Diferencia</th>
-                                      <th className="text-right py-2 px-3 font-medium text-gray-600">Monto ajuste</th>
+                                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Producto</th>
+                                      <th className="text-center py-2 px-3 font-medium text-muted-foreground">Stock anterior</th>
+                                      <th className="text-center py-2 px-3 font-medium text-muted-foreground">Stock real</th>
+                                      <th className="text-center py-2 px-3 font-medium text-muted-foreground">Diferencia</th>
+                                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Monto ajuste</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {(expandedDetail.items || []).map((item: any) => (
                                       <tr key={item.id} className="border-b">
-                                        <td className="py-1.5 px-3 font-medium">{item.productName}</td>
-                                        <td className="py-1.5 px-3 text-center">{item.previousStock}</td>
-                                        <td className="py-1.5 px-3 text-center">{item.realStock}</td>
-                                        <td className="py-1.5 px-3 text-center">
-                                          <span className={item.difference > 0 ? "text-green-600 font-semibold" : item.difference < 0 ? "text-red-600 font-semibold" : "text-gray-400"}>
+                                        <td className="h-[34px] px-3 py-1.5 font-medium">{item.productName}</td>
+                                        <td className="h-[34px] px-3 py-1.5 text-center">{item.previousStock}</td>
+                                        <td className="h-[34px] px-3 py-1.5 text-center">{item.realStock}</td>
+                                        <td className="h-[34px] px-3 py-1.5 text-center">
+                                          <span className={item.difference > 0 ? "text-success font-semibold" : item.difference < 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>
                                             {item.difference > 0 ? `+${item.difference}` : item.difference}
                                           </span>
                                         </td>
-                                        <td className="py-1.5 px-3 text-right">
-                                          <span className={item.difference > 0 ? "text-green-600" : item.difference < 0 ? "text-red-600" : "text-gray-400"}>
+                                        <td className="h-[34px] px-3 py-1.5 text-right">
+                                          <span className={item.difference > 0 ? "text-success" : item.difference < 0 ? "text-destructive" : "text-muted-foreground"}>
                                             {item.difference !== 0 ? formatCurrency(item.adjustmentAmount, item.baseCurrency) : "—"}
                                           </span>
                                         </td>
@@ -501,7 +501,7 @@ export default function InventoryAdjustmentPage() {
                                 </table>
                               </div>
                             ) : (
-                              <p className="text-xs text-gray-400 text-center py-2">Cargando líneas...</p>
+                              <p className="text-xs text-muted-foreground text-center py-2">Cargando líneas...</p>
                             )}
                           </div>
                         )}
@@ -520,7 +520,7 @@ export default function InventoryAdjustmentPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <AlertTriangle className="w-5 h-5 text-warning" />
               Confirmar Ajuste de Inventario
             </DialogTitle>
             <DialogDescription>
@@ -530,21 +530,21 @@ export default function InventoryAdjustmentPage() {
 
           {/* Mini-summary */}
           <div className="grid grid-cols-2 gap-3 my-2">
-            <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-center">
-              <p className="text-xs text-green-600 font-medium">Sobrantes</p>
-              <p className="text-xl font-bold text-green-700">{summary.surplusItems}</p>
-              <p className="text-xs text-green-600">{formatCurrency(summary.surplusValue)}</p>
+            <div className="bg-success/10 border border-success/40 rounded-lg p-3 text-center">
+              <p className="text-xs text-success font-medium">Sobrantes</p>
+              <p className="text-xl font-bold text-success">{summary.surplusItems}</p>
+              <p className="text-xs text-success">{formatCurrency(summary.surplusValue)}</p>
             </div>
-            <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
-              <p className="text-xs text-red-600 font-medium">Faltantes</p>
-              <p className="text-xl font-bold text-red-700">{summary.deficitItems}</p>
-              <p className="text-xs text-red-600">{formatCurrency(summary.deficitValue)}</p>
+            <div className="bg-destructive/10 border border-destructive/40 rounded-lg p-3 text-center">
+              <p className="text-xs text-destructive font-medium">Faltantes</p>
+              <p className="text-xl font-bold text-destructive">{summary.deficitItems}</p>
+              <p className="text-xs text-destructive">{formatCurrency(summary.deficitValue)}</p>
             </div>
-            <div className={`col-span-2 rounded-lg p-3 text-center border ${summary.netAdjustmentValue >= 0 ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
-              <p className={`text-sm font-medium ${summary.netAdjustmentValue >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`col-span-2 rounded-lg p-3 text-center border ${summary.netAdjustmentValue >= 0 ? "bg-success/10 border-success/40" : "bg-destructive/10 border-destructive/40"}`}>
+              <p className={`text-sm font-medium ${summary.netAdjustmentValue >= 0 ? "text-success" : "text-destructive"}`}>
                 Ajuste neto
               </p>
-              <p className={`text-2xl font-bold ${summary.netAdjustmentValue >= 0 ? "text-green-700" : "text-red-700"}`}>
+              <p className={`text-2xl font-bold ${summary.netAdjustmentValue >= 0 ? "text-success" : "text-destructive"}`}>
                 {summary.netAdjustmentValue >= 0 ? "+" : ""}
                 {formatCurrency(summary.netAdjustmentValue)}
               </p>
@@ -553,7 +553,7 @@ export default function InventoryAdjustmentPage() {
 
           {/* Optional notes */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">
+            <label className="text-sm font-medium text-foreground mb-1 block">
               Notas del ajuste (opcional)
             </label>
             <Textarea

@@ -33,7 +33,7 @@ const money = (v: string, ccy = 'DOP') =>
 const STATUS: Record<string, { label: string; className?: string; variant?: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
   draft: { label: 'Borrador', variant: 'outline' },
   sent: { label: 'Enviada', variant: 'secondary' },
-  completed: { label: 'Completada', className: 'bg-green-600 hover:bg-green-600' },
+  completed: { label: 'Completada', className: 'bg-success hover:bg-success' },
   cancelled: { label: 'Cancelada', variant: 'destructive' },
 };
 
@@ -54,12 +54,12 @@ export default function PurchaseReturnsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Undo2 className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Devoluciones a proveedor</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Devoluciones a proveedor</h1>
             <p className="text-sm text-muted-foreground">
               Espejo de las devoluciones de venta: mercancía que regresa al proveedor.
             </p>

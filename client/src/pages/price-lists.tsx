@@ -22,12 +22,12 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const TIER_COLOR: Record<string, string> = {
-  retail: "bg-blue-500",
-  wholesale: "bg-purple-500",
-  distributor: "bg-orange-500",
-  institutional: "bg-teal-500",
-  vip: "bg-yellow-500",
-  custom: "bg-gray-500",
+  retail: "bg-primary",
+  wholesale: "bg-primary",
+  distributor: "bg-warning",
+  institutional: "bg-primary",
+  vip: "bg-warning",
+  custom: "bg-muted-foreground",
 };
 
 export default function PriceListsPage() {
@@ -57,12 +57,12 @@ export default function PriceListsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Tags className="w-8 h-8" />
           <div>
-            <h1 className="text-2xl font-bold">Listas de Precios</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Listas de Precios</h1>
             <p className="text-muted-foreground">Precios diferenciados por segmento B2B/B2C</p>
           </div>
         </div>

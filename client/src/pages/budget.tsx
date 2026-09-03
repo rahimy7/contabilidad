@@ -5,9 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { DataGrid, PageHeader, amount, type Column } from "@/components/erp";
 
-const money = (v: string | number) =>
-  Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+interface VarianceRow { code: string; name: string; budget: string; actual: string; variance: string }
+
+/**
+ * La variación negativa va en rojo: gastar por encima de lo presupuestado es
+ * la lectura que exige acción, y es la única celda de la rejilla que necesita
+ * color para encontrarse sin leer el resto.
+ */
+const COLUMNS: Column<VarianceRow>[] = [
+  { key: "name", header: "Cuenta", cell: (r) => r.name },
+  { key: "budget", header: "Presupuesto", align: "right", cell: (r) => amount(r.budget) },
+  { key: "actual", header: "Real", align: "right", cell: (r) => amount(r.actual) },
+  {
+    key: "variance", header: "Variación", align: "right",
+    cell: (r) => (
+      <span className={Number(r.variance) < 0 ? "font-medium text-destructive" : ""}>
+        {amount(r.variance)}
+      </span>
+    ),
+  },
+];
 
 /**
  * Minimal budget page: create a one-account annual budget and view the
@@ -39,37 +58,35 @@ export default function BudgetPage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Presupuesto</h1>
+    <div className="space-y-4">
+      <PageHeader subtitle="Presupuesto anual por cuenta y su comparación contra lo real" />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Presupuestar una cuenta (año {now.getFullYear()})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Presupuestar una cuenta (año {now.getFullYear()})</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-end gap-2">
-          <label className="text-sm">Cuenta<Input value={accountCode} onChange={(e) => setAccountCode(e.target.value)} className="w-40" /></label>
-          <label className="text-sm">Monto mensual<Input value={monthly} onChange={(e) => setMonthly(e.target.value)} className="w-40" /></label>
-          <Button size="sm" disabled={!monthly || create.isPending} onClick={() => create.mutate()}>Crear</Button>
-          {budgetId && <Button size="sm" variant="outline" onClick={() => compare.mutate()}>Comparar vs real</Button>}
+          <label className="text-[13px]">Cuenta<Input value={accountCode} onChange={(e) => setAccountCode(e.target.value)} className="w-40" /></label>
+          <label className="text-[13px]">Monto mensual<Input value={monthly} onChange={(e) => setMonthly(e.target.value)} className="w-40" /></label>
+          <Button disabled={!monthly || create.isPending} onClick={() => create.mutate()}>Crear</Button>
+          {budgetId && <Button variant="outline" onClick={() => compare.mutate()}>Comparar vs real</Button>}
         </CardContent>
       </Card>
 
       {variance && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Presupuesto vs Real</CardTitle></CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Cuenta</th><th className="py-1.5 text-right">Presupuesto</th><th className="py-1.5 text-right">Real</th><th className="py-1.5 text-right">Variación</th></tr></thead>
-              <tbody>
-                {variance.rows.map((r) => (
-                  <tr key={r.code} className="border-b last:border-0">
-                    <td className="py-1.5">{r.name}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(r.budget)}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(r.actual)}</td>
-                    <td className={`py-1.5 text-right tabular-nums ${Number(r.variance) < 0 ? "text-destructive" : ""}`}>{money(r.variance)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot><tr className="border-t-2 font-semibold"><td className="py-1.5">Total</td><td className="py-1.5 text-right tabular-nums">{money(variance.totalBudget)}</td><td className="py-1.5 text-right tabular-nums">{money(variance.totalActual)}</td><td /></tr></tfoot>
-            </table>
+          <CardHeader><CardTitle>Presupuesto vs Real</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <DataGrid
+              className="border-0"
+              columns={COLUMNS}
+              rows={variance.rows as VarianceRow[]}
+              rowKey={(r) => r.code}
+              emptyMessage="El presupuesto no tiene líneas."
+              totalsLabel="Total"
+              totals={{
+                budget: amount(variance.totalBudget),
+                actual: amount(variance.totalActual),
+              }}
+            />
           </CardContent>
         </Card>
       )}

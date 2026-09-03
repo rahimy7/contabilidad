@@ -12,13 +12,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { UserPlus, Plus } from "lucide-react";
 
 const STAGES = [
-  { key: "new", label: "Nuevo", color: "bg-gray-500" },
-  { key: "contacted", label: "Contactado", color: "bg-blue-500" },
-  { key: "qualified", label: "Calificado", color: "bg-purple-500" },
-  { key: "proposal", label: "Propuesta", color: "bg-yellow-500" },
-  { key: "negotiation", label: "Negociación", color: "bg-orange-500" },
-  { key: "won", label: "Ganado", color: "bg-green-600" },
-  { key: "lost", label: "Perdido", color: "bg-red-500" },
+  { key: "new", label: "Nuevo", color: "bg-muted-foreground" },
+  { key: "contacted", label: "Contactado", color: "bg-primary" },
+  { key: "qualified", label: "Calificado", color: "bg-primary" },
+  { key: "proposal", label: "Propuesta", color: "bg-warning" },
+  { key: "negotiation", label: "Negociación", color: "bg-warning" },
+  { key: "won", label: "Ganado", color: "bg-success" },
+  { key: "lost", label: "Perdido", color: "bg-destructive" },
 ];
 
 const money = (v: string | number) =>
@@ -83,12 +83,12 @@ export default function MarketingLeadsPage() {
     ["won", "lost"].includes(l.stage) ? sum : sum + Number(l.estimatedValue || 0), 0) ?? 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <UserPlus className="w-8 h-8 text-blue-500" />
+          <UserPlus className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Leads / CRM</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Leads / CRM</h1>
             <p className="text-muted-foreground">Pipeline comercial · Pipeline: RD$ {money(totalPipeline)}</p>
           </div>
         </div>

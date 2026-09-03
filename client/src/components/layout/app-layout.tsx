@@ -1,47 +1,27 @@
-import { ReactNode, useState, useEffect } from "react";
-import Sidebar from "./sidebar";
-import Header from "./header";
+import { ReactNode, useState } from "react";
+import TopNav from "./top-nav";
+import MobileNav from "./sidebar";
 import { AssistantWidget } from "@/components/assistant-widget";
 
-interface AppLayoutProps {
-  children: ReactNode;
-}
-
-export default function AppLayout({ children }: AppLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 1025;
-      setIsMobile(mobile);
-      if (!mobile) {
-        setSidebarOpen(true);
-      } else {
-        setSidebarOpen(false);
-      }
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+/**
+ * El marco de la aplicación.
+ *
+ * La navegación pasó de columna a franja: en escritorio no hay nada a los lados
+ * del contenido, y bajo 1024px la barra colapsa en el drawer de `sidebar.tsx`.
+ */
+export default function AppLayout({ children }: { children: ReactNode }) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header
-          onMenuClick={() => setSidebarOpen(true)}
-          showMenuButton={isMobile}
-        />
-        <main className="flex-1 overflow-auto p-3 md:p-6">
-          {children}
-        </main>
-      </div>
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <TopNav onOpenMobileNav={() => setMobileNavOpen(true)} />
+
+      <MobileNav isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+
+      <main className="flex-1 overflow-auto p-3 md:p-4">
+        {children}
+      </main>
+
       <AssistantWidget />
     </div>
   );

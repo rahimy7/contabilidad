@@ -153,13 +153,13 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { label: string; className: string }> = {
-      pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
-      picked: { label: 'Recogido', className: 'bg-blue-100 text-blue-800' },
-      delivered: { label: 'Entregado', className: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-800' }
+      pending: { label: 'Pendiente', className: 'bg-warning/15 text-warning' },
+      picked: { label: 'Recogido', className: 'bg-accent text-accent-foreground' },
+      delivered: { label: 'Entregado', className: 'bg-success/10 text-success' },
+      cancelled: { label: 'Cancelado', className: 'bg-destructive/10 text-destructive' }
     };
 
-    const config = variants[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
+    const config = variants[status] || { label: status, className: 'bg-muted text-foreground' };
     return (
       <Badge className={config.className}>
         {config.label}
@@ -181,7 +181,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
 
           {loading ? (
             <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-chrome" />
             </div>
           ) : trip ? (
             <div className="space-y-6">
@@ -199,10 +199,10 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                     {trip.assignedUser ? (
                       <>
                         <p className="font-medium">{trip.assignedUser.name}</p>
-                        <p className="text-sm text-gray-500">{trip.assignedUser.phone}</p>
+                        <p className="text-sm text-muted-foreground">{trip.assignedUser.phone}</p>
                       </>
                     ) : (
-                      <p className="text-sm text-gray-500">Sin asignar</p>
+                      <p className="text-sm text-muted-foreground">Sin asignar</p>
                     )}
                   </CardContent>
                 </Card>
@@ -217,7 +217,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                   <CardContent>
                     <div className="space-y-2">
                       {getStatusBadge(trip.status)}
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {trip.completedOrders}/{trip.totalOrders} órdenes completadas
                       </p>
                     </div>
@@ -234,12 +234,12 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                   <CardContent>
                     <div className="space-y-1 text-sm">
                       <p>
-                        <span className="text-gray-500">Creado:</span>{' '}
+                        <span className="text-muted-foreground">Creado:</span>{' '}
                         {new Date(trip.createdAt).toLocaleString()}
                       </p>
                       {trip.sentAt && (
                         <p>
-                          <span className="text-gray-500">Enviado:</span>{' '}
+                          <span className="text-muted-foreground">Enviado:</span>{' '}
                           {new Date(trip.sentAt).toLocaleString()}
                         </p>
                       )}
@@ -272,7 +272,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                     {trip.orders.map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-subtle"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -284,7 +284,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                               </Badge>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             <p className="flex items-center gap-1">
                               <User className="h-3 w-3" />
                               {order.order.customer.name}
@@ -319,7 +319,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
                   <Button
                     onClick={handleSendTrip}
                     disabled={sending}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary hover:bg-primary-hover"
                   >
                     {sending ? (
                       <>
@@ -337,7 +337,7 @@ export function TripDetail({ tripId, open, onClose, onTripSent }: TripDetailProp
               )}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No se encontró el viaje
             </div>
           )}

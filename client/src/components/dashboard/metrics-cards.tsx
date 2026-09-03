@@ -22,7 +22,7 @@ export default function MetricsCards() {
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-3 md:p-6">
-              <div className="h-16 md:h-20 bg-gray-200 rounded"></div>
+              <div className="h-16 md:h-20 bg-secondary rounded"></div>
             </CardContent>
           </Card>
         ))}
@@ -76,12 +76,12 @@ export default function MetricsCards() {
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
-          <Card key={index} className="border border-gray-200 shadow-sm">
+          <Card key={index} className="border border-border shadow-sm">
             <CardContent className="p-3 md:p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div className="flex-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">{card.title}</p>
-                  <p className="text-lg md:text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
+                  <p className="text-xs md:text-sm font-medium text-muted-foreground">{card.title}</p>
+                  <p className="text-lg md:text-3xl font-bold text-foreground mt-1">{card.value}</p>
                   <p className="text-xs md:text-sm success-text mt-1 flex items-center">
                     <TrendingUp className="h-2 md:h-3 w-2 md:w-3 mr-1" />
                     {card.change}

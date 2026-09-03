@@ -42,17 +42,17 @@ interface Alert {
 
 const SEVERITY_STYLE: Record<Severity, string> = {
   critical:
-    "border-rose-300 bg-rose-50 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/30 dark:hover:bg-rose-950/50",
+    "border-destructive/40 bg-destructive/5 hover:bg-destructive/10",
   warning:
-    "border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:hover:bg-amber-950/50",
+    "border-warning/40 bg-warning/10 hover:bg-warning/20",
   info:
-    "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900",
+    "border-border bg-card hover:bg-muted",
 };
 
 const SEVERITY_TEXT: Record<Severity, string> = {
-  critical: "text-rose-700 dark:text-rose-400",
-  warning: "text-amber-700 dark:text-amber-500",
-  info: "text-slate-700 dark:text-slate-300",
+  critical: "text-destructive",
+  warning: "text-warning",
+  info: "text-foreground",
 };
 
 export default function AttentionCenter() {
@@ -221,7 +221,7 @@ export default function AttentionCenter() {
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[76px] rounded-xl" />
+          <Skeleton key={i} className="h-[72px] rounded-sm" />
         ))}
       </div>
     );
@@ -229,10 +229,10 @@ export default function AttentionCenter() {
 
   if (alerts.length === 0) {
     return (
-      <Card className="border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/20">
+      <Card className="border-success/40 bg-success/5">
         <CardContent className="flex items-center gap-2.5 py-3">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
-          <p className="text-sm text-emerald-800 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+          <p className="text-[13px] text-success">
             Nada pendiente de atención: comprobantes al día, secuencias con holgura y
             existencias cuadradas.
           </p>
@@ -247,13 +247,13 @@ export default function AttentionCenter() {
     <section className="space-y-2.5">
       <div className="flex items-center gap-2">
         <AlertTriangle
-          className={`h-4 w-4 ${critical ? "text-rose-500" : "text-amber-500"}`}
+          className={`h-4 w-4 ${critical ? "text-destructive" : "text-warning"}`}
         />
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        <h2 className="text-[13px] font-semibold">
           Requiere atención
         </h2>
         {critical > 0 && (
-          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-400">
+          <span className="rounded-sm bg-destructive px-1.5 py-px text-[11px] font-semibold text-destructive-foreground">
             {critical} urgente{critical > 1 ? "s" : ""}
           </span>
         )}
@@ -267,7 +267,7 @@ export default function AttentionCenter() {
               key={a.key}
               href={a.href}
               className={[
-                "group flex items-start gap-3 rounded-xl border p-3 transition-colors",
+                "group flex items-start gap-3 rounded-sm border p-2.5 transition-colors",
                 SEVERITY_STYLE[a.severity],
               ].join(" ")}
             >
@@ -275,19 +275,19 @@ export default function AttentionCenter() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-1.5">
                   <span
-                    className={`text-lg font-bold tabular-nums leading-none ${SEVERITY_TEXT[a.severity]}`}
+                    className={`text-[19px] font-light tabular-nums leading-none ${SEVERITY_TEXT[a.severity]}`}
                   >
                     {a.count}
                   </span>
-                  <span className="truncate text-[13px] font-medium text-slate-900 dark:text-slate-200">
+                  <span className="truncate text-[13px] font-medium">
                     {a.label}
                   </span>
                 </div>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
                   {a.detail}
                 </p>
               </div>
-              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600" />
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </Link>
           );
         })}

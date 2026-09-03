@@ -18,7 +18,7 @@ export default function Products() {
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-16 bg-gray-200 rounded"></div>
+                <div className="h-16 bg-secondary rounded"></div>
               </CardContent>
             </Card>
           ))}
@@ -35,8 +35,8 @@ export default function Products() {
       {/* Header with title and catalog button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Administrar Productos</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona el catálogo completo de productos y servicios</p>
+          <h1 className="text-[20px] font-semibold tracking-tight">Administrar Productos</h1>
+          <p className="text-muted-foreground mt-1">Gestiona el catálogo completo de productos y servicios</p>
         </div>
         <Button 
           variant="outline" 
@@ -53,31 +53,31 @@ export default function Products() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Productos</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Productos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Array.isArray(products) ? products.length : 0}</div>
-            <p className="text-sm text-gray-500 mt-1">En catálogo</p>
+            <p className="text-sm text-muted-foreground mt-1">En catálogo</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Servicios</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Servicios</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{services.length}</div>
-            <p className="text-sm text-gray-500 mt-1">Servicios activos</p>
+            <p className="text-sm text-muted-foreground mt-1">Servicios activos</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Productos</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Productos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{physicalProducts.length}</div>
-            <p className="text-sm text-gray-500 mt-1">Productos físicos</p>
+            <p className="text-sm text-muted-foreground mt-1">Productos físicos</p>
           </CardContent>
         </Card>
       </div>
@@ -92,12 +92,12 @@ export default function Products() {
             {Array.isArray(products) ? products.map((product: Product) => (
               <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Package className="h-6 w-6 text-gray-600" />
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+                    <Package className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{product.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1 max-w-md">{product.description}</p>
+                    <h3 className="font-medium text-foreground">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md">{product.description}</p>
                     <div className="flex items-center space-x-2 mt-2 flex-wrap">
                       <Badge variant={product.category === "service" ? "secondary" : "default"}>
                         {product.category === "service" ? "Servicio" : "Producto"}
@@ -107,7 +107,7 @@ export default function Products() {
                       </Badge>
                       {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
                       {(product as any).loyaltyPointsPropertyName && (product as any).loyaltyPointsValue && (
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                        <Badge className="bg-warning/15 text-warning hover:bg-warning/10">
                           🎁 {(product as any).loyaltyPointsValue} {(product as any).loyaltyPointsPropertyName}
                         </Badge>
                       )}
@@ -117,10 +117,10 @@ export default function Products() {
 
                 <div className="flex items-center space-x-4">
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">
+                    <p className="text-lg font-semibold text-foreground">
                       ${parseFloat(product.price).toLocaleString('es-MX')}
                     </p>
-                    <p className="text-sm text-gray-500">MXN</p>
+                    <p className="text-sm text-muted-foreground">MXN</p>
                   </div>
                   
                   <div className="flex space-x-2">

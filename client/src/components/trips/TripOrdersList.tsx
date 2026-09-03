@@ -148,7 +148,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
 
           {loading ? (
             <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-chrome" />
             </div>
           ) : (
             <div className="space-y-6">
@@ -161,7 +161,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
                   </h3>
                   <div className="space-y-3">
                     {pendingOrders.map((order) => (
-                      <Card key={order.id} className="border-2 border-orange-200 bg-orange-50">
+                      <Card key={order.id} className="border-2 border-warning/40 bg-warning/10">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-2">
@@ -171,15 +171,15 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
                               </div>
                               
                               <div className="space-y-1 text-sm">
-                                <div className="flex items-center gap-2 text-gray-700">
+                                <div className="flex items-center gap-2 text-foreground">
                                   <User className="h-4 w-4" />
                                   {order.customer.name}
                                 </div>
-                                <div className="flex items-center gap-2 text-gray-600">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                   <Phone className="h-4 w-4" />
                                   {order.customer.phone}
                                 </div>
-                                <div className="flex items-start gap-2 text-gray-600">
+                                <div className="flex items-start gap-2 text-muted-foreground">
                                   <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
                                   <span>{order.customer.address}</span>
                                 </div>
@@ -209,33 +209,33 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
               {/* Recogidos */}
               {pickedOrders.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-700">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-success">
                     <CheckCircle className="h-5 w-5" />
                     Recogidos
-                    <Badge variant="default" className="bg-green-500">
+                    <Badge variant="default" className="bg-success">
                       {pickedOrders.length}
                     </Badge>
                   </h3>
                   <div className="space-y-3">
                     {pickedOrders.map((order) => (
-                      <Card key={order.id} className="border-2 border-green-200 bg-green-50">
+                      <Card key={order.id} className="border-2 border-success/40 bg-success/10">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold">{order.orderNumber}</span>
-                                <Badge className="bg-green-600">
+                                <Badge className="bg-success">
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Recogido
                                 </Badge>
                               </div>
                               
-                              <div className="text-sm text-gray-700">
+                              <div className="text-sm text-foreground">
                                 {order.customer.name}
                               </div>
 
                               {order.pickedAt && (
-                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   {new Date(order.pickedAt).toLocaleString()}
                                 </div>
@@ -256,7 +256,7 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
               )}
 
               {orders.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No hay pedidos en este viaje
                 </div>
               )}
@@ -278,19 +278,19 @@ export function TripOrdersList({ tripId, open, onClose, onOrderMarked }: TripOrd
                 <CardContent className="pt-4">
                   <div className="space-y-2">
                     <div>
-                      <p className="text-sm text-gray-500">Pedido</p>
+                      <p className="text-sm text-muted-foreground">Pedido</p>
                       <p className="font-semibold">{selectedOrder.orderNumber}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Cliente</p>
+                      <p className="text-sm text-muted-foreground">Cliente</p>
                       <p className="font-medium">{selectedOrder.customer.name}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Dirección</p>
+                      <p className="text-sm text-muted-foreground">Dirección</p>
                       <p className="text-sm">{selectedOrder.customer.address}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Monto</p>
+                      <p className="text-sm text-muted-foreground">Monto</p>
                       <p className="font-semibold text-lg">
                         {formatCurrency(selectedOrder.totalAmount)}
                       </p>

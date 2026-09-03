@@ -2,61 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Sistema visual del ERP — lenguaje Dynamics 365 Business Central.
+ *
+ * Tres decisiones mandan sobre todo lo demás y explican el resto del archivo:
+ *
+ *  1. Superficies planas. La jerarquía se dibuja con una línea de 1px, no con
+ *     sombra. Una sombra elevada dice "tarjeta de marketing"; una regla gris
+ *     dice "herramienta de trabajo".
+ *  2. Radio de 2px. Es la firma visual de las aplicaciones de captura. A 12px
+ *     todo lee como app de consumo por más que el contenido sea contable.
+ *  3. Un solo acento. Petróleo para lo accionable; el rojo, el ámbar y el verde
+ *     quedan reservados para el estado (vencido, en riesgo, conciliado). En un
+ *     ERP el color tiene que significar algo antes que decorar.
+ *
+ * Los tokens van en canales RGB sueltos (`0 112 127`) y no en hex. Es la única
+ * forma de que Tailwind pueda componer opacidad sobre ellos: con un color
+ * completo, `bg-primary/90` o `border-warning/40` no generan CSS y desaparecen
+ * en silencio — así estaban muertas 95 clases del código actual.
+ */
+
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(210, 10%, 15%);
-  --muted: hsl(210, 20%, 95%);
-  --muted-foreground: hsl(210, 5%, 45%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(210, 10%, 15%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(210, 10%, 15%);
-  --border: hsl(210, 20%, 88%);
-  --input: hsl(210, 20%, 92%);
-  --primary: hsl(207, 100%, 24%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 30%, 96%);
-  --secondary-foreground: hsl(207, 100%, 20%);
-  --accent: hsl(210, 35%, 90%);
-  --accent-foreground: hsl(207, 100%, 20%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(207, 100%, 24%);
-  --radius: 0.75rem;
-  --whatsapp: hsl(142, 70%, 40%);
-  --whatsapp-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(36, 100%, 50%);
-  --warning-foreground: hsl(0, 0%, 100%);
-  --success: hsl(142, 60%, 45%);
-  --success-foreground: hsl(0, 0%, 100%);
+  /* Superficies */
+  --background: 255 255 255;  /* #ffffff */
+  --foreground: 36 36 36;  /* #242424 */
+  --app-bg: 242 242 242;  /* #f2f2f2 */          /* lienzo detrás del contenido */
+  --card: 255 255 255;  /* #ffffff */
+  --card-foreground: 36 36 36;  /* #242424 */
+  --popover: 255 255 255;  /* #ffffff */
+  --popover-foreground: 36 36 36;  /* #242424 */
+  --muted: 243 242 241;  /* #f3f2f1 */
+  --muted-foreground: 96 94 92;  /* #605e5c */
+  --subtle: 250 249 248;  /* #faf9f8 */          /* cabeceras de rejilla y zebra */
+
+  /* Líneas */
+  --border: 225 225 225;  /* #e1e1e1 */
+  --border-strong: 200 198 196;  /* #c8c6c4 */
+  --input: 200 198 196;  /* #c8c6c4 */
+
+  /* Acento único */
+  --primary: 0 112 127;  /* #00707f */
+  --primary-foreground: 255 255 255;  /* #ffffff */
+  --primary-hover: 0 94 107;  /* #005e6b */
+  --secondary: 243 242 241;  /* #f3f2f1 */
+  --secondary-foreground: 36 36 36;  /* #242424 */
+  --accent: 234 243 244;  /* #eaf3f4 */          /* tinte de hover/selección */
+  --accent-foreground: 0 88 99;  /* #005863 */
+  --ring: 0 112 127;  /* #00707f */
+
+  /* Estado — nunca se usan como color de acción */
+  --destructive: 164 38 44;  /* #a4262c */
+  --destructive-foreground: 255 255 255;  /* #ffffff */
+  --warning: 193 156 0;  /* #c19c00 */
+  --warning-foreground: 255 255 255;  /* #ffffff */
+  --success: 16 124 65;  /* #107c41 */
+  --success-foreground: 255 255 255;  /* #ffffff */
+  --whatsapp: 18 140 126;  /* #128c7e */
+  --whatsapp-foreground: 255 255 255;  /* #ffffff */
+
+  /* Cromo de la barra superior */
+  --chrome: 43 43 43;  /* #2b2b2b */
+  --chrome-foreground: 243 243 243;  /* #f3f3f3 */
+  --chrome-muted: 201 201 201;  /* #c9c9c9 */
+  --chrome-hover: 63 63 63;  /* #3f3f3f */
+
+  --radius: 0.125rem;
 }
 
 .dark {
-  --background: hsl(210, 30%, 10%);
-  --foreground: hsl(210, 20%, 95%);
-  --muted: hsl(210, 25%, 16%);
-  --muted-foreground: hsl(210, 15%, 65%);
-  --popover: hsl(210, 30%, 12%);
-  --popover-foreground: hsl(210, 20%, 95%);
-  --card: hsl(210, 30%, 12%);
-  --card-foreground: hsl(210, 20%, 95%);
-  --border: hsl(210, 25%, 20%);
-  --input: hsl(210, 25%, 20%);
-  --primary: hsl(207, 100%, 30%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 25%, 16%);
-  --secondary-foreground: hsl(210, 20%, 95%);
-  --accent: hsl(210, 25%, 20%);
-  --accent-foreground: hsl(210, 20%, 95%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(207, 100%, 30%);
-  --whatsapp: hsl(142, 100%, 39%);
-  --whatsapp-foreground: hsl(0, 0%, 100%);
-  --warning: hsl(36, 100%, 50%);
-  --warning-foreground: hsl(0, 0%, 100%);
-  --success: hsl(142, 60%, 45%);
-  --success-foreground: hsl(0, 0%, 100%);
+  --background: 27 26 25;  /* #1b1a19 */
+  --foreground: 243 242 241;  /* #f3f2f1 */
+  --app-bg: 20 19 19;  /* #141313 */
+  --card: 32 31 30;  /* #201f1e */
+  --card-foreground: 243 242 241;  /* #f3f2f1 */
+  --popover: 37 36 35;  /* #252423 */
+  --popover-foreground: 243 242 241;  /* #f3f2f1 */
+  --muted: 41 40 39;  /* #292827 */
+  --muted-foreground: 161 159 157;  /* #a19f9d */
+  --subtle: 38 37 37;  /* #262525 */
+
+  --border: 59 58 57;  /* #3b3a39 */
+  --border-strong: 74 73 72;  /* #4a4948 */
+  --input: 74 73 72;  /* #4a4948 */
+
+  --primary: 47 163 176;  /* #2fa3b0 */
+  --primary-foreground: 16 32 31;  /* #10201f */
+  --primary-hover: 75 184 196;  /* #4bb8c4 */
+  --secondary: 41 40 39;  /* #292827 */
+  --secondary-foreground: 243 242 241;  /* #f3f2f1 */
+  --accent: 23 57 61;  /* #17393d */
+  --accent-foreground: 127 205 214;  /* #7fcdd6 */
+  --ring: 47 163 176;  /* #2fa3b0 */
+
+  --destructive: 212 105 110;  /* #d4696e */
+  --destructive-foreground: 27 26 25;  /* #1b1a19 */
+  --warning: 217 180 0;  /* #d9b400 */
+  --warning-foreground: 27 26 25;  /* #1b1a19 */
+  --success: 74 166 119;  /* #4aa677 */
+  --success-foreground: 27 26 25;  /* #1b1a19 */
+  --whatsapp: 37 211 102;  /* #25d366 */
+  --whatsapp-foreground: 16 32 31;  /* #10201f */
+
+  --chrome: 32 31 30;  /* #201f1e */
+  --chrome-foreground: 243 242 241;  /* #f3f2f1 */
+  --chrome-muted: 161 159 157;  /* #a19f9d */
+  --chrome-hover: 50 49 48;  /* #323130 */
 }
 
 @layer base {
@@ -65,87 +115,118 @@
   }
 
   html {
-    /* 🎨 FIX: Quitar scrollbar horizontal y prevenir layout shift */
     overflow-x: hidden;
     scrollbar-gutter: stable;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
-    /* 🎨 FIX: Asegurar que el body no tenga scroll horizontal */
+    @apply antialiased bg-background text-foreground;
+    /* Segoe UI es la familia de la que viene este lenguaje: nativa en Windows,
+       que es donde se opera el ERP. Fuera de Windows cae en la del sistema. */
+    font-family: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
     overflow-x: hidden;
+  }
+
+  /* Los importes de una columna sólo se pueden comparar si las cifras ocupan
+     lo mismo. Es gratis aplicarlo a toda celda de tabla y a todo input. */
+  td, th, input[type="number"], .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.005em;
   }
 }
 
 @layer components {
-  .whatsapp-bg {
-    background-color: hsl(var(--whatsapp));
+  /* ── Cromo de la barra superior ───────────────────────────────────────── */
+  .chrome-bar {
+    background-color: rgb(var(--chrome));
+    color: rgb(var(--chrome-foreground));
   }
 
-  .whatsapp-text {
-    color: hsl(var(--whatsapp));
+  /* ── Cifra destacada del Role Center ──────────────────────────────────
+     El número grande y fino es el gesto más reconocible de Business Central:
+     peso 300 a 40px, no negrita a 24px. */
+  .erp-figure {
+    font-size: 2.5rem;
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
 
-  .warning-bg {
-    background-color: hsl(var(--warning));
+  .erp-figure-sm {
+    font-size: 1.75rem;
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
 
-  .warning-text {
-    color: hsl(var(--warning));
+  /* Rótulo de sección: mayúsculas pequeñas con tracking. */
+  .erp-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--muted-foreground));
   }
 
-  .success-bg {
-    background-color: hsl(var(--success));
-  }
+  /* ── Estado ───────────────────────────────────────────────────────────── */
+  .whatsapp-bg { background-color: rgb(var(--whatsapp)); }
+  .whatsapp-text { color: rgb(var(--whatsapp)); }
+  .warning-bg { background-color: rgb(var(--warning)); }
+  .warning-text { color: rgb(var(--warning)); }
+  .success-bg { background-color: rgb(var(--success)); }
+  .success-text { color: rgb(var(--success)); }
 
-  .success-text {
-    color: hsl(var(--success));
-  }
-
-  /* 🎨 FIX: Mejorar comportamiento de diálogos con scroll */
   [role="dialog"] {
     position: fixed;
   }
 
-  /* 🎨 FIX: Asegurar que el contenedor del diálogo mantenga márgenes consistentes */
   .fixed {
     scrollbar-gutter: stable;
   }
 
-  /* Botón de Agregar al Carrito - Color primario azul */
+  /* Botones de las pantallas públicas (catálogo, carrito). Planos como el
+     resto: sin desplazamiento vertical ni sombra al pasar el mouse. */
   .add-to-cart-btn {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
-    transition: all 0.2s ease-in-out;
+    background-color: rgb(var(--primary)) !important;
+    color: rgb(var(--primary-foreground)) !important;
+    transition: background-color 0.12s ease-in-out;
   }
 
   .add-to-cart-btn:hover {
-    background-color: hsl(226, 47%, 38%) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(60, 84, 165, 0.3);
+    background-color: rgb(var(--primary-hover)) !important;
   }
 
-  .add-to-cart-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(60, 84, 165, 0.2);
-  }
-
-  /* 💬 Botón de WhatsApp - Color Verde WhatsApp */
   .whatsapp-btn {
-    background-color: hsl(var(--whatsapp)) !important;
-    color: hsl(var(--whatsapp-foreground)) !important;
-    transition: all 0.2s ease-in-out;
+    background-color: rgb(var(--whatsapp)) !important;
+    color: var(--whatsapp-foreground) !important;
+    transition: background-color 0.12s ease-in-out;
   }
 
   .whatsapp-btn:hover {
-    background-color: hsl(142, 70%, 35%) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(37, 211, 102, 0.3);
+    background-color: #0f7268 !important;
   }
+}
 
-  .whatsapp-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(37, 211, 102, 0.2);
+@layer utilities {
+  /* Barras de scroll finas: en pantallas con rejilla y panel de detalle, la
+     barra gruesa del sistema se come el ancho de una columna. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-strong));
+    border-radius: 0;
   }
 }

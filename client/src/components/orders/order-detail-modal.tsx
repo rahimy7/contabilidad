@@ -91,11 +91,11 @@ export default function OrderDetailModal({
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: "bg-yellow-100 text-yellow-800",
-      assigned: "bg-blue-100 text-blue-800",
-      processing: "bg-orange-100 text-orange-800",
-      completed: "bg-green-100 text-green-800",
-      cancelled: "bg-gray-100 text-gray-800",
+      pending: "bg-warning/15 text-warning",
+      assigned: "bg-accent text-accent-foreground",
+      processing: "bg-warning/10 text-warning",
+      completed: "bg-success/10 text-success",
+      cancelled: "bg-muted text-foreground",
     };
     return colors[status] || colors.pending;
   };
@@ -335,7 +335,7 @@ const handlePrintOrder = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium text-sm">{order.customer.name}</p>
-                  <p className="text-xs text-gray-500 flex items-center mt-1">
+                  <p className="text-xs text-muted-foreground flex items-center mt-1">
                     <Phone className="h-3 w-3 mr-1" />
                     {order.customer.phone}
                   </p>
@@ -369,7 +369,7 @@ const handlePrintOrder = () => {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="font-medium">{item.product?.name || 'Producto'}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {item.quantity} × ${parseFloat(item.unitPrice).toFixed(2)}
                         </p>
                       </div>
@@ -382,14 +382,14 @@ const handlePrintOrder = () => {
               </div>
 
               {(order as any).loyaltyPointsTotal && Number((order as any).loyaltyPointsTotal) > 0 && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center justify-between text-sm">
+                <div className="mt-3 p-3 bg-warning/15 border border-warning/40 rounded-md flex items-center justify-between text-sm">
                   <div className="flex flex-col">
-                    <span className="font-semibold text-amber-800">Puntos acumulados</span>
-                    <span className="text-amber-700">
+                    <span className="font-semibold text-warning">Puntos acumulados</span>
+                    <span className="text-warning">
                       {(order as any).loyaltyPointsPropertyName || 'Puntos'}
                     </span>
                   </div>
-                  <span className="text-lg font-bold text-amber-700">
+                  <span className="text-lg font-bold text-warning">
                     {Number((order as any).loyaltyPointsTotal).toFixed(2)}
                   </span>
                 </div>
@@ -397,7 +397,7 @@ const handlePrintOrder = () => {
               
               <div className="border-t pt-3 mt-3 flex justify-between items-center">
                 <span className="font-bold">Total</span>
-                <span className="text-xl font-bold text-green-600">
+                <span className="text-xl font-bold text-success">
                   ${calculateTotalCost().toLocaleString("es-MX")}
                 </span>
               </div>
@@ -406,15 +406,15 @@ const handlePrintOrder = () => {
 
           {/* Notas del Cliente */}
           {order.notes && order.notes.trim() !== '' && (
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-border bg-accent">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-base text-blue-800">
+                <CardTitle className="flex items-center text-base text-accent-foreground">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Mensaje Original del Cliente
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-sm text-blue-900 whitespace-pre-wrap font-mono bg-white p-3 rounded border border-blue-200">
+                <div className="text-sm text-accent-foreground whitespace-pre-wrap font-mono bg-card p-3 rounded border border-border">
                   {order.notes}
                 </div>
               </CardContent>

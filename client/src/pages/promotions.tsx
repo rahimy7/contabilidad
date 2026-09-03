@@ -76,12 +76,12 @@ export default function PromotionsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Tag className="w-8 h-8 text-purple-500" />
+          <Tag className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Promociones</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Promociones</h1>
             <p className="text-muted-foreground">Descuentos, cupones, BOGO, bundles</p>
           </div>
         </div>

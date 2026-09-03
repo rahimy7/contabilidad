@@ -30,20 +30,20 @@ const ESTADO_META: Record<
   disponible: {
     label: "Disponible",
     icon: CheckCircle2,
-    chip: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400",
-    dot: "bg-emerald-500",
+    chip: "bg-success/10 text-success dark:text-success",
+    dot: "bg-success",
   },
   parcial: {
     label: "Parcial",
     icon: MinusCircle,
-    chip: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-500",
-    dot: "bg-amber-500",
+    chip: "bg-warning/15 text-warning dark:text-warning",
+    dot: "bg-warning",
   },
   ausente: {
     label: "No disponible",
     icon: Circle,
-    chip: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-    dot: "bg-slate-300 dark:bg-slate-600",
+    chip: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground",
   },
 };
 
@@ -73,10 +73,10 @@ export default function HelpPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+        <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
           <BookOpen className="h-6 w-6" /> Ayuda y catálogo de módulos
         </h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Qué hace cada módulo del sistema, y cómo se compara contra un esquema ERP
           completo de {total.total} capacidades. Lo que no existe aparece marcado como no
           disponible: es más útil saber dónde está el hueco que leer una lista de promesas.
@@ -92,9 +92,9 @@ export default function HelpPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div className="bg-emerald-500" style={{ width: `${pct(total.disponible)}%` }} />
-            <div className="bg-amber-500" style={{ width: `${pct(total.parcial)}%` }} />
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+            <div className="bg-success" style={{ width: `${pct(total.disponible)}%` }} />
+            <div className="bg-warning" style={{ width: `${pct(total.parcial)}%` }} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -123,7 +123,7 @@ export default function HelpPage() {
       {/* Buscador y filtro */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[240px] flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
             placeholder="Buscar una capacidad… (conteo, retención, FEFO, nómina)"
@@ -132,7 +132,7 @@ export default function HelpPage() {
           />
         </div>
         <div className="flex items-center gap-1 rounded-lg border p-0.5">
-          <Filter className="ml-1.5 h-3.5 w-3.5 text-slate-400" />
+          <Filter className="ml-1.5 h-3.5 w-3.5 text-muted-foreground" />
           {(["todo", "disponible", "parcial", "ausente"] as Filtro[]).map((f) => (
             <Button
               key={f}
@@ -156,16 +156,16 @@ export default function HelpPage() {
               <a
                 key={a.codigo}
                 href={`#area-${a.codigo}`}
-                className="group flex items-center gap-3 rounded-lg border bg-white p-3 transition-colors hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900"
+                className="group flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-subtle"
               >
-                <span className="font-mono text-xs text-slate-400">{a.codigo}</span>
-                <span className="flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-200">
+                <span className="font-mono text-xs text-muted-foreground">{a.codigo}</span>
+                <span className="flex-1 truncate text-sm font-medium text-foreground">
                   {a.nombre}
                 </span>
-                <span className="text-xs tabular-nums text-slate-500">
+                <span className="text-xs tabular-nums text-muted-foreground">
                   {r.disponible}/{r.total}
                 </span>
-                <ChevronRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </a>
             );
           })}
@@ -174,7 +174,7 @@ export default function HelpPage() {
 
       {areas.length === 0 && (
         <Card>
-          <CardContent className="py-10 text-center text-slate-500">
+          <CardContent className="py-10 text-center text-muted-foreground">
             Nada coincide con esa búsqueda.
           </CardContent>
         </Card>
@@ -202,14 +202,14 @@ function Resumen({
   const Icon = meta.icon;
   return (
     <div className="rounded-lg border p-3">
-      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {meta.label}
       </p>
       <p className="mt-1 flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{n}</span>
-        <span className="text-xs text-slate-400">{pct}%</span>
+        <span className="text-2xl font-bold tabular-nums text-foreground">{n}</span>
+        <span className="text-xs text-muted-foreground">{pct}%</span>
       </p>
-      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{hint}</p>
+      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -219,10 +219,10 @@ function AreaSection({ area }: { area: Area }) {
   return (
     <section id={`area-${area.codigo}`} className="scroll-mt-20 space-y-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b pb-2">
-        <span className="font-mono text-sm text-slate-400">{area.codigo}</span>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{area.nombre}</h2>
-        <span className="text-sm text-slate-500">{area.proposito}</span>
-        <span className="ml-auto text-xs tabular-nums text-slate-500">
+        <span className="font-mono text-sm text-muted-foreground">{area.codigo}</span>
+        <h2 className="text-lg font-semibold text-foreground">{area.nombre}</h2>
+        <span className="text-sm text-muted-foreground">{area.proposito}</span>
+        <span className="ml-auto text-xs tabular-nums text-muted-foreground">
           {r.disponible} de {r.total} disponibles
           {r.parcial > 0 && ` · ${r.parcial} parcial${r.parcial > 1 ? "es" : ""}`}
         </span>
@@ -244,8 +244,8 @@ function CapacidadRow({ c }: { c: Capacidad }) {
       className={[
         "rounded-lg border p-3.5",
         c.estado === "ausente"
-          ? "border-dashed bg-slate-50/50 dark:bg-slate-900/30"
-          : "bg-white dark:bg-slate-950",
+          ? "border-dashed bg-subtle/50"
+          : "bg-card",
       ].join(" ")}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -256,8 +256,8 @@ function CapacidadRow({ c }: { c: Capacidad }) {
           className={[
             "text-[15px] font-medium",
             c.estado === "ausente"
-              ? "text-slate-500 dark:text-slate-400"
-              : "text-slate-900 dark:text-slate-100",
+              ? "text-muted-foreground"
+              : "text-foreground",
           ].join(" ")}
         >
           {c.nombre}
@@ -269,7 +269,7 @@ function CapacidadRow({ c }: { c: Capacidad }) {
         {c.ruta && (
           <Link
             href={c.ruta}
-            className="ml-auto flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            className="ml-auto flex items-center gap-1 text-xs font-medium text-primary hover:underline dark:text-primary/70"
           >
             Abrir <ArrowUpRight className="h-3 w-3" />
           </Link>
@@ -277,7 +277,7 @@ function CapacidadRow({ c }: { c: Capacidad }) {
       </div>
 
       {c.detalle && (
-        <p className="mt-1.5 max-w-4xl text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+        <p className="mt-1.5 max-w-4xl text-[13px] leading-relaxed text-muted-foreground">
           {c.detalle}
         </p>
       )}
@@ -287,8 +287,8 @@ function CapacidadRow({ c }: { c: Capacidad }) {
           className={[
             "mt-1.5 max-w-4xl text-[13px] leading-relaxed",
             c.estado === "ausente"
-              ? "text-slate-500 dark:text-slate-400"
-              : "text-amber-700 dark:text-amber-500",
+              ? "text-muted-foreground"
+              : "text-warning dark:text-warning",
           ].join(" ")}
         >
           {c.estado === "ausente" ? "" : "Falta: "}

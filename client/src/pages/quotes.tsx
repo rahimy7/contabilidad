@@ -46,10 +46,10 @@ interface QuoteDetail {
 const STATUS_LABEL: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline'; className?: string }> = {
   draft: { label: 'Borrador', variant: 'outline' },
   sent: { label: 'Enviada', variant: 'secondary' },
-  accepted: { label: 'Aceptada', variant: 'default', className: 'bg-green-600 hover:bg-green-600' },
+  accepted: { label: 'Aceptada', variant: 'default', className: 'bg-success hover:bg-success' },
   rejected: { label: 'Rechazada', variant: 'destructive' },
   expired: { label: 'Expirada', variant: 'destructive' },
-  converted: { label: 'Convertida', variant: 'default', className: 'bg-blue-600 hover:bg-blue-600' },
+  converted: { label: 'Convertida', variant: 'default', className: 'bg-primary hover:bg-primary-hover' },
   cancelled: { label: 'Cancelada', variant: 'outline' },
 };
 
@@ -72,12 +72,12 @@ export default function QuotesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <FileText className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Cotizaciones de venta</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Cotizaciones de venta</h1>
             <p className="text-sm text-muted-foreground">
               Documento previo a factura: mismo shape sin consumir NCF. Se convierte al aceptarse.
             </p>

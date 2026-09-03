@@ -14,11 +14,11 @@ interface OrderTableProps {
 export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTableProps) {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { label: string; className: string }> = {
-      pending: { label: "Pendiente", className: "bg-red-100 text-red-800" },
-      assigned: { label: "Asignado", className: "bg-blue-100 text-blue-800" },
-      processing: { label: "En proceso", className: "bg-yellow-100 text-yellow-800" },
-      completed: { label: "Completado", className: "bg-green-100 text-green-800" },
-      cancelled: { label: "Cancelado", className: "bg-gray-100 text-gray-800" },
+      pending: { label: "Pendiente", className: "bg-destructive/10 text-destructive" },
+      assigned: { label: "Asignado", className: "bg-accent text-accent-foreground" },
+      processing: { label: "En proceso", className: "bg-warning/15 text-warning" },
+      completed: { label: "Completado", className: "bg-success/10 text-success" },
+      cancelled: { label: "Cancelado", className: "bg-muted text-foreground" },
     };
 
     return variants[status] || variants.pending;
@@ -43,7 +43,7 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="animate-pulse h-16 bg-gray-200 rounded"></div>
+              <div key={i} className="animate-pulse h-16 bg-secondary rounded"></div>
             ))}
           </div>
         </CardContent>
@@ -55,7 +55,7 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
     <Card>
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold text-gray-900">Todos los Pedidos</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Todos los Pedidos</CardTitle>
           <div className="flex items-center space-x-2">
             <Select defaultValue="all">
               <SelectTrigger className="w-full md:w-40">
@@ -79,46 +79,46 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
         {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-subtle">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asignado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pedido</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Cliente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Asignado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-border">
               {orders.map((order: OrderWithDetails) => {
                 const statusBadge = getStatusBadge(order.status);
                 return (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order.id} className="hover:bg-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
-                      <div className="text-sm text-gray-500">{formatTime(order.createdAt)}</div>
+                      <div className="text-sm font-medium text-foreground">{order.orderNumber}</div>
+                      <div className="text-sm text-muted-foreground">{formatTime(order.createdAt)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-xs font-medium text-gray-600">
+                        <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center mr-3">
+                          <span className="text-xs font-medium text-muted-foreground">
                             {order.customer.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                           </span>
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                          <div className="text-sm text-gray-500">{order.customer.phone}</div>
+                          <div className="text-sm font-medium text-foreground">{order.customer.name}</div>
+                          <div className="text-sm text-muted-foreground">{order.customer.phone}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {order.assignedUser ? (
                         <div>
-                          <div className="text-sm text-gray-900">{order.assignedUser.name}</div>
-                          <div className="text-sm text-gray-500 capitalize">{order.assignedUser.role}</div>
+                          <div className="text-sm text-foreground">{order.assignedUser.name}</div>
+                          <div className="text-sm text-muted-foreground capitalize">{order.assignedUser.role}</div>
                         </div>
                       ) : (
-                        <div className="text-sm text-gray-500">Sin asignar</div>
+                        <div className="text-sm text-muted-foreground">Sin asignar</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -126,7 +126,7 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
                         {statusBadge.label}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                       ${parseFloat(order.totalAmount).toLocaleString('es-MX')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -147,7 +147,7 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
                         <Button size="sm" variant="outline" className="whatsapp-text">
                           <MessageCircle className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" className="text-gray-400">
+                        <Button size="sm" variant="outline" className="text-muted-foreground">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
@@ -164,17 +164,17 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
           {orders.map((order: OrderWithDetails) => {
             const statusBadge = getStatusBadge(order.status);
             return (
-              <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div key={order.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-600">
+                    <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-muted-foreground">
                         {order.customer.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                       </span>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
-                      <div className="text-xs text-gray-500">{formatTime(order.createdAt)}</div>
+                      <div className="text-sm font-medium text-foreground">{order.orderNumber}</div>
+                      <div className="text-xs text-muted-foreground">{formatTime(order.createdAt)}</div>
                     </div>
                   </div>
                   <Badge className={statusBadge.className}>
@@ -184,20 +184,20 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
 
                 <div className="space-y-2 mb-4">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                    <div className="text-xs text-gray-500">{order.customer.phone}</div>
+                    <div className="text-sm font-medium text-foreground">{order.customer.name}</div>
+                    <div className="text-xs text-muted-foreground">{order.customer.phone}</div>
                   </div>
                   
                   {order.assignedUser ? (
                     <div>
-                      <div className="text-sm text-gray-700">Asignado a: {order.assignedUser.name}</div>
-                      <div className="text-xs text-gray-500 capitalize">{order.assignedUser.role}</div>
+                      <div className="text-sm text-foreground">Asignado a: {order.assignedUser.name}</div>
+                      <div className="text-xs text-muted-foreground capitalize">{order.assignedUser.role}</div>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">Sin asignar</div>
+                    <div className="text-sm text-muted-foreground">Sin asignar</div>
                   )}
                   
-                  <div className="text-lg font-bold text-gray-900">
+                  <div className="text-lg font-bold text-foreground">
                     ${parseFloat(order.totalAmount).toLocaleString('es-MX')}
                   </div>
                 </div>
@@ -220,7 +220,7 @@ export default function OrderTable({ orders, isLoading, onAssignOrder }: OrderTa
                   <Button size="sm" variant="outline" className="whatsapp-text">
                     <MessageCircle className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="outline" className="text-gray-400">
+                  <Button size="sm" variant="outline" className="text-muted-foreground">
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>

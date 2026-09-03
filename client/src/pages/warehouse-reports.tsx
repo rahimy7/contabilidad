@@ -178,17 +178,17 @@ export default function WarehouseReportsPage() {
   const activeWarehouses = warehouses.filter((w: any) => w.isActive);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-          <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
+        <div className="p-2 bg-success/10 rounded-lg">
+          <BarChart3 className="h-6 w-6 text-success dark:text-success" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-[20px] font-semibold tracking-tight">
             Reportes de Almacenes
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Comparación de stock y análisis por sucursal
           </p>
         </div>
@@ -199,9 +199,9 @@ export default function WarehouseReportsPage() {
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <Warehouse className="h-7 w-7 text-blue-500" />
+              <Warehouse className="h-7 w-7 text-primary" />
               <div>
-                <p className="text-xs text-gray-400">Almacenes</p>
+                <p className="text-xs text-muted-foreground">Almacenes</p>
                 <p className="text-2xl font-bold">{activeWarehouses.length}</p>
               </div>
             </div>
@@ -210,9 +210,9 @@ export default function WarehouseReportsPage() {
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <Package className="h-7 w-7 text-purple-500" />
+              <Package className="h-7 w-7 text-primary" />
               <div>
-                <p className="text-xs text-gray-400">Productos con stock</p>
+                <p className="text-xs text-muted-foreground">Productos con stock</p>
                 <p className="text-2xl font-bold">{summary.length}</p>
               </div>
             </div>
@@ -221,10 +221,10 @@ export default function WarehouseReportsPage() {
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-7 w-7 text-red-500" />
+              <AlertTriangle className="h-7 w-7 text-destructive" />
               <div>
-                <p className="text-xs text-gray-400">Stock bajo</p>
-                <p className="text-2xl font-bold text-red-600">{lowStockItems.length}</p>
+                <p className="text-xs text-muted-foreground">Stock bajo</p>
+                <p className="text-2xl font-bold text-destructive">{lowStockItems.length}</p>
               </div>
             </div>
           </CardContent>
@@ -232,9 +232,9 @@ export default function WarehouseReportsPage() {
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <ArrowRightLeft className="h-7 w-7 text-yellow-500" />
+              <ArrowRightLeft className="h-7 w-7 text-warning" />
               <div>
-                <p className="text-xs text-gray-400">Transferencias</p>
+                <p className="text-xs text-muted-foreground">Transferencias</p>
                 <p className="text-2xl font-bold">{transfers.length}</p>
               </div>
             </div>
@@ -244,7 +244,7 @@ export default function WarehouseReportsPage() {
 
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success" />
         </div>
       ) : (
         <Tabs defaultValue="comparison">
@@ -278,7 +278,7 @@ export default function WarehouseReportsPage() {
               </CardHeader>
               <CardContent>
                 {filteredPivot.length === 0 ? (
-                  <p className="text-center text-gray-400 py-8">Sin datos de stock registrados</p>
+                  <p className="text-center text-muted-foreground py-8">Sin datos de stock registrados</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -300,10 +300,10 @@ export default function WarehouseReportsPage() {
                           return (
                             <TableRow key={row.productId}>
                               <TableCell className="font-medium">{row.productName}</TableCell>
-                              <TableCell className="text-sm text-gray-400">
+                              <TableCell className="text-sm text-muted-foreground">
                                 {row.productSku ?? "—"}
                               </TableCell>
-                              <TableCell className="text-sm text-gray-500">
+                              <TableCell className="text-sm text-muted-foreground">
                                 {row.productCategory}
                               </TableCell>
                               {(comparison?.warehouses ?? []).map((w) => (
@@ -333,7 +333,7 @@ export default function WarehouseReportsPage() {
               </CardHeader>
               <CardContent>
                 {summary.length === 0 ? (
-                  <p className="text-center text-gray-400 py-8">Sin datos</p>
+                  <p className="text-center text-muted-foreground py-8">Sin datos</p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -348,10 +348,10 @@ export default function WarehouseReportsPage() {
                       {summary.map((row) => (
                         <TableRow key={row.productId}>
                           <TableCell className="font-medium">{row.productName}</TableCell>
-                          <TableCell className="text-sm text-gray-400">
+                          <TableCell className="text-sm text-muted-foreground">
                             {row.productSku ?? "—"}
                           </TableCell>
-                          <TableCell className="text-sm text-gray-500">
+                          <TableCell className="text-sm text-muted-foreground">
                             {row.productCategory}
                           </TableCell>
                           <TableCell className="text-right font-semibold">
@@ -370,14 +370,14 @@ export default function WarehouseReportsPage() {
           <TabsContent value="lowstock" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600">
+                <CardTitle className="flex items-center gap-2 text-destructive">
                   <AlertTriangle className="h-5 w-5" />
                   Productos con Stock Bajo
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {lowStockItems.length === 0 ? (
-                  <div className="text-center py-8 text-green-600">
+                  <div className="text-center py-8 text-success">
                     <TrendingUp className="h-10 w-10 mx-auto mb-2" />
                     <p className="font-medium">Todo el stock está por encima del mínimo.</p>
                   </div>
@@ -403,12 +403,12 @@ export default function WarehouseReportsPage() {
                           <TableRow key={i}>
                             <TableCell className="font-medium">{row.productName}</TableCell>
                             <TableCell>{wName}</TableCell>
-                            <TableCell className="text-sm text-gray-500">{row.productCategory}</TableCell>
-                            <TableCell className="text-right text-red-600 font-semibold">
+                            <TableCell className="text-sm text-muted-foreground">{row.productCategory}</TableCell>
+                            <TableCell className="text-right text-destructive font-semibold">
                               {formatQty(qty)}
                             </TableCell>
                             <TableCell className="text-right">{formatQty(min)}</TableCell>
-                            <TableCell className="text-right text-red-500">
+                            <TableCell className="text-right text-destructive">
                               {formatQty(diff)}
                             </TableCell>
                           </TableRow>
@@ -427,7 +427,7 @@ export default function WarehouseReportsPage() {
               {Object.entries(transferStats).map(([status, count]) => (
                 <Card key={status}>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-400 capitalize">{status.replace("_", " ")}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{status.replace("_", " ")}</p>
                     <p className="text-xl font-bold">{count}</p>
                   </CardContent>
                 </Card>
@@ -438,10 +438,10 @@ export default function WarehouseReportsPage() {
               <CardContent>
                 {loadingTransfers ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success" />
                   </div>
                 ) : transfers.length === 0 ? (
-                  <p className="text-center text-gray-400 py-8">Sin transferencias</p>
+                  <p className="text-center text-muted-foreground py-8">Sin transferencias</p>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -467,7 +467,7 @@ export default function WarehouseReportsPage() {
                             <TableCell className="text-sm">
                               {fromName} → {toName}
                             </TableCell>
-                            <TableCell className="text-sm text-gray-500">
+                            <TableCell className="text-sm text-muted-foreground">
                               {new Date(t.createdAt).toLocaleDateString("es-DO")}
                             </TableCell>
                           </TableRow>

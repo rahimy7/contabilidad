@@ -1,8 +1,12 @@
 /**
- * WarehouseSwitcher — componente de selección de almacén para el sidebar.
+ * WarehouseSwitcher — el almacén activo.
  *
- * - Si el usuario es admin/super_admin: muestra un Select con todos los almacenes + opción "Todos"
- * - Si el usuario es operativo: muestra solo un badge con el nombre de su almacén asignado
+ * - Admin/super_admin: desplegable con todos los almacenes + "Todos".
+ * - Usuario operativo: sólo el nombre del almacén que tiene asignado.
+ *
+ * `variant="bar"` lo compacta para la franja de contexto, donde convive con el
+ * período contable: los dos son estado, no acción, y por eso van en gris y no
+ * en color.
  */
 
 import { useWarehouse } from '@/contexts/WarehouseContext';
@@ -15,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2 } from 'lucide-react';
+import { Warehouse as WarehouseIcon } from 'lucide-react';
 import React from 'react';
 
 interface Warehouse {
@@ -24,8 +28,13 @@ interface Warehouse {
   code?: string;
 }
 
-export function WarehouseSwitcher() {
+interface WarehouseSwitcherProps {
+  variant?: 'panel' | 'bar';
+}
+
+export function WarehouseSwitcher({ variant = 'panel' }: WarehouseSwitcherProps) {
   const { activeWarehouseId, setActiveWarehouseId, canViewAll, activeWarehouseName } = useWarehouse();
+  const bar = variant === 'bar';
 
   const { data: warehouses = [] } = useQuery<Warehouse[]>({
     queryKey: ['/api/warehouses'],
@@ -35,16 +44,14 @@ export function WarehouseSwitcher() {
   });
 
   if (!canViewAll) {
-    // Usuarios operativos: solo un badge informativo
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
-        <Building2 className="h-3.5 w-3.5 shrink-0" />
-        <span className="font-medium truncate">{activeWarehouseName}</span>
+      <div className="flex items-center gap-1.5 rounded-sm border border-border px-2 py-1 text-[12px] text-muted-foreground">
+        <WarehouseIcon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate font-medium">{activeWarehouseName}</span>
       </div>
     );
   }
 
-  // Admin: selector completo
   const value = activeWarehouseId === null ? 'all' : String(activeWarehouseId);
 
   const handleChange = (val: string) => {
@@ -53,8 +60,14 @@ export function WarehouseSwitcher() {
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className="h-8 text-xs gap-1.5 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-        <Building2 className="h-3.5 w-3.5 shrink-0" />
+      <SelectTrigger
+        className={
+          bar
+            ? 'h-[26px] gap-1.5 border-border px-2 text-[12px] text-muted-foreground'
+            : 'h-8 gap-1.5 text-[12px]'
+        }
+      >
+        <WarehouseIcon className="h-3.5 w-3.5 shrink-0" />
         <SelectValue placeholder="Almacén" />
       </SelectTrigger>
       <SelectContent>

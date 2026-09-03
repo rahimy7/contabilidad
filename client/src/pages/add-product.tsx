@@ -857,11 +857,11 @@ export default function EnhancedAddProduct() {
   // Estados de carga
   if (loadingCategories || (isEditMode && loadingProductData)) {
     return (
-      <div className="container mx-auto p-6">
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               {loadingCategories ? 'Cargando categorías...' : 'Cargando datos del producto...'}
             </p>
           </div>
@@ -876,10 +876,10 @@ export default function EnhancedAddProduct() {
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="text-red-600 mb-4">
+            <div className="text-destructive mb-4">
               <AlertCircle className="w-16 h-16 mx-auto mb-2" />
               <h2 className="text-xl font-semibold">Error al cargar producto</h2>
-              <p className="text-gray-600 mt-2">No se pudo encontrar el producto solicitado</p>
+              <p className="text-muted-foreground mt-2">No se pudo encontrar el producto solicitado</p>
             </div>
             <Button onClick={() => window.location.href = '/product-management'}>
               Volver a gestión de productos
@@ -909,10 +909,10 @@ export default function EnhancedAddProduct() {
             Volver
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-[20px] font-semibold tracking-tight">
               {isEditMode ? 'Editar Producto' : 'Agregar Nuevo Producto'}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-1">
               {isEditMode 
                 ? 'Modifica la información del producto existente' 
                 : 'Completa la información para crear un nuevo producto'}
@@ -921,7 +921,7 @@ export default function EnhancedAddProduct() {
         </div>
         
         {isEditMode && (
-          <Badge variant="outline" className="text-blue-600 border-blue-600">
+          <Badge variant="outline" className="text-primary border-primary">
             Modo Edición
           </Badge>
         )}
@@ -931,10 +931,10 @@ export default function EnhancedAddProduct() {
       {(hasUploadingImages || hasFailedImages) && (
         <div className="mb-6">
           {hasUploadingImages && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="bg-accent border border-border rounded-lg p-4 mb-4">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span className="text-blue-800 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-accent-foreground font-medium">
                   Subiendo imágenes... Por favor espera antes de guardar.
                 </span>
               </div>
@@ -942,10 +942,10 @@ export default function EnhancedAddProduct() {
           )}
           
           {hasFailedImages && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="bg-destructive/10 border border-destructive/40 rounded-lg p-4 mb-4">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                <span className="text-red-800 font-medium">
+                <AlertCircle className="w-4 h-4 text-destructive" />
+                <span className="text-destructive font-medium">
                   Algunas imágenes fallaron al subirse. Elimina las imágenes con error y vuelve a intentarlo.
                 </span>
               </div>
@@ -976,7 +976,7 @@ export default function EnhancedAddProduct() {
                       placeholder="Ej: Cámara de Seguridad IP 4K"
                     />
                     {errors.name && (
-                      <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
+                      <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
                     )}
                   </div>
 
@@ -989,7 +989,7 @@ export default function EnhancedAddProduct() {
                       rows={3}
                     />
                     {errors.description && (
-                      <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>
+                      <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
                     )}
                   </div>
 
@@ -1014,7 +1014,7 @@ export default function EnhancedAddProduct() {
                       )}
                     />
                     {errors.category && (
-                      <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>
+                      <p className="text-sm text-destructive mt-1">{errors.category.message}</p>
                     )}
                   </div>
 
@@ -1043,10 +1043,10 @@ export default function EnhancedAddProduct() {
                       id="price"
                       {...register('price')}
                       placeholder="0.00"
-                      className={errors.price ? 'border-red-500' : ''}
+                      className={errors.price ? 'border-destructive' : ''}
                     />
                     {errors.price && (
-                      <p className="text-sm text-red-500 mt-1">{errors.price.message}</p>
+                      <p className="text-sm text-destructive mt-1">{errors.price.message}</p>
                     )}
                   </div>
 
@@ -1064,7 +1064,7 @@ export default function EnhancedAddProduct() {
                             console.log('💱 Currency changed to:', value);
                           }}
                         >
-                          <SelectTrigger className={errors.currency ? 'border-red-500' : ''}>
+                          <SelectTrigger className={errors.currency ? 'border-destructive' : ''}>
                             <SelectValue placeholder="Selecciona una moneda" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1073,7 +1073,7 @@ export default function EnhancedAddProduct() {
                                 <div className="flex items-center gap-2">
                                   <span>{currency.symbol}</span>
                                   <span>{currency.name}</span>
-                                  <span className="text-xs text-gray-500">({currency.code})</span>
+                                  <span className="text-xs text-muted-foreground">({currency.code})</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -1082,7 +1082,7 @@ export default function EnhancedAddProduct() {
                       )}
                     />
                     {errors.currency && (
-                      <p className="text-sm text-red-500 mt-1">{errors.currency.message}</p>
+                      <p className="text-sm text-destructive mt-1">{errors.currency.message}</p>
                     )}
                   </div>
 
@@ -1118,7 +1118,7 @@ export default function EnhancedAddProduct() {
                       placeholder="Ej: LP, PUNTOS, REWARDS"
                       type="text"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Nombre del tipo de puntos (LP, PUNTOS, REWARDS, etc.)
                     </p>
                   </div>
@@ -1131,7 +1131,7 @@ export default function EnhancedAddProduct() {
                       type="number"
                       step="0.01"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Cantidad de puntos a asignar por este producto
                     </p>
                   </div>
@@ -1243,7 +1243,7 @@ export default function EnhancedAddProduct() {
                         {...register("sku")}
                         placeholder="Ej: CAM-HIK-4K-001"
                         disabled={isEditMode}
-                        className={isEditMode ? "bg-gray-50" : ""}
+                        className={isEditMode ? "bg-subtle" : ""}
                       />
                       {!isEditMode && (
                         <Button
@@ -1258,7 +1258,7 @@ export default function EnhancedAddProduct() {
                       )}
                     </div>
                     {isEditMode && (
-                      <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-warning mt-1 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
                         El SKU no se puede modificar en modo edición
                       </p>
@@ -1317,7 +1317,7 @@ export default function EnhancedAddProduct() {
                     placeholder="Características separadas por comas: Resistente al agua, WiFi integrado, Visión nocturna"
                     rows={3}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Separa cada característica con una coma
                   </p>
                 </div>
@@ -1368,7 +1368,7 @@ export default function EnhancedAddProduct() {
                       {...register("tags")}
                       placeholder="seguridad, cámara, ip, 4k"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Separa cada etiqueta con una coma
                     </p>
                   </div>
@@ -1402,16 +1402,16 @@ export default function EnhancedAddProduct() {
                 {/* Galería de imágenes */}
                 {productImages.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground mb-2 flex items-center gap-2">
                       <span>{productImages.length} imagen{productImages.length !== 1 ? 'es' : ''}</span>
                       {hasUploadingImages && (
-                        <span className="flex items-center gap-1 text-blue-600">
+                        <span className="flex items-center gap-1 text-primary">
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Subiendo...
                         </span>
                       )}
                       {hasFailedImages && (
-                        <span className="flex items-center gap-1 text-red-600">
+                        <span className="flex items-center gap-1 text-destructive">
                           <AlertCircle className="w-3 h-3" />
                           Con errores
                         </span>
@@ -1419,7 +1419,7 @@ export default function EnhancedAddProduct() {
                     </div>
                     
                     {/* Imagen principal */}
-                    <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="relative w-full h-64 bg-muted rounded-lg overflow-hidden">
                       {productImages[currentImageIndex] && (
                         <>
                           <img
@@ -1443,7 +1443,7 @@ export default function EnhancedAddProduct() {
                           )}
 
                           {productImages[currentImageIndex].uploadStatus === 'error' && (
-                            <div className="absolute inset-0 bg-red-500 bg-opacity-50 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-destructive bg-opacity-50 flex items-center justify-center">
                               <div className="text-center text-white">
                                 <AlertCircle className="w-8 h-8 mx-auto mb-2" />
                                 <p className="text-sm">Error al subir</p>
@@ -1452,7 +1452,7 @@ export default function EnhancedAddProduct() {
                           )}
 
                           {productImages[currentImageIndex].uploadStatus === 'success' && (
-                            <div className="absolute top-2 left-2 bg-green-500 bg-opacity-80 text-white p-1 rounded">
+                            <div className="absolute top-2 left-2 bg-success bg-opacity-80 text-success-foreground p-1 rounded">
                               <Check className="w-4 h-4" />
                             </div>
                           )}
@@ -1510,7 +1510,7 @@ export default function EnhancedAddProduct() {
                             key={image.id}
                             type="button"
                             className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                              index === currentImageIndex ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                              index === currentImageIndex ? 'border-primary bg-accent' : 'border-border hover:border-border'
                             }`}
                             onClick={() => setCurrentImageIndex(index)}
                           >
@@ -1525,19 +1525,19 @@ export default function EnhancedAddProduct() {
                             
                             {/* Indicador de estado en miniatura */}
                             {image.uploadStatus === 'uploading' && (
-                              <div className="absolute inset-0 bg-blue-500 bg-opacity-70 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-primary bg-opacity-70 flex items-center justify-center">
                                 <Loader2 className="w-4 h-4 animate-spin text-white" />
                               </div>
                             )}
                             
                             {image.uploadStatus === 'error' && (
-                              <div className="absolute inset-0 bg-red-500 bg-opacity-70 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-destructive bg-opacity-70 flex items-center justify-center">
                                 <AlertCircle className="w-4 h-4 text-white" />
                               </div>
                             )}
                             
                             {image.uploadStatus === 'success' && (
-                              <div className="absolute top-0 right-0 bg-green-500 text-white p-0.5">
+                              <div className="absolute top-0 right-0 bg-success text-success-foreground p-0.5">
                                 <Check className="w-2 h-2" />
                               </div>
                             )}
@@ -1547,13 +1547,13 @@ export default function EnhancedAddProduct() {
                     )}
                   </div>
                 ) : (
-                  <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center">
                     <div className="text-center">
-                      <Package className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-500">
+                      <Package className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">
                         {isEditMode ? 'No hay imágenes para este producto' : 'Sin imágenes'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {isEditMode ? 'Puedes agregar imágenes usando los botones de abajo' : 'Agrega imágenes para mostrar tu producto'}
                       </p>
                     </div>
@@ -1600,7 +1600,7 @@ export default function EnhancedAddProduct() {
                     className="hidden"
                   />
                   
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Formatos soportados: JPG, PNG, WEBP. Máximo 5MB por imagen.
                   </p>
                 </div>
@@ -1619,7 +1619,7 @@ export default function EnhancedAddProduct() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="isActive">Producto Activo</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       El producto será visible en el catálogo
                     </p>
                   </div>
@@ -1637,7 +1637,7 @@ export default function EnhancedAddProduct() {
                 </div>
 
                 {watch('type') === 'service' ? (
-                  <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+                  <div className="rounded-md bg-accent border border-border px-4 py-3 text-sm text-primary">
                     🛠️ Los servicios no manejan inventario. Los campos de stock, lote, vencimiento, peso y dimensiones no aplican.
                   </div>
                 ) : (
@@ -1700,7 +1700,7 @@ export default function EnhancedAddProduct() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="isPromoted">Producto Promocionado</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Destacar este producto en el catálogo
                     </p>
                   </div>
@@ -1741,26 +1741,26 @@ export default function EnhancedAddProduct() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-sm">
-                    <span className="text-gray-600">ID del Producto:</span>
-                    <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-muted-foreground">ID del Producto:</span>
+                    <span className="ml-2 font-mono text-xs bg-muted px-2 py-1 rounded">
                       #{productId}
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-gray-600">SKU:</span>
-                    <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-muted-foreground">SKU:</span>
+                    <span className="ml-2 font-mono text-xs bg-muted px-2 py-1 rounded">
                       {watch("sku") || 'Sin SKU'}
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-gray-600">Moneda:</span>
-                    <span className="ml-2 font-mono text-xs bg-blue-100 px-2 py-1 rounded">
+                    <span className="text-muted-foreground">Moneda:</span>
+                    <span className="ml-2 font-mono text-xs bg-accent px-2 py-1 rounded">
                       {watch("currency") || 'DOP'}
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-gray-600">Última actualización:</span>
-                    <span className="ml-2 text-gray-500">
+                    <span className="text-muted-foreground">Última actualización:</span>
+                    <span className="ml-2 text-muted-foreground">
                       {new Date().toLocaleDateString()}
                     </span>
                   </div>
@@ -1792,7 +1792,7 @@ export default function EnhancedAddProduct() {
         </div>
 
         {/* Footer con botones de acción */}
-        <div className="border-t bg-gray-50 -mx-6 -mb-6 px-6 py-4">
+        <div className="border-t bg-subtle -mx-6 -mb-6 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
@@ -1812,7 +1812,7 @@ export default function EnhancedAddProduct() {
                       window.location.href = '/product-management';
                     }
                   }}
-                  className="text-amber-600 hover:text-amber-700"
+                  className="text-warning hover:text-warning"
                 >
                   Descartar Cambios
                 </Button>
@@ -1821,8 +1821,8 @@ export default function EnhancedAddProduct() {
 
             <div className="flex items-center gap-3">
               {(isProcessingImages || isSubmitting || hasUploadingImages) && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <div className="animate-spin w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="animate-spin w-4 h-4 border-2 border-border-strong border-t-transparent rounded-full" />
                   {isProcessingImages || hasUploadingImages ? 'Procesando imágenes...' : 'Guardando...'}
                 </div>
               )}
@@ -1837,7 +1837,7 @@ export default function EnhancedAddProduct() {
                   console.log('🔍 DEBUG - Estado de imágenes:', productImages);
                   console.log('🔍 DEBUG - Currency value:', watch('currency'));
                 }}
-                className="bg-yellow-100 text-yellow-800 text-xs"
+                className="bg-warning/15 text-warning text-xs"
                 size="sm"
               >
                 🐛 Debug
@@ -1865,7 +1865,7 @@ export default function EnhancedAddProduct() {
           
           {/* Mensaje de ayuda para estado del botón */}
           {(hasUploadingImages || hasFailedImages) && (
-            <div className="mt-3 text-xs text-gray-500">
+            <div className="mt-3 text-xs text-muted-foreground">
               {hasUploadingImages && "⏳ Espera a que terminen de subirse todas las imágenes"}
               {hasFailedImages && "❌ Elimina las imágenes con error antes de continuar"}
             </div>

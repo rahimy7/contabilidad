@@ -421,7 +421,7 @@ const CategoriesManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Categorías</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Categorías</h1>
           <p className="text-muted-foreground">
             Administra las categorías de productos de tu tienda
           </p>
@@ -485,28 +485,28 @@ const CategoriesManagement = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Activas</CardTitle>
-            <Eye className="h-4 w-4 text-green-600" />
+            <Eye className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-success">{stats.active}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Inactivas</CardTitle>
-            <EyeOff className="h-4 w-4 text-red-600" />
+            <EyeOff className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+            <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
+            <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalProducts}</div>
+            <div className="text-2xl font-bold text-primary">{stats.totalProducts}</div>
           </CardContent>
         </Card>
       </div>
@@ -562,11 +562,11 @@ const CategoriesManagement = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                    <div className="w-10 h-10 bg-accent rounded flex items-center justify-center">
                       {category.icon ? (
                         <span className="text-lg">{category.icon}</span>
                       ) : (
-                        <FolderOpen className="h-5 w-5 text-blue-600" />
+                        <FolderOpen className="h-5 w-5 text-primary" />
                       )}
                     </div>
                     <div>
@@ -589,7 +589,7 @@ const CategoriesManagement = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDelete(category)}
-                        className="text-red-600"
+                        className="text-destructive"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Eliminar
@@ -639,7 +639,7 @@ const CategoriesManagement = () => {
                           {category.icon ? (
                             <span className="text-lg">{category.icon}</span>
                           ) : (
-                            <FolderOpen className="h-5 w-5 text-blue-600" />
+                            <FolderOpen className="h-5 w-5 text-primary" />
                           )}
                           <div>
                             <div className="font-medium">{category.name}</div>
@@ -676,7 +676,7 @@ const CategoriesManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(category)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive/80"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -761,13 +761,13 @@ const CategoriesManagement = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <AlertTriangle className="h-5 w-5 text-destructive" />
               Eliminar Categoría
             </DialogTitle>
             <DialogDescription>
               ¿Estás seguro de que deseas eliminar la categoría "{deletingCategory?.name}"?
               {deletingCategory?.productsCount && deletingCategory.productsCount > 0 && (
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+                <div className="mt-2 p-2 bg-warning/15 border border-warning/40 rounded text-warning">
                   <strong>Advertencia:</strong> Esta categoría tiene {deletingCategory.productsCount} productos asociados.
                   Los productos se moverán a "Sin categoría".
                 </div>
@@ -800,16 +800,16 @@ const CategoriesManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-sm text-gray-600 mb-2">
+            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+              <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-sm text-muted-foreground mb-2">
                 Arrastra tu archivo CSV aquí o haz clic para seleccionar
               </p>
               <Button variant="outline" size="sm">
                 Seleccionar archivo
               </Button>
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-muted-foreground">
               <strong>Ejemplo de formato CSV:</strong><br/>
               Nombre,Descripción,Icono,Orden,Activo<br/>
               Electrónicos,Productos electrónicos,📱,1,true<br/>

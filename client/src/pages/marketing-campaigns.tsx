@@ -13,11 +13,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { Zap, Plus, TrendingUp } from "lucide-react";
 
 const STATUS_COLOR: Record<string, string> = {
-  planning: "bg-gray-500",
-  active: "bg-green-500",
-  paused: "bg-yellow-500",
-  completed: "bg-blue-500",
-  cancelled: "bg-red-500",
+  planning: "bg-muted-foreground",
+  active: "bg-success",
+  paused: "bg-warning",
+  completed: "bg-primary",
+  cancelled: "bg-destructive",
 };
 
 const money = (v: string | number) =>
@@ -68,12 +68,12 @@ export default function MarketingCampaignsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Zap className="w-8 h-8 text-yellow-500" />
+          <Zap className="w-8 h-8 text-warning" />
           <div>
-            <h1 className="text-2xl font-bold">Campañas de Marketing</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Campañas de Marketing</h1>
             <p className="text-muted-foreground">WhatsApp, email, SMS, redes con seguimiento de ROI</p>
           </div>
         </div>
@@ -221,7 +221,7 @@ export default function MarketingCampaignsPage() {
               <div><p className="text-xs text-muted-foreground">Conversiones</p><p className="text-xl font-bold">{roi.conversions}</p></div>
               <div className="col-span-2 pt-3 border-t">
                 <p className="text-xs text-muted-foreground">ROI</p>
-                <p className={`text-3xl font-bold ${roi.roiPercent > 0 ? "text-green-600" : "text-red-600"}`}>
+                <p className={`text-3xl font-bold ${roi.roiPercent > 0 ? "text-success" : "text-destructive"}`}>
                   {roi.roiPercent != null ? `${roi.roiPercent}%` : "—"}
                 </p>
                 <p className="text-sm text-muted-foreground">Ganancia: RD$ {money(roi.profit)}</p>

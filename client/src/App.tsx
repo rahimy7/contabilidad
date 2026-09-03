@@ -127,7 +127,7 @@ function ProtectedRoute({ component: Component, permission }: { component: React
   if (isLoading || (!!user && rbacLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -147,10 +147,10 @@ function ProtectedRoute({ component: Component, permission }: { component: React
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            <h1 className="text-[20px] font-semibold tracking-tight mb-4">
               Acceso Denegado
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               No tienes permisos para acceder a esta página.
             </p>
           </div>
@@ -300,7 +300,7 @@ function AppWithAuth() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }

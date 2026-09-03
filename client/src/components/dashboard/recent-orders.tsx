@@ -65,7 +65,7 @@ export default function RecentOrders() {
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse h-16 bg-gray-200 rounded"></div>
+              <div key={i} className="animate-pulse h-16 bg-secondary rounded"></div>
             ))}
           </div>
         </CardContent>
@@ -80,7 +80,7 @@ export default function RecentOrders() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-gray-900">Pedidos Recientes</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Pedidos Recientes</CardTitle>
           <div className="flex items-center space-x-2">
             <Select defaultValue="all">
               <SelectTrigger className="w-40">
@@ -103,46 +103,46 @@ export default function RecentOrders() {
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-subtle">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asignado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pedido</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Cliente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Asignado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-border">
               {recentOrders.map((order: OrderWithDetails) => {
                 const statusBadge = getStatusBadge(order.status);
                 return (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order.id} className="hover:bg-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
-                      <div className="text-sm text-gray-500">{formatTime(order.createdAt)}</div>
+                      <div className="text-sm font-medium text-foreground">{order.orderNumber}</div>
+                      <div className="text-sm text-muted-foreground">{formatTime(order.createdAt)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-xs font-medium text-gray-600">
+                        <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center mr-3">
+                          <span className="text-xs font-medium text-muted-foreground">
                             {order.customer?.name ? order.customer.name.split(" ").map(n => n[0]).join("").slice(0, 2) : 'CL'}
                           </span>
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{order.customer?.name || 'Cliente sin nombre'}</div>
-                          <div className="text-sm text-gray-500">{order.customer?.phone || 'Sin teléfono'}</div>
+                          <div className="text-sm font-medium text-foreground">{order.customer?.name || 'Cliente sin nombre'}</div>
+                          <div className="text-sm text-muted-foreground">{order.customer?.phone || 'Sin teléfono'}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {order.assignedUser ? (
                         <div>
-                          <div className="text-sm text-gray-900">{order.assignedUser.name}</div>
-                          <div className="text-sm text-gray-500 capitalize">{order.assignedUser.role}</div>
+                          <div className="text-sm text-foreground">{order.assignedUser.name}</div>
+                          <div className="text-sm text-muted-foreground capitalize">{order.assignedUser.role}</div>
                         </div>
                       ) : (
-                        <div className="text-sm text-gray-500">Sin asignar</div>
+                        <div className="text-sm text-muted-foreground">Sin asignar</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -150,7 +150,7 @@ export default function RecentOrders() {
                         {statusBadge.label}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                       ${parseFloat(order.totalAmount).toLocaleString('es-MX')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -184,7 +184,7 @@ export default function RecentOrders() {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="text-gray-400"
+                          className="text-muted-foreground"
                           onClick={() => handleEditOrder(order)}
                         >
                           <Edit className="h-4 w-4" />
@@ -197,9 +197,9 @@ export default function RecentOrders() {
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-4 border-t border-gray-200">
+        <div className="px-6 py-4 border-t border-border">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               Mostrando {recentOrders.length} de {orders?.length || 0} pedidos
             </p>
             <Link href="/orders" className="text-primary hover:text-primary-dark text-sm font-medium">

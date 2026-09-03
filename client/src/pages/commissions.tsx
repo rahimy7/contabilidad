@@ -14,9 +14,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { Coins, Plus, CheckCircle2 } from "lucide-react";
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-gray-500",
-  approved: "bg-green-500",
-  paid: "bg-blue-500",
+  draft: "bg-muted-foreground",
+  approved: "bg-success",
+  paid: "bg-primary",
 };
 
 const money = (v: string | number) =>
@@ -75,11 +75,11 @@ export default function CommissionsPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Coins className="w-8 h-8 text-yellow-500" />
+        <Coins className="w-8 h-8 text-warning" />
         <div>
-          <h1 className="text-2xl font-bold">Comisiones</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Comisiones</h1>
           <p className="text-muted-foreground">Reglas de comisión y cierre mensual por vendedor</p>
         </div>
       </div>
@@ -171,9 +171,9 @@ export default function CommissionsPage() {
                   <div><p className="text-xs text-muted-foreground">Ingresos</p><p className="text-xl font-mono">RD$ {money(preview.totalRevenue ?? 0)}</p></div>
                   <div><p className="text-xs text-muted-foreground">Comisión</p><p className="text-xl font-mono">RD$ {money(preview.commissionAmount ?? 0)}</p></div>
                   <div><p className="text-xs text-muted-foreground">Bonus</p><p className="text-xl font-mono">RD$ {money(preview.bonusAmount ?? 0)}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Total</p><p className="text-xl font-bold font-mono text-green-600">RD$ {money(preview.totalEarned ?? 0)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Total</p><p className="text-xl font-bold font-mono text-success">RD$ {money(preview.totalEarned ?? 0)}</p></div>
                   {preview.goalAchieved && (
-                    <div className="col-span-4 flex items-center gap-2 text-green-600">
+                    <div className="col-span-4 flex items-center gap-2 text-success">
                       <CheckCircle2 className="w-4 h-4" /> Meta alcanzada
                     </div>
                   )}
@@ -214,7 +214,7 @@ export default function CommissionsPage() {
                         <TableCell className="text-right font-mono">{money(e.commissionAmount)}</TableCell>
                         <TableCell className="text-right font-mono">{money(e.bonusAmount)}</TableCell>
                         <TableCell className="text-right font-mono font-bold">{money(e.totalEarned)}</TableCell>
-                        <TableCell>{e.goalAchieved ? <Badge className="bg-green-600">Sí</Badge> : <Badge variant="secondary">No</Badge>}</TableCell>
+                        <TableCell>{e.goalAchieved ? <Badge className="bg-success">Sí</Badge> : <Badge variant="secondary">No</Badge>}</TableCell>
                         <TableCell><Badge className={`${STATUS_COLOR[e.status]} text-white`}>{e.status}</Badge></TableCell>
                         <TableCell>
                           {e.status === "draft" && (

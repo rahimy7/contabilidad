@@ -40,13 +40,13 @@ export default function TeamEnhanced() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-100 text-green-800 border-green-300";
+        return "bg-success/10 text-success border-success/40";
       case "busy":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+        return "bg-warning/15 text-warning border-warning/40";
       case "offline":
-        return "bg-red-100 text-red-800 border-red-300";
+        return "bg-destructive/10 text-destructive border-destructive/40";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-foreground";
     }
   };
 
@@ -64,19 +64,19 @@ export default function TeamEnhanced() {
   };
 
   const getAvailabilityColor = (percentage: number) => {
-    if (percentage >= 70) return "bg-green-500";
-    if (percentage >= 40) return "bg-yellow-500";
-    return "bg-red-500";
+    if (percentage >= 70) return "bg-success";
+    if (percentage >= 40) return "bg-warning";
+    return "bg-destructive";
   };
 
   if (isLoading || !stats) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-20 bg-gray-200 rounded"></div>
+                <div className="h-20 bg-secondary rounded"></div>
               </CardContent>
             </Card>
           ))}
@@ -88,15 +88,15 @@ export default function TeamEnhanced() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Equipo Técnico</h1>
-        <p className="text-gray-600 mt-1">Monitoreo de disponibilidad y asignaciones en tiempo real</p>
+        <h1 className="text-[20px] font-semibold tracking-tight">Equipo Técnico</h1>
+        <p className="text-muted-foreground mt-1">Monitoreo de disponibilidad y asignaciones en tiempo real</p>
       </div>
 
       {/* Resumen de disponibilidad */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Users className="h-4 w-4" />
               Total Técnicos
             </CardTitle>
@@ -106,44 +106,44 @@ export default function TeamEnhanced() {
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-green-50">
+        <Card className="border-success/40 bg-success/10">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-success flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               Disponibles
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-700">{stats.available}</div>
-            <p className="text-xs text-green-600 mt-1">
+            <div className="text-3xl font-bold text-success">{stats.available}</div>
+            <p className="text-xs text-success mt-1">
               {((stats.available / stats.total) * 100).toFixed(0)}% del equipo
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className="border-warning/40 bg-warning/15">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-yellow-700 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-warning flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Ocupados
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-700">{stats.busy}</div>
-            <p className="text-xs text-yellow-600 mt-1">En servicio activo</p>
+            <div className="text-3xl font-bold text-warning">{stats.busy}</div>
+            <p className="text-xs text-warning mt-1">En servicio activo</p>
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-border bg-accent">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-primary flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Carga Promedio
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-700">{stats.averageLoad}%</div>
-            <p className="text-xs text-blue-600 mt-1">Capacidad utilizada</p>
+            <div className="text-3xl font-bold text-primary">{stats.averageLoad}%</div>
+            <p className="text-xs text-primary mt-1">Capacidad utilizada</p>
           </CardContent>
         </Card>
       </div>
@@ -180,20 +180,20 @@ export default function TeamEnhanced() {
               const loadPct = 100 - availPct;
               
               return (
-                <div key={tech.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                <div key={tech.id} className="p-4 border rounded-lg hover:bg-subtle transition-colors">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center text-white font-medium">
+                      <div className="w-10 h-10 bg-primary/80 rounded-full flex items-center justify-center text-primary-foreground font-medium">
                         {tech.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{tech.name}</h3>
+                        <h3 className="font-semibold text-foreground">{tech.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge className={getStatusColor(tech.status)} variant="outline">
                             {getStatusText(tech.status)}
                           </Badge>
                           {tech.isAvailable && (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/40">
                               ✓ Puede recibir órdenes
                             </Badge>
                           )}
@@ -202,17 +202,17 @@ export default function TeamEnhanced() {
                     </div>
                     
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-foreground">
                         {tech.currentOrders}/{tech.maxDailyOrders}
                       </div>
-                      <div className="text-xs text-gray-600">órdenes activas</div>
+                      <div className="text-xs text-muted-foreground">órdenes activas</div>
                     </div>
                   </div>
 
                   {/* Barra de carga */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Capacidad utilizada</span>
+                      <span className="text-muted-foreground">Capacidad utilizada</span>
                       <span className="font-medium">{loadPct}%</span>
                     </div>
                     <Progress value={loadPct} className="h-2" />
@@ -221,20 +221,20 @@ export default function TeamEnhanced() {
                   {/* Información de ubicación y especialización */}
                   <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t">
                     <div>
-                      <div className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                      <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
                         Ubicación
                       </div>
                       <div className="text-sm">
                         {tech.sector && <div className="font-medium">{tech.sector}</div>}
-                        {tech.municipality && <div className="text-gray-600">{tech.municipality}</div>}
-                        {tech.province && <div className="text-gray-500">{tech.province}</div>}
-                        {!tech.province && !tech.municipality && <div className="text-gray-400 italic">No asignada</div>}
+                        {tech.municipality && <div className="text-muted-foreground">{tech.municipality}</div>}
+                        {tech.province && <div className="text-muted-foreground">{tech.province}</div>}
+                        {!tech.province && !tech.municipality && <div className="text-muted-foreground italic">No asignada</div>}
                       </div>
                     </div>
                     
                     <div>
-                      <div className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                      <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                         <Briefcase className="h-3 w-3" />
                         Especialización
                       </div>
@@ -246,7 +246,7 @@ export default function TeamEnhanced() {
                             </Badge>
                           ))
                         ) : (
-                          <span className="text-xs text-gray-400 italic">Sin especialización</span>
+                          <span className="text-xs text-muted-foreground italic">Sin especialización</span>
                         )}
                         {tech.specializations && tech.specializations.length > 2 && (
                           <Badge variant="secondary" className="text-xs">
@@ -255,13 +255,13 @@ export default function TeamEnhanced() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
-                        <span className="text-xs text-gray-600">Nivel:</span>
+                        <span className="text-xs text-muted-foreground">Nivel:</span>
                         <div className="flex gap-0.5">
                           {[...Array(5)].map((_, i) => (
                             <div
                               key={i}
                               className={`w-2 h-2 rounded-full ${
-                                i < tech.skillLevel ? 'bg-blue-500' : 'bg-gray-200'
+                                i < tech.skillLevel ? 'bg-primary' : 'bg-secondary'
                               }`}
                             />
                           ))}

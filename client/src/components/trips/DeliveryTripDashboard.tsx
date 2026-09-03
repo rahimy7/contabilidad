@@ -118,7 +118,7 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
     return (
       <Card>
         <CardContent className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-chrome" />
         </CardContent>
       </Card>
     );
@@ -128,9 +128,9 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-          <Package className="h-16 w-16 text-gray-300 mb-4" />
+          <Package className="h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No hay viaje activo</h3>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             Espera a que te asignen pedidos para comenzar un nuevo viaje
           </p>
         </CardContent>
@@ -147,14 +147,14 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
   return (
     <div className="space-y-6">
       {/* Header del Viaje */}
-      <Card className="bg-gradient-to-r from-primary to-primary/80 text-white">
+      <Card className="bg-primary/80 text-primary-foreground">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-2xl text-white">{trip.tripNumber}</CardTitle>
               <p className="text-primary-foreground/80 mt-1">Viaje Activo</p>
             </div>
-            <Badge variant="secondary" className="bg-white text-blue-600">
+            <Badge variant="secondary" className="bg-card text-primary">
               {trip.status === 'active' ? 'Activo' : 'En Progreso'}
             </Badge>
           </div>
@@ -167,14 +167,14 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Progreso del viaje</p>
+                <p className="text-sm text-muted-foreground">Progreso del viaje</p>
                 <p className="text-2xl font-bold">
                   {trip.completedOrders} / {trip.totalOrders}
                 </p>
-                <p className="text-sm text-gray-600">pedidos recogidos</p>
+                <p className="text-sm text-muted-foreground">pedidos recogidos</p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-blue-600">
+                <p className="text-3xl font-bold text-primary">
                   {progress.toFixed(0)}%
                 </p>
               </div>
@@ -183,9 +183,9 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
             <Progress value={progress} className="h-3" />
 
             {allCompleted && (
-              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-medium text-green-800">
+              <div className="flex items-center gap-2 p-3 bg-success/10 rounded-lg border border-success/40">
+                <CheckCircle className="h-5 w-5 text-success" />
+                <p className="text-sm font-medium text-success">
                   ¡Todos los pedidos recogidos!
                 </p>
               </div>
@@ -237,13 +237,13 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
                   key={order.id}
                   className="flex items-start gap-3 p-3 border rounded-lg"
                 >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-blue-600" />
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                    <Package className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">{order.orderNumber}</p>
-                    <p className="text-sm text-gray-600">{order.customer.name}</p>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                    <p className="text-sm text-muted-foreground">{order.customer.name}</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <MapPin className="h-3 w-3" />
                       <span className="truncate">{order.customer.address}</span>
                     </div>
@@ -262,7 +262,7 @@ export function DeliveryTripDashboard({ onScanQR, onViewList }: DeliveryTripDash
       {/* Botón Completar */}
       {allCompleted && (
         <Button 
-          className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+          className="w-full h-14 text-lg bg-success hover:bg-success/90"
           size="lg"
           onClick={handleCompleteTrip}
           disabled={completing}

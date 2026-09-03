@@ -38,19 +38,19 @@ async function apiCall(endpoint: string) {
 // Status Config
 // ================================
 const statusConfig: Record<string, { label: string; color: string }> = {
-  scheduled: { label: 'Agendada', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  confirmed: { label: 'Confirmada', color: 'bg-green-100 text-green-800 border-green-200' },
-  in_progress: { label: 'En Curso', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  completed: { label: 'Completada', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-800 border-red-200' },
-  no_show: { label: 'No Asistió', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+  scheduled: { label: 'Agendada', color: 'bg-accent text-accent-foreground border-border' },
+  confirmed: { label: 'Confirmada', color: 'bg-success/10 text-success border-success/40' },
+  in_progress: { label: 'En Curso', color: 'bg-warning/15 text-warning border-warning/40' },
+  completed: { label: 'Completada', color: 'bg-success/10 text-success border-success/40' },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-destructive border-destructive/40' },
+  no_show: { label: 'No Asistió', color: 'bg-muted text-muted-foreground border-border' },
 };
 
 const paymentStatusConfig: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pendiente', color: 'bg-orange-100 text-orange-800 border-orange-200' },
-  paid: { label: 'Pagado', color: 'bg-green-100 text-green-800 border-green-200' },
-  partial: { label: 'Parcial', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  credit: { label: 'Crédito', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  pending: { label: 'Pendiente', color: 'bg-warning/10 text-warning border-warning/40' },
+  paid: { label: 'Pagado', color: 'bg-success/10 text-success border-success/40' },
+  partial: { label: 'Parcial', color: 'bg-warning/15 text-warning border-warning/40' },
+  credit: { label: 'Crédito', color: 'bg-accent text-accent-foreground border-border' },
 };
 
 // ================================
@@ -112,12 +112,12 @@ export default function DoctorDashboard() {
   const selectedTitular = (titulares as any[]).find((t: any) => String(t.id) === selectedTitularId);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Stethoscope className="h-7 w-7 text-teal-600" />
+          <h1 className="text-[20px] font-semibold tracking-tight flex items-center gap-2">
+            <Stethoscope className="h-7 w-7 text-primary" />
             Panel de Doctores
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -155,9 +155,9 @@ export default function DoctorDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-blue-600" />
+                  <Calendar className="h-5 w-5 text-primary" />
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{stats?.totalAppointments || 0}</div>
+                    <div className="text-2xl font-bold text-primary">{stats?.totalAppointments || 0}</div>
                     <p className="text-xs text-muted-foreground">Total Citas</p>
                   </div>
                 </div>
@@ -166,9 +166,9 @@ export default function DoctorDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-orange-600" />
+                  <Clock className="h-5 w-5 text-warning" />
                   <div>
-                    <div className="text-2xl font-bold text-orange-600">{stats?.todayAppointments || 0}</div>
+                    <div className="text-2xl font-bold text-warning">{stats?.todayAppointments || 0}</div>
                     <p className="text-xs text-muted-foreground">Citas Hoy</p>
                   </div>
                 </div>
@@ -177,9 +177,9 @@ export default function DoctorDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-green-600" />
+                  <DollarSign className="h-5 w-5 text-success" />
                   <div>
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-2xl font-bold text-success">
                       RD$ {parseFloat(stats?.totalRevenue || '0').toLocaleString('es-DO', { minimumFractionDigits: 2 })}
                     </div>
                     <p className="text-xs text-muted-foreground">Ingresos Total</p>
@@ -190,9 +190,9 @@ export default function DoctorDashboard() {
             <Card>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <AlertCircle className="h-5 w-5 text-destructive" />
                   <div>
-                    <div className="text-2xl font-bold text-red-600">
+                    <div className="text-2xl font-bold text-destructive">
                       RD$ {parseFloat(stats?.pendingPayment || '0').toLocaleString('es-DO', { minimumFractionDigits: 2 })}
                     </div>
                     <p className="text-xs text-muted-foreground">Pagos Pendientes</p>
@@ -240,7 +240,7 @@ export default function DoctorDashboard() {
                           'relative p-1.5 text-sm rounded-md transition-colors',
                           !isCurrentMonth && 'text-muted-foreground/40',
                           isSelected && 'bg-primary text-primary-foreground',
-                          !isSelected && isToday && 'bg-blue-50 text-blue-700 font-semibold',
+                          !isSelected && isToday && 'bg-accent text-primary font-semibold',
                           !isSelected && !isToday && 'hover:bg-muted',
                         )}
                       >
@@ -248,7 +248,7 @@ export default function DoctorDashboard() {
                         {count > 0 && (
                           <span className={cn(
                             'absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full',
-                            isSelected ? 'bg-primary-foreground' : 'bg-teal-500',
+                            isSelected ? 'bg-primary-foreground' : 'bg-primary',
                           )} />
                         )}
                       </button>
@@ -311,7 +311,7 @@ export default function DoctorDashboard() {
                               </div>
                             ) : null}
                             {parseFloat(apt.price || '0') > 0 && (
-                              <div className="mt-1 text-sm font-semibold text-green-700">
+                              <div className="mt-1 text-sm font-semibold text-success">
                                 RD$ {parseFloat(apt.price).toFixed(2)}
                               </div>
                             )}

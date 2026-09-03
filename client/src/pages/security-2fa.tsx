@@ -78,11 +78,11 @@ export default function SecurityTwoFactor() {
   const enabled = statusQ.data?.enabled ?? false;
 
   return (
-    <div className="mx-auto max-w-2xl p-6 space-y-6">
+    <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Verificación en dos pasos</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Verificación en dos pasos</h1>
           <p className="text-sm text-muted-foreground">
             Añade un segundo factor para proteger tu cuenta.
           </p>
@@ -96,7 +96,7 @@ export default function SecurityTwoFactor() {
             {statusQ.isLoading ? (
               <Badge variant="outline">Cargando…</Badge>
             ) : enabled ? (
-              <Badge className="bg-green-600 hover:bg-green-600">Activo</Badge>
+              <Badge className="bg-success hover:bg-success">Activo</Badge>
             ) : (
               <Badge variant="secondary">Desactivado</Badge>
             )}
@@ -141,7 +141,7 @@ export default function SecurityTwoFactor() {
               <img
                 src={enrollment.qrDataUrl}
                 alt="QR de enrolamiento 2FA"
-                className="border rounded-md bg-white p-2"
+                className="border rounded-md bg-card p-2"
                 width={220}
                 height={220}
               />

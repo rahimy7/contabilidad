@@ -101,7 +101,7 @@ export default function SendMessageModal({ isOpen, onClose, defaultPhone = "" }:
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <MessageCircle className="h-5 w-5 text-green-600" />
+            <MessageCircle className="h-5 w-5 text-success" />
             <span>Enviar Mensaje WhatsApp</span>
           </DialogTitle>
         </DialogHeader>
@@ -117,9 +117,9 @@ export default function SendMessageModal({ isOpen, onClose, defaultPhone = "" }:
               disabled={sendStatus === 'sending'}
             />
             {form.formState.errors.to && (
-              <p className="text-sm text-red-600">{form.formState.errors.to.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.to.message}</p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Incluye código de país (ej: +52 para México)
             </p>
           </div>
@@ -136,27 +136,27 @@ export default function SendMessageModal({ isOpen, onClose, defaultPhone = "" }:
               className="resize-none"
             />
             {form.formState.errors.message && (
-              <p className="text-sm text-red-600">{form.formState.errors.message.message}</p>
+              <p className="text-sm text-destructive">{form.formState.errors.message.message}</p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {form.watch("message")?.length || 0}/4096 caracteres
             </p>
           </div>
 
           {/* Status Messages */}
           {sendStatus === 'success' && (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="bg-success/10 border-success/40">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Mensaje enviado exitosamente a {formatPhoneNumber(form.getValues('to'))}
               </AlertDescription>
             </Alert>
           )}
 
           {sendStatus === 'error' && (
-            <Alert className="bg-red-50 border-red-200">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
+            <Alert className="bg-destructive/10 border-destructive/40">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">
                 Error enviando mensaje. Verifica la configuración de WhatsApp.
               </AlertDescription>
             </Alert>
@@ -180,7 +180,7 @@ export default function SendMessageModal({ isOpen, onClose, defaultPhone = "" }:
               <Button
                 type="submit"
                 disabled={sendStatus === 'sending' || sendStatus === 'success'}
-                className="whatsapp-bg hover:bg-green-600"
+                className="whatsapp-bg hover:bg-success"
               >
                 {sendStatus === 'sending' ? (
                   <div className="flex items-center space-x-2">

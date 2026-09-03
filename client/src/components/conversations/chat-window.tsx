@@ -108,11 +108,11 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       <Card className="h-full">
         <CardContent className="h-[500px] flex items-center justify-center">
           <div className="text-center">
-            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Selecciona una conversación
             </h3>
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               Elige una conversación de la lista para comenzar a chatear
             </p>
           </div>
@@ -124,27 +124,27 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
   return (
     <Card className="h-full flex flex-col">
       {/* Header */}
-      <CardHeader className="bg-green-50 border-b border-green-100 pb-4 flex-shrink-0">
+      <CardHeader className="bg-success/10 border-b border-success/40 pb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-primary/80 rounded-full flex items-center justify-center shadow-lg">
                 <User className="text-white h-6 w-6" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-white"></div>
             </div>
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
-                <CardTitle className="text-lg font-semibold text-gray-900">
+                <CardTitle className="text-lg font-semibold text-foreground">
                   {conversation.customer.name}
                 </CardTitle>
                 {customerDetails?.isVip && (
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                  <Badge className="bg-warning/15 text-warning border-warning/40 text-xs">
                     ⭐ VIP
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Phone className="h-3 w-3" />
                 <span className="font-medium">{conversation.customer.phone}</span>
               </div>
@@ -157,10 +157,10 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[400px]">
         {isLoading ? (
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-muted-foreground py-8">
             No hay mensajes en esta conversación
           </div>
         ) : (
@@ -174,13 +174,13 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
               <div
                 className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                   message.senderType === "staff"
-                    ? "bg-green-500 text-white"
-                    : "bg-gray-100 text-gray-900"
+                    ? "bg-success text-success-foreground"
+                    : "bg-muted text-foreground"
                 }`}
               >
                 <p className="text-sm">{message.content}</p>
                 <p className={`text-xs mt-1 ${
-                  message.senderType === "staff" ? "text-green-100" : "text-gray-500"
+                  message.senderType === "staff" ? "text-success-foreground/80" : "text-muted-foreground"
                 }`}>
                   {formatMessageTime(message.createdAt)}
                 </p>
@@ -192,7 +192,7 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
       </CardContent>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200 flex-shrink-0">
+      <div className="p-4 border-t border-border flex-shrink-0">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
           <Input
             value={newMessage}

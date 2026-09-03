@@ -65,7 +65,7 @@ export function DeleteTripButton({ trip, onSuccess }: DeleteTripButtonProps) {
         variant="ghost"
         size="sm"
         onClick={() => setShowDialog(true)}
-        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -88,7 +88,7 @@ export function DeleteTripButton({ trip, onSuccess }: DeleteTripButtonProps) {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
             >
               {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Eliminar

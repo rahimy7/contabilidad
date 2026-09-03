@@ -263,7 +263,7 @@ const CategoriesManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Categorías</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Categorías</h1>
           <p className="text-muted-foreground">
             Administra las categorías de productos de tu tienda
           </p>
@@ -372,7 +372,7 @@ const CategoriesManagement = () => {
             <CardTitle className="text-sm font-medium">Activas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-success">{stats.active}</div>
           </CardContent>
         </Card>
         <Card>
@@ -380,7 +380,7 @@ const CategoriesManagement = () => {
             <CardTitle className="text-sm font-medium">Inactivas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+            <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
           </CardContent>
         </Card>
       </div>
@@ -468,7 +468,7 @@ const CategoriesManagement = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(category)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -268,8 +268,8 @@ const handleEditProfile = (profile: any) => {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Gestión de Personal</h1>
+    <div className="space-y-6">
+      <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Personal</h1>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="employees"><Users className="w-4 h-4 mr-2" />Empleados</TabsTrigger>

@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Boxes, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from "lucide-react";
+import { DataGrid, PageHeader, amount, money, type Column } from "@/components/erp";
 
-const money = (v: string | number) =>
-  Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const qty = (v: string | number) => Number(v ?? 0).toLocaleString("es-DO", { maximumFractionDigits: 4 });
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -18,6 +17,59 @@ const STOCK_ACCOUNTS: Record<string, string> = {
   "1.1.03.001": "Mercancía",
   "1.1.03.002": "Suministros",
 };
+
+interface ValuationRow {
+  product_id: number; warehouse_id: number; warehouse_name?: string | null;
+  inventory_account: string; costing_method: string;
+  quantity_on_hand: string; average_cost: string; total_value: string;
+}
+
+interface MarginRow {
+  product_id: number; revenue: string; cogs: string; margin: string; marginPct: string;
+}
+
+const VALUATION_COLUMNS: Column<ValuationRow>[] = [
+  { key: "product", header: "Producto", cell: (r) => `#${r.product_id}` },
+  { key: "warehouse", header: "Bodega", cell: (r) => r.warehouse_name ?? "Sin almacén" },
+  {
+    key: "account", header: "Tipo", width: "120px",
+    cell: (r) => (
+      <span className="text-muted-foreground">
+        {STOCK_ACCOUNTS[r.inventory_account] ?? r.inventory_account}
+      </span>
+    ),
+  },
+  {
+    key: "method", header: "Método", width: "100px",
+    cell: (r) => (
+      <span className="text-muted-foreground">{r.costing_method === "fifo" ? "FIFO" : "Promedio"}</span>
+    ),
+  },
+  { key: "qty", header: "Existencia", align: "right", width: "120px", cell: (r) => qty(r.quantity_on_hand) },
+  { key: "cost", header: "Costo prom.", align: "right", width: "130px", cell: (r) => amount(r.average_cost) },
+  { key: "value", header: "Valor", align: "right", width: "140px", cell: (r) => <span className="font-semibold">{amount(r.total_value)}</span> },
+];
+
+/**
+ * El margen negativo va en rojo: es la única lectura de esta rejilla que obliga
+ * a hacer algo, y estar vendiendo por debajo del costo no puede quedar como una
+ * cifra más de la columna.
+ */
+const MARGIN_COLUMNS: Column<MarginRow>[] = [
+  { key: "product", header: "Producto", cell: (l) => `#${l.product_id}` },
+  { key: "revenue", header: "Ingreso", align: "right", cell: (l) => amount(l.revenue) },
+  { key: "cogs", header: "Costo", align: "right", cell: (l) => amount(l.cogs) },
+  {
+    key: "margin", header: "Margen", align: "right",
+    cell: (l) => (
+      <span className={Number(l.margin) < 0 ? "font-medium text-destructive" : ""}>{amount(l.margin)}</span>
+    ),
+  },
+  {
+    key: "pct", header: "%", align: "right", width: "90px",
+    cell: (l) => <span className="text-muted-foreground">{l.marginPct}%</span>,
+  },
+];
 
 /**
  * Moving stock between bodegas writes no journal entry — both roll into the same
@@ -93,25 +145,24 @@ export default function InventoryCostingPage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Boxes className="h-6 w-6" />
-          <h1 className="text-2xl font-semibold">Costeo de Inventario</h1>
-        </div>
-        <div className="flex gap-2">
-          <MovementDialog kind="receive" />
-          <MovementDialog kind="issue" />
-          <TransferDialog />
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        subtitle="Valuación de existencias y margen bruto por producto"
+        actions={
+          <>
+            <MovementDialog kind="receive" />
+            <MovementDialog kind="issue" />
+            <TransferDialog />
+          </>
+        }
+      />
 
       {(val.data?.byWarehouse ?? []).length > 1 && (
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {(val.data?.byWarehouse ?? []).map((w: any) => (
-            <div key={w.warehouse_id} className="rounded-md border p-3">
-              <div className="text-xs text-muted-foreground">{w.warehouse_name}</div>
-              <div className="mt-0.5 font-semibold tabular-nums">{money(w.total_value)}</div>
+            <div key={w.warehouse_id} className="border border-border p-2.5">
+              <div className="text-[11px] text-muted-foreground">{w.warehouse_name}</div>
+              <div className="mt-0.5 text-[17px] font-light tabular-nums">{amount(w.total_value)}</div>
             </div>
           ))}
         </div>
@@ -119,57 +170,41 @@ export default function InventoryCostingPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Valuación (promedio ponderado)</CardTitle>
-          <span className="text-sm text-muted-foreground">
+          <CardTitle>Valuación (promedio ponderado)</CardTitle>
+          <span className="text-[12px] text-muted-foreground">
             Valor total: <span className="font-semibold tabular-nums text-foreground">{money(val.data?.totalValue ?? 0)}</span>
           </span>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Producto</th><th className="py-1.5">Bodega</th><th className="py-1.5">Tipo</th><th className="py-1.5">Método</th><th className="py-1.5 text-right">Existencia</th><th className="py-1.5 text-right">Costo prom.</th><th className="py-1.5 text-right">Valor</th></tr></thead>
-            <tbody>
-              {(val.data?.items ?? []).map((it) => (
-                <tr key={`${it.product_id}-${it.warehouse_id}`} className="border-b last:border-0">
-                  <td className="py-1.5">#{it.product_id}</td>
-                  <td className="py-1.5 text-xs">{it.warehouse_name ?? "Sin almacén"}</td>
-                  <td className="py-1.5 text-xs text-muted-foreground">{STOCK_ACCOUNTS[it.inventory_account] ?? it.inventory_account}</td>
-                  <td className="py-1.5 text-xs text-muted-foreground">{it.costing_method === "fifo" ? "FIFO" : "Promedio"}</td>
-                  <td className="py-1.5 text-right tabular-nums">{qty(it.quantity_on_hand)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{money(it.average_cost)}</td>
-                  <td className="py-1.5 text-right font-medium tabular-nums">{money(it.total_value)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(val.data?.items ?? []).length === 0 && <p className="py-4 text-center text-muted-foreground">Sin existencias valuadas.</p>}
+        <CardContent className="p-0">
+          <DataGrid
+            className="border-0"
+            columns={VALUATION_COLUMNS}
+            rows={(val.data?.items ?? []) as ValuationRow[]}
+            rowKey={(r) => `${r.product_id}-${r.warehouse_id}`}
+            isLoading={val.isLoading}
+            emptyMessage="Sin existencias valuadas."
+          />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Margen bruto del mes</CardTitle>
+          <CardTitle>Margen bruto del mes</CardTitle>
           {margin.data && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground">
               Margen: <span className="font-semibold tabular-nums text-foreground">{money(margin.data.totalMargin)}</span> ({margin.data.marginPct}%)
             </span>
           )}
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Producto</th><th className="py-1.5 text-right">Ingreso</th><th className="py-1.5 text-right">Costo</th><th className="py-1.5 text-right">Margen</th><th className="py-1.5 text-right">%</th></tr></thead>
-            <tbody>
-              {(margin.data?.lines ?? []).map((l: any) => (
-                <tr key={l.product_id} className="border-b last:border-0">
-                  <td className="py-1.5">#{l.product_id}</td>
-                  <td className="py-1.5 text-right tabular-nums">{money(l.revenue)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{money(l.cogs)}</td>
-                  <td className={`py-1.5 text-right tabular-nums ${Number(l.margin) < 0 ? "text-destructive" : ""}`}>{money(l.margin)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-muted-foreground">{l.marginPct}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(margin.data?.lines ?? []).length === 0 && <p className="py-4 text-center text-muted-foreground">Sin ventas costeadas este mes.</p>}
+        <CardContent className="p-0">
+          <DataGrid
+            className="border-0"
+            columns={MARGIN_COLUMNS}
+            rows={(margin.data?.lines ?? []) as MarginRow[]}
+            rowKey={(l) => l.product_id}
+            isLoading={margin.isLoading}
+            emptyMessage="Sin ventas costeadas este mes."
+          />
         </CardContent>
       </Card>
 

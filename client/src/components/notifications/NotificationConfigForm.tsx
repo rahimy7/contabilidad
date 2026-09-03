@@ -101,7 +101,7 @@ export default function NotificationConfigForm({
                       <SelectItem key={event.id} value={event.id.toString()}>
                         <div>
                           <div className="font-medium">{event.eventName}</div>
-                          <div className="text-xs text-gray-500">{event.description}</div>
+                          <div className="text-xs text-muted-foreground">{event.description}</div>
                         </div>
                       </SelectItem>
                     ))}
@@ -217,7 +217,7 @@ export default function NotificationConfigForm({
               <FormMessage />
               
               <div className="mt-2">
-                <p className="text-sm text-gray-600 mb-2">Variables disponibles:</p>
+                <p className="text-sm text-muted-foreground mb-2">Variables disponibles:</p>
                 <div className="flex flex-wrap gap-1">
                   {templateVariables.map((variable) => (
                     <Button

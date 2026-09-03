@@ -29,7 +29,7 @@ export default function ActiveConversations() {
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse h-16 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="animate-pulse h-16 bg-secondary rounded-lg"></div>
             ))}
           </div>
         </CardContent>
@@ -43,7 +43,7 @@ export default function ActiveConversations() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold text-gray-900">Conversaciones Activas</CardTitle>
+        <CardTitle className="text-lg font-semibold text-foreground">Conversaciones Activas</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -51,33 +51,33 @@ export default function ActiveConversations() {
             <div 
               key={conversation.id} 
               className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                conversation.unreadCount > 0 ? "bg-gray-50" : "hover:bg-gray-50"
+                conversation.unreadCount > 0 ? "bg-subtle" : "hover:bg-subtle"
               }`}
             >
               <div className="w-10 h-10 whatsapp-bg rounded-full flex items-center justify-center">
                 <MessageCircle className="text-white h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-foreground truncate">
                   {conversation.customer?.name || 'Cliente sin nombre'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-muted-foreground truncate">
                   {conversation.lastMessage?.content?.slice(0, 40) || "Sin mensajes"}
                   {conversation.lastMessage?.content && conversation.lastMessage.content.length > 40 ? "..." : ""}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {conversation.lastMessageAt ? formatTime(conversation.lastMessageAt) : ""}
                 </p>
                 {conversation.unreadCount > 0 && (
-                  <span className="w-2 h-2 bg-red-500 rounded-full block ml-auto mt-1"></span>
+                  <span className="w-2 h-2 bg-destructive rounded-full block ml-auto mt-1"></span>
                 )}
               </div>
             </div>
           ))}
         </div>
-        <div className="pt-4 border-t border-gray-200 mt-4">
+        <div className="pt-4 border-t border-border mt-4">
           <Link href="/conversations" className="text-primary hover:text-primary-dark text-sm font-medium">
             Ver todas las conversaciones →
           </Link>

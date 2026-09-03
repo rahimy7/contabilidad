@@ -45,7 +45,7 @@ export default function UserSettings() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -55,8 +55,8 @@ export default function UserSettings() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">No autenticado</h1>
-          <p className="text-gray-600">Por favor inicia sesión para acceder a esta página.</p>
+          <h1 className="text-[20px] font-semibold tracking-tight mb-4">No autenticado</h1>
+          <p className="text-muted-foreground">Por favor inicia sesión para acceder a esta página.</p>
         </div>
       </div>
     );
@@ -144,8 +144,8 @@ export default function UserSettings() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Ajustes del Usuario</h1>
-        <p className="text-gray-600 mt-2">Gestiona tu información personal y configuración de cuenta</p>
+        <h1 className="text-[20px] font-semibold tracking-tight">Ajustes del Usuario</h1>
+        <p className="text-muted-foreground mt-2">Gestiona tu información personal y configuración de cuenta</p>
       </div>
 
       <div className="grid gap-6">
@@ -315,24 +315,24 @@ export default function UserSettings() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-500">Usuario</Label>
-                  <p className="text-sm text-gray-900">{user?.username}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Usuario</Label>
+                  <p className="text-sm text-foreground">{user?.username}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-500">Rol</Label>
-                  <p className="text-sm text-gray-900 capitalize">{user?.role}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Rol</Label>
+                  <p className="text-sm text-foreground capitalize">{user?.role}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-500">ID de Usuario</Label>
-                  <p className="text-sm text-gray-900">{user?.id}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">ID de Usuario</Label>
+                  <p className="text-sm text-foreground">{user?.id}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-500">Estado Actual</Label>
-                  <p className="text-sm text-gray-900 capitalize">{user?.status}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Estado Actual</Label>
+                  <p className="text-sm text-foreground capitalize">{user?.status}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-500">Almacén asignado</Label>
-                  <p className="text-sm text-gray-900">
+                  <Label className="text-sm font-medium text-muted-foreground">Almacén asignado</Label>
+                  <p className="text-sm text-foreground">
                     {user?.warehouseName ?? (user?.warehouseId ? `Almacén #${user.warehouseId}` : 'Sin almacén asignado')}
                   </p>
                 </div>

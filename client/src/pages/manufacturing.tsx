@@ -17,13 +17,13 @@ const money = (v: string | number) =>
   Number(v ?? 0).toLocaleString("es-DO", { minimumFractionDigits: 2 });
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-gray-500",
-  released: "bg-blue-500",
-  in_progress: "bg-yellow-500",
-  completed: "bg-green-600",
-  cancelled: "bg-red-500",
-  active: "bg-green-600",
-  obsolete: "bg-red-500",
+  draft: "bg-muted-foreground",
+  released: "bg-primary",
+  in_progress: "bg-warning",
+  completed: "bg-success",
+  cancelled: "bg-destructive",
+  active: "bg-success",
+  obsolete: "bg-destructive",
 };
 
 /** Manufacturing lite: BOMs (recetas) + órdenes de producción con backflush. */
@@ -31,12 +31,12 @@ export default function ManufacturingPage() {
   const [tab, setTab] = useState("boms");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Factory className="w-8 h-8 text-orange-600" />
+          <Factory className="w-8 h-8 text-warning" />
           <div>
-            <h1 className="text-2xl font-bold">Producción</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Producción</h1>
             <p className="text-muted-foreground">Recetas (BOM) + órdenes de producción con backflush automático</p>
           </div>
         </div>

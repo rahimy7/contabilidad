@@ -123,7 +123,7 @@ export default function PricingCalculator({
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center space-x-2 text-gray-500">
+          <div className="flex items-center justify-center space-x-2 text-muted-foreground">
             <Calculator className="h-4 w-4 animate-spin" />
             <span className="text-sm">Calculando precios...</span>
           </div>
@@ -148,7 +148,7 @@ export default function PricingCalculator({
       <CardContent className="space-y-4">
         {/* Base Price */}
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             Precio base {quantity > 1 && `(${quantity} unidades)`}
           </span>
           <span className="font-medium">${pricing.basePrice.toLocaleString('es-MX')}</span>
@@ -159,21 +159,21 @@ export default function PricingCalculator({
           <>
             {pricing.installationCost > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Costo de instalación</span>
+                <span className="text-sm text-muted-foreground">Costo de instalación</span>
                 <span className="font-medium">${pricing.installationCost.toLocaleString('es-MX')}</span>
               </div>
             )}
             
             {pricing.partsCost > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Costo de piezas</span>
+                <span className="text-sm text-muted-foreground">Costo de piezas</span>
                 <span className="font-medium">${pricing.partsCost.toLocaleString('es-MX')}</span>
               </div>
             )}
             
             {pricing.laborCost > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Mano de obra</span>
+                <span className="text-sm text-muted-foreground">Mano de obra</span>
                 <span className="font-medium">${pricing.laborCost.toLocaleString('es-MX')}</span>
               </div>
             )}
@@ -185,7 +185,7 @@ export default function PricingCalculator({
           <>
             <Separator />
             <div className="space-y-2">
-              <div className="flex items-center text-sm font-medium text-gray-700">
+              <div className="flex items-center text-sm font-medium text-foreground">
                 <Truck className="h-4 w-4 mr-2" />
                 Información de Entrega
               </div>
@@ -193,7 +193,7 @@ export default function PricingCalculator({
               <div className="pl-6 space-y-2">
                 {pricing.deliveryDistance && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center text-gray-600">
+                    <span className="flex items-center text-muted-foreground">
                       <MapPin className="h-3 w-3 mr-1" />
                       Distancia
                     </span>
@@ -203,7 +203,7 @@ export default function PricingCalculator({
                 
                 {pricing.deliveryTime && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center text-gray-600">
+                    <span className="flex items-center text-muted-foreground">
                       <Clock className="h-3 w-3 mr-1" />
                       Tiempo estimado
                     </span>
@@ -212,7 +212,7 @@ export default function PricingCalculator({
                 )}
                 
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Costo de entrega</span>
+                  <span className="text-sm text-muted-foreground">Costo de entrega</span>
                   <span className="font-medium">${pricing.deliveryCost.toLocaleString('es-MX')}</span>
                 </div>
               </div>
@@ -224,17 +224,17 @@ export default function PricingCalculator({
         <Separator />
         <div className="flex justify-between items-center text-lg font-bold">
           <span>Total</span>
-          <span className="text-green-600">${pricing.totalPrice.toLocaleString('es-MX')}</span>
+          <span className="text-success">${pricing.totalPrice.toLocaleString('es-MX')}</span>
         </div>
 
         {/* Location Info */}
         {customerLocation && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="p-3 bg-accent border border-border rounded-lg">
             <div className="flex items-start space-x-2">
-              <MapPin className="h-4 w-4 text-blue-600 mt-0.5" />
+              <MapPin className="h-4 w-4 text-primary mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-blue-800">Entrega a:</p>
-                <p className="text-xs text-blue-700 truncate">{customerLocation.address}</p>
+                <p className="text-xs font-medium text-accent-foreground">Entrega a:</p>
+                <p className="text-xs text-primary truncate">{customerLocation.address}</p>
               </div>
             </div>
           </div>
@@ -242,12 +242,12 @@ export default function PricingCalculator({
 
         {/* No location warning */}
         {!customerLocation && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="p-3 bg-warning/15 border border-warning/40 rounded-lg">
             <div className="flex items-start space-x-2">
-              <MapPin className="h-4 w-4 text-amber-600 mt-0.5" />
+              <MapPin className="h-4 w-4 text-warning mt-0.5" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-amber-800">Ubicación no especificada</p>
-                <p className="text-xs text-amber-700">
+                <p className="text-xs font-medium text-warning">Ubicación no especificada</p>
+                <p className="text-xs text-warning">
                   Selecciona la ubicación del cliente para calcular el costo de entrega
                 </p>
               </div>

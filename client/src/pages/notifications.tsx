@@ -86,11 +86,11 @@ export default function NotificationsPage() {
   
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Sistema de Notificaciones</h1>
-          <p className="text-gray-600">
+          <h1 className="text-[20px] font-semibold tracking-tight">Sistema de Notificaciones</h1>
+          <p className="text-muted-foreground">
             Configure notificaciones automáticas para eventos de órdenes
           </p>
         </div>
@@ -106,10 +106,10 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold">{Array.isArray(notifications) ? notifications.length : 0}</p>
               </div>
-              <Bell className="w-8 h-8 text-gray-400" />
+              <Bell className="w-8 h-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -118,13 +118,13 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Sin leer</p>
+                <p className="text-sm text-muted-foreground">Sin leer</p>
               
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-primary">
   {Array.isArray(notifications) ? notifications.filter(n => !n?.isRead).length : 0}
 </p>
               </div>
-              <BellOff className="w-8 h-8 text-blue-400" />
+              <BellOff className="w-8 h-8 text-primary/70" />
             </div>
           </CardContent>
         </Card>
@@ -133,10 +133,10 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Urgentes</p>
-                <p className="text-2xl font-bold text-red-600">0</p>
+                <p className="text-sm text-muted-foreground">Urgentes</p>
+                <p className="text-2xl font-bold text-destructive">0</p>
               </div>
-              <AlertCircle className="w-8 h-8 text-red-400" />
+              <AlertCircle className="w-8 h-8 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -145,10 +145,10 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Mensajes</p>
-                <p className="text-2xl font-bold text-green-600">0</p>
+                <p className="text-sm text-muted-foreground">Mensajes</p>
+                <p className="text-2xl font-bold text-success">0</p>
               </div>
-              <MessageSquare className="w-8 h-8 text-green-400" />
+              <MessageSquare className="w-8 h-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -199,16 +199,16 @@ const NotificationsTab = ({ notifications }) => (
       </CardHeader>
       <CardContent>
         {notifications.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No hay notificaciones</p>
+          <p className="text-muted-foreground text-center py-8">No hay notificaciones</p>
         ) : (
           <div className="space-y-3">
             {notifications.map((notification) => (
               <div key={notification.id} className="flex items-start gap-3 p-3 border rounded">
-                <Bell className="w-5 h-5 text-blue-500 mt-1" />
+                <Bell className="w-5 h-5 text-primary mt-1" />
                 <div className="flex-1">
                   <h4 className="font-medium">{notification.title}</h4>
-                  <p className="text-sm text-gray-600">{notification.message}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-sm text-muted-foreground">{notification.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {new Date(notification.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -228,15 +228,15 @@ const ChannelsTab = ({ channels, onUpdate }) => (
         <Card key={channel.id}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {channel.name === 'whatsapp' && <MessageSquare className="w-5 h-5 text-green-500" />}
-              {channel.name === 'email' && <Mail className="w-5 h-5 text-blue-500" />}
-              {channel.name === 'app' && <Smartphone className="w-5 h-5 text-purple-500" />}
+              {channel.name === 'whatsapp' && <MessageSquare className="w-5 h-5 text-success" />}
+              {channel.name === 'email' && <Mail className="w-5 h-5 text-primary" />}
+              {channel.name === 'app' && <Smartphone className="w-5 h-5 text-primary" />}
               <span className="capitalize">{channel.name}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 {channel.isEnabled ? 'Activo' : 'Inactivo'}
               </span>
               <Switch 
@@ -283,8 +283,8 @@ const ConfigsTab = ({ configs, events, channels }) => (
       
       {configs.length === 0 && (
         <div className="text-center py-8">
-          <Settings className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-500">No hay configuraciones de notificación</p>
+          <Settings className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">No hay configuraciones de notificación</p>
         </div>
       )}
     </div>
@@ -303,7 +303,7 @@ const HistoryTab = ({ history }) => (
             <div key={item.id} className="flex items-center justify-between p-3 border rounded">
               <div>
                 <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-gray-600">{item.channel} - {item.recipientType}</p>
+                <p className="text-sm text-muted-foreground">{item.channel} - {item.recipientType}</p>
               </div>
               <Badge variant={item.status === 'sent' ? 'default' : 'destructive'}>
                 {item.status}
@@ -313,8 +313,8 @@ const HistoryTab = ({ history }) => (
           
           {history.length === 0 && (
             <div className="text-center py-8">
-              <History className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">No hay historial de notificaciones</p>
+              <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No hay historial de notificaciones</p>
             </div>
           )}
         </div>

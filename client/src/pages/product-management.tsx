@@ -831,11 +831,11 @@ const formatStock = (qty: number | undefined | null): string => {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="text-center py-12">
-            <Package className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <Package className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Error al cargar datos
             </h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               {productsError?.message || categoriesError?.message || 'Hubo un problema al cargar los productos'}
             </p>
             <Button onClick={() => window.location.reload()}>
@@ -854,8 +854,8 @@ const formatStock = (qty: number | undefined | null): string => {
    {/* Header */}
 <div className="flex justify-between items-center mb-6">
   <div>
-    <h1 className="text-3xl font-bold text-gray-900">Gestión de Productos</h1>
-    <p className="text-gray-600 mt-1">
+    <h1 className="text-[20px] font-semibold tracking-tight">Gestión de Productos</h1>
+    <p className="text-muted-foreground mt-1">
       Administra tu catálogo de productos y servicios
     </p>
   </div>
@@ -910,7 +910,7 @@ const formatStock = (qty: number | undefined | null): string => {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Buscar productos..."
                   value={searchTerm}
@@ -954,7 +954,7 @@ const formatStock = (qty: number | undefined | null): string => {
               {isServiceProduct(product) && <ServiceRibbon />}
               <CardHeader className="pb-4">
                 {/* Imagen del producto */}
-                <div className="w-full h-48 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
+                <div className="w-full h-48 bg-subtle rounded-lg flex items-center justify-center relative overflow-hidden group">
                   {getProductMainImage(product) ? (
                     <img
                       src={getProductMainImage(product)}
@@ -966,11 +966,11 @@ const formatStock = (qty: number | undefined | null): string => {
                       }}
                     />
                   ) : (
-                    <Package className="w-16 h-16 text-gray-400" />
+                    <Package className="w-16 h-16 text-muted-foreground" />
                   )}
                   
                   <div className="hidden absolute inset-0 items-center justify-center">
-                    <Package className="w-16 h-16 text-gray-400" />
+                    <Package className="w-16 h-16 text-muted-foreground" />
                   </div>
                   
                   {getProductImages(product).length > 1 && (
@@ -1007,14 +1007,14 @@ const formatStock = (qty: number | undefined | null): string => {
                 </div>
 
                 <CardTitle className="text-lg line-clamp-2 mt-3">{product.name}</CardTitle>
-                <CardDescription className="text-sm text-gray-600 line-clamp-2">
+                <CardDescription className="text-sm text-muted-foreground line-clamp-2">
                   {product.description}
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="pt-0">
                 <div className="flex items-center justify-between mb-3">
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
   {formatCurrency(product.price || 0, product.baseCurrency || product.currency || 'DOP')}
 </div>
                   <Badge variant="secondary" className="text-xs">
@@ -1024,8 +1024,8 @@ const formatStock = (qty: number | undefined | null): string => {
 
                 {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
                 {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
-                  <div className="mb-3 p-2 bg-amber-50 rounded border border-amber-200">
-                    <span className="text-xs text-amber-700 font-medium">
+                  <div className="mb-3 p-2 bg-warning/15 rounded border border-warning/40">
+                    <span className="text-xs text-warning font-medium">
                       {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
                     </span>
                   </div>
@@ -1034,17 +1034,17 @@ const formatStock = (qty: number | undefined | null): string => {
                 <div className="flex items-center justify-between">
                   {!isServiceProduct(product) && (
                     (product.stock_quantity ?? 0) < 0 ? (
-                      <span className="text-sm font-semibold text-white bg-red-600 px-2 py-0.5 rounded">
+                      <span className="text-sm font-semibold text-destructive-foreground bg-destructive px-2 py-0.5 rounded">
                         Stock: {formatStock(product.stock_quantity)}
                       </span>
                     ) : (
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-muted-foreground">
                         Stock: {formatStock(product.stock_quantity)}
                       </span>
                     )
                   )}
                   {isServiceProduct(product) && (
-                    <span className="text-xs text-blue-600 font-medium">Sin inventario</span>
+                    <span className="text-xs text-primary font-medium">Sin inventario</span>
                   )}
                   <div className="flex gap-1">
                     <Button
@@ -1065,7 +1065,7 @@ const formatStock = (qty: number | undefined | null): string => {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDeleteProduct(product.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -1087,7 +1087,7 @@ const formatStock = (qty: number | undefined | null): string => {
                 <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg relative overflow-hidden">
                   {isServiceProduct(product) && <ServiceRibbon size="sm" />}
                   <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
                       {getProductMainImage(product) ? (
                         <img
                           src={getProductMainImage(product)}
@@ -1099,29 +1099,29 @@ const formatStock = (qty: number | undefined | null): string => {
                           }}
                         />
                       ) : (
-                        <Package className="w-8 h-8 text-gray-400" />
+                        <Package className="w-8 h-8 text-muted-foreground" />
                       )}
                       <div className="hidden">
-                        <Package className="w-8 h-8 text-gray-400" />
+                        <Package className="w-8 h-8 text-muted-foreground" />
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{product.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description}</p>
+                      <h3 className="font-medium text-foreground">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
                       <div className="flex items-center space-x-2 mt-2 flex-wrap gap-1">
                         <Badge variant={product.type === "service" ? "secondary" : "default"}>
                           {product.type === "service" ? "Servicio" : "Producto"}
                         </Badge>
                         <Badge variant="outline">{product.category}</Badge>
-                        <span className="text-sm font-medium text-green-600">
+                        <span className="text-sm font-medium text-success">
                          {formatCurrency(product.price || "0", product.baseCurrency || product.currency || 'DOP')}
                         </span>
                         {(product.stock_quantity ?? 0) < 0 ? (
-                          <Badge className="bg-red-600 text-white border-red-600">Stock: {formatStock(product.stock_quantity)}</Badge>
+                          <Badge className="bg-destructive text-destructive-foreground border-destructive">Stock: {formatStock(product.stock_quantity)}</Badge>
                         ) : (
                           !isServiceProduct(product)
                             ? <Badge variant="outline">Stock: {formatStock(product.stock_quantity)}</Badge>
-                            : <Badge variant="secondary" className="text-blue-700 bg-blue-50">Sin inventario</Badge>
+                            : <Badge variant="secondary" className="text-primary bg-accent">Sin inventario</Badge>
                         )}
                         {product.sku && (
                           <Badge variant="outline" className="font-mono text-xs">
@@ -1129,13 +1129,13 @@ const formatStock = (qty: number | undefined | null): string => {
                           </Badge>
                         )}
                         {product.barcode && (
-                          <Badge variant="outline" className="font-mono text-xs bg-blue-50">
+                          <Badge variant="outline" className="font-mono text-xs bg-accent">
                             📊 {product.barcode}
                           </Badge>
                         )}
                         {/* 🎁 FIDELIZACIÓN - Mostrar puntos de lealtad si existen */}
                         {product.loyaltyPointsPropertyName && product.loyaltyPointsValue && (
-                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                          <Badge className="bg-warning/15 text-warning hover:bg-warning/10">
                             {product.loyaltyPointsValue} {product.loyaltyPointsPropertyName}
                           </Badge>
                         )}
@@ -1166,7 +1166,7 @@ const formatStock = (qty: number | undefined | null): string => {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDeleteProduct(product.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -1225,7 +1225,7 @@ const formatStock = (qty: number | undefined | null): string => {
               </div>
               <div className="mt-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Buscar producto..."
                     value={bulkSearch}
@@ -1237,12 +1237,12 @@ const formatStock = (qty: number | undefined | null): string => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-2 px-3 font-medium text-gray-600">Producto</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-600">Precio Actual</th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-600">Nuevo Precio ({bulkCurrency})</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Producto</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Precio Actual</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Nuevo Precio ({bulkCurrency})</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1251,12 +1251,12 @@ const formatStock = (qty: number | undefined | null): string => {
                         (!bulkSearch || p.name?.toLowerCase().includes(bulkSearch.toLowerCase()))
                       )
                       .map((product: any) => (
-                        <tr key={product.id} className="border-b hover:bg-gray-50">
-                          <td className="py-2 px-3 font-medium">{product.name}</td>
-                          <td className="py-2 px-3 text-gray-500">
+                        <tr key={product.id} className="border-b hover:bg-subtle">
+                          <td className="h-[34px] px-3 py-1.5 font-medium">{product.name}</td>
+                          <td className="h-[34px] px-3 py-1.5 text-muted-foreground">
                             {formatCurrency(product.price || '0', product.baseCurrency || product.currency || 'DOP')}
                           </td>
-                          <td className="py-2 px-3">
+                          <td className="h-[34px] px-3 py-1.5">
                             <Input
                               type="number"
                               placeholder="Nuevo precio"
@@ -1296,7 +1296,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   <Input
                     value={selectedProduct?.name || ''}
                     disabled
-                    className="bg-gray-50"
+                    className="bg-subtle"
                   />
                 </div>
 
@@ -1305,7 +1305,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   <Textarea
                     value={selectedProduct?.description || ''}
                     disabled
-                    className="bg-gray-50"
+                    className="bg-subtle"
                     rows={3}
                   />
                 </div>
@@ -1316,18 +1316,18 @@ const formatStock = (qty: number | undefined | null): string => {
     <Input
       value={formatCurrency(selectedProduct?.price || "0", selectedProduct?.baseCurrency || selectedProduct?.currency || 'DOP')}
       disabled
-      className="bg-gray-50"
+      className="bg-subtle"
     />
   </div>
   <div>
     <Label>Moneda</Label>
-    <div className="bg-gray-50 border rounded-md px-3 py-2 text-sm flex items-center gap-2">
+    <div className="bg-subtle border rounded-md px-3 py-2 text-sm flex items-center gap-2">
       <Globe className="w-4 h-4" />
       <div className="flex flex-col">
         <span className="font-medium">
           {SUPPORTED_CURRENCIES.find(c => c.code === (selectedProduct?.baseCurrency || selectedProduct?.currency))?.name || 'Peso Dominicano'}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-muted-foreground">
           {SUPPORTED_CURRENCIES.find(c => c.code === (selectedProduct?.baseCurrency || selectedProduct?.currency))?.symbol || 'RD$'} ({selectedProduct?.baseCurrency || selectedProduct?.currency || 'DOP'})
         </span>
       </div>
@@ -1339,7 +1339,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   <Label>Costo Instalación</Label>
                   <Input
                     value={selectedProduct?.installationCost ? formatCurrency(selectedProduct.installationCost, selectedProduct?.baseCurrency || selectedProduct?.currency || 'DOP') : 'No especificado'}
-                    className="bg-gray-50"
+                    className="bg-subtle"
                   />
                 </div>
 
@@ -1348,7 +1348,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   <Input
                     value={selectedProduct?.category || ''}
                     disabled
-                    className="bg-gray-50"
+                    className="bg-subtle"
                   />
                 </div>
 
@@ -1358,7 +1358,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.brand || 'No especificada'}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-subtle"
                     />
                   </div>
                   <div>
@@ -1366,7 +1366,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.model || 'No especificado'}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-subtle"
                     />
                   </div>
                 </div>
@@ -1377,7 +1377,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.sku || 'No especificado'}
                       disabled
-                      className="bg-gray-50 font-mono text-xs"
+                      className="bg-subtle font-mono text-xs"
                     />
                   </div>
                   <div>
@@ -1385,7 +1385,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.barcode || 'No especificado'}
                       disabled
-                      className="bg-gray-50 font-mono text-xs"
+                      className="bg-subtle font-mono text-xs"
                     />
                   </div>
                 </div>
@@ -1396,7 +1396,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.stock_quantity?.toString() || '0'}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-subtle"
                     />
                   </div>
                   <div>
@@ -1404,7 +1404,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Input
                       value={selectedProduct?.warrantyMonths?.toString() || '0'}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-subtle"
                     />
                   </div>
                 </div>
@@ -1415,7 +1415,7 @@ const formatStock = (qty: number | undefined | null): string => {
                     <Textarea
                       value={selectedProduct.specifications}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-subtle"
                       rows={3}
                     />
                   </div>
@@ -1430,7 +1430,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   {getProductImages(selectedProduct || {} as Product).length > 0 ? (
                     <div className="space-y-4">
                       {/* Imagen principal */}
-                      <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="relative w-full h-64 bg-muted rounded-lg overflow-hidden">
                         <img
                           src={getProductImages(selectedProduct || {} as Product)[currentImageIndex]}
                           alt={`Imagen ${currentImageIndex + 1}`}
@@ -1477,7 +1477,7 @@ const formatStock = (qty: number | undefined | null): string => {
                               key={index}
                               type="button"
                               className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                                index === currentImageIndex ? 'border-blue-500' : 'border-gray-200'
+                                index === currentImageIndex ? 'border-primary' : 'border-border'
                               }`}
                               onClick={() => setCurrentImageIndex(index)}
                             >
@@ -1492,10 +1492,10 @@ const formatStock = (qty: number | undefined | null): string => {
                       )}
                     </div>
                   ) : (
-                    <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center">
                       <div className="text-center">
-                        <Package className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-500">Sin imágenes</p>
+                        <Package className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-muted-foreground">Sin imágenes</p>
                       </div>
                     </div>
                   )}
@@ -1503,72 +1503,72 @@ const formatStock = (qty: number | undefined | null): string => {
 
                 {/* Información adicional */}
                 <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-900 mb-2">Información del Producto</h4>
+                  <div className="bg-subtle p-4 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Información del Producto</h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-600">Tipo:</span>
+                        <span className="text-muted-foreground">Tipo:</span>
                         <Badge variant="outline" className="ml-2">
                           {selectedProduct?.type === "service" ? "Servicio" : "Producto"}
                         </Badge>
                       </div>
                       <div>
-                        <span className="text-gray-600">Estado:</span>
+                        <span className="text-muted-foreground">Estado:</span>
                         <Badge variant={selectedProduct?.isActive ? "default" : "secondary"} className="ml-2">
                           {selectedProduct?.isActive ? "Activo" : "Inactivo"}
                         </Badge>
                       </div>
                       {selectedProduct?.brand && (
                         <div>
-                          <span className="text-gray-600">Marca:</span>
+                          <span className="text-muted-foreground">Marca:</span>
                           <span className="ml-2 font-medium">{selectedProduct.brand}</span>
                         </div>
                       )}
                       {selectedProduct?.model && (
                         <div>
-                          <span className="text-gray-600">Modelo:</span>
+                          <span className="text-muted-foreground">Modelo:</span>
                           <span className="ml-2 font-medium">{selectedProduct.model}</span>
                         </div>
                       )}
                       {selectedProduct?.sku && (
                         <div>
-                          <span className="text-gray-600">SKU:</span>
-                          <span className="ml-2 font-mono text-xs bg-gray-200 px-2 py-1 rounded">
+                          <span className="text-muted-foreground">SKU:</span>
+                          <span className="ml-2 font-mono text-xs bg-secondary px-2 py-1 rounded">
                             {selectedProduct.sku}
                           </span>
                         </div>
                       )}
                       {selectedProduct?.barcode && (
                         <div>
-                          <span className="text-gray-600">Código de Barras:</span>
-                          <span className="ml-2 font-mono text-xs bg-gray-200 px-2 py-1 rounded">
+                          <span className="text-muted-foreground">Código de Barras:</span>
+                          <span className="ml-2 font-mono text-xs bg-secondary px-2 py-1 rounded">
                             {selectedProduct.barcode}
                           </span>
                         </div>
                       )}
                       <div>
-                        <span className="text-gray-600">Stock:</span>
+                        <span className="text-muted-foreground">Stock:</span>
                         <span className="ml-2 font-medium">{selectedProduct?.stock_quantity || 0}</span>
                       </div>
                       {selectedProduct?.warrantyMonths && selectedProduct.warrantyMonths > 0 && (
                         <div>
-                          <span className="text-gray-600">Garantía:</span>
+                          <span className="text-muted-foreground">Garantía:</span>
                           <span className="ml-2 font-medium">{selectedProduct.warrantyMonths} meses</span>
                         </div>
                       )}
                       {selectedProduct?.installationCost && (
                         <div>
-                          <span className="text-gray-600">Costo instalación:</span>
-                          <span className="ml-2 font-medium text-green-600">
+                          <span className="text-muted-foreground">Costo instalación:</span>
+                          <span className="ml-2 font-medium text-success">
                             {formatCurrency(selectedProduct.installationCost, selectedProduct?.baseCurrency || selectedProduct?.currency || 'DOP')}
                           </span>
                         </div>
                       )}
                       <div>
-                        <span className="text-gray-600">Puntos de Lealtad:</span>
+                        <span className="text-muted-foreground">Puntos de Lealtad:</span>
                         {!isEditingLoyalty ? (
-                          <div className="flex items-center justify-between mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                            <span className="font-medium text-amber-600">
+                          <div className="flex items-center justify-between mt-2 p-3 bg-warning/15 rounded-lg border border-warning/40">
+                            <span className="font-medium text-warning">
                               {selectedProduct?.loyaltyPointsPropertyName && selectedProduct?.loyaltyPointsValue
                                 ? `${selectedProduct.loyaltyPointsValue} ${selectedProduct.loyaltyPointsPropertyName}`
                                 : 'No configurado'}
@@ -1583,7 +1583,7 @@ const formatStock = (qty: number | undefined | null): string => {
                             </Button>
                           </div>
                         ) : (
-                          <div className="space-y-3 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="space-y-3 mt-3 p-3 bg-warning/15 rounded-lg border border-warning/40">
                             <div>
                               <Label htmlFor="loyaltyName" className="text-xs">Nombre de Propiedad</Label>
                               <Input
@@ -1620,7 +1620,7 @@ const formatStock = (qty: number | undefined | null): string => {
                               </Button>
                               <Button
                                 size="sm"
-                                className="bg-amber-600 hover:bg-amber-700"
+                                className="bg-warning hover:bg-warning/90"
                                 onClick={handleSaveLoyaltyPoints}
                               >
                                 <Check className="w-3 h-3 mr-1" />
@@ -1633,41 +1633,41 @@ const formatStock = (qty: number | undefined | null): string => {
                     </div>
                   </div>
 
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
+                  <div className="bg-success/10 p-4 rounded-lg border border-success/40 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-green-900">Inventario</h4>
-                      <Badge variant="outline" className="text-green-700 border-green-300">
+                      <h4 className="font-medium text-success">Inventario</h4>
+                      <Badge variant="outline" className="text-success border-success/40">
                         Stock: {selectedProduct?.stock_quantity || 0}
                       </Badge>
                     </div>
 
                     {isServiceProduct(selectedProduct || {} as Product) ? (
-                      <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+                      <div className="rounded-md bg-accent border border-border px-4 py-3 text-sm text-primary">
                         🛠️ Este es un <strong>servicio</strong>. Los servicios no manejan stock ni movimientos de inventario.
                       </div>
                     ) : (
                     <>
-                    <p className="text-xs text-green-700 bg-green-100 border border-green-300 rounded px-3 py-2">
+                    <p className="text-xs text-success bg-success/10 border border-success/40 rounded px-3 py-2">
                       La modificación de stock se realiza a través de <strong>Ajuste de Inventario</strong> o <strong>Gestión de Compras</strong>.
                     </p>
 
                     <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-800">Movimientos recientes</p>
-                      {movementsQuery.isLoading && <p className="text-xs text-gray-500">Cargando movimientos...</p>}
+                      <p className="text-sm font-medium text-foreground">Movimientos recientes</p>
+                      {movementsQuery.isLoading && <p className="text-xs text-muted-foreground">Cargando movimientos...</p>}
                       {movementsQuery.error && (
-                        <p className="text-xs text-red-600">No se pudieron cargar los movimientos</p>
+                        <p className="text-xs text-destructive">No se pudieron cargar los movimientos</p>
                       )}
                       {!movementsQuery.isLoading && movementsQuery.data?.length === 0 && (
-                        <p className="text-xs text-gray-500">Sin movimientos registrados</p>
+                        <p className="text-xs text-muted-foreground">Sin movimientos registrados</p>
                       )}
                       <div className="space-y-2 max-h-40 overflow-y-auto">
                         {movementsQuery.data?.slice(0, 5).map((mov) => (
-                          <div key={mov.id} className="p-2 bg-white border rounded text-xs flex justify-between">
+                          <div key={mov.id} className="p-2 bg-card border rounded text-xs flex justify-between">
                             <div>
                               <p className="font-semibold capitalize">{mov.type}</p>
-                              <p className="text-gray-600">Cant: {mov.quantity}</p>
+                              <p className="text-muted-foreground">Cant: {mov.quantity}</p>
                             </div>
-                            <div className="text-right text-gray-600">
+                            <div className="text-right text-muted-foreground">
                               <p>{new Date(mov.createdAt || mov.created_at).toLocaleDateString('es-DO')}</p>
                               {mov.lotNumber && <p>Lote: {mov.lotNumber}</p>}
                             </div>
@@ -1680,9 +1680,9 @@ const formatStock = (qty: number | undefined | null): string => {
                   </div>
 
                   {selectedProduct?.specifications && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Especificaciones Técnicas</h4>
-                      <p className="text-sm text-blue-800 whitespace-pre-line">
+                    <div className="bg-accent p-4 rounded-lg">
+                      <h4 className="font-medium text-accent-foreground mb-2">Especificaciones Técnicas</h4>
+                      <p className="text-sm text-accent-foreground whitespace-pre-line">
                         {selectedProduct.specifications}
                       </p>
                     </div>
@@ -1705,7 +1705,7 @@ const formatStock = (qty: number | undefined | null): string => {
                   closeDialog();
                   openDialog('edit', selectedProduct);
                 }}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary-hover"
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Editar Producto
@@ -1719,11 +1719,11 @@ const formatStock = (qty: number | undefined | null): string => {
       {filteredProducts.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               No se encontraron productos
             </h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               {searchTerm || filterCategory !== "all"
                 ? "Intenta ajustar tus filtros de búsqueda"
                 : "Comienza agregando tu primer producto al catálogo"}

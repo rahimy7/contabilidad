@@ -576,53 +576,53 @@ export default function Reports() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <Calendar className="h-4 w-4 mr-2" />
               Total Pedidos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-sm text-gray-500 mt-1">Período seleccionado</p>
+            <p className="text-sm text-muted-foreground mt-1">Período seleccionado</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <TrendingUp className="h-4 w-4 mr-2" />
               Tasa de Completitud
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-sm text-gray-500 mt-1">{completedOrders} completados</p>
+            <p className="text-sm text-muted-foreground mt-1">{completedOrders} completados</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <DollarSign className="h-4 w-4 mr-2" />
               Ingresos Totales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totalRevenue.toLocaleString('es-MX')}</div>
-            <p className="text-sm text-green-600 mt-1">Período seleccionado</p>
+            <p className="text-sm text-success mt-1">Período seleccionado</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <UserCheck className="h-4 w-4 mr-2" />
               Empleados Activos
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{employeeStats.active}</div>
-            <p className="text-sm text-gray-500 mt-1">{employeeStats.technicians} técnicos</p>
+            <p className="text-sm text-muted-foreground mt-1">{employeeStats.technicians} técnicos</p>
           </CardContent>
         </Card>
       </div>
@@ -707,7 +707,7 @@ export default function Reports() {
                       </div>
                       <div className="text-right">
                         <div className="font-semibold">{status.value}</div>
-                        <div className="text-sm text-gray-500">{percentage}%</div>
+                        <div className="text-sm text-muted-foreground">{percentage}%</div>
                       </div>
                     </div>
                   );
@@ -722,7 +722,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Empleados
                 </CardTitle>
               </CardHeader>
@@ -732,22 +732,22 @@ export default function Reports() {
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Empleados Activos
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{employeeStats.active}</div>
+                <div className="text-2xl font-bold text-success">{employeeStats.active}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Técnicos
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{employeeStats.technicians}</div>
+                <div className="text-2xl font-bold text-primary">{employeeStats.technicians}</div>
               </CardContent>
             </Card>
           </div>
@@ -762,22 +762,22 @@ export default function Reports() {
                 {employeePerformance.map((employee) => (
                   <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">
+                      <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
                           {employee.employeeId || employee.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                         </span>
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">{employee.name}</h3>
-                        <p className="text-sm text-gray-500">{employee.position} • {employee.department}</p>
-                        <p className="text-xs text-gray-400">
+                        <h3 className="font-medium text-foreground">{employee.name}</h3>
+                        <p className="text-sm text-muted-foreground">{employee.position} • {employee.department}</p>
+                        <p className="text-xs text-muted-foreground">
                           {employee.orders} pedidos • {employee.currentOrders}/{employee.maxDailyOrders} actuales
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">${employee.revenue.toLocaleString('es-MX')}</div>
-                      <div className="text-sm text-gray-500">{employee.completionRate}% completitud</div>
+                      <div className="text-sm text-muted-foreground">{employee.completionRate}% completitud</div>
                       <div className="flex items-center space-x-2 mt-1">
                         <Badge variant={parseFloat(employee.completionRate) >= 80 ? "default" : "secondary"}>
                           {employee.completed} completados
@@ -795,7 +795,7 @@ export default function Reports() {
                   </div>
                 ))}
                 {employeePerformance.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     No hay empleados técnicos para mostrar
                   </div>
                 )}
@@ -814,12 +814,12 @@ export default function Reports() {
                 {productPerformance.slice(0, 10).map((product) => (
                   <div key={product.name} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <Package className="h-5 w-5 text-green-600" />
+                      <div className="w-10 h-10 bg-success/10 rounded-full flex items-center justify-center">
+                        <Package className="h-5 w-5 text-success" />
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">{product.name}</h3>
-                        <p className="text-sm text-gray-500">{product.orders} pedidos</p>
+                        <h3 className="font-medium text-foreground">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground">{product.orders} pedidos</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -840,40 +840,40 @@ export default function Reports() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
                   <Package className="h-4 w-4 mr-2" />
                   Stock Total
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{inventoryMetrics.totalStock}</div>
-                <p className="text-sm text-gray-500 mt-1">{inventoryMetrics.totalProducts} productos</p>
+                <p className="text-sm text-muted-foreground mt-1">{inventoryMetrics.totalProducts} productos</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
                   <DollarSign className="h-4 w-4 mr-2" />
                   Valor Total Inventario
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${inventoryMetrics.totalInventoryValue.toLocaleString('es-MX')}</div>
-                <p className="text-sm text-gray-500 mt-1">Valoración actual</p>
+                <p className="text-sm text-muted-foreground mt-1">Valoración actual</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Stock Crítico
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">{inventoryMetrics.zeroStockCount}</div>
-                <p className="text-sm text-gray-500 mt-1">{inventoryMetrics.lowStockCount} con stock bajo</p>
+                <div className="text-2xl font-bold text-destructive">{inventoryMetrics.zeroStockCount}</div>
+                <p className="text-sm text-muted-foreground mt-1">{inventoryMetrics.lowStockCount} con stock bajo</p>
               </CardContent>
             </Card>
           </div>
@@ -898,23 +898,23 @@ export default function Reports() {
                     return (
                       <div key={sale.productId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Package className="h-5 w-5 text-blue-600" />
+                          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center">
+                            <Package className="h-5 w-5 text-primary" />
                           </div>
                           <div>
-                            <h3 className="font-medium text-gray-900">{sale.name}</h3>
-                            <p className="text-sm text-gray-500">{sale.quantity} unidades</p>
+                            <h3 className="font-medium text-foreground">{sale.name}</h3>
+                            <p className="text-sm text-muted-foreground">{sale.quantity} unidades</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-green-600">${displayRevenue}</div>
+                          <div className="font-semibold text-success">${displayRevenue}</div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No hay ventas registradas hoy
                 </div>
               )}
@@ -923,9 +923,9 @@ export default function Reports() {
 
           {/* Zero Stock Products Alert */}
           {zeroStockProducts.length > 0 && (
-            <Card className="border-red-200 bg-red-50">
+            <Card className="border-destructive/40 bg-destructive/10">
               <CardHeader>
-                <CardTitle className="flex items-center text-red-700">
+                <CardTitle className="flex items-center text-destructive">
                   <AlertTriangle className="h-5 w-5 mr-2" />
                   Productos con Stock en Cero ({zeroStockProducts.length})
                 </CardTitle>
@@ -933,10 +933,10 @@ export default function Reports() {
               <CardContent>
                 <div className="space-y-3">
                   {zeroStockProducts.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 bg-white rounded border border-red-200">
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-card rounded border border-destructive/40">
                       <div>
-                        <h3 className="font-medium text-gray-900">{product.name}</h3>
-                        <p className="text-sm text-gray-500">Categoría: {product.category || "Sin categoría"}</p>
+                        <h3 className="font-medium text-foreground">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground">Categoría: {product.category || "Sin categoría"}</p>
                       </div>
                       <Badge variant="destructive">Sin Stock</Badge>
                     </div>
@@ -963,9 +963,9 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
-                    <tr className="border-b bg-gray-50">
+                    <tr className="border-b bg-subtle">
                       <th className="px-4 py-2 text-left font-semibold">Producto</th>
                       <th className="px-4 py-2 text-center font-semibold">Stock</th>
                       <th className="px-4 py-2 text-right font-semibold">Precio Unit.</th>
@@ -983,8 +983,8 @@ export default function Reports() {
                         const isZeroStock = stock === 0;
 
                         return (
-                          <tr key={product.id} className={`border-b ${isZeroStock ? "bg-red-50" : isLowStock ? "bg-yellow-50" : ""}`}>
-                            <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
+                          <tr key={product.id} className={`border-b ${isZeroStock ? "bg-destructive/10" : isLowStock ? "bg-warning/15" : ""}`}>
+                            <td className="px-4 py-3 font-medium text-foreground">{product.name}</td>
                             <td className="px-4 py-3 text-center">
                               <Badge variant={isZeroStock ? "destructive" : isLowStock ? "secondary" : "default"}>
                                 {stock}
@@ -992,13 +992,13 @@ export default function Reports() {
                             </td>
                             <td className="px-4 py-3 text-right">${price.toFixed(2)}</td>
                             <td className="px-4 py-3 text-right font-semibold">${totalValue.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-gray-600">{product.category || "Sin categoría"}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{product.category || "Sin categoría"}</td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                           No hay productos en el inventario
                         </td>
                       </tr>

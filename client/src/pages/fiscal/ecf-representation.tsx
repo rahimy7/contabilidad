@@ -58,7 +58,7 @@ export function EcfRepresentationDialog({ documentId }: { documentId: number }) 
 
 export function Representation({ r }: { r: EcfRepresentation }) {
   return (
-    <div className="ecf-print bg-white text-black p-6 text-sm">
+    <div className="ecf-print bg-card text-black text-sm">
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -70,12 +70,12 @@ export function Representation({ r }: { r: EcfRepresentation }) {
       {/* Un documento que no está firmado, o que DGII rechazó, se marca. Un papel
           con apariencia fiscal que no verifica es peor que no tener papel. */}
       {!r.isFiscal && (
-        <div className="mb-4 border-2 border-red-600 text-red-700 text-center font-bold py-2 tracking-wide">
+        <div className="mb-4 border-2 border-destructive text-destructive text-center font-bold py-2 tracking-wide">
           SIN VALOR FISCAL — DOCUMENTO NO FIRMADO O RECHAZADO
         </div>
       )}
       {r.isFiscal && r.environmentNotice && (
-        <div className="mb-4 border-2 border-amber-500 text-amber-700 text-center font-bold py-2 tracking-wide text-xs">
+        <div className="mb-4 border-2 border-warning text-warning text-center font-bold py-2 tracking-wide text-xs">
           {r.environmentNotice}
         </div>
       )}
@@ -110,14 +110,14 @@ export function Representation({ r }: { r: EcfRepresentation }) {
 
       <div className="grid grid-cols-2 gap-6 py-4 border-b">
         <div>
-          <p className="text-xs font-semibold uppercase text-gray-500">Comprador</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Comprador</p>
           <p className="font-medium">{r.buyer.name ?? "Consumidor final"}</p>
           {r.buyer.rnc && <p className="text-xs">RNC/Cédula {r.buyer.rnc}</p>}
         </div>
         <div className="text-right">
           {r.paymentMethodLabel && (
             <>
-              <p className="text-xs font-semibold uppercase text-gray-500">Forma de pago</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Forma de pago</p>
               <p>{r.paymentMethodLabel}</p>
             </>
           )}
@@ -128,7 +128,7 @@ export function Representation({ r }: { r: EcfRepresentation }) {
       <table className="w-full text-xs my-4">
         <thead className="border-b">
           <tr className="text-left">
-            <th className="py-1">#</th>
+            <th className="h-9 px-3 text-[12px] font-semibold text-muted-foreground">#</th>
             <th>Descripción</th>
             <th className="text-right">Cant.</th>
             <th className="text-right">Precio</th>
@@ -140,10 +140,10 @@ export function Representation({ r }: { r: EcfRepresentation }) {
         <tbody>
           {r.lines.map((l) => (
             <tr key={l.lineNo} className="border-b last:border-0">
-              <td className="py-1">{l.lineNo}</td>
+              <td className="h-[34px] px-3 py-1.5">{l.lineNo}</td>
               <td>
                 {l.description}
-                {l.isExempt && <span className="ml-1 text-[10px] text-gray-500">(exento)</span>}
+                {l.isExempt && <span className="ml-1 text-[10px] text-muted-foreground">(exento)</span>}
               </td>
               <td className="text-right">{qty(l.quantity)}</td>
               <td className="text-right">{money(l.unitPrice)}</td>
@@ -164,12 +164,12 @@ export function Representation({ r }: { r: EcfRepresentation }) {
               <QRCodeSVG value={r.qrUrl} size={120} level="M" />
               <p className="pt-1">Código de seguridad: <span className="font-mono">{r.securityCode}</span></p>
               <p>Firma: {r.signedAt ? new Date(r.signedAt).toLocaleString("es-DO") : "—"}</p>
-              <p className="text-gray-500 max-w-[16rem]">
+              <p className="text-muted-foreground max-w-[16rem]">
                 Escanee para verificar este comprobante en la consulta de DGII.
               </p>
             </>
           ) : (
-            <p className="text-gray-500 max-w-[16rem]">
+            <p className="text-muted-foreground max-w-[16rem]">
               Este documento aún no ha sido firmado, por lo que no tiene código de seguridad ni
               código QR de verificación.
             </p>
@@ -197,7 +197,7 @@ export function Representation({ r }: { r: EcfRepresentation }) {
       </div>
 
       {r.trackId && (
-        <p className="pt-4 text-[10px] text-gray-400 font-mono">TrackId DGII: {r.trackId}</p>
+        <p className="pt-4 text-[10px] text-muted-foreground font-mono">TrackId DGII: {r.trackId}</p>
       )}
     </div>
   );
@@ -206,7 +206,7 @@ export function Representation({ r }: { r: EcfRepresentation }) {
 function Line({ label, value, raw }: { label: string; value: string; raw?: boolean }) {
   return (
     <div className="flex justify-between">
-      <span className="text-gray-600">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <span>{raw ? value : money(value)}</span>
     </div>
   );

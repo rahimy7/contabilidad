@@ -204,7 +204,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
 
         <div className="space-y-4">
           {/* Información de la orden */}
-          <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <Card className="bg-primary/5 to-primary/10 border-primary/20">
             <CardContent className="p-4 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-foreground">Cliente:</span>
@@ -215,25 +215,25 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
                 <span className="text-sm font-bold text-primary">{formatCurrency(order.totalAmount)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-blue-900">Estado:</span>
-                <Badge className="bg-blue-200 text-blue-800">{order.status}</Badge>
+                <span className="text-sm font-medium text-accent-foreground">Estado:</span>
+                <Badge className="bg-accent text-accent-foreground">{order.status}</Badge>
               </div>
             </CardContent>
           </Card>
 
           {/* Asignación actual */}
           {order.assignedUser && (
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-success/40 bg-success/10">
               <CardContent className="p-4">
-                <p className="text-sm font-medium text-green-900 mb-2">
+                <p className="text-sm font-medium text-success mb-2">
                   Actualmente asignado a:
                 </p>
                 <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-green-700" />
-                  <span className="text-green-800 font-semibold">
+                  <User className="w-4 h-4 text-success" />
+                  <span className="text-success font-semibold">
                     {order.assignedUser.name}
                   </span>
-                  <Badge className="bg-green-200 text-green-800 text-xs">
+                  <Badge className="bg-success/10 text-success text-xs">
                     {order.assignedUser.role}
                   </Badge>
                 </div>
@@ -265,7 +265,7 @@ export default function AssignmentModal({ order, isOpen, onClose }: AssignmentMo
               </SelectContent>
             </Select>
             {activeUsers.length === 0 && !usersLoading && (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-warning">
                 ⚠️ No hay técnicos activos disponibles
               </p>
             )}

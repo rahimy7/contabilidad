@@ -74,7 +74,7 @@ const money = (v: string, ccy = 'DOP') =>
 function StatusBadge({ status }: { status: Approval['status'] }) {
   switch (status) {
     case 'approved':
-      return <Badge className="bg-green-600 hover:bg-green-600">Aprobada</Badge>;
+      return <Badge className="bg-success hover:bg-success">Aprobada</Badge>;
     case 'rejected':
       return <Badge variant="destructive">Rechazada</Badge>;
     case 'cancelled':
@@ -87,11 +87,11 @@ function StatusBadge({ status }: { status: Approval['status'] }) {
 export default function ApprovalsPage() {
   const [tab, setTab] = useState('inbox');
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Aprobaciones</h1>
+          <h1 className="text-[20px] font-semibold tracking-tight">Aprobaciones</h1>
           <p className="text-sm text-muted-foreground">
             Solicitudes que requieren autorización antes de tomar efecto contable u operativo.
           </p>
@@ -439,7 +439,7 @@ function RulesTab() {
                   <TableCell>{r.required_approvals}</TableCell>
                   <TableCell>{r.priority}</TableCell>
                   <TableCell>
-                    {r.is_active ? <Badge className="bg-green-600 hover:bg-green-600">Sí</Badge> : <Badge variant="outline">No</Badge>}
+                    {r.is_active ? <Badge className="bg-success hover:bg-success">Sí</Badge> : <Badge variant="outline">No</Badge>}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" onClick={() => del.mutate(r.id)} disabled={del.isPending}>

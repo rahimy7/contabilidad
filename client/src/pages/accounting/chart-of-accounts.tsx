@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { accountingApi, Account } from "@/lib/accounting-api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { DataGrid, FilterBar, PageHeader, StatusChip, type Column } from "@/components/erp";
 
 /**
- * Read-only view of the chart of accounts. The code carries the hierarchy, so
- * indentation is derived from its depth rather than from a nested query.
+ * Plan de cuentas, sólo lectura.
+ *
+ * El código lleva la jerarquía, así que la sangría sale de su profundidad y no
+ * de una consulta anidada. Una cuenta de agrupación va en seminegrita: es la
+ * señal de que no admite asientos, y verlo antes de intentar postear ahorra el
+ * error.
  */
 const TYPE_LABEL: Record<string, string> = {
   asset: "Activo",
@@ -17,6 +19,35 @@ const TYPE_LABEL: Record<string, string> = {
   income: "Ingreso",
   expense: "Gasto",
 };
+
+const COLUMNS: Column<Account>[] = [
+  {
+    key: "code", header: "Código", width: "150px",
+    cell: (a) => <span className="font-mono text-[12px] text-muted-foreground">{a.code}</span>,
+  },
+  {
+    key: "name", header: "Cuenta",
+    cell: (a) => (
+      <span
+        className={a.is_postable ? "" : "font-semibold"}
+        style={{ paddingLeft: `${(a.code.split(".").length - 1) * 16}px` }}
+      >
+        {a.name}
+      </span>
+    ),
+  },
+  {
+    key: "type", header: "Tipo", width: "130px",
+    cell: (a) => TYPE_LABEL[a.account_type] ?? a.account_type,
+  },
+  {
+    key: "nature", header: "Naturaleza", width: "130px",
+    cell: (a) =>
+      a.is_postable
+        ? <StatusChip status="ok">Movimiento</StatusChip>
+        : <StatusChip status="draft">Agrupación</StatusChip>,
+  },
+];
 
 export default function ChartOfAccountsPage() {
   const [search, setSearch] = useState("");
@@ -30,69 +61,35 @@ export default function ChartOfAccountsPage() {
   );
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Plan de Cuentas</h1>
-          <p className="text-sm text-muted-foreground">Catálogo contable de la empresa</p>
-        </div>
-      </div>
+    <div className="space-y-3">
+      <PageHeader subtitle="Catálogo contable de la empresa" />
 
-      <Card>
-        <CardHeader>
-          <div className="relative max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por código o nombre…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-muted-foreground">Cargando…</p>}
-          {error && <p className="text-destructive">No se pudo cargar el plan de cuentas.</p>}
-          {!isLoading && !error && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">Código</th>
-                    <th className="py-2 pr-4 font-medium">Cuenta</th>
-                    <th className="py-2 pr-4 font-medium">Tipo</th>
-                    <th className="py-2 pr-4 font-medium">Naturaleza</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((a: Account) => {
-                    const depth = a.code.split(".").length - 1;
-                    return (
-                      <tr key={a.id} className="border-b last:border-0 hover:bg-muted/40">
-                        <td className="py-1.5 pr-4 font-mono text-xs text-muted-foreground">{a.code}</td>
-                        <td className="py-1.5 pr-4" style={{ paddingLeft: `${depth * 16}px` }}>
-                          <span className={a.is_postable ? "" : "font-medium"}>{a.name}</span>
-                        </td>
-                        <td className="py-1.5 pr-4">{TYPE_LABEL[a.account_type] ?? a.account_type}</td>
-                        <td className="py-1.5 pr-4">
-                          {a.is_postable ? (
-                            <Badge variant="secondary">Movimiento</Badge>
-                          ) : (
-                            <Badge variant="outline">Agrupación</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {accounts.length === 0 && (
-                <p className="py-6 text-center text-muted-foreground">Sin resultados.</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Buscar por código o nombre…"
+        actions={
+          <span className="text-[12px] tabular-nums text-muted-foreground">
+            {accounts.length} de {data?.accounts.length ?? 0} cuentas
+          </span>
+        }
+      />
+
+      {error ? (
+        <Card>
+          <CardContent className="py-8 text-center text-[13px] text-destructive">
+            No se pudo cargar el plan de cuentas.
+          </CardContent>
+        </Card>
+      ) : (
+        <DataGrid
+          columns={COLUMNS}
+          rows={accounts}
+          rowKey={(a) => a.id}
+          isLoading={isLoading}
+          emptyMessage={search ? "Ninguna cuenta coincide." : "El plan de cuentas está vacío."}
+        />
+      )}
     </div>
   );
 }

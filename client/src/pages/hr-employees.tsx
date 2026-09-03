@@ -30,7 +30,7 @@ interface Employee {
 }
 
 const STATUS: Record<string, { label: string; className?: string; variant?: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
-  active: { label: 'Activo', className: 'bg-green-600 hover:bg-green-600' },
+  active: { label: 'Activo', className: 'bg-success hover:bg-success' },
   on_leave: { label: 'Licencia', variant: 'secondary' },
   terminated: { label: 'Terminado', variant: 'destructive' },
   retired: { label: 'Jubilado', variant: 'outline' },
@@ -59,12 +59,12 @@ export default function HrEmployeesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Users className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Empleados</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Empleados</h1>
             <p className="text-sm text-muted-foreground">
               Expediente completo: datos personales, contratos, puestos, documentos, contactos.
             </p>

@@ -74,9 +74,9 @@ const fmtDate = (dateStr: string | null | undefined) => {
 };
 
 const diffColor = (diff: number) => {
-  if (diff > 0) return "text-green-600 font-semibold";
-  if (diff < 0) return "text-red-600 font-semibold";
-  return "text-gray-600";
+  if (diff > 0) return "text-success font-semibold";
+  if (diff < 0) return "text-destructive font-semibold";
+  return "text-muted-foreground";
 };
 
 const statusBadge = (status: string) => {
@@ -369,28 +369,28 @@ function PaymentRow({
   const isEmpty = reported === 0 && !readOnly;
   return (
     <tr className={`border-b last:border-0 transition-colors ${
-      highlight ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+      highlight ? 'bg-success/10 hover:bg-success/10' : 'hover:bg-subtle'
     }`}>
       {/* Columna 1: Método */}
-      <td className="py-3 pr-4">
+      <td className="h-[34px] px-3 py-1.5">
         <div className={`flex items-center gap-2 text-sm font-medium ${
-          highlight ? 'text-emerald-800' : 'text-gray-700'
+          highlight ? 'text-success' : 'text-foreground'
         }`}>
-          <Icon className={`h-4 w-4 flex-shrink-0 ${highlight ? 'text-emerald-600' : 'text-gray-500'}`} />
+          <Icon className={`h-4 w-4 flex-shrink-0 ${highlight ? 'text-success' : 'text-muted-foreground'}`} />
           <span className="whitespace-nowrap">{label}</span>
           {highlight && (
-            <span className="ml-1 text-[10px] font-bold text-emerald-600 bg-emerald-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap">
+            <span className="ml-1 text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap">
               ← ingresa
             </span>
           )}
         </div>
       </td>
       {/* Columna 2: Sistema (esperado) */}
-      <td className="py-3 text-right text-sm text-gray-700 whitespace-nowrap px-4">{fmt(expected)}</td>
+      <td className="h-[34px] px-3 py-1.5 text-right text-sm text-foreground whitespace-nowrap px-4">{fmt(expected)}</td>
       {/* Columna 3: Cajera reporta */}
-      <td className="py-3 pl-4 text-right">
+      <td className="h-[34px] px-3 py-1.5 pl-4 text-right">
         {readOnly ? (
-          <span className="text-sm text-gray-700 whitespace-nowrap">{fmt(reported)}</span>
+          <span className="text-sm text-foreground whitespace-nowrap">{fmt(reported)}</span>
         ) : (
           <div className="flex justify-end">
             <Input
@@ -399,9 +399,9 @@ function PaymentRow({
               step="0.01"
               className={`w-full max-w-[200px] min-w-[140px] text-right transition-all ${
                 highlight && isEmpty
-                  ? 'border-emerald-400 ring-2 ring-emerald-300 bg-white animate-pulse focus:animate-none placeholder-emerald-400'
+                  ? 'border-success ring-2 ring-success bg-card animate-pulse focus:animate-none placeholder:text-success'
                   : highlight
-                  ? 'border-emerald-400 ring-1 ring-emerald-200 bg-white focus:animate-none'
+                  ? 'border-success ring-1 ring-success bg-card focus:animate-none'
                   : ''
               }`}
               value={reported === 0 ? '' : reported}
@@ -647,7 +647,7 @@ export default function CashRegisterPage() {
   if (loadingCurrent) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -655,10 +655,10 @@ export default function CashRegisterPage() {
   return (
     <div className="p-4 md:p-6 space-y-4 w-full">
       <div className="flex items-center gap-3">
-        <Landmark className="h-7 w-7 text-blue-600" />
+        <Landmark className="h-7 w-7 text-primary" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cierre de Caja</h1>
-          <p className="text-sm text-gray-500">Cuadre y aprobación de cierres de caja</p>
+          <h1 className="text-[20px] font-semibold tracking-tight">Cierre de Caja</h1>
+          <p className="text-sm text-muted-foreground">Cuadre y aprobación de cierres de caja</p>
         </div>
       </div>
 
@@ -676,14 +676,14 @@ export default function CashRegisterPage() {
         <TabsContent value="current" className="space-y-4 mt-4">
 
           {/* Toggle: modo de cierre */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+          <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
             <button
               type="button"
               onClick={() => setCloseMode('wizard')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 closeMode === 'wizard'
-                  ? 'bg-white shadow text-blue-700'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-card shadow text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               ✨ Asistido
@@ -693,8 +693,8 @@ export default function CashRegisterPage() {
               onClick={() => setCloseMode('manual')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 closeMode === 'manual'
-                  ? 'bg-white shadow text-blue-700'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-card shadow text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               📋 Manual
@@ -707,16 +707,16 @@ export default function CashRegisterPage() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-full ${
-                    closureScope === 'user' ? 'bg-purple-100'
-                    : closuresToday === 0 ? 'bg-blue-100' : 'bg-amber-100'
+                    closureScope === 'user' ? 'bg-accent'
+                    : closuresToday === 0 ? 'bg-accent' : 'bg-warning/15'
                   }`}>
                     <Clock className={`h-5 w-5 ${
-                      closureScope === 'user' ? 'text-purple-600'
-                      : closuresToday === 0 ? 'text-blue-600' : 'text-amber-600'
+                      closureScope === 'user' ? 'text-primary'
+                      : closuresToday === 0 ? 'text-primary' : 'text-warning'
                     }`} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p className="text-sm font-semibold text-foreground">
                       {closureScope === 'user'
                         ? selectedCashierUser
                           ? `Turno de ${selectedCashierUser.name} (${closuresToday === 0 ? 'primer turno' : `turno #${closuresToday + 1}`})`
@@ -724,7 +724,7 @@ export default function CashRegisterPage() {
                         : closuresToday === 0 ? "Primer cierre del día" : `Cierre parcial #${closuresToday + 1} del día`
                       }
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Período: {periodStart ? fmtDate(periodStart) : "desde inicio del día"} → ahora
                     </p>
                   </div>
@@ -749,10 +749,10 @@ export default function CashRegisterPage() {
               <Card key={label}>
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">{label}</p>
-                    <Icon className="h-4 w-4 text-gray-400" />
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="mt-1 text-xl font-bold text-foreground">
                     {raw ? value : fmt(value)}
                   </p>
                 </CardContent>
@@ -762,21 +762,21 @@ export default function CashRegisterPage() {
 
           {/* Retiros del período */}
           {stats && parseFloat(stats.cashWithdrawalsTotal ?? "0") > 0 && (
-            <Card className="border-red-200 bg-red-50">
+            <Card className="border-destructive/40 bg-destructive/10">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TrendingDown className="h-5 w-5 text-red-500" />
+                    <TrendingDown className="h-5 w-5 text-destructive" />
                     <div>
-                      <p className="text-sm font-semibold text-red-800">
+                      <p className="text-sm font-semibold text-destructive">
                         Retiros de Efectivo del Período ({stats.cashWithdrawalsCount ?? 0})
                       </p>
-                      <p className="text-xs text-red-600 mt-0.5">
+                      <p className="text-xs text-destructive mt-0.5">
                         Ventas efectivo: {fmt(stats.cashTotalGross ?? "0")} − Retiros: {fmt(stats.cashWithdrawalsTotal)} = Efectivo esperado: {fmt(stats.cashTotal)}
                       </p>
                     </div>
                   </div>
-                  <span className="text-lg font-bold text-red-700">−{fmt(stats.cashWithdrawalsTotal)}</span>
+                  <span className="text-lg font-bold text-destructive">−{fmt(stats.cashWithdrawalsTotal)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -784,23 +784,23 @@ export default function CashRegisterPage() {
 
           {closeMode === 'wizard' ? (
           /* CTA: Iniciar cierre asistido */
-          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-2 border-border bg-accent">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
-                  <div className="bg-blue-600 text-white rounded-full p-3 shadow-lg">
+                  <div className="bg-primary text-primary-foreground rounded-full p-3 shadow-lg">
                     <Landmark className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-base font-bold text-gray-900">Cierre de Caja Asistido</p>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-base font-bold text-foreground">Cierre de Caja Asistido</p>
+                    <p className="text-xs text-muted-foreground">
                       Te guiaré paso a paso por el cierre. Selecciona el tipo, ingresa el fondo inicial y los montos contados.
                     </p>
                   </div>
                 </div>
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 shadow-md"
+                  className="bg-primary hover:bg-primary-hover shadow-md"
                   onClick={() => setShowCloseWizard(true)}
                 >
                   Iniciar Cierre
@@ -814,23 +814,23 @@ export default function CashRegisterPage() {
           <>
           <Card>
             <CardContent className="pt-4 pb-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tipo de cierre</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tipo de cierre</p>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => { setClosureScope('general'); setSelectedCashierId(''); }}
                   className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
                     closureScope === 'general'
-                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-300'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-accent ring-1 ring-primary'
+                      : 'border-border hover:border-border'
                   }`}
                 >
-                  <div className={`rounded-full p-2 ${closureScope === 'general' ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                    <Landmark className={`h-4 w-4 ${closureScope === 'general' ? 'text-blue-600' : 'text-gray-500'}`} />
+                  <div className={`rounded-full p-2 ${closureScope === 'general' ? 'bg-accent' : 'bg-muted'}`}>
+                    <Landmark className={`h-4 w-4 ${closureScope === 'general' ? 'text-primary' : 'text-muted-foreground'}`} />
                   </div>
                   <div>
-                    <p className={`text-sm font-semibold ${closureScope === 'general' ? 'text-blue-800' : 'text-gray-700'}`}>Caja General</p>
-                    <p className="text-xs text-gray-400">Todas las ventas del día</p>
+                    <p className={`text-sm font-semibold ${closureScope === 'general' ? 'text-accent-foreground' : 'text-foreground'}`}>Caja General</p>
+                    <p className="text-xs text-muted-foreground">Todas las ventas del día</p>
                   </div>
                 </button>
 
@@ -839,23 +839,23 @@ export default function CashRegisterPage() {
                   onClick={() => setClosureScope('user')}
                   className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
                     closureScope === 'user'
-                      ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-300'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-accent ring-1 ring-primary'
+                      : 'border-border hover:border-border'
                   }`}
                 >
-                  <div className={`rounded-full p-2 ${closureScope === 'user' ? 'bg-purple-100' : 'bg-gray-100'}`}>
-                    <User className={`h-4 w-4 ${closureScope === 'user' ? 'text-purple-600' : 'text-gray-500'}`} />
+                  <div className={`rounded-full p-2 ${closureScope === 'user' ? 'bg-accent' : 'bg-muted'}`}>
+                    <User className={`h-4 w-4 ${closureScope === 'user' ? 'text-primary' : 'text-muted-foreground'}`} />
                   </div>
                   <div>
-                    <p className={`text-sm font-semibold ${closureScope === 'user' ? 'text-purple-800' : 'text-gray-700'}`}>Por Cajero</p>
-                    <p className="text-xs text-gray-400">Cierre de turno individual</p>
+                    <p className={`text-sm font-semibold ${closureScope === 'user' ? 'text-accent-foreground' : 'text-foreground'}`}>Por Cajero</p>
+                    <p className="text-xs text-muted-foreground">Cierre de turno individual</p>
                   </div>
                 </button>
               </div>
 
               {closureScope === 'user' && (
                 <div className="mt-4 space-y-1">
-                  <Label className="text-xs text-gray-500">Cajero / Empleado</Label>
+                  <Label className="text-xs text-muted-foreground">Cajero / Empleado</Label>
                   <Select value={selectedCashierId} onValueChange={(v) => setSelectedCashierId(v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona el cajero..." />
@@ -866,14 +866,14 @@ export default function CashRegisterPage() {
                           <span className="flex items-center gap-2">
                             <Users className="h-3 w-3" />
                             {u.name}
-                            {u.role && (<span className="text-xs text-gray-400 ml-1">({u.role})</span>)}
+                            {u.role && (<span className="text-xs text-muted-foreground ml-1">({u.role})</span>)}
                           </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {!selectedCashierId && (
-                    <p className="text-xs text-amber-600 mt-1">Selecciona un cajero para ver su turno.</p>
+                    <p className="text-xs text-warning mt-1">Selecciona un cajero para ver su turno.</p>
                   )}
                 </div>
               )}
@@ -890,20 +890,20 @@ export default function CashRegisterPage() {
             </CardHeader>
             <CardContent>
               {/* Fondo inicial */}
-              <div className="mb-4 p-3 rounded-xl border-2 border-blue-200 bg-blue-50">
+              <div className="mb-4 p-3 rounded-xl border-2 border-border bg-accent">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Banknote className="h-5 w-5 text-blue-600" />
+                    <Banknote className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="text-sm font-semibold text-blue-900">Fondo inicial de caja</p>
-                      <p className="text-xs text-blue-600">Monto en efectivo con que se inició la caja.</p>
+                      <p className="text-sm font-semibold text-accent-foreground">Fondo inicial de caja</p>
+                      <p className="text-xs text-primary">Monto en efectivo con que se inició la caja.</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-blue-700 font-medium">RD$</span>
+                    <span className="text-sm text-primary font-medium">RD$</span>
                     <Input
                       type="number" step="0.01" min="0"
-                      className="w-36 text-right font-bold text-blue-900 bg-white border-blue-300 focus:border-blue-500"
+                      className="w-36 text-right font-bold text-accent-foreground bg-card border-border focus:border-primary"
                       value={closeForm.openingAmount || ""}
                       onChange={(e) => setCloseForm((p) => ({ ...p, openingAmount: parseFloat(e.target.value) || 0 }))}
                       placeholder="0.00"
@@ -913,9 +913,9 @@ export default function CashRegisterPage() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
-                    <tr className="border-b text-gray-500 text-xs uppercase">
+                    <tr className="border-b text-muted-foreground text-xs uppercase">
                       <th className="pb-2 text-left">Método</th>
                       <th className="pb-2 text-right px-4">Sistema (Esperado)</th>
                       <th className="pb-2 text-right pl-4">Cajera reporta</th>
@@ -937,7 +937,7 @@ export default function CashRegisterPage() {
                       onReportedChange={(v) => setCloseForm((p) => ({ ...p, creditReported: v }))} />
                   </tbody>
                   <tfoot>
-                    <tr className="border-t bg-gray-50 font-bold text-sm">
+                    <tr className="border-t bg-subtle font-bold text-sm">
                       <td className="pt-3 pb-2 pl-1">Total</td>
                       <td className="pt-3 pb-2 text-right px-4 whitespace-nowrap">{fmt(totalExpected)}</td>
                       <td className="pt-3 pb-2 text-right pl-4 whitespace-nowrap">{fmt(totalReported)}</td>
@@ -950,10 +950,10 @@ export default function CashRegisterPage() {
               </div>
 
               {needsNote && (
-                <div className="mt-4 p-3 rounded-md bg-amber-50 border border-amber-200 flex gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="mt-4 p-3 rounded-md bg-warning/15 border border-warning/40 flex gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-2">
-                    <p className="text-sm text-amber-800 font-medium">
+                    <p className="text-sm text-warning font-medium">
                       La diferencia supera {fmt(DISCREPANCY_THRESHOLD)}. Debes explicar el motivo.
                     </p>
                     <Textarea
@@ -966,7 +966,7 @@ export default function CashRegisterPage() {
               )}
 
               <div className="mt-4 space-y-1">
-                <Label className="text-xs text-gray-500">Notas de cierre (opcional)</Label>
+                <Label className="text-xs text-muted-foreground">Notas de cierre (opcional)</Label>
                 <Textarea
                   placeholder="Observaciones del cierre..."
                   value={closeForm.closingNotes}
@@ -1036,10 +1036,10 @@ export default function CashRegisterPage() {
 
           {loadingHist ? (
             <div className="flex justify-center py-10">
-              <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : sessions.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-muted-foreground">
               <History className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>No hay registros de cierre de caja.</p>
             </div>
@@ -1112,7 +1112,7 @@ export default function CashRegisterPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="text-green-700 border-green-300 hover:bg-green-50"
+                                    className="text-success border-success/40 hover:bg-success/10"
                                     disabled={approveMutation.isPending}
                                     onClick={() => approveMutation.mutate(s.id)}
                                   >
@@ -1122,7 +1122,7 @@ export default function CashRegisterPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="text-red-700 border-red-300 hover:bg-red-50"
+                                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
                                     onClick={() => {
                                       setRejectingId(s.id);
                                       setRejectOpen(true);
@@ -1188,7 +1188,7 @@ export default function CashRegisterPage() {
 
           {/* Contenido del reporte */}
           {!monthFilter && (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-muted-foreground">
               <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>Selecciona un mes para ver el reporte consolidado.</p>
             </div>
@@ -1196,7 +1196,7 @@ export default function CashRegisterPage() {
 
           {monthFilter && loadingMonthly && (
             <div className="flex justify-center py-10">
-              <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
             </div>
           )}
 
@@ -1214,8 +1214,8 @@ export default function CashRegisterPage() {
                   return (
                     <Card key={label}>
                       <CardContent className="pt-4">
-                        <p className="text-sm text-gray-500">{label}</p>
-                        <p className={`mt-1 text-xl font-bold ${diff ? diffColor(numVal) : "text-gray-900 dark:text-white"}`}>
+                        <p className="text-sm text-muted-foreground">{label}</p>
+                        <p className={`mt-1 text-xl font-bold ${diff ? diffColor(numVal) : "text-foreground"}`}>
                           {raw ? numVal : (diff && numVal > 0 ? "+" : "") + fmt(numVal)}
                         </p>
                       </CardContent>
@@ -1226,7 +1226,7 @@ export default function CashRegisterPage() {
 
               {/* Tabla diaria */}
               {monthlyData.days?.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-muted-foreground">
                   <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
                   <p>No hay cierres aprobados en este mes.</p>
                 </div>
@@ -1277,8 +1277,8 @@ export default function CashRegisterPage() {
                           );
                         })}
                       </TableBody>
-                      <tfoot className="border-t-2 border-gray-300">
-                        <tr className="bg-gray-50 font-bold text-sm">
+                      <tfoot className="border-t-2 border-border">
+                        <tr className="bg-subtle font-bold text-sm">
                           <td className="px-4 py-3">Total del Mes</td>
                           <td className="px-4 py-3 text-center">{monthlyData.totals?.sessionCount ?? 0}</td>
                           <td className="px-4 py-3 text-center">{monthlyData.totals?.totalOrders ?? 0}</td>
@@ -1338,20 +1338,20 @@ export default function CashRegisterPage() {
           <div className="space-y-2 text-sm">
             {closureScope === 'user' && selectedCashierUser && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Cajero</span>
-                <span className="font-medium text-purple-700">{selectedCashierUser.name}</span>
+                <span className="text-muted-foreground">Cajero</span>
+                <span className="font-medium text-primary">{selectedCashierUser.name}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-500">Fondo inicial</span>
-              <span className="font-medium text-blue-700">{fmt(closeForm.openingAmount)}</span>
+              <span className="text-muted-foreground">Fondo inicial</span>
+              <span className="font-medium text-primary">{fmt(closeForm.openingAmount)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Total esperado</span>
+              <span className="text-muted-foreground">Total esperado</span>
               <span className="font-medium">{fmt(totalExpected)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Total reportado</span>
+              <span className="text-muted-foreground">Total reportado</span>
               <span className="font-medium">{fmt(totalReported)}</span>
             </div>
             <div className="flex justify-between border-t pt-2 font-semibold">
@@ -1361,7 +1361,7 @@ export default function CashRegisterPage() {
               </span>
             </div>
             {closeForm.discrepancyNote && (
-              <p className="text-gray-500 italic text-xs mt-1">{closeForm.discrepancyNote}</p>
+              <p className="text-muted-foreground italic text-xs mt-1">{closeForm.discrepancyNote}</p>
             )}
           </div>
 

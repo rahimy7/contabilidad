@@ -7,6 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Plus } from "lucide-react";
+import { DataGrid, PageHeader, amount, type Column } from "@/components/erp";
+
+interface Ir17Line { concept: string; label: string; base: string; retained: string }
+
+const IR17_COLUMNS: Column<Ir17Line>[] = [
+  { key: "label", header: "Concepto", cell: (l) => l.label },
+  { key: "base", header: "Base", align: "right", cell: (l) => amount(l.base) },
+  { key: "retained", header: "Retenido", align: "right", cell: (l) => amount(l.retained) },
+];
 
 type Form = "606" | "607" | "608" | "609";
 const FORM_LABEL: Record<Form, string> = {
@@ -56,11 +65,8 @@ export default function DgiiReportsPage() {
   };
 
   return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Reportes DGII</h1>
-        <p className="text-sm text-muted-foreground">Formatos 606, 607, 608 y declaraciones IT-1 / IR-17</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader subtitle="Formatos 606, 607, 608 y declaraciones IT-1 / IR-17" />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-end gap-3">
@@ -71,11 +77,11 @@ export default function DgiiReportsPage() {
               </Button>
             ))}
           </div>
-          <label className="text-sm">
+          <label className="text-[13px]">
             Año
             <Input type="number" className="w-24" value={year} onChange={(e) => setYear(Number(e.target.value))} />
           </label>
-          <label className="text-sm">
+          <label className="text-[13px]">
             Mes
             <Input
               type="number"
@@ -86,7 +92,7 @@ export default function DgiiReportsPage() {
               onChange={(e) => setMonth(Number(e.target.value))}
             />
           </label>
-          <Button variant="secondary" size="sm" onClick={() => refetch()}>
+          <Button variant="outline" onClick={() => refetch()}>
             Generar
           </Button>
           <Button size="sm" className="gap-1" onClick={download} disabled={!data || data.recordCount === 0}>
@@ -95,15 +101,15 @@ export default function DgiiReportsPage() {
           {form === "609" && <ForeignPaymentDialog year={year} month={month} />}
         </CardHeader>
         <CardContent>
-          <CardTitle className="mb-2 text-base">{FORM_LABEL[form]}</CardTitle>
+          <CardTitle className="mb-2">{FORM_LABEL[form]}</CardTitle>
           {(isLoading || isFetching) && <p className="text-muted-foreground">Generando…</p>}
           {error && <p className="text-destructive">No se pudo generar el reporte.</p>}
           {data && !isFetching && (
             <>
-              <p className="mb-2 text-sm text-muted-foreground">
+              <p className="mb-2 text-[12px] text-muted-foreground">
                 {data.recordCount} registro(s) · encabezado <code className="text-xs">{data.header}</code>
               </p>
-              <pre className="max-h-[420px] overflow-auto rounded-md bg-muted p-3 text-xs">
+              <pre className="max-h-[420px] overflow-auto border border-border bg-subtle p-3 font-mono text-[12px]">
                 {data.lines.length ? data.lines.join("\n") : "Sin registros en el período."}
               </pre>
             </>
@@ -113,8 +119,8 @@ export default function DgiiReportsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="text-base">IT-1 — ITBIS del mes</CardTitle></CardHeader>
-          <CardContent className="space-y-1.5 text-sm">
+          <CardHeader><CardTitle>IT-1 — ITBIS del mes</CardTitle></CardHeader>
+          <CardContent className="space-y-1.5 text-[13px]">
             {it1.data ? (
               <>
                 <Row label="ITBIS en ventas (débito fiscal)" value={it1.data.itbisCharged} />
@@ -129,25 +135,21 @@ export default function DgiiReportsPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">IR-17 — Retenciones de ISR</CardTitle></CardHeader>
+          <CardHeader><CardTitle>IR-17 — Retenciones de ISR</CardTitle></CardHeader>
           <CardContent>
             {ir17.data ? (
-              ir17.data.lines.length ? (
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1">Concepto</th><th className="py-1 text-right">Base</th><th className="py-1 text-right">Retenido</th></tr></thead>
-                  <tbody>
-                    {ir17.data.lines.map((l) => (
-                      <tr key={l.concept} className="border-b last:border-0">
-                        <td className="py-1">{l.label}</td>
-                        <td className="py-1 text-right tabular-nums">{fmt(l.base)}</td>
-                        <td className="py-1 text-right tabular-nums">{fmt(l.retained)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot><tr className="border-t-2 font-semibold"><td className="py-1">Total a pagar</td><td className="py-1 text-right tabular-nums">{fmt(ir17.data.totalBase)}</td><td className="py-1 text-right tabular-nums">{fmt(ir17.data.totalRetained)}</td></tr></tfoot>
-                </table>
-              ) : <p className="text-muted-foreground">Sin retenciones de ISR en el período.</p>
-            ) : <p className="text-muted-foreground">Cargando…</p>}
+              <DataGrid
+                columns={IR17_COLUMNS}
+                rows={ir17.data.lines as Ir17Line[]}
+                rowKey={(l) => l.concept}
+                emptyMessage="Sin retenciones de ISR en el período."
+                totalsLabel="Total a pagar"
+                totals={{
+                  base: amount(ir17.data.totalBase),
+                  retained: amount(ir17.data.totalRetained),
+                }}
+              />
+            ) : <p className="py-6 text-center text-[13px] text-muted-foreground">Cargando…</p>}
           </CardContent>
         </Card>
       </div>

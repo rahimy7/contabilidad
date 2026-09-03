@@ -196,11 +196,11 @@ export default function InventoryTraceability() {
 
   const getMovementIcon = (type: string) => {
     const icons = {
-      purchase: { Icon: ShoppingCart, color: "text-green-600", bg: "bg-green-100" },
-      sale: { Icon: TrendingDown, color: "text-blue-600", bg: "bg-blue-100" },
-      adjustment: { Icon: BarChart3, color: "text-yellow-600", bg: "bg-yellow-100" },
-      return: { Icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
-      transfer: { Icon: Truck, color: "text-orange-600", bg: "bg-orange-100" },
+      purchase: { Icon: ShoppingCart, color: "text-success", bg: "bg-success/10" },
+      sale: { Icon: TrendingDown, color: "text-primary", bg: "bg-accent" },
+      adjustment: { Icon: BarChart3, color: "text-warning", bg: "bg-warning/15" },
+      return: { Icon: TrendingUp, color: "text-primary", bg: "bg-accent" },
+      transfer: { Icon: Truck, color: "text-warning", bg: "bg-warning/10" },
     };
     const config = icons[type as keyof typeof icons] || icons.adjustment;
     const { Icon, color, bg } = config;
@@ -224,11 +224,11 @@ export default function InventoryTraceability() {
 
   const getMovementBadge = (type: string) => {
     const badges = {
-      purchase: "bg-green-100 text-green-800",
-      sale: "bg-blue-100 text-blue-800",
-      adjustment: "bg-yellow-100 text-yellow-800",
-      return: "bg-purple-100 text-purple-800",
-      transfer: "bg-orange-100 text-orange-800",
+      purchase: "bg-success/10 text-success",
+      sale: "bg-accent text-accent-foreground",
+      adjustment: "bg-warning/15 text-warning",
+      return: "bg-accent text-accent-foreground",
+      transfer: "bg-warning/10 text-warning",
     };
     const badgeColor = badges[type as keyof typeof badges] || badges.adjustment;
     return (
@@ -285,12 +285,12 @@ export default function InventoryTraceability() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Trazabilidad de Inventario</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-[20px] font-semibold tracking-tight">Trazabilidad de Inventario</h1>
+          <p className="text-muted-foreground mt-1">
             {activeTab === "stock"
               ? "Stock actual de productos por lote"
               : "Historial completo de movimientos de productos"}
@@ -298,7 +298,7 @@ export default function InventoryTraceability() {
         </div>
         <button
           onClick={exportToCSV}
-          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          className="flex items-center gap-2 bg-success text-success-foreground px-4 py-2 rounded-lg hover:bg-success/90 transition-colors"
         >
           <Download className="w-5 h-5" />
           Exportar CSV
@@ -306,15 +306,15 @@ export default function InventoryTraceability() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
+      <div className="bg-card rounded-lg shadow-sm border border-border">
+        <div className="border-b border-border">
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab("stock")}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "stock"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -326,8 +326,8 @@ export default function InventoryTraceability() {
               onClick={() => setActiveTab("movements")}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "movements"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -344,107 +344,107 @@ export default function InventoryTraceability() {
         <>
           {/* Stock Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Productos</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{filteredStock.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Productos</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{filteredStock.length}</p>
                 </div>
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <Package className="w-6 h-6 text-blue-600" />
+                <div className="bg-accent p-3 rounded-lg">
+                  <Package className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Stock Total</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                  <p className="text-sm text-muted-foreground">Stock Total</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">
                     {filteredStock.reduce((sum, p) => sum + p.totalStock, 0).toLocaleString("es-DO", { minimumFractionDigits: 0 })}
                   </p>
                 </div>
-                <div className="bg-green-100 p-3 rounded-lg">
-                  <Layers className="w-6 h-6 text-green-600" />
+                <div className="bg-success/10 p-3 rounded-lg">
+                  <Layers className="w-6 h-6 text-success" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Stock Próximo a Vencer</p>
-                  <p className="text-2xl font-bold text-orange-600 mt-1">
+                  <p className="text-sm text-muted-foreground">Stock Próximo a Vencer</p>
+                  <p className="text-2xl font-bold text-warning mt-1">
                     {filteredStock.reduce((sum, p) => sum + p.expiringQuantity, 0).toLocaleString("es-DO", { minimumFractionDigits: 0 })}
                   </p>
                 </div>
-                <div className="bg-orange-100 p-3 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                <div className="bg-warning/10 p-3 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-warning" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Productos por Vencer</p>
-                  <p className="text-2xl font-bold text-red-600 mt-1">
+                  <p className="text-sm text-muted-foreground">Productos por Vencer</p>
+                  <p className="text-2xl font-bold text-destructive mt-1">
                     {filteredStock.filter(p => p.expiringQuantity > 0).length}
                   </p>
                 </div>
-                <div className="bg-red-100 p-3 rounded-lg">
-                  <Calendar className="w-6 h-6 text-red-600" />
+                <div className="bg-destructive/10 p-3 rounded-lg">
+                  <Calendar className="w-6 h-6 text-destructive" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-card rounded-lg shadow-sm border border-border p-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <input
                 type="text"
                 placeholder="Buscar producto por nombre, SKU o código de barras..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
           </div>
 
           {/* Stock Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-card rounded-lg shadow-sm border border-border">
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <h2 className="text-lg font-semibold text-foreground mb-4">
                 Stock de Productos ({filteredStock.length})
               </h2>
 
               {isLoadingStock ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-4">Cargando stock...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-muted-foreground mt-4">Cargando stock...</p>
                 </div>
               ) : filteredStock.length === 0 ? (
                 <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay productos en stock</h3>
-                  <p className="text-gray-600">No se encontraron productos con stock disponible</p>
+                  <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay productos en stock</h3>
+                  <p className="text-muted-foreground">No se encontraron productos con stock disponible</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-subtle border-b border-border">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Producto</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Stock Total</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Lotes</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Vencimiento Próximo</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Cant. a Vencer</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Producto</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Stock Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Lotes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Vencimiento Próximo</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cant. a Vencer</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-border">
                       {filteredStock.map((product) => {
                         const today = new Date();
                         const thirtyDaysFromNow = new Date(today);
@@ -456,54 +456,54 @@ export default function InventoryTraceability() {
                         return (
                           <tr
                             key={product.productId}
-                            className="hover:bg-gray-50 cursor-pointer"
+                            className="hover:bg-subtle cursor-pointer"
                             onClick={() => setSelectedProduct(product.productId)}
                           >
                             <td className="px-4 py-4">
-                              <div className="text-sm font-medium text-gray-900">{product.productName}</div>
+                              <div className="text-sm font-medium text-foreground">{product.productName}</div>
                               {product.sku && (
-                                <div className="text-xs text-gray-500">SKU: {product.sku}</div>
+                                <div className="text-xs text-muted-foreground">SKU: {product.sku}</div>
                               )}
                               {product.barcode && (
-                                <div className="text-xs text-gray-500">Código: {product.barcode}</div>
+                                <div className="text-xs text-muted-foreground">Código: {product.barcode}</div>
                               )}
                             </td>
                             <td className="px-4 py-4 text-right">
-                              <div className="text-sm font-semibold text-gray-900">
+                              <div className="text-sm font-semibold text-foreground">
                                 {product.totalStock.toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                                 {product.baseUnitSymbol && (
-                                  <span className="ml-1 text-xs text-gray-500">{product.baseUnitSymbol}</span>
+                                  <span className="ml-1 text-xs text-muted-foreground">{product.baseUnitSymbol}</span>
                                 )}
                               </div>
                             </td>
                             <td className="px-4 py-4 text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <Layers className="w-4 h-4 text-blue-600" />
-                                <span className="text-sm font-medium text-blue-600">
+                                <Layers className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium text-primary">
                                   {product.lotCount} {product.lotCount === 1 ? "lote" : "lotes"}
                                 </span>
                               </div>
                             </td>
                             <td className="px-4 py-4">
                               {product.nearestExpiration ? (
-                                <div className={`text-sm ${isExpiringSoon ? "text-red-600 font-semibold" : "text-gray-900"}`}>
+                                <div className={`text-sm ${isExpiringSoon ? "text-destructive font-semibold" : "text-foreground"}`}>
                                   {isExpiringSoon && <AlertTriangle className="w-4 h-4 inline mr-1" />}
                                   {new Date(product.nearestExpiration).toLocaleDateString("es-DO")}
                                 </div>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                             <td className="px-4 py-4 text-right">
                               {product.expiringQuantity > 0 ? (
-                                <div className="text-sm font-semibold text-orange-600">
+                                <div className="text-sm font-semibold text-warning">
                                   {product.expiringQuantity.toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                                   {product.baseUnitSymbol && (
                                     <span className="ml-1 text-xs">{product.baseUnitSymbol}</span>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                             <td className="px-4 py-4 text-center">
@@ -512,7 +512,7 @@ export default function InventoryTraceability() {
                                   e.stopPropagation();
                                   setSelectedProduct(product.productId);
                                 }}
-                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                                className="inline-flex items-center gap-1 text-primary hover:text-primary"
                               >
                                 Ver detalles
                                 <ChevronRight className="w-4 h-4" />
@@ -535,83 +535,83 @@ export default function InventoryTraceability() {
         <>
           {/* Stats Dashboard */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Movimientos</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalMovements}</p>
+              <p className="text-sm text-muted-foreground">Total Movimientos</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{stats.totalMovements}</p>
             </div>
-            <div className="bg-gray-100 p-3 rounded-lg">
-              <FileText className="w-6 h-6 text-gray-600" />
+            <div className="bg-muted p-3 rounded-lg">
+              <FileText className="w-6 h-6 text-muted-foreground" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Compras</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{stats.purchases}</p>
+              <p className="text-sm text-muted-foreground">Compras</p>
+              <p className="text-2xl font-bold text-success mt-1">{stats.purchases}</p>
             </div>
-            <div className="bg-green-100 p-3 rounded-lg">
-              <ShoppingCart className="w-6 h-6 text-green-600" />
+            <div className="bg-success/10 p-3 rounded-lg">
+              <ShoppingCart className="w-6 h-6 text-success" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Ventas</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{stats.sales}</p>
+              <p className="text-sm text-muted-foreground">Ventas</p>
+              <p className="text-2xl font-bold text-primary mt-1">{stats.sales}</p>
             </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <TrendingDown className="w-6 h-6 text-blue-600" />
+            <div className="bg-accent p-3 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-primary" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Ajustes</p>
-              <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.adjustments}</p>
+              <p className="text-sm text-muted-foreground">Ajustes</p>
+              <p className="text-2xl font-bold text-warning mt-1">{stats.adjustments}</p>
             </div>
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-yellow-600" />
+            <div className="bg-warning/15 p-3 rounded-lg">
+              <BarChart3 className="w-6 h-6 text-warning" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Valor Total</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-muted-foreground">Valor Total</p>
+              <p className="text-xl font-bold text-foreground mt-1">
                 ${parseFloat(stats.totalValue).toLocaleString("es-DO", { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <Package className="w-6 h-6 text-purple-600" />
+            <div className="bg-accent p-3 rounded-lg">
+              <Package className="w-6 h-6 text-primary" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Filtros</h2>
+      <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4">Filtros</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input
               type="text"
               placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
 
@@ -619,7 +619,7 @@ export default function InventoryTraceability() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value="all">Todos los Tipos</option>
             <option value="purchase">Compras</option>
@@ -633,7 +633,7 @@ export default function InventoryTraceability() {
           <select
             value={productFilter}
             onChange={(e) => setProductFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value="">Todos los Productos</option>
             {tangibleProducts.map((product: any) => (
@@ -649,7 +649,7 @@ export default function InventoryTraceability() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             placeholder="Desde"
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
 
           {/* Date To */}
@@ -658,7 +658,7 @@ export default function InventoryTraceability() {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             placeholder="Hasta"
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
 
@@ -669,52 +669,52 @@ export default function InventoryTraceability() {
             placeholder="Filtrar por número de lote..."
             value={lotFilter}
             onChange={(e) => setLotFilter(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Movements Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-card rounded-lg shadow-sm border border-border">
         <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
             Movimientos de Inventario ({filteredMovements.length})
           </h2>
 
           {isLoading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Cargando movimientos...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-4">Cargando movimientos...</p>
             </div>
           ) : filteredMovements.length === 0 ? (
             <div className="text-center py-12">
-              <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay movimientos</h3>
-              <p className="text-gray-600">No se encontraron movimientos con los filtros seleccionados</p>
+              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No hay movimientos</h3>
+              <p className="text-muted-foreground">No se encontraron movimientos con los filtros seleccionados</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-subtle border-b border-border">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Fecha/Hora</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Producto</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Cantidad</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Stock</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Lote/Venc.</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Costo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Referencia</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fecha/Hora</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Producto</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cantidad</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Lote/Venc.</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Costo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Referencia</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-border">
                   {filteredMovements.map((movement) => (
-                    <tr key={movement.id} className="hover:bg-gray-50">
+                    <tr key={movement.id} className="hover:bg-subtle">
                       <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-foreground">
                           {new Date(movement.createdAt).toLocaleDateString("es-DO", { timeZone: "America/Santo_Domingo" })}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {new Date(movement.createdAt).toLocaleTimeString("es-DO", { timeZone: "America/Santo_Domingo" })}
                         </div>
                       </td>
@@ -725,28 +725,28 @@ export default function InventoryTraceability() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="text-sm font-medium text-gray-900">{movement.productName || "-"}</div>
+                        <div className="text-sm font-medium text-foreground">{movement.productName || "-"}</div>
                         {movement.supplierName && (
-                          <div className="text-xs text-gray-500">Prov: {movement.supplierName}</div>
+                          <div className="text-xs text-muted-foreground">Prov: {movement.supplierName}</div>
                         )}
                       </td>
                       <td className="px-4 py-4 text-right">
                         <div
                           className={`text-sm font-semibold ${
                             movement.type === "purchase" || movement.type === "return"
-                              ? "text-green-600"
-                              : "text-red-600"
+                              ? "text-success"
+                              : "text-destructive"
                           }`}
                         >
                           {movement.type === "purchase" || movement.type === "return" ? "+" : "-"}
                           {parseFloat(movement.quantity).toLocaleString("es-DO")}
                           {movement.unitSymbol && (
-                            <span className="ml-1 text-xs text-gray-500">{movement.unitSymbol}</span>
+                            <span className="ml-1 text-xs text-muted-foreground">{movement.unitSymbol}</span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {movement.quantityBefore ? parseFloat(movement.quantityBefore).toLocaleString("es-DO") : "-"}{" "}
                           →{" "}
                           {movement.quantityAfter ? parseFloat(movement.quantityAfter).toLocaleString("es-DO") : "-"}
@@ -754,38 +754,38 @@ export default function InventoryTraceability() {
                       </td>
                       <td className="px-4 py-4">
                         {movement.lotNumber && (
-                          <div className="text-xs text-gray-900">
+                          <div className="text-xs text-foreground">
                             <span className="font-medium">Lote:</span> {movement.lotNumber}
                           </div>
                         )}
                         {movement.expirationDate && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             Venc: {new Date(movement.expirationDate).toLocaleDateString("es-DO")}
                           </div>
                         )}
-                        {!movement.lotNumber && !movement.expirationDate && <span className="text-gray-400">-</span>}
+                        {!movement.lotNumber && !movement.expirationDate && <span className="text-muted-foreground">-</span>}
                       </td>
                       <td className="px-4 py-4 text-right">
                         {movement.unitCost && (
-                          <div className="text-xs text-gray-900">
+                          <div className="text-xs text-foreground">
                             ${parseFloat(movement.unitCost).toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                           </div>
                         )}
                         {movement.totalCost && (
-                          <div className="text-xs font-semibold text-gray-900">
+                          <div className="text-xs font-semibold text-foreground">
                             ${parseFloat(movement.totalCost).toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                           </div>
                         )}
-                        {!movement.unitCost && !movement.totalCost && <span className="text-gray-400">-</span>}
+                        {!movement.unitCost && !movement.totalCost && <span className="text-muted-foreground">-</span>}
                       </td>
                       <td className="px-4 py-4">
                         {movement.referenceType && (
-                          <div className="text-xs text-gray-900">
+                          <div className="text-xs text-foreground">
                             {movement.referenceType}-{movement.referenceId}
                           </div>
                         )}
-                        {movement.notes && <div className="text-xs text-gray-500 mt-1">{movement.notes}</div>}
-                        {!movement.referenceType && !movement.notes && <span className="text-gray-400">-</span>}
+                        {movement.notes && <div className="text-xs text-muted-foreground mt-1">{movement.notes}</div>}
+                        {!movement.referenceType && !movement.notes && <span className="text-muted-foreground">-</span>}
                       </td>
                     </tr>
                   ))}
@@ -801,17 +801,17 @@ export default function InventoryTraceability() {
       {/* Product Detail Modal */}
       {selectedProduct && selectedProductData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-border">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-foreground">
                     {selectedProductData.productName}
                   </h3>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                     {selectedProductData.sku && <span>SKU: {selectedProductData.sku}</span>}
                     {selectedProductData.barcode && <span>Código: {selectedProductData.barcode}</span>}
-                    <span className="font-semibold text-blue-600">
+                    <span className="font-semibold text-primary">
                       Stock Total: {selectedProductData.totalStock.toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                       {selectedProductData.baseUnitSymbol && ` ${selectedProductData.baseUnitSymbol}`}
                     </span>
@@ -819,9 +819,9 @@ export default function InventoryTraceability() {
                 </div>
                 <button
                   onClick={() => setSelectedProduct(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -829,17 +829,17 @@ export default function InventoryTraceability() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
               {/* Stock por Lote */}
               <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Stock por Lote</h4>
+                <h4 className="text-lg font-semibold text-foreground mb-4">Stock por Lote</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-subtle border-b border-border">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Lote</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Cantidad</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">F. Vencimiento</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Lote</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cantidad</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">F. Vencimiento</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-border">
                       {selectedProductData.lots.map((lot, index) => {
                         const today = new Date();
                         const thirtyDaysFromNow = new Date(today);
@@ -848,28 +848,28 @@ export default function InventoryTraceability() {
                           new Date(lot.expirationDate) <= thirtyDaysFromNow;
 
                         return (
-                          <tr key={index} className={isExpiringSoon ? "bg-yellow-50" : ""}>
+                          <tr key={index} className={isExpiringSoon ? "bg-warning/15" : ""}>
                             <td className="px-4 py-3">
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-foreground">
                                 {lot.lotNumber || "Sin lote"}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <span className="text-sm font-semibold text-gray-900">
+                              <span className="text-sm font-semibold text-foreground">
                                 {lot.quantity.toLocaleString("es-DO", { minimumFractionDigits: 2 })}
                                 {selectedProductData.baseUnitSymbol && (
-                                  <span className="ml-1 text-xs text-gray-500">{selectedProductData.baseUnitSymbol}</span>
+                                  <span className="ml-1 text-xs text-muted-foreground">{selectedProductData.baseUnitSymbol}</span>
                                 )}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               {lot.expirationDate ? (
-                                <div className={`text-sm ${isExpiringSoon ? "text-red-600 font-semibold" : "text-gray-900"}`}>
+                                <div className={`text-sm ${isExpiringSoon ? "text-destructive font-semibold" : "text-foreground"}`}>
                                   {isExpiringSoon && <AlertTriangle className="w-4 h-4 inline mr-1" />}
                                   {new Date(lot.expirationDate).toLocaleDateString("es-DO")}
                                 </div>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                           </tr>
@@ -882,31 +882,31 @@ export default function InventoryTraceability() {
 
               {/* Últimos Movimientos */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Últimos Movimientos</h4>
+                <h4 className="text-lg font-semibold text-foreground mb-4">Últimos Movimientos</h4>
                 {productMovements.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     No hay movimientos registrados para este producto
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="bg-subtle border-b border-border">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Fecha</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Cantidad</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Lote</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Notas</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fecha</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cantidad</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Lote</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Notas</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="divide-y divide-border">
                         {productMovements.slice(0, 10).map((movement) => (
                           <tr key={movement.id}>
                             <td className="px-4 py-3">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-foreground">
                                 {new Date(movement.createdAt).toLocaleDateString("es-DO")}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 {new Date(movement.createdAt).toLocaleTimeString("es-DO")}
                               </div>
                             </td>
@@ -917,24 +917,24 @@ export default function InventoryTraceability() {
                               <span
                                 className={`text-sm font-semibold ${
                                   movement.type === "purchase" || movement.type === "return"
-                                    ? "text-green-600"
-                                    : "text-red-600"
+                                    ? "text-success"
+                                    : "text-destructive"
                                 }`}
                               >
                                 {movement.type === "purchase" || movement.type === "return" ? "+" : "-"}
                                 {parseFloat(movement.quantity).toLocaleString("es-DO")}
                                 {movement.unitSymbol && (
-                                  <span className="ml-1 text-xs text-gray-500">{movement.unitSymbol}</span>
+                                  <span className="ml-1 text-xs text-muted-foreground">{movement.unitSymbol}</span>
                                 )}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-sm text-gray-900">
+                              <span className="text-sm text-foreground">
                                 {movement.lotNumber || "-"}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-sm text-gray-600">
+                              <span className="text-sm text-muted-foreground">
                                 {movement.notes || movement.reason || "-"}
                               </span>
                             </td>

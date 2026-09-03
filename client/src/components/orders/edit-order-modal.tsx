@@ -131,21 +131,21 @@ export default function EditOrderModal({
 
           <div className="flex-1 overflow-y-auto py-4 space-y-6">
             {/* Información del Cliente */}
-            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+            <Card className="bg-primary/5 to-primary/10 border-primary/20">
               <CardContent className="p-4 space-y-2">
                 <h3 className="font-semibold text-foreground mb-2">Información del Cliente</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="font-medium text-muted-foreground">Nombre:</span>
-                    <p className="text-blue-700">{order.customer?.name}</p>
+                    <p className="text-primary">{order.customer?.name}</p>
                   </div>
                   <div>
-                    <span className="font-medium text-blue-800">Teléfono:</span>
-                    <p className="text-blue-700">{order.customer?.phone}</p>
+                    <span className="font-medium text-accent-foreground">Teléfono:</span>
+                    <p className="text-primary">{order.customer?.phone}</p>
                   </div>
                   <div className="col-span-2">
-                    <span className="font-medium text-blue-800">Dirección:</span>
-                    <p className="text-blue-700">{order.customer?.address || 'No especificada'}</p>
+                    <span className="font-medium text-accent-foreground">Dirección:</span>
+                    <p className="text-primary">{order.customer?.address || 'No especificada'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -153,12 +153,12 @@ export default function EditOrderModal({
 
             {/* Productos */}
             {order.items && order.items.length > 0 && (
-              <Card className="border-gray-200">
+              <Card className="border-border">
                 <CardContent className="p-4">
                   <h3 className="font-semibold mb-3">Productos en la Orden</h3>
                   <div className="space-y-2">
                     {order.items.map((item: any) => (
-                      <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <div key={item.id} className="flex justify-between items-center p-2 bg-subtle rounded">
                         <div>
                           <p className="font-medium text-sm">{item.product?.name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -172,7 +172,7 @@ export default function EditOrderModal({
                   <div className="border-t mt-3 pt-3">
                     <div className="flex justify-between items-center font-bold">
                       <span>Total:</span>
-                      <span className="text-lg text-green-600">{formatCurrency(order.totalAmount)}</span>
+                      <span className="text-lg text-success">{formatCurrency(order.totalAmount)}</span>
                     </div>
                   </div>
                 </CardContent>

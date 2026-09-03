@@ -6,9 +6,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Play, Plus } from "lucide-react";
+import { DataGrid, PageHeader, amount, money, type Column } from "@/components/erp";
 
-const money = (v: string | number) =>
-  Number(v).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+interface Employee { id: number; name: string; base_salary: string }
+interface Payslip {
+  id: number; name: string; gross_salary: string;
+  afp_employee: string; sfs_employee: string; isr: string; net_pay: string;
+}
+
+const EMPLOYEE_COLUMNS: Column<Employee>[] = [
+  { key: "name", header: "Empleado", cell: (e) => e.name },
+  { key: "salary", header: "Salario base", align: "right", width: "180px", cell: (e) => amount(e.base_salary) },
+];
+
+/**
+ * Las tres retenciones van entre el bruto y el neto, en ese orden: es la
+ * secuencia del cálculo, así que la fila se lee de izquierda a derecha como se
+ * hizo la cuenta y el neto queda donde termina.
+ */
+const PAYSLIP_COLUMNS: Column<Payslip>[] = [
+  { key: "name", header: "Empleado", cell: (p) => p.name },
+  { key: "gross", header: "Bruto", align: "right", cell: (p) => amount(p.gross_salary) },
+  { key: "afp", header: "AFP", align: "right", cell: (p) => amount(p.afp_employee) },
+  { key: "sfs", header: "SFS", align: "right", cell: (p) => amount(p.sfs_employee) },
+  { key: "isr", header: "ISR", align: "right", cell: (p) => amount(p.isr) },
+  { key: "net", header: "Neto", align: "right", cell: (p) => <span className="font-semibold">{amount(p.net_pay)}</span> },
+];
 
 export default function PayrollPage() {
   const { toast } = useToast();
@@ -47,66 +70,51 @@ export default function PayrollPage() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Nómina</h1>
+    <div className="space-y-4">
+      <PageHeader subtitle="Empleados, retenciones de ley y recibos del mes" />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Empleados</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Empleados</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
             <Input placeholder="Salario base" value={salary} onChange={(e) => setSalary(e.target.value)} className="max-w-[160px]" />
-            <Button size="sm" className="gap-1" disabled={!name || !salary || addEmp.isPending} onClick={() => addEmp.mutate()}>
+            <Button className="gap-1" disabled={!name || !salary || addEmp.isPending} onClick={() => addEmp.mutate()}>
               <Plus className="h-4 w-4" /> Agregar
             </Button>
           </div>
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground"><th className="py-1.5">Empleado</th><th className="py-1.5 text-right">Salario</th></tr></thead>
-            <tbody>
-              {(emps.data?.employees ?? []).map((e) => (
-                <tr key={e.id} className="border-b last:border-0"><td className="py-1.5">{e.name}</td><td className="py-1.5 text-right tabular-nums">{money(e.base_salary)}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <DataGrid
+            columns={EMPLOYEE_COLUMNS}
+            rows={(emps.data?.employees ?? []) as Employee[]}
+            rowKey={(e) => e.id}
+            isLoading={emps.isLoading}
+            emptyMessage="Todavía no hay empleados registrados."
+          />
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-end justify-between">
-          <CardTitle className="text-base">Procesar nómina</CardTitle>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>Procesar nómina</CardTitle>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Mes</span>
+            <span className="text-[13px] text-muted-foreground">Mes</span>
             <Input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} className="w-20" />
-            <Button size="sm" className="gap-1" disabled={run.isPending} onClick={() => run.mutate()}>
+            <Button className="gap-1" disabled={run.isPending} onClick={() => run.mutate()}>
               <Play className="h-4 w-4" /> Procesar {month}/{year}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {payslips.data && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-1.5">Empleado</th><th className="py-1.5 text-right">Bruto</th>
-                  <th className="py-1.5 text-right">AFP</th><th className="py-1.5 text-right">SFS</th>
-                  <th className="py-1.5 text-right">ISR</th><th className="py-1.5 text-right">Neto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payslips.data.payslips.map((p) => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-1.5">{p.name}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(p.gross_salary)}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(p.afp_employee)}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(p.sfs_employee)}</td>
-                    <td className="py-1.5 text-right tabular-nums">{money(p.isr)}</td>
-                    <td className="py-1.5 text-right font-medium tabular-nums">{money(p.net_pay)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataGrid
+              columns={PAYSLIP_COLUMNS}
+              rows={payslips.data.payslips as Payslip[]}
+              rowKey={(p) => p.id}
+              isLoading={payslips.isLoading}
+              emptyMessage="La corrida no generó recibos."
+            />
           )}
-          {!payslips.data && <p className="text-muted-foreground">Procesa la nómina del mes para ver los recibos.</p>}
+          {!payslips.data && <p className="py-6 text-center text-[13px] text-muted-foreground">Procesa la nómina del mes para ver los recibos.</p>}
         </CardContent>
       </Card>
     </div>

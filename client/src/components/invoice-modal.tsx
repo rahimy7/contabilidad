@@ -64,9 +64,9 @@ const getPaymentMethodLabel = (method: string): string => {
 const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
   ({ data }, ref) => {
     return (
-      <div ref={ref} className="bg-white p-8 text-gray-900 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
+      <div ref={ref} className="bg-card p-8 text-foreground font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
         {/* Header */}
-        <div className="text-center mb-8 border-b-2 border-gray-300 pb-4">
+        <div className="text-center mb-8 border-b-2 border-border pb-4">
           {/* Logo */}
           {data.logoUrl && (
             <div className="flex justify-center mb-4">
@@ -77,20 +77,20 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
               />
             </div>
           )}
-          <h1 className={`text-3xl font-bold mb-2 ${data.isCredit ? 'text-orange-600' : 'text-emerald-600'}`}>
+          <h1 className={`text-3xl font-bold mb-2 ${data.isCredit ? 'text-warning' : 'text-success'}`}>
             {data.isCredit ? 'CONSTANCIA DE DEUDA' : 'FACTURA'}
           </h1>
           <p className="text-lg font-semibold">{data.storeName || 'TIENDA'}</p>
-          {data.storeAddress && <p className="text-sm text-gray-600">{data.storeAddress}</p>}
-          {data.storePhone && <p className="text-sm text-gray-600">Tel: {data.storePhone}</p>}
-          {data.storeEmail && <p className="text-sm text-gray-600">Email: {data.storeEmail}</p>}
+          {data.storeAddress && <p className="text-sm text-muted-foreground">{data.storeAddress}</p>}
+          {data.storePhone && <p className="text-sm text-muted-foreground">Tel: {data.storePhone}</p>}
+          {data.storeEmail && <p className="text-sm text-muted-foreground">Email: {data.storeEmail}</p>}
         </div>
 
         {/* Credit Note Banner */}
         {data.isCredit && (
-          <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-6 text-center">
-            <p className="text-orange-700 font-bold text-base">⚠ VENTA A CRÉDITO — PENDIENTE DE PAGO</p>
-            <p className="text-orange-600 text-sm mt-1">Este documento es una constancia de deuda. No ha sido cancelado.</p>
+          <div className="bg-warning/10 border-2 border-warning rounded-lg p-4 mb-6 text-center">
+            <p className="text-warning font-bold text-base">⚠ VENTA A CRÉDITO — PENDIENTE DE PAGO</p>
+            <p className="text-warning text-sm mt-1">Este documento es una constancia de deuda. No ha sido cancelado.</p>
           </div>
         )}
 
@@ -113,7 +113,7 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
         <div className="mb-6">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b-2 border-gray-400">
+              <tr className="border-b-2 border-border-strong">
                 <th className="text-left py-2 font-semibold">Producto</th>
                 <th className="text-center py-2 font-semibold w-16">Cantidad</th>
                 <th className="text-right py-2 font-semibold w-24">Precio Unit.</th>
@@ -122,7 +122,7 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
             </thead>
             <tbody>
               {data.items.map((item, index) => (
-                <tr key={index} className="border-b border-gray-200">
+                <tr key={index} className="border-b border-border">
                   <td className="py-2">{item.productName}</td>
                   <td className="text-center py-2">{item.quantity}</td>
                   <td className="text-right py-2">RD${item.unitPrice.toFixed(2)}</td>
@@ -136,54 +136,54 @@ const InvoiceContent = React.forwardRef<HTMLDivElement, { data: InvoiceData }>(
         {/* Totals */}
         <div className="flex justify-end mb-6 w-full">
           <div className="w-64">
-            <div className="flex justify-between py-2 border-b border-gray-200 text-sm">
+            <div className="flex justify-between py-2 border-b border-border text-sm">
               <span>Subtotal:</span>
               <span>RD${data.subtotal.toFixed(2)}</span>
             </div>
             {data.tax > 0 && (
-              <div className="flex justify-between py-2 border-b border-gray-200 text-sm">
+              <div className="flex justify-between py-2 border-b border-border text-sm">
                 <span>ITBIS (0%):</span>
                 <span>RD${data.tax.toFixed(2)}</span>
               </div>
             )}
             {data.discountAmount && data.discountAmount > 0 && (
-              <div className="flex justify-between py-2 border-b border-gray-200 text-sm text-orange-600">
+              <div className="flex justify-between py-2 border-b border-border text-sm text-warning">
                 <span>Descuento ({data.discountPercentage || 0}%):</span>
                 <span>-RD${data.discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className={`flex justify-between py-3 border-b-2 border-gray-400 font-bold text-lg ${data.isCredit ? 'text-orange-600' : ''}`}>
+            <div className={`flex justify-between py-3 border-b-2 border-border-strong font-bold text-lg ${data.isCredit ? 'text-warning' : ''}`}>
               <span>{data.isCredit ? 'TOTAL PENDIENTE DE PAGO:' : 'TOTAL:'}</span>
-              <span className={data.isCredit ? 'text-orange-600' : 'text-emerald-600'}>RD${data.total.toFixed(2)}</span>
+              <span className={data.isCredit ? 'text-warning' : 'text-success'}>RD${data.total.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Loyalty Points */}
         {data.totalLoyaltyPoints && data.totalLoyaltyPoints > 0 && (
-          <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 mb-6 text-center">
-            <p className="text-sm font-semibold text-amber-700">Puntos Acumulados</p>
-            <p className="text-2xl font-bold text-amber-600">
+          <div className="bg-warning/15 border-2 border-warning/40 rounded-lg p-4 mb-6 text-center">
+            <p className="text-sm font-semibold text-warning">Puntos Acumulados</p>
+            <p className="text-2xl font-bold text-warning">
               {data.totalLoyaltyPoints.toFixed(2)} {data.loyaltyPointsPropertyName || 'LP'}
             </p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center text-xs text-gray-600 pt-4 border-t border-gray-300">
+        <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border">
           {data.isCredit ? (
             <>
-              <p className="text-orange-600 font-semibold">Este documento NO es un recibo de pago</p>
+              <p className="text-warning font-semibold">Este documento NO es un recibo de pago</p>
               <p className="mt-1">El saldo quedará pendiente hasta su cancelación</p>
             </>
           ) : (
             <p>Gracias por su compra</p>
           )}
           {data.invoiceFooter && (
-            <p className="mt-2 text-gray-700 font-medium">{data.invoiceFooter}</p>
+            <p className="mt-2 text-foreground font-medium">{data.invoiceFooter}</p>
           )}
           <p className="mt-2">{data.isCredit ? 'Constancia de deuda emitida' : 'Esta es su comprobante de venta'}</p>
-          <p className="mt-4 text-gray-400">Impreso: {new Date().toLocaleString('es-DO')}</p>
+          <p className="mt-4 text-muted-foreground">Impreso: {new Date().toLocaleString('es-DO')}</p>
         </div>
       </div>
     );
@@ -437,13 +437,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
 
         {/* Invoice Preview - Scrollable (A4 layout) */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="bg-gray-50 rounded-lg border">
+          <div className="bg-subtle rounded-lg border">
             {data && <InvoiceContent ref={invoiceRef} data={data} />}
           </div>
         </div>
 
         {/* Actions - Fixed at bottom */}
-        <div className="flex gap-3 justify-end pt-4 px-6 pb-6 border-t flex-shrink-0 bg-white">
+        <div className="flex gap-3 justify-end pt-4 px-6 pb-6 border-t flex-shrink-0 bg-card">
           <Button variant="outline" onClick={onClose}>
             Cerrar
           </Button>
@@ -457,7 +457,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, data, onClos
           </Button>
           <Button
             onClick={handleDownloadPDF}
-            className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
+            className="bg-success hover:bg-success/90 flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
             PDF A4

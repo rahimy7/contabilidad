@@ -23,9 +23,9 @@ const METHODS: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-yellow-500",
-  applied: "bg-green-600",
-  cancelled: "bg-red-500",
+  draft: "bg-warning",
+  applied: "bg-success",
+  cancelled: "bg-destructive",
 };
 
 /** Landed costs — vouchers de gastos de importación + prorateo sobre POs. */
@@ -78,12 +78,12 @@ export default function LandedCostsPage() {
   const v = detail.data;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Ship className="w-8 h-8 text-blue-600" />
+          <Ship className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Costos de Importación</h1>
+            <h1 className="text-[20px] font-semibold tracking-tight">Costos de Importación</h1>
             <p className="text-muted-foreground">
               Prorratea flete, aduana, ITBIS de despacho, agente aduanal sobre POs recibidas
             </p>
@@ -507,7 +507,7 @@ function AllocationsSection({ allocations }: { allocations: any[] }) {
                 <TableCell>#{a.productId}</TableCell>
                 <TableCell className="text-right font-mono">{a.quantity}</TableCell>
                 <TableCell className="text-right font-mono">{money(a.originalUnitCost)}</TableCell>
-                <TableCell className="text-right font-mono text-blue-600">+{money(a.allocatedAmount)}</TableCell>
+                <TableCell className="text-right font-mono text-primary">+{money(a.allocatedAmount)}</TableCell>
                 <TableCell className="text-right font-mono font-bold">{money(a.newUnitCost)}</TableCell>
                 <TableCell className="text-xs">{METHODS[a.allocationBasis] ?? a.allocationBasis}</TableCell>
               </TableRow>

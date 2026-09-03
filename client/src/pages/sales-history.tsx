@@ -792,19 +792,19 @@ export default function SalesHistoryPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Receipt className="h-7 w-7 text-blue-600" />
+          <Receipt className="h-7 w-7 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Historial de Ventas</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Facturas y retiros del punto de venta</p>
+            <h1 className="text-[20px] font-semibold tracking-tight">Historial de Ventas</h1>
+            <p className="text-sm text-muted-foreground">Facturas y retiros del punto de venta</p>
           </div>
         </div>
         <Button
           variant="outline"
-          className="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+          className="flex items-center gap-2 border-border text-primary hover:bg-accent"
           onClick={() => setReportOpen(true)}
         >
           <BarChart2 className="h-4 w-4" />
@@ -816,34 +816,34 @@ export default function SalesHistoryPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Total ventas</span>
-            <span className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Total ventas</span>
+            <span className="text-2xl font-bold text-foreground mt-1">{stats.total}</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Ingresos reales</span>
-            <span className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(stats.realRevenue)}</span>
-            <span className="text-xs text-gray-400 mt-0.5">Efectivo · Tarjeta · Transf.</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Ingresos reales</span>
+            <span className="text-2xl font-bold text-success mt-1">{formatCurrency(stats.realRevenue)}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">Efectivo · Tarjeta · Transf.</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Créditos</span>
-            <span className="text-2xl font-bold text-blue-500 mt-1">{formatCurrency(stats.creditRevenue)}</span>
-            <span className="text-xs text-gray-400 mt-0.5">Ventas a crédito</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Créditos</span>
+            <span className="text-2xl font-bold text-primary mt-1">{formatCurrency(stats.creditRevenue)}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">Ventas a crédito</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Retiros de caja</span>
-            <span className="text-2xl font-bold text-red-500 mt-1">−{formatCurrency(stats.withdrawalsTotal)}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Retiros de caja</span>
+            <span className="text-2xl font-bold text-destructive mt-1">−{formatCurrency(stats.withdrawalsTotal)}</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex flex-col">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Anuladas</span>
-            <span className="text-2xl font-bold text-red-500 mt-1">{stats.cancelled}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Anuladas</span>
+            <span className="text-2xl font-bold text-destructive mt-1">{stats.cancelled}</span>
           </CardContent>
         </Card>
       </div>
@@ -865,7 +865,7 @@ export default function SalesHistoryPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-9"
             placeholder="Buscar por # factura, cliente o teléfono…"
@@ -875,7 +875,7 @@ export default function SalesHistoryPage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="space-y-0.5">
-            <Label className="text-xs text-gray-500">Desde</Label>
+            <Label className="text-xs text-muted-foreground">Desde</Label>
             <Input
               type="date"
               value={dateFrom}
@@ -884,7 +884,7 @@ export default function SalesHistoryPage() {
             />
           </div>
           <div className="space-y-0.5">
-            <Label className="text-xs text-gray-500">Hasta</Label>
+            <Label className="text-xs text-muted-foreground">Hasta</Label>
             <Input
               type="date"
               value={dateTo}
@@ -896,7 +896,7 @@ export default function SalesHistoryPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="mt-4 text-gray-400 hover:text-gray-600 px-2"
+              className="mt-4 text-muted-foreground hover:text-muted-foreground px-2"
               onClick={() => { setDateFrom(''); setDateTo(''); }}
             >
               ✕
@@ -931,10 +931,10 @@ export default function SalesHistoryPage() {
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Receipt className="h-12 w-12 mb-3 opacity-40" />
           <p className="text-lg font-medium">No hay ventas</p>
           <p className="text-sm">Ajusta los filtros o realiza una venta desde el POS.</p>
@@ -957,18 +957,18 @@ export default function SalesHistoryPage() {
                     {/* Left: order info */}
                     <div className="flex-1 min-w-0 grid grid-cols-2 sm:flex sm:items-center sm:gap-6 gap-1">
                       <div className="flex items-center gap-2">
-                        <Receipt className="h-4 w-4 text-blue-500 shrink-0" />
+                        <Receipt className="h-4 w-4 text-primary shrink-0" />
                         <span className="font-semibold text-sm truncate">{order.orderNumber}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3 shrink-0" />
                         <span>{formatDate(order.createdAt)}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <User className="h-3 w-3 shrink-0" />
                         <span className="truncate">{order.customer.name}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CreditCard className="h-3 w-3 shrink-0" />
                         <span>{PAYMENT_LABELS[order.paymentMethod || ''] ?? order.paymentMethod ?? '—'}</span>
                       </div>
@@ -976,7 +976,7 @@ export default function SalesHistoryPage() {
 
                     {/* Right: amount + status + actions */}
                     <div className="flex items-center gap-3 sm:ml-auto">
-                      <span className="font-bold text-lg text-emerald-600">
+                      <span className="font-bold text-lg text-success">
                         {formatCurrency(order.totalAmount)}
                       </span>
                       <Badge variant={statusInfo.variant} className="text-xs">
@@ -995,7 +995,7 @@ export default function SalesHistoryPage() {
                           title="Ver factura"
                           onClick={() => handleViewInvoice(order)}
                         >
-                          <Eye className="h-4 w-4 text-blue-500" />
+                          <Eye className="h-4 w-4 text-primary" />
                         </Button>
 
                         {/* Void / Anular */}
@@ -1006,7 +1006,7 @@ export default function SalesHistoryPage() {
                             title="Anular venta"
                             onClick={() => { setVoidTarget(order); setVoidOpen(true); }}
                           >
-                            <Ban className="h-4 w-4 text-orange-500" />
+                            <Ban className="h-4 w-4 text-warning" />
                           </Button>
                         )}
 
@@ -1018,36 +1018,36 @@ export default function SalesHistoryPage() {
                             title="Eliminar venta (admin)"
                             onClick={() => { setDeleteTarget(order); setDeleteOpen(true); }}
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>
 
                       {isExpanded
-                        ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" />
-                        : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                        ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                        : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                       }
                     </div>
                   </div>
 
                   {/* Expanded items */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 dark:border-gray-700 px-4 pb-4 pt-3">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    <div className="border-t border-border px-4 pb-4 pt-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                         Artículos ({order.items.length})
                       </p>
                       <div className="space-y-1">
                         {order.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                          <div key={idx} className="flex items-center justify-between text-sm py-1 border-b border-border last:border-0">
                             <div className="flex items-center gap-2">
-                              <Package className="h-3 w-3 text-gray-400 shrink-0" />
-                              <span className="text-gray-800 dark:text-gray-200">
+                              <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="text-foreground">
                                 {item.product?.name || `Producto #${item.productId}`}
                               </span>
-                              <span className="text-gray-400">× {item.quantity}</span>
+                              <span className="text-muted-foreground">× {item.quantity}</span>
                             </div>
                             <div className="flex items-center gap-4 text-right">
-                              <span className="text-gray-500 text-xs">
+                              <span className="text-muted-foreground text-xs">
                                 {formatCurrency(item.unitPrice)} c/u
                               </span>
                               <span className="font-medium w-24">
@@ -1063,11 +1063,11 @@ export default function SalesHistoryPage() {
                         <div className="text-sm space-y-1 w-56">
                           {parseFloat(order.discountAmount || '0') > 0 && (
                             <>
-                              <div className="flex justify-between text-gray-500">
+                              <div className="flex justify-between text-muted-foreground">
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(order.subtotalAmount)}</span>
                               </div>
-                              <div className="flex justify-between text-orange-500">
+                              <div className="flex justify-between text-warning">
                                 <span>Descuento ({order.discountPercentage}%)</span>
                                 <span>-{formatCurrency(order.discountAmount)}</span>
                               </div>
@@ -1075,15 +1075,15 @@ export default function SalesHistoryPage() {
                           )}
                           <div className="flex justify-between font-bold border-t pt-1">
                             <span>Total</span>
-                            <span className="text-emerald-600">{formatCurrency(order.totalAmount)}</span>
+                            <span className="text-success">{formatCurrency(order.totalAmount)}</span>
                           </div>
                           {order.paymentMethod === 'cash' && parseFloat(order.receivedAmount || '0') > 0 && (
                             <>
-                              <div className="flex justify-between text-gray-500">
+                              <div className="flex justify-between text-muted-foreground">
                                 <span>Recibido</span>
                                 <span>{formatCurrency(order.receivedAmount)}</span>
                               </div>
-                              <div className="flex justify-between text-gray-500">
+                              <div className="flex justify-between text-muted-foreground">
                                 <span>Cambio</span>
                                 <span>{formatCurrency(order.changeAmount)}</span>
                               </div>
@@ -1103,7 +1103,7 @@ export default function SalesHistoryPage() {
       {/* ── Pagination ────────────────────────────────────────────────────── */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {filtered.length} resultados · Página {currentPage} de {totalPages}
           </span>
           <div className="flex items-center gap-1">
@@ -1158,15 +1158,15 @@ export default function SalesHistoryPage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3 items-end">
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Desde</Label>
+              <Label className="text-xs text-muted-foreground">Desde</Label>
               <Input type="date" value={wStartDate} onChange={(e) => setWStartDate(e.target.value)} className="w-40" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Hasta</Label>
+              <Label className="text-xs text-muted-foreground">Hasta</Label>
               <Input type="date" value={wEndDate} onChange={(e) => setWEndDate(e.target.value)} className="w-40" />
             </div>
             <Button variant="outline" size="sm" onClick={() => refetchW()}>Buscar</Button>
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer ml-auto">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer ml-auto">
               <input type="checkbox" checked={wShowVoided} onChange={(e) => setWShowVoided(e.target.checked)} />
               Mostrar anulados
             </label>
@@ -1174,10 +1174,10 @@ export default function SalesHistoryPage() {
 
           {isLoadingW ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : withdrawals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <TrendingDown className="h-12 w-12 mb-3 opacity-40" />
               <p className="text-lg font-medium">No hay retiros</p>
               <p className="text-sm">Los retiros de efectivo registrados en caja aparecerán aquí.</p>
@@ -1185,52 +1185,52 @@ export default function SalesHistoryPage() {
           ) : (
             <div className="space-y-2">
               {withdrawals.map((w: any) => (
-                <Card key={w.id} className={w.voided ? 'opacity-60 border-red-200' : ''}>
+                <Card key={w.id} className={w.voided ? 'opacity-60 border-destructive/40' : ''}>
                   <CardContent className="p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex-1 grid grid-cols-2 sm:flex sm:items-center sm:gap-6 gap-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <TrendingDown className="h-4 w-4 text-red-500 shrink-0" />
+                          <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
                           <span className="font-semibold text-sm">#{String(w.id).padStart(6, '0')}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3 shrink-0" />
                           <span>{formatDate(w.createdAt)}</span>
                         </div>
-                        <div className="text-sm text-gray-700 col-span-2 sm:flex-1 truncate">{w.concept}</div>
-                        <div className="text-xs text-gray-500 col-span-2 sm:col-span-1">
+                        <div className="text-sm text-foreground col-span-2 sm:flex-1 truncate">{w.concept}</div>
+                        <div className="text-xs text-muted-foreground col-span-2 sm:col-span-1">
                           <span className="font-medium">Cajero:</span> {w.cashierName ?? '—'} &nbsp;·&nbsp;
                           <span className="font-medium">Autorizado:</span> {w.authorizerName ?? '—'}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 sm:ml-auto">
-                        <span className="font-bold text-lg text-red-600">−{formatCurrency(w.amount)}</span>
+                        <span className="font-bold text-lg text-destructive">−{formatCurrency(w.amount)}</span>
                         {w.voided
                           ? <Badge variant="destructive" className="text-xs">Anulado</Badge>
-                          : <Badge variant="default" className="text-xs bg-green-600">Activo</Badge>
+                          : <Badge variant="default" className="text-xs bg-success">Activo</Badge>
                         }
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" title="Imprimir térmico" onClick={() => handlePrintWithdrawalThermal(w)}>
-                            <Printer className="h-4 w-4 text-gray-500" />
+                            <Printer className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           <Button size="icon" variant="ghost" title="Imprimir A4" onClick={() => handlePrintWithdrawalHtml(w)}>
-                            <FileText className="h-4 w-4 text-gray-500" />
+                            <FileText className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           {isAdmin && !w.voided && (
                             <Button size="icon" variant="ghost" title="Anular retiro" onClick={() => { setWVoidTarget(w); setWVoidOpen(true); }}>
-                              <Ban className="h-4 w-4 text-orange-500" />
+                              <Ban className="h-4 w-4 text-warning" />
                             </Button>
                           )}
                         </div>
                       </div>
                     </div>
                     {w.voided && w.voidReason && (
-                      <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2">
+                      <div className="mt-2 text-xs text-destructive bg-destructive/10 border border-destructive/40 rounded p-2">
                         <strong>Motivo anulación:</strong> {w.voidReason}
                         {w.voidedByName && <> · <strong>Por:</strong> {w.voidedByName}</>}
                       </div>
                     )}
-                    {w.notes && <p className="mt-1 text-xs text-gray-400">{w.notes}</p>}
+                    {w.notes && <p className="mt-1 text-xs text-muted-foreground">{w.notes}</p>}
                   </CardContent>
                 </Card>
               ))}
@@ -1244,7 +1244,7 @@ export default function SalesHistoryPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5 text-orange-500" />
+              <Ban className="h-5 w-5 text-warning" />
               Anular venta
             </DialogTitle>
             <DialogDescription>
@@ -1260,7 +1260,7 @@ export default function SalesHistoryPage() {
             </Button>
             <Button
               variant="default"
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-warning hover:bg-warning"
               disabled={voidMutation.isPending}
               onClick={() => voidTarget && voidMutation.mutate(voidTarget.id)}
             >
@@ -1276,7 +1276,7 @@ export default function SalesHistoryPage() {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               Eliminar venta permanentemente
             </DialogTitle>
@@ -1284,7 +1284,7 @@ export default function SalesHistoryPage() {
               ¿Estás seguro de que deseas <strong>eliminar</strong> la venta{' '}
               <strong>{deleteTarget?.orderNumber}</strong>?
               <br />
-              <span className="text-red-500 font-medium">
+              <span className="text-destructive font-medium">
                 Esta acción es irreversible y eliminará la venta del sistema.
               </span>
             </DialogDescription>
@@ -1310,7 +1310,7 @@ export default function SalesHistoryPage() {
       <Dialog open={wVoidOpen} onOpenChange={(o) => { if (!o) { setWVoidOpen(false); setWVoidTarget(null); setWVoidReason(''); setWVoidUser(''); setWVoidPass(''); } }}>        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5 text-orange-500" />
+              <Ban className="h-5 w-5 text-warning" />
               Anular Retiro
             </DialogTitle>
             <DialogDescription>
@@ -1322,15 +1322,15 @@ export default function SalesHistoryPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Motivo de anulación</Label>
+              <Label className="text-xs text-muted-foreground">Motivo de anulación</Label>
               <Input placeholder="Describe el motivo..." value={wVoidReason} onChange={(e) => setWVoidReason(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="flex items-center gap-1 text-xs text-gray-500"><ShieldCheck className="h-3 w-3" /> Usuario administrador</Label>
+              <Label className="flex items-center gap-1 text-xs text-muted-foreground"><ShieldCheck className="h-3 w-3" /> Usuario administrador</Label>
               <Input placeholder="Username" value={wVoidUser} onChange={(e) => setWVoidUser(e.target.value)} autoComplete="off" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Contraseña</Label>
+              <Label className="text-xs text-muted-foreground">Contraseña</Label>
               <Input type="password" placeholder="••••••••" value={wVoidPass} onChange={(e) => setWVoidPass(e.target.value)} autoComplete="current-password" />
             </div>
           </div>
@@ -1340,7 +1340,7 @@ export default function SalesHistoryPage() {
             </Button>
             <Button
               variant="default"
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-warning hover:bg-warning"
               disabled={voidWithdrawalMutation.isPending || !wVoidReason.trim() || !wVoidUser.trim() || !wVoidPass.trim()}
               onClick={() => wVoidTarget && voidWithdrawalMutation.mutate({ id: wVoidTarget.id, voidReason: wVoidReason, authorizerUsername: wVoidUser, authorizerPassword: wVoidPass })}
             >
@@ -1359,30 +1359,30 @@ export default function SalesHistoryPage() {
           <div className="px-6 pt-4 pb-3 border-b shrink-0 space-y-3">
             {/* Row 1: title */}
             <div className="flex items-center gap-2 pr-10">
-              <BarChart2 className="h-5 w-5 text-blue-600 shrink-0" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Reporte de Ventas</h2>
+              <BarChart2 className="h-5 w-5 text-primary shrink-0" />
+              <h2 className="text-lg font-semibold text-foreground">Reporte de Ventas</h2>
             </div>
             {/* Row 2: date pickers + action buttons */}
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1">
-                <Label className="text-xs text-gray-500 whitespace-nowrap">Desde</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Desde</Label>
                 <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="h-8 text-sm w-36" />
               </div>
               <div className="flex items-center gap-1">
-                <Label className="text-xs text-gray-500 whitespace-nowrap">Hasta</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Hasta</Label>
                 <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="h-8 text-sm w-36" />
               </div>
               <Button variant="outline" size="sm" onClick={handleReportToday} className="h-8">
                 <Calendar className="h-3 w-3 mr-1" />Hoy
               </Button>
-              <div className="h-5 w-px bg-gray-200 mx-1" />
-              <Button size="sm" variant="outline" className="h-8 border-gray-400 gap-1" disabled={reportOrders.length === 0} onClick={handlePrintReport}>
+              <div className="h-5 w-px bg-secondary mx-1" />
+              <Button size="sm" variant="outline" className="h-8 border-border-strong gap-1" disabled={reportOrders.length === 0} onClick={handlePrintReport}>
                 <Printer className="h-3 w-3" />Imprimir
               </Button>
-              <Button size="sm" className="h-8 bg-red-600 hover:bg-red-700 text-white gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportPDF}>
+              <Button size="sm" className="h-8 bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportPDF}>
                 <FileDown className="h-3 w-3" />PDF
               </Button>
-              <Button size="sm" className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportExcel}>
+              <Button size="sm" className="h-8 bg-success/90 hover:bg-success/90 text-success-foreground gap-1" disabled={reportOrders.length === 0} onClick={handleExportReportExcel}>
                 <FileSpreadsheet className="h-3 w-3" />Excel
               </Button>
             </div>
@@ -1391,7 +1391,7 @@ export default function SalesHistoryPage() {
           {/* Report body — scrollable */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
             {reportOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                 <BarChart2 className="h-12 w-12 mb-3 opacity-30" />
                 <p className="text-lg font-medium">Sin ventas en este período</p>
                 <p className="text-sm">Selecciona otro rango de fechas.</p>
@@ -1420,44 +1420,44 @@ export default function SalesHistoryPage() {
                     <>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-2xl font-bold text-blue-600">{reportOrders.length}</p>
-                          <p className="text-xs text-gray-500">Ventas</p>
+                          <p className="text-2xl font-bold text-primary">{reportOrders.length}</p>
+                          <p className="text-xs text-muted-foreground">Ventas</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-gray-700">{formatCurrency(totalSubtotal)}</p>
-                          <p className="text-xs text-gray-500">Subtotal</p>
+                          <p className="text-xl font-bold text-foreground">{formatCurrency(totalSubtotal)}</p>
+                          <p className="text-xs text-muted-foreground">Subtotal</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-orange-500">{formatCurrency(totalDiscount)}</p>
-                          <p className="text-xs text-gray-500">Descuentos</p>
+                          <p className="text-xl font-bold text-warning">{formatCurrency(totalDiscount)}</p>
+                          <p className="text-xs text-muted-foreground">Descuentos</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(rRealRevenue)}</p>
-                          <p className="text-xs text-gray-500">Ingresos reales</p>
-                          <p className="text-xs text-gray-400">Efect. · Tarj. · Transf.</p>
+                          <p className="text-xl font-bold text-success">{formatCurrency(rRealRevenue)}</p>
+                          <p className="text-xs text-muted-foreground">Ingresos reales</p>
+                          <p className="text-xs text-muted-foreground">Efect. · Tarj. · Transf.</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-blue-500">{formatCurrency(rCreditRevenue)}</p>
-                          <p className="text-xs text-gray-500">Créditos</p>
+                          <p className="text-xl font-bold text-primary">{formatCurrency(rCreditRevenue)}</p>
+                          <p className="text-xs text-muted-foreground">Créditos</p>
                         </CardContent></Card>
                         <Card><CardContent className="p-3 text-center">
-                          <p className="text-xl font-bold text-red-500">−{formatCurrency(rWithdrawalsTotal)}</p>
-                          <p className="text-xs text-gray-500">Retiros caja</p>
-                          <p className="text-xs text-gray-400">{reportWithdrawals.length} retiro{reportWithdrawals.length !== 1 ? 's' : ''}</p>
+                          <p className="text-xl font-bold text-destructive">−{formatCurrency(rWithdrawalsTotal)}</p>
+                          <p className="text-xs text-muted-foreground">Retiros caja</p>
+                          <p className="text-xs text-muted-foreground">{reportWithdrawals.length} retiro{reportWithdrawals.length !== 1 ? 's' : ''}</p>
                         </CardContent></Card>
                       </div>
                       {/* Net income highlight */}
-                      <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
-                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Ingreso neto efectivo (reales − retiros)</span>
-                        <span className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(rNetIncome)}</span>
+                      <div className="flex items-center justify-between bg-accent dark:bg-accent/40 border border-border dark:border-primary rounded-lg px-4 py-3">
+                        <span className="text-sm font-semibold text-primary dark:text-primary/70">Ingreso neto efectivo (reales − retiros)</span>
+                        <span className="text-xl font-bold text-primary dark:text-primary/70">{formatCurrency(rNetIncome)}</span>
                       </div>
                       {/* By payment method */}
                       <div className="flex flex-wrap gap-2">
                         {Object.entries(byMethod).map(([method, amt]) => (
-                          <div key={method} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border rounded-lg px-3 py-2 text-sm">
-                            <CreditCard className="h-3 w-3 text-gray-400" />
-                            <span className="text-gray-600 dark:text-gray-300">{method}:</span>
-                            <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(amt)}</span>
+                          <div key={method} className="flex items-center gap-2 bg-subtle border rounded-lg px-3 py-2 text-sm">
+                            <CreditCard className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">{method}:</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(amt)}</span>
                           </div>
                         ))}
                       </div>
@@ -1467,14 +1467,14 @@ export default function SalesHistoryPage() {
 
                 {/* ── Sales table ───────────────────────────────────────── */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2 flex items-center gap-2">
-                    <Receipt className="h-4 w-4 text-blue-500" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-primary" />
                     Listado de Ventas
                   </h3>
                   <div className="rounded-lg border overflow-hidden">
-                    <table className="w-full text-sm">
+                    <table className="w-full border-collapse text-[13px]">
                       <thead>
-                        <tr className="bg-blue-700 text-white text-xs">
+                        <tr className="bg-primary text-primary-foreground text-xs">
                           <th className="text-left px-3 py-2">Factura</th>
                           <th className="text-left px-3 py-2">Fecha y Hora</th>
                           <th className="text-left px-3 py-2">Cliente</th>
@@ -1486,38 +1486,38 @@ export default function SalesHistoryPage() {
                       </thead>
                       <tbody>
                         {reportOrders.map((o, i) => (
-                          <tr key={o.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
+                          <tr key={o.id} className={i % 2 === 0 ? 'bg-card' : 'bg-subtle'}>
                             <td className="px-3 py-2 font-medium">
                               <button
                                 type="button"
                                 onClick={() => handleViewInvoice(o)}
-                                className="text-blue-700 hover:text-blue-900 hover:underline focus:outline-none focus:underline"
+                                className="text-primary hover:text-accent-foreground hover:underline focus:outline-none focus:underline"
                                 title="Ver detalle de factura"
                               >
                                 {o.orderNumber}
                               </button>
                             </td>
-                            <td className="px-3 py-2 text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDateTime(o.createdAt)}</td>
-                            <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{o.customer.name}</td>
-                            <td className="px-3 py-2 text-gray-500">{PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—'}</td>
-                            <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-200">{formatCurrency(o.subtotalAmount || o.totalAmount)}</td>
-                            <td className="px-3 py-2 text-right text-orange-500">
+                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDateTime(o.createdAt)}</td>
+                            <td className="px-3 py-2 text-foreground">{o.customer.name}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{PAYMENT_LABELS[o.paymentMethod || ''] ?? o.paymentMethod ?? '—'}</td>
+                            <td className="px-3 py-2 text-right text-foreground">{formatCurrency(o.subtotalAmount || o.totalAmount)}</td>
+                            <td className="px-3 py-2 text-right text-warning">
                               {parseFloat(o.discountAmount || '0') > 0 ? `-${formatCurrency(o.discountAmount)}` : '—'}
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(o.totalAmount)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-success">{formatCurrency(o.totalAmount)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-emerald-50 dark:bg-emerald-900/30 font-bold text-emerald-700 dark:text-emerald-300 border-t-2 border-emerald-200">
+                        <tr className="bg-success/10 font-bold text-success border-t-2 border-success/40">
                           <td className="px-3 py-2" colSpan={4}>{reportOrders.length} ventas</td>
                           <td className="px-3 py-2 text-right">
                             {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.subtotalAmount || o.totalAmount || '0'), 0))}
                           </td>
-                          <td className="px-3 py-2 text-right text-orange-600">
+                          <td className="px-3 py-2 text-right text-warning">
                             {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.discountAmount || '0'), 0))}
                           </td>
-                          <td className="px-3 py-2 text-right text-emerald-600">
+                          <td className="px-3 py-2 text-right text-success">
                             {formatCurrency(reportOrders.reduce((s, o) => s + parseFloat(o.totalAmount || '0'), 0))}
                           </td>
                         </tr>
@@ -1528,14 +1528,14 @@ export default function SalesHistoryPage() {
 
                 {/* ── Products table ────────────────────────────────────── */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide mb-2 flex items-center gap-2">
-                    <Package className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-success" />
                     Productos Vendidos
                   </h3>
                   <div className="rounded-lg border overflow-hidden">
-                    <table className="w-full text-sm">
+                    <table className="w-full border-collapse text-[13px]">
                       <thead>
-                        <tr className="bg-emerald-700 text-white text-xs">
+                        <tr className="bg-success/90 text-success-foreground text-xs">
                           <th className="text-left px-3 py-2">#</th>
                           <th className="text-left px-3 py-2">Producto</th>
                           <th className="text-right px-3 py-2">Cantidad</th>
@@ -1545,17 +1545,17 @@ export default function SalesHistoryPage() {
                       </thead>
                       <tbody>
                         {reportProducts.map((p, i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}>
-                            <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                            <td className="px-3 py-2 text-gray-800 dark:text-gray-100 font-medium">{p.name}</td>
-                            <td className="px-3 py-2 text-right font-semibold text-blue-600">{p.qty}</td>
-                            <td className="px-3 py-2 text-right text-gray-500">{formatCurrency(p.total / p.qty)}</td>
-                            <td className="px-3 py-2 text-right font-bold text-emerald-600">{formatCurrency(p.total)}</td>
+                          <tr key={i} className={i % 2 === 0 ? 'bg-card' : 'bg-subtle'}>
+                            <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                            <td className="px-3 py-2 text-foreground font-medium">{p.name}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-primary">{p.qty}</td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">{formatCurrency(p.total / p.qty)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-success">{formatCurrency(p.total)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-emerald-50 dark:bg-emerald-900/30 font-bold text-emerald-700 dark:text-emerald-300 border-t-2 border-emerald-200">
+                        <tr className="bg-success/10 font-bold text-success border-t-2 border-success/40">
                           <td className="px-3 py-2" colSpan={2}>TOTALES</td>
                           <td className="px-3 py-2 text-right">{reportProducts.reduce((s, p) => s + p.qty, 0)}</td>
                           <td></td>

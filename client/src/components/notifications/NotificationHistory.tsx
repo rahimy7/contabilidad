@@ -16,18 +16,18 @@ import {
 export default function NotificationHistory({ history, onRefresh }) {
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'sent': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'delivered': return <CheckCircle className="w-4 h-4 text-blue-500" />;
-      case 'failed': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default: return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'sent': return <CheckCircle className="w-4 h-4 text-success" />;
+      case 'delivered': return <CheckCircle className="w-4 h-4 text-primary" />;
+      case 'failed': return <AlertCircle className="w-4 h-4 text-destructive" />;
+      default: return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   const getChannelIcon = (channel) => {
     switch (channel) {
-      case 'whatsapp': return <MessageSquare className="w-4 h-4 text-green-600" />;
-      case 'email': return <Mail className="w-4 h-4 text-blue-600" />;
-      case 'app': return <Smartphone className="w-4 h-4 text-purple-600" />;
+      case 'whatsapp': return <MessageSquare className="w-4 h-4 text-success" />;
+      case 'email': return <Mail className="w-4 h-4 text-primary" />;
+      case 'app': return <Smartphone className="w-4 h-4 text-primary" />;
       default: return null;
     }
   };
@@ -91,9 +91,9 @@ const HistoryList = ({ items }) => (
                 </Badge>
               </div>
               
-              <p className="text-sm text-gray-600 mb-2">{item.message}</p>
+              <p className="text-sm text-muted-foreground mb-2">{item.message}</p>
               
-              <div className="flex items-center gap-4 text-xs text-gray-500">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>Para: {item.recipientType}</span>
                 <span>Enviado: {new Date(item.createdAt).toLocaleString()}</span>
                 {item.sentAt && (
@@ -102,7 +102,7 @@ const HistoryList = ({ items }) => (
               </div>
               
               {item.errorMessage && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                <div className="mt-2 p-2 bg-destructive/10 border border-destructive/40 rounded text-xs text-destructive">
                   Error: {item.errorMessage}
                 </div>
               )}
@@ -126,7 +126,7 @@ const HistoryList = ({ items }) => (
     ))}
     
     {items.length === 0 && (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         <Smartphone className="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p>No hay notificaciones en este canal</p>
       </div>
