@@ -43,17 +43,18 @@ const dgiiDate = (d: Date | string | null | undefined): string => {
 const period = (year: number, month: number) => `${year}${String(month).padStart(2, "0")}`;
 
 /**
- * Month bounds evaluated in Dominican local time.
+ * Month bounds on the comprobante's own date.
  *
- * `emitted_at` is timestamptz. `date_trunc('month', emitted_at)` would depend on
- * the connection's TimeZone setting, so an invoice issued at 22:00 on the 31st
- * could fall into the next month for one caller and not another. The Dominican
- * Republic observes no DST, so a fixed zone is exact.
+ * DGII files by the date printed on the comprobante (`document_date`), not by
+ * when the system happened to record it (`emitted_at`). A purchase dated the 1st
+ * and captured on the 3rd belongs to the month of the 1st; an invoice dated the
+ * 31st belongs to that month even if the batch was keyed in after midnight.
+ * `document_date` is a plain `date`, so no time zone can move it across a month
+ * boundary.
  */
 const MONTH_FILTER = `
-  (d.emitted_at AT TIME ZONE 'America/Santo_Domingo')::date >= make_date($2, $3, 1)
-  AND (d.emitted_at AT TIME ZONE 'America/Santo_Domingo')::date
-      < (make_date($2, $3, 1) + interval '1 month')::date
+  d.document_date >= make_date($2, $3, 1)
+  AND d.document_date < (make_date($2, $3, 1) + interval '1 month')::date
 `;
 
 /** RNC is 9 digits, cédula 11. DGII wants the identification type alongside it. */
@@ -99,17 +100,18 @@ function assemble(form: DgiiReport["form"], rnc: string, per: string, lines: str
 export async function generate606(client: SqlClient, req: ReportRequest): Promise<DgiiReport> {
   const { rows } = await client.query(
     `SELECT coalesce(d.issuer_rnc, s.tax_id) AS supplier_rnc,
-            d.ncf, d.modifies_ncf, d.emitted_at,
+            d.ncf, d.modifies_ncf, d.document_date,
             d.subtotal_taxed::text, d.subtotal_exempt::text,
             (d.itbis_18 + d.itbis_16 + d.itbis_0)::text AS itbis,
-            d.retention_itbis::text, d.retention_isr::text, d.total::text
+            d.retention_itbis::text, d.retention_isr::text, d.total::text,
+            coalesce(d.dgii_expense_type, s.default_expense_type) AS expense_type
        FROM fiscal_documents d
        LEFT JOIN suppliers s ON s.id = d.supplier_id
       WHERE d.company_id = $1
         AND d.doc_type = 'purchase'
         AND d.status <> 'cancelled'
         AND ${MONTH_FILTER}
-      ORDER BY d.emitted_at, d.id`,
+      ORDER BY d.document_date, d.id`,
     [req.companyId, req.year, req.month],
   );
 
@@ -118,12 +120,12 @@ export async function generate606(client: SqlClient, req: ReportRequest): Promis
     return [
       rnc,
       idType(rnc),
-      // Tipo de bienes y servicios comprados. '09' = compras y gastos generales,
-      // the safe default until a purchase carries its own classification.
-      "09",
+      // Tipo de bienes y servicios comprados: the purchase's own classification,
+      // else the supplier's default, else '09' (compras y gastos generales).
+      r.expense_type ?? "09",
       r.ncf ?? "",
       r.modifies_ncf ?? "",
-      dgiiDate(r.emitted_at),
+      dgiiDate(r.document_date),
       amount(r.subtotal_taxed),
       amount(r.itbis),
       amount(r.retention_itbis),
@@ -143,7 +145,7 @@ export async function generate606(client: SqlClient, req: ReportRequest): Promis
  */
 export async function generate607(client: SqlClient, req: ReportRequest): Promise<DgiiReport> {
   const { rows } = await client.query(
-    `SELECT d.buyer_rnc, d.ncf, d.modifies_ncf, d.emitted_at,
+    `SELECT d.buyer_rnc, d.ncf, d.modifies_ncf, d.document_date,
             d.subtotal_taxed::text, d.subtotal_exempt::text,
             (d.itbis_18 + d.itbis_16 + d.itbis_0)::text AS itbis,
             d.retention_itbis::text, d.retention_isr::text,
@@ -153,7 +155,7 @@ export async function generate607(client: SqlClient, req: ReportRequest): Promis
         AND d.doc_type IN ('invoice','credit_note','debit_note')
         AND d.status = 'issued'
         AND ${MONTH_FILTER}
-      ORDER BY d.emitted_at, d.id`,
+      ORDER BY d.document_date, d.id`,
     [req.companyId, req.year, req.month],
   );
 
@@ -165,7 +167,7 @@ export async function generate607(client: SqlClient, req: ReportRequest): Promis
       rnc === "" ? "" : idType(rnc),
       r.ncf ?? "",
       r.modifies_ncf ?? "",
-      dgiiDate(r.emitted_at),
+      dgiiDate(r.document_date),
       amount(r.subtotal_taxed),
       amount(r.itbis),
       amount(r.retention_itbis),
@@ -204,7 +206,9 @@ export async function generateIt1(client: SqlClient, req: ReportRequest): Promis
         coalesce(sum((itbis_18+itbis_16+itbis_0)) FILTER (
           WHERE doc_type='credit_note' AND status='issued'), 0)::text AS charged_credit_notes,
         coalesce(sum((itbis_18+itbis_16+itbis_0)) FILTER (
-          WHERE doc_type='purchase' AND status<>'cancelled'), 0)::text AS paid,
+          WHERE doc_type='purchase' AND status<>'cancelled' AND modifies_doc_id IS NULL), 0)::text AS paid,
+        coalesce(sum((itbis_18+itbis_16+itbis_0)) FILTER (
+          WHERE doc_type='purchase' AND status<>'cancelled' AND modifies_doc_id IS NOT NULL), 0)::text AS paid_credit_notes,
         coalesce(sum(retention_itbis) FILTER (
           WHERE doc_type IN ('invoice','debit_note') AND status='issued'), 0)::text AS withheld
        FROM fiscal_documents d
@@ -214,7 +218,8 @@ export async function generateIt1(client: SqlClient, req: ReportRequest): Promis
   const r = rows[0];
   // Credit notes reduce the ITBIS we charged.
   const charged = num(r.charged) - num(r.charged_credit_notes);
-  const paid = num(r.paid);
+  // A supplier's credit note gives back ITBIS credit taken on the purchase.
+  const paid = num(r.paid) - num(r.paid_credit_notes);
   const withheld = num(r.withheld);
   const balance = charged - paid - withheld;
   return {
@@ -359,7 +364,7 @@ export async function generate609(client: SqlClient, req: ReportRequest): Promis
  */
 export async function generate608(client: SqlClient, req: ReportRequest): Promise<DgiiReport> {
   const { rows } = await client.query(
-    `SELECT d.ncf, d.emitted_at,
+    `SELECT d.ncf, d.document_date,
             CASE WHEN d.ecf_status = 'rechazado' THEN '05' ELSE '01' END AS reason
        FROM fiscal_documents d
       WHERE d.company_id = $1
@@ -371,7 +376,7 @@ export async function generate608(client: SqlClient, req: ReportRequest): Promis
 
   // Anulación reason codes: 01 = deterioro de factura pre-impresa,
   // 05 = comprobante rechazado. A fuller mapping belongs with the cancel UI.
-  const lines = rows.map((r) => [r.ncf ?? "", dgiiDate(r.emitted_at), r.reason].join(PIPE));
+  const lines = rows.map((r) => [r.ncf ?? "", dgiiDate(r.document_date), r.reason].join(PIPE));
 
   return assemble("608", req.rnc, period(req.year, req.month), lines);
 }

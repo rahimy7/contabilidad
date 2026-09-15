@@ -8,9 +8,9 @@ import {
   prepareTssSubmission, saveTssSubmission, markSubmissionSubmitted,
 } from "../services/hr-tss";
 import { quotePrice, checkCreditAvailability } from "../services/pricing";
-import {
-  calculateCommissions, closeCommissionPeriod, approveCommissionEarning,
-} from "../services/commissions";
+import { calculateCommissions } from "../services/commissions";
+import { calculateFiscalCommissions, closeFiscalCommissionPeriod, approveFiscalCommission } from "../sales/commissions";
+import { withLegacyCompany, sendLegacyError } from "../http/legacy-bridge";
 
 const router = express.Router();
 const storeIdOf = (req: AuthenticatedRequest) => {
@@ -607,11 +607,19 @@ router.post("/commissions/rules", authenticateToken, async (req: AuthenticatedRe
   }
 });
 
+// Comisión del mes calculada sobre los comprobantes fiscales del vendedor (ventas
+// netas de notas de crédito, margen real con el costo de lo vendido). Sin empresa
+// asociada, cae al cálculo heredado sobre pedidos del POS.
 router.get("/commissions/preview", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const userId = Number(req.query.userId);
   const year = Number(req.query.year);
   const month = Number(req.query.month);
-  res.json(await calculateCommissions(masterPool, storeIdOf(req), userId, year, month));
+  try {
+    res.json(await withLegacyCompany(req as any, (c, ctx) =>
+      calculateFiscalCommissions(c, { companyId: ctx.companyId, storeId: ctx.storeId, userId, year, month })));
+  } catch {
+    res.json(await calculateCommissions(masterPool, storeIdOf(req), userId, year, month));
+  }
 });
 
 router.post("/commissions/close-period", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
@@ -621,17 +629,24 @@ router.post("/commissions/close-period", authenticateToken, async (req: Authenti
       year: z.number().int(),
       month: z.number().int().min(1).max(12),
     }).parse(req.body);
-    const r = await closeCommissionPeriod(masterPool, storeIdOf(req), body.userId, body.year, body.month);
+    const r = await withLegacyCompany(req as any, (c, ctx) =>
+      closeFiscalCommissionPeriod(c, { companyId: ctx.companyId, storeId: ctx.storeId, userId: body.userId, year: body.year, month: body.month }));
     res.status(201).json(r);
   } catch (err: unknown) {
     if (err instanceof z.ZodError) return res.status(422).json({ error: "Validation failed", issues: err.issues });
-    res.status(500).json({ error: "Failed" });
+    if ((err as any)?.constructor?.name === "CommissionError") return res.status(409).json({ error: (err as Error).message });
+    sendLegacyError(res as any, err, "No se pudo cerrar el período de comisiones");
   }
 });
 
 router.post("/commissions/earnings/:id/approve", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  await approveCommissionEarning(masterPool, Number(req.params.id), req.user!.id);
-  res.json({ ok: true });
+  try {
+    await withLegacyCompany(req as any, (c) => approveFiscalCommission(c, { earningId: Number(req.params.id), approvedBy: req.user!.id }));
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    if ((err as any)?.constructor?.name === "CommissionError") return res.status(409).json({ error: (err as Error).message });
+    sendLegacyError(res as any, err, "No se pudo aprobar la comisión");
+  }
 });
 
 router.get("/commissions/earnings", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {

@@ -25,6 +25,13 @@ export interface ManualEntryInput {
   reference?: string;
   lines: ManualEntryLine[];
   postedBy?: number;
+  /**
+   * For a module that names its accounts itself (payroll, treasury, asset
+   * disposal): the source it records, so the entry is traceable to its document
+   * and posts at most once. Defaults to a manual entry.
+   */
+  sourceType?: string;
+  sourceEvent?: string;
 }
 
 /**
@@ -296,7 +303,7 @@ export class PostingEngine {
       `INSERT INTO journal_entries
          (company_id, period_id, entry_date, memo, currency, status,
           source_type, source_id, source_event, posted_by, posted_at)
-       VALUES ($1,$2,$3,$4,$5,'draft','manual',$6,'manual',$7, now())
+       VALUES ($1,$2,$3,$4,$5,'draft',$8,$6,$9,$7, now())
        RETURNING id`,
       [
         input.companyId,
@@ -306,6 +313,8 @@ export class PostingEngine {
         input.currency ?? "DOP",
         sourceId,
         input.postedBy ?? null,
+        input.sourceType ?? "manual",
+        input.sourceEvent ?? input.sourceType ?? "manual",
       ],
     );
     const entryId = Number(entry.rows[0].id);
@@ -367,7 +376,10 @@ export class PostingEngine {
       [companyId, entryDate],
     );
     if (rows.length === 0) {
-      throw new PostingError(`no accounting period covers ${entryDate}`);
+      throw new PostingError(
+        `no accounting period covers ${entryDate}: abra el ejercicio ${entryDate.slice(0, 4)} ` +
+          `(POST /api/accounting/periods/${entryDate.slice(0, 4)}/open)`,
+      );
     }
     if (!["open", "reopened"].includes(rows[0].status)) {
       throw new PostingError(`period covering ${entryDate} is ${rows[0].status}`);

@@ -58,6 +58,8 @@ export function fiscalRoutes(): Router {
           dueDate: body.dueDate,
           bookCogs: body.bookCogs,
           warehouseId: body.warehouseId,
+          sellerUserId: body.sellerUserId ?? numericUserId(req),
+          creditApprovedBy: body.creditApprovedBy,
           postedBy: numericUserId(req),
         }),
       );
@@ -102,6 +104,7 @@ export function fiscalRoutes(): Router {
           lines,
           restockInventory: body.restockInventory,
           matchInvoiceLines: body.matchInvoiceLines,
+          paymentMethod: body.paymentMethod,
           postedBy: numericUserId(req),
         }),
       );
@@ -144,7 +147,7 @@ export function fiscalRoutes(): Router {
     handler(async (req) => {
       const id = Number(req.params.id);
       const reason = z.string().min(1, "se requiere un motivo").parse(req.body?.reason);
-      await scoped(req, (c) => new FiscalDocumentService(c).cancel(id, reason, numericUserId(req)));
+      await scoped(req, (c) => new FiscalDocumentService(c).cancel(id, reason, numericUserId(req), req.companyId));
       return { status: 200, cancelled: id };
     }),
   );
@@ -156,13 +159,13 @@ export function fiscalRoutes(): Router {
       const rows = await scoped(req, async (c) => {
         const { rows } = await c.query(
           `SELECT id, doc_type, ncf, ncf_type, is_ecf, buyer_rnc, buyer_name,
-                  total::text, status, ecf_status, emitted_at
+                  total::text, status, ecf_status, emitted_at, document_date
              FROM fiscal_documents
             WHERE company_id=$1
               AND ($2::text IS NULL OR doc_type::text = $2)
-              AND ($3::date IS NULL OR emitted_at >= $3)
-              AND ($4::date IS NULL OR emitted_at < ($4::date + interval '1 day'))
-            ORDER BY emitted_at DESC NULLS LAST, id DESC LIMIT $5`,
+              AND ($3::date IS NULL OR document_date >= $3)
+              AND ($4::date IS NULL OR document_date <= $4::date)
+            ORDER BY document_date DESC, id DESC LIMIT $5`,
           [req.companyId, q.type ?? null, q.from ?? null, q.to ?? null, q.limit],
         );
         return rows;
@@ -349,6 +352,8 @@ const invoiceBody = z.object({
   // Recognise COGS for tracked products by default; a caller can opt out.
   bookCogs: z.boolean().default(true),
   warehouseId: z.number().int().min(0).optional(),
+  sellerUserId: z.number().int().positive().optional(),
+  creditApprovedBy: z.number().int().positive().optional(),
 });
 
 const creditNoteBody = z.object({
@@ -363,6 +368,8 @@ const creditNoteBody = z.object({
    * posterior no lo activa, porque legítimamente no corresponde a ninguna línea.
    */
   matchInvoiceLines: z.boolean().optional(),
+  /** How a credit beyond what the customer still owes is refunded. */
+  paymentMethod: z.enum(["cash", "credit", "card", "transfer"]).optional(),
 });
 
 const debitNoteBody = z.object({
@@ -456,6 +463,15 @@ function handler(fn: (req: CompanyRequest) => Promise<any>) {
       if (err instanceof TaxConfigurationError) return res.status(400).json({ error: err.message });
       if (err instanceof ForeignPaymentError) return res.status(400).json({ error: err.message });
       if (err instanceof PostingError) return res.status(400).json({ error: err.message });
+      // Business rules the caller can act on: insufficient stock, credit limit,
+      // a credit note larger than what is owed, a document others depend on.
+      const name = (err as any)?.constructor?.name ?? "";
+      if (/(InventoryCosting|CreditLimit|Receivables|Payables|Treasury|Ownership|Wms)Error$/.test(name)) {
+        return res.status(422).json({ error: (err as Error).message });
+      }
+      if (err instanceof Error && /^(la |el |"|no |indique|reverse)/i.test(err.message)) {
+        return res.status(422).json({ error: err.message });
+      }
       console.error("[fiscal]", err);
       res.status(500).json({ error: "error interno" });
     }

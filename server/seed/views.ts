@@ -56,6 +56,7 @@ export const APP_VIEWS: ViewSeed[] = [
   // ── Ventas ─────────────────────────────────────────────────────────────────
   { routePath: "/pos", label: "Punto de Venta", iconName: "ShoppingBasket", permission: "manage_orders", section: "ventas", sortOrder: 200 },
   { routePath: "/invoicing", label: "Facturación", iconName: "FileText", permission: "manage_invoicing", section: "ventas", sortOrder: 205 },
+  { routePath: "/quotes", label: "Cotizaciones", iconName: "FileText", permission: "manage_orders", section: "ventas", sortOrder: 207 },
   { routePath: "/orders", label: "Pedidos", iconName: "ShoppingCart", permission: "manage_orders", section: "ventas", sortOrder: 210 },
   { routePath: "/order-management", label: "Gestión de Pedidos", iconName: "ClipboardList", permission: "manage_orders", section: "ventas", sortOrder: 220 },
   { routePath: "/sales-returns", label: "Devoluciones", iconName: "Undo2", permission: "manage_invoicing", section: "ventas", sortOrder: 235 },
@@ -71,6 +72,7 @@ export const APP_VIEWS: ViewSeed[] = [
 
   // ── Compras ────────────────────────────────────────────────────────────────
   { routePath: "/purchase-management", label: "Órdenes de Compra", iconName: "ShoppingBag", permission: "manage_products", section: "compras", sortOrder: 300 },
+  { routePath: "/purchase-returns", label: "Devoluciones a Proveedor", iconName: "Undo2", permission: "manage_products", section: "compras", sortOrder: 305 },
 
   // ── Inventario ─────────────────────────────────────────────────────────────
   { routePath: "/product-management", label: "Productos", iconName: "Package", permission: "manage_products", section: "inventario", sortOrder: 400 },
@@ -83,6 +85,7 @@ export const APP_VIEWS: ViewSeed[] = [
   { routePath: "/inventory-count", label: "Conteo Físico", iconName: "ClipboardCheck", permission: "manage_inventory_adjustments", section: "inventario", sortOrder: 455 },
   { routePath: "/manufacturing", label: "Producción (BOM)", iconName: "PackageCheck", permission: "manage_products", section: "inventario", sortOrder: 457 },
   { routePath: "/inventory-traceability", label: "Trazabilidad", iconName: "PackageSearch", permission: "manage_products", section: "inventario", sortOrder: 460 },
+  { routePath: "/picking", label: "Picking / Despacho", iconName: "ClipboardList", permission: "manage_orders", section: "inventario", sortOrder: 465 },
   { routePath: "/warehouse-reports", label: "Reportes de Almacén", iconName: "FileSpreadsheet", permission: "view_reports", section: "inventario", sortOrder: 470 },
   { routePath: "/admin/categories-brands", label: "Categorías", iconName: "Tags", permission: "manage_products", section: "inventario", sortOrder: 480 },
   { routePath: "/admin/brands", label: "Marcas", iconName: "Tag", permission: "manage_products", section: "inventario", sortOrder: 490 },

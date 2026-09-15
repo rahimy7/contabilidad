@@ -1,4 +1,5 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
+import { DR_CHART_OF_ACCOUNTS } from "../server/seed/chart-of-accounts";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import jwt from "jsonwebtoken";
@@ -128,7 +129,7 @@ describeIntegration("accounting + fiscal HTTP API", () => {
     const res = await get("/api/accounting/accounts");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.accounts.length).toBe(77);
+    expect(body.accounts.length).toBe(DR_CHART_OF_ACCOUNTS.length);
     expect(body.accounts.find((a: any) => a.code === "1.1.01.001").name).toBe("Caja general");
   });
 

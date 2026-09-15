@@ -32,6 +32,9 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "1.1.01.001", name: "Caja general", type: "asset", side: "D" },
   { code: "1.1.01.002", name: "Caja chica", type: "asset", side: "D" },
   { code: "1.1.01.003", name: "Bancos", type: "asset", side: "D", subledger: "BANK", isControl: true },
+  // Ventas con tarjeta: el procesador liquida días después, neto de comisión.
+  // Mientras tanto no es caja ni banco, es un cobro pendiente al adquirente.
+  { code: "1.1.01.004", name: "Tarjetas de crédito por liquidar", type: "asset", side: "D" },
   { code: "1.1.02", name: "Cuentas por cobrar", type: "asset", side: "D" },
   { code: "1.1.02.001", name: "Clientes", type: "asset", side: "D", subledger: "AR", isControl: true },
   // Contra-asset: credited to increase.
@@ -40,14 +43,20 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "1.1.03.001", name: "Inventario de mercancías", type: "asset", side: "D", subledger: "INVENTORY", isControl: true },
   // Consumables/supplies held apart from goods for sale — their own storage.
   { code: "1.1.03.002", name: "Inventario de suministros y materiales gastables", type: "asset", side: "D", subledger: "INVENTORY", isControl: true },
+  // Fletes, aduanas y seguros de una importación antes de repartirse al costo
+  // de los productos que la componen.
+  { code: "1.1.03.003", name: "Costos de importación por distribuir", type: "asset", side: "D" },
   { code: "1.1.04", name: "Impuestos adelantados", type: "asset", side: "D" },
   { code: "1.1.04.001", name: "ITBIS adelantado (crédito fiscal)", type: "asset", side: "D" },
   { code: "1.1.04.002", name: "Anticipo de ISR", type: "asset", side: "D" },
   { code: "1.1.04.003", name: "ITBIS retenido por terceros", type: "asset", side: "D" },
+  { code: "1.1.05", name: "Otras cuentas por cobrar", type: "asset", side: "D" },
+  { code: "1.1.05.001", name: "Cuentas por cobrar a empleados", type: "asset", side: "D" },
   { code: "1.2", name: "Activos no corrientes", type: "asset", side: "D" },
   { code: "1.2.01", name: "Propiedad, planta y equipo", type: "asset", side: "D" },
   { code: "1.2.01.001", name: "Mobiliario y equipo de oficina", type: "asset", side: "D" },
   { code: "1.2.01.002", name: "Vehículos", type: "asset", side: "D" },
+  { code: "1.2.01.004", name: "Equipo de cómputo", type: "asset", side: "D" },
   { code: "1.2.01.003", name: "Depreciación acumulada", type: "asset", side: "C" },
 
   // 2 — Pasivos
@@ -55,6 +64,10 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "2.1", name: "Pasivos corrientes", type: "liability", side: "C" },
   { code: "2.1.01", name: "Cuentas por pagar", type: "liability", side: "C" },
   { code: "2.1.01.001", name: "Proveedores", type: "liability", side: "C", subledger: "AP", isControl: true },
+  // Mercancía recibida contra orden de compra cuya factura aún no llega. Se
+  // acredita al recibir y se debita cuando la factura del proveedor la casa: su
+  // saldo es exactamente lo recibido y no facturado.
+  { code: "2.1.01.002", name: "Recepciones de mercancía por facturar", type: "liability", side: "C", isControl: true },
   { code: "2.1.02", name: "Impuestos por pagar", type: "liability", side: "C" },
   { code: "2.1.02.001", name: "ITBIS por pagar", type: "liability", side: "C" },
   { code: "2.1.02.002", name: "ITBIS retenido por pagar", type: "liability", side: "C" },
@@ -65,6 +78,12 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "2.1.03.001", name: "Sueldos por pagar", type: "liability", side: "C" },
   { code: "2.1.03.002", name: "TSS por pagar", type: "liability", side: "C" },
   { code: "2.1.03.003", name: "INFOTEP por pagar", type: "liability", side: "C" },
+  // El ISR de los asalariados se declara en el IR-3, no en el IR-17: cuenta
+  // propia para que cada declaración cuadre contra su propio saldo.
+  { code: "2.1.03.004", name: "ISR retenido a asalariados por pagar", type: "liability", side: "C" },
+  { code: "2.1.03.005", name: "Regalía pascual por pagar", type: "liability", side: "C" },
+  { code: "2.1.04", name: "Otros pasivos corrientes", type: "liability", side: "C" },
+  { code: "2.1.04.001", name: "Anticipos de clientes", type: "liability", side: "C" },
 
   // 3 — Patrimonio
   { code: "3", name: "Patrimonio", type: "equity", side: "C" },
@@ -92,12 +111,19 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   // Un conteo físico que encuentra más de lo que dicen los libros no es una
   // venta: es un ingreso que aparece porque antes se registró de menos.
   { code: "4.2.02.001", name: "Sobrantes de inventario", type: "income", side: "C" },
+  { code: "4.2.02.002", name: "Sobrantes de caja", type: "income", side: "C" },
+  { code: "4.2.03", name: "Ganancia en disposición de activos", type: "income", side: "C" },
+  { code: "4.2.03.001", name: "Ganancia en venta de activos fijos", type: "income", side: "C" },
 
   // 5 — Costos y gastos
   { code: "5", name: "Costos y gastos", type: "expense", side: "D" },
   { code: "5.1", name: "Costo de ventas", type: "expense", side: "D" },
   { code: "5.1.01", name: "Costo de mercancías", type: "expense", side: "D" },
   { code: "5.1.01.001", name: "Costo de mercancías vendidas", type: "expense", side: "D" },
+  // Lo que la factura del proveedor difiere del costo con que se recibió la
+  // mercancía. Aparte del costo de ventas para que un proveedor que factura
+  // por encima de lo pactado no se esconda dentro del margen.
+  { code: "5.1.01.002", name: "Diferencias de precio en compras", type: "expense", side: "D" },
   // Lo que el conteo físico no encuentra sale del inventario sin haberse
   // vendido. Separado del costo de ventas a propósito: mezclarlos esconde la
   // merma dentro del margen y nadie vuelve a preguntar por qué creció.
@@ -108,17 +134,24 @@ export const DR_CHART_OF_ACCOUNTS: AccountSeed[] = [
   { code: "5.2.01.001", name: "Sueldos y salarios", type: "expense", side: "D" },
   { code: "5.2.01.002", name: "Aportes patronales TSS", type: "expense", side: "D" },
   { code: "5.2.01.003", name: "Aportes INFOTEP", type: "expense", side: "D" },
+  { code: "5.2.01.004", name: "Horas extras", type: "expense", side: "D" },
+  { code: "5.2.01.005", name: "Comisiones sobre ventas", type: "expense", side: "D" },
+  { code: "5.2.01.006", name: "Bonificaciones e incentivos", type: "expense", side: "D" },
+  { code: "5.2.01.007", name: "Regalía pascual", type: "expense", side: "D" },
   { code: "5.2.02", name: "Gastos generales", type: "expense", side: "D" },
   { code: "5.2.02.001", name: "Alquileres", type: "expense", side: "D" },
   { code: "5.2.02.002", name: "Servicios públicos", type: "expense", side: "D" },
   { code: "5.2.02.003", name: "Honorarios profesionales", type: "expense", side: "D" },
   { code: "5.2.02.004", name: "Útiles y materiales de oficina", type: "expense", side: "D" },
+  { code: "5.2.02.005", name: "Fletes y transporte", type: "expense", side: "D" },
   { code: "5.2.03", name: "Depreciación y amortización", type: "expense", side: "D" },
   { code: "5.2.03.001", name: "Gasto de depreciación", type: "expense", side: "D" },
   { code: "5.3", name: "Gastos no operacionales", type: "expense", side: "D" },
   { code: "5.3.01", name: "Financieros", type: "expense", side: "D" },
   { code: "5.3.01.001", name: "Pérdida por diferencia cambiaria", type: "expense", side: "D" },
   { code: "5.3.01.002", name: "Comisiones bancarias", type: "expense", side: "D" },
+  { code: "5.3.01.003", name: "Pérdida en venta o baja de activos fijos", type: "expense", side: "D" },
+  { code: "5.3.01.004", name: "Faltantes de caja", type: "expense", side: "D" },
 ];
 
 /** Depth = number of dot-separated segments. */

@@ -27,11 +27,29 @@ export async function withCompany<T>(
   companyId: number,
   fn: (client: SqlClient) => Promise<T>,
 ): Promise<T> {
+  return withCompanyOn(pool, companyId, fn);
+}
+
+/** Anything that hands out a dedicated connection: a pg/Neon `Pool`. */
+export interface ConnectionSource {
+  connect(): Promise<{ query: SqlClient["query"]; release(): void }>;
+}
+
+/**
+ * `withCompany` against an explicit pool. The request path uses the app pool;
+ * seeders and the month simulation pass their own, so they run through exactly
+ * the same row-level security the HTTP handlers do instead of as the owner.
+ */
+export async function withCompanyOn<T>(
+  source: ConnectionSource,
+  companyId: number,
+  fn: (client: SqlClient) => Promise<T>,
+): Promise<T> {
   if (!Number.isInteger(companyId) || companyId <= 0) {
     throw new Error(`withCompany: invalid companyId ${companyId}`);
   }
 
-  const client = await pool.connect();
+  const client = await source.connect();
   try {
     await client.query("BEGIN");
     // Publish the tenant before switching roles: the GUC is read by every policy.

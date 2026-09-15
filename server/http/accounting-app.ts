@@ -13,6 +13,8 @@ import { cashFlowRoutes } from "../routes/cash-flow-routes";
 import { inventoryRoutes } from "../routes/inventory-routes";
 import { wmsRoutes } from "../routes/wms-routes";
 import { consolidationRoutes } from "../routes/consolidation-routes";
+import { salesRoutes } from "../routes/sales-routes";
+import { procurementRoutes } from "../routes/procurement-routes";
 
 /**
  * The accounting + fiscal HTTP surface, assembled on its own.
@@ -49,6 +51,10 @@ export function accountingApiRouter(): Router {
   // other says where it is, and only the count makes them meet.
   router.use("/wms", authenticateToken, wmsRoutes());
   router.use("/consolidation", authenticateToken, consolidationRoutes());
+  // A sale in one call (order + NCF invoice + cost + receivable), and purchasing
+  // with receipts that value stock against "recepciones por facturar".
+  router.use("/sales", authenticateToken, salesRoutes());
+  router.use("/procurement", authenticateToken, procurementRoutes());
   return router;
 }
 

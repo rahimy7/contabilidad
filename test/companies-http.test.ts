@@ -1,4 +1,5 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
+import { DR_CHART_OF_ACCOUNTS } from "../server/seed/chart-of-accounts";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import jwt from "jsonwebtoken";
@@ -85,7 +86,7 @@ describeIntegration("multi-company HTTP flow", () => {
 
     // It was seeded: the chart of accounts is reachable when scoped to it.
     const accounts = await (await get("/api/accounting/accounts", userA, { "x-company-id": String(companyId) })).json();
-    expect(accounts.accounts.length).toBe(77);
+    expect(accounts.accounts.length).toBe(DR_CHART_OF_ACCOUNTS.length);
   });
 
   it("rejects a second company with the same RNC", async () => {
@@ -114,8 +115,8 @@ describeIntegration("multi-company HTTP flow", () => {
     // Acting scoped to each returns that company's own (freshly seeded) data.
     const a = await (await get("/api/accounting/accounts", userA, { "x-company-id": String(companyId) })).json();
     const b = await (await get("/api/accounting/accounts", userA, { "x-company-id": String(secondId) })).json();
-    expect(a.accounts.length).toBe(77);
-    expect(b.accounts.length).toBe(77);
+    expect(a.accounts.length).toBe(DR_CHART_OF_ACCOUNTS.length);
+    expect(b.accounts.length).toBe(DR_CHART_OF_ACCOUNTS.length);
   });
 
   it("without X-Company-Id, requests fall back to the user's default company", async () => {

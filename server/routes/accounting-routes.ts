@@ -6,6 +6,8 @@ import { PostingError } from "../accounting/types";
 import { FinancialStatements } from "../accounting/financial-statements";
 import { Dashboard } from "../accounting/dashboard";
 import { PeriodClose, PeriodCloseError } from "../accounting/period-close";
+import { ensureFiscalYear } from "../accounting/periods";
+import { monthEndReconciliation } from "../accounting/reconciliation";
 
 /**
  * HTTP surface for the general ledger.
@@ -223,6 +225,71 @@ export function accountingRoutes(): Router {
           lines: body.lines,
         }),
       );
+      return { status: 201, ...result };
+    }),
+  );
+
+  /**
+   * Mayor auxiliar de una cuenta: saldo inicial, cada movimiento con su saldo
+   * corrido, y saldo final, entre dos fechas. Es la vista que se pide cuando una
+   * conciliación no cuadra: qué asientos movieron la cuenta y desde qué módulo.
+   */
+  r.get(
+    "/ledger",
+    handler(async (req) => {
+      const q = z.object({ accountCode: z.string().min(1), from: isoDate, to: isoDate }).parse(req.query);
+      return scoped(req, async (c) => {
+        const acct = await c.query(
+          `SELECT id, code, name, normal_side FROM chart_of_accounts WHERE company_id=$1 AND code=$2`,
+          [req.companyId, q.accountCode],
+        );
+        if (acct.rows.length === 0) throw new PostingError(`cuenta ${q.accountCode} no existe`);
+        // Includes the subtree, so a roll-up account shows everything beneath it.
+        const opening = await c.query(
+          `SELECT coalesce(sum(l.debit_func - l.credit_func),0)::text AS b
+             FROM journal_entry_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN chart_of_accounts a ON a.id=l.account_id
+            WHERE l.company_id=$1 AND e.status='posted' AND (a.code=$2 OR a.code LIKE $2 || '.%') AND e.entry_date < $3::date`,
+          [req.companyId, q.accountCode, q.from],
+        );
+        const { rows } = await c.query(
+          `SELECT e.id AS entry_id, e.entry_no, e.entry_date, e.memo, e.source_type, e.source_id, a.code AS account_code,
+                  l.debit_func::text AS debit, l.credit_func::text AS credit, l.memo AS line_memo,
+                  sum(l.debit_func - l.credit_func) OVER (ORDER BY e.entry_date, e.id, l.line_no) + $5::numeric AS running_balance
+             FROM journal_entry_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN chart_of_accounts a ON a.id=l.account_id
+            WHERE l.company_id=$1 AND e.status='posted' AND (a.code=$2 OR a.code LIKE $2 || '.%')
+              AND e.entry_date BETWEEN $3::date AND $4::date
+            ORDER BY e.entry_date, e.id, l.line_no`,
+          [req.companyId, q.accountCode, q.from, q.to, opening.rows[0].b],
+        );
+        const closing = rows.length ? rows[rows.length - 1].running_balance : opening.rows[0].b;
+        return { account: acct.rows[0], from: q.from, to: q.to, openingBalance: opening.rows[0].b, closingBalance: String(closing), lines: rows };
+      });
+    }),
+  );
+
+  /**
+   * Lista de verificación de cierre: cada control que debe cuadrar antes de
+   * cerrar el mes (auxiliares vs. mayor, inventario, bancos, nómina, DGII).
+   */
+  r.get(
+    "/month-end-checklist",
+    handler(async (req) => {
+      const q = z.object({ year: z.coerce.number().int(), month: z.coerce.number().int().min(1).max(12) }).parse(req.query);
+      return scoped(req, (c) => monthEndReconciliation(c, req.companyId!, q.year, q.month));
+    }),
+  );
+
+  /**
+   * Abre un ejercicio (sus 12 períodos + el 13). Idempotente. Con `openFrom`, los
+   * meses anteriores sin asientos quedan cerrados: una empresa que arranca en
+   * octubre no tiene que "cerrar" enero a septiembre para poder cerrar octubre.
+   */
+  r.post(
+    "/periods/:year/open",
+    handler(async (req) => {
+      const year = Number(req.params.year);
+      const openFrom = req.body?.openFrom ? isoDate.parse(req.body.openFrom) : undefined;
+      const result = await scoped(req, (c) => ensureFiscalYear(c, req.companyId!, year, { openFrom }));
       return { status: 201, ...result };
     }),
   );

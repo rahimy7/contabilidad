@@ -144,6 +144,32 @@ export async function resolveApproval(
     throw new Error(`la solicitud ${requestId} ya está ${current.status}`);
   }
 
+  // Segregation of duties. Whoever asked cannot approve; an approval addressed
+  // to a person or a role can only be given by that person or someone in that
+  // role; and one person counts once toward a rule that needs several approvers.
+  if (action === "approve") {
+    if (Number(current.requestedBy) === Number(actorUserId)) {
+      throw new Error("quien solicita no puede aprobar su propia solicitud");
+    }
+    if (current.approverUserId && Number(current.approverUserId) !== Number(actorUserId)) {
+      const actor = await pool.query(`SELECT role FROM users WHERE id=$1`, [actorUserId]);
+      if (actor.rows[0]?.role !== "admin") {
+        throw new Error("la aprobación está asignada a otro usuario");
+      }
+    } else if (current.approverRole && !current.approverUserId) {
+      const actor = await pool.query(`SELECT role FROM users WHERE id=$1`, [actorUserId]);
+      const role = actor.rows[0]?.role;
+      if (role !== current.approverRole && role !== "admin" && role !== "super_admin") {
+        throw new Error(`la aprobación requiere el rol ${current.approverRole}`);
+      }
+    }
+    const already = await pool.query(
+      `SELECT 1 FROM approval_actions WHERE request_id=$1 AND actor_user_id=$2 AND action='approve' LIMIT 1`,
+      [requestId, actorUserId],
+    );
+    if (already.rowCount) throw new Error("este usuario ya aprobó la solicitud");
+  }
+
   // Registrar la acción antes de aplicar cualquier transición, para que la
   // bitácora quede aunque el UPDATE falle.
   await pool.query(

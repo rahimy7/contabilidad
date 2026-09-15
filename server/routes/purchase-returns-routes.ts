@@ -2,8 +2,9 @@ import express, { type Response } from "express";
 import { z } from "zod";
 import { authenticateToken, type AuthenticatedRequest } from "../authMiddleware";
 import { masterPool } from "../multi-tenant-db";
+import { withLegacyCompany, sendLegacyError } from "../http/legacy-bridge";
 import {
-  createReturn, completeReturn, cancelReturn, getReturn, getReturnLines, listReturns,
+  createReturn, completeReturnWithCreditNote, cancelReturn, getReturn, getReturnLines, listReturns,
 } from "../services/purchase-returns";
 
 const router = express.Router();
@@ -65,15 +66,34 @@ router.get("/purchase-returns/:id", authenticateToken, async (req: Authenticated
   }
 });
 
+// Completar: requiere la nota de crédito del proveedor (NCF) y la factura de
+// compra que modifica, porque la devolución no está completa hasta que baja la
+// cuenta por pagar y el inventario valorado junto con las existencias.
+const completeBody = z.object({
+  supplierNcf: z.string().min(11).max(13),
+  modifiesDocumentId: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  supplierRnc: z.string().regex(/^\d{9}$|^\d{11}$/).optional(),
+  taxCode: z.string().optional(),
+});
+
 router.post("/purchase-returns/:id/complete", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = req.user!;
-    res.json(await completeReturn(masterPool, Number(req.params.id), user.id));
+    const b = completeBody.parse(req.body ?? {});
+    const out = await withLegacyCompany(req as any, (c, ctx) =>
+      completeReturnWithCreditNote(c, {
+        companyId: ctx.companyId, storeId: ctx.storeId, userId: ctx.userId, returnId: Number(req.params.id),
+        supplierNcf: b.supplierNcf, modifiesDocumentId: b.modifiesDocumentId,
+        date: b.date ?? new Date().toISOString().slice(0, 10), supplierRnc: b.supplierRnc, taxCode: b.taxCode,
+      }),
+    );
+    res.json(out);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "complete failed";
-    if (msg.includes("suficiente") || msg.includes("ya está")) return res.status(409).json({ error: msg });
-    console.error("[purchase-returns] complete failed:", err);
-    res.status(500).json({ error: "Failed" });
+    if (/suficiente|ya está|no encontrada|RNC|almacén|excede|acreditaron|original|anulada|líneas/.test(msg)) {
+      return res.status(409).json({ error: msg });
+    }
+    sendLegacyError(res as any, err, "No se pudo completar la devolución");
   }
 });
 

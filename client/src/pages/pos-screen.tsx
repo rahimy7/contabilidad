@@ -531,42 +531,48 @@ export default function POSScreen() {
 
   // Create sale mutation
   const createSaleMutation = useMutation({
+    // Una venta, una llamada: el servidor registra el pedido, emite el
+    // comprobante (NCF), contabiliza ingreso, ITBIS y costo, descuenta el
+    // inventario una sola vez y, si es a crédito, abre la cuenta por cobrar.
     mutationFn: async (saleData: Order) => {
       const token = getAuthToken();
-      const response = await fetch('/api/orders', {
+      const s: any = saleData;
+      const taxPct = Number(storeSettings?.taxPercentage || 0);
+      const taxCode = taxPct >= 18 ? 'ITBIS18' : taxPct >= 16 ? 'ITBIS16' : 'EXENTO';
+      const discPct = Number(s.discountPercentage || 0);
+      const customerRnc = String(selectedCustomer?.rnc ?? '').replace(/\D/g, '');
+      const hasTaxId = customerRnc.length === 9 || customerRnc.length === 11;
+      const method = ['cash', 'card', 'transfer', 'credit'].includes(s.paymentMethod) ? s.paymentMethod : 'cash';
+      const response = await fetch('/api/sales/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(saleData)
-      });
-      if (!response.ok) throw new Error('Failed to create sale');
-      const orderResponse = await response.json();
-
-      // For credit sales, register debt only after order is created successfully.
-      if (saleData.paymentMethod === 'credit') {
-        const createdOrder = (orderResponse as any)?.order || orderResponse;
-        const creditChargeRes = await fetch('/api/credits/charge', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            customerId: saleData.customerId,
-            amount: Number(saleData.totalAmount || 0),
-            orderId: createdOrder?.id,
-            description: 'Venta a crédito - POS',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          ncfType: hasTaxId ? 'B01' : 'B02',
+          date: todayStr,
+          paymentMethod: method,
+          warehouseId: s.warehouseId ?? 0,
+          customerId: s.customerId,
+          buyerRnc: hasTaxId ? customerRnc : undefined,
+          buyerName: selectedCustomer?.name,
+          notes: s.notes,
+          lines: (s.items ?? []).map((i: any) => {
+            const product = cart.find((c) => c.product.id === i.productId)?.product;
+            const gross = Number(i.unitPrice) * Number(i.quantity);
+            const discount = discPct > 0 ? (gross * discPct) / 100 : 0;
+            return {
+              productId: i.productId,
+              description: product?.name ?? `Producto ${i.productId}`,
+              quantity: String(i.quantity),
+              unitPrice: Number(i.unitPrice).toFixed(2),
+              discount: discount > 0 ? discount.toFixed(2) : undefined,
+              taxCode,
+            };
           }),
-        });
-
-        if (!creditChargeRes.ok) {
-          throw new Error('Failed to create credit charge');
-        }
-      }
-
-      return orderResponse;
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'No se pudo registrar la venta');
+      return body;
     },
     onSuccess: (orderData) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });

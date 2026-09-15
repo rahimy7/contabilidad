@@ -7,6 +7,9 @@ import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
 import { resolveActiveCompany, withCompany } from '../tenant-context';
 import { putaway, warehouseConfig, WmsError } from '../inventory/wms';
+import { withLegacyCompany, LegacyBridgeError, sendLegacyError } from '../http/legacy-bridge';
+import { createPurchaseOrder, submitPurchaseOrder } from '../procurement/purchase-orders';
+import { receivePurchaseOrder } from '../procurement/receipts';
 
 const router = Router();
 
@@ -284,85 +287,60 @@ router.get('/purchase-orders/:id', authenticateToken, async (req: any, res: any)
 });
 
 // POST - Crear orden de compra
+//
+// Delegado al servicio de compras: numera la orden (el número es obligatorio y
+// antes nadie lo generaba), fija el almacén en cada línea y la asocia a la
+// empresa activa, que es la que contabilizará sus recepciones.
 router.post('/purchase-orders', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = req.user as AuthUser;
-    if (!user.storeId) {
-      return res.status(403).json({ error: 'Store ID requerido' });
-    }
-
     const { items, ...orderData } = req.body;
-
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'La orden debe tener al menos un producto' });
     }
-
-    // Asegurar que storeId sea un número
-    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId, 10) : user.storeId;
-    const db = await getTenantDb(storeId);
-
-    // Obtener nombre del proveedor si existe
-    let supplierName = null;
-    if (orderData.supplierId) {
-      const [supplier] = await db
-        .select({ name: schema.suppliers.name })
-        .from(schema.suppliers)
-        .where(eq(schema.suppliers.id, orderData.supplierId))
-        .limit(1);
-      supplierName = supplier?.name;
-    }
-
-    // Convertir fechas de string a Date
-    const orderValues = {
-      ...orderData,
-      storeId: storeId,
-      supplierName,
-      createdBy: user.id,
-      warehouseId: orderData.warehouseId ?? user.warehouseId ?? null,
-      orderDate: orderData.orderDate ? new Date(orderData.orderDate) : new Date(),
-      expectedDeliveryDate: orderData.expectedDeliveryDate ? new Date(orderData.expectedDeliveryDate) : null,
-    };
-
-    // Crear la orden de compra
-    const [purchaseOrder] = await db
-      .insert(schema.purchaseOrders)
-      .values(orderValues)
-      .returning();
-
-    // Convertir fechas en items y asegurar que todos los campos necesarios estén presentes
-    const itemsToInsert = items.map((item: any) => ({
-      purchaseOrderId: purchaseOrder.id,
-      storeId: storeId,
-      warehouseId: item.warehouseId ?? purchaseOrder.warehouseId ?? null,
-      productId: item.productId || null,
-      productName: item.productName, // Campo obligatorio
-      sku: item.sku || null,
-      barcode: item.barcode || null,
-      quantity: item.quantity,
-      quantityReceived: item.quantityReceived || "0.00",
-      unitId: item.unitId || null,
-      lotNumber: item.lotNumber || null,
-      expirationDate: item.expirationDate ? new Date(item.expirationDate) : null,
-      manufacturingDate: item.manufacturingDate ? new Date(item.manufacturingDate) : null,
-      unitCost: item.unitCost,
-      taxRate: item.taxRate || "0.00",
-      discountRate: item.discountRate || "0.00",
-      totalCost: item.totalCost,
-      notes: item.notes || null,
-    }));
-
-    const createdItems = await db
-      .insert(schema.purchaseOrderItems)
-      .values(itemsToInsert)
-      .returning();
-
-    res.status(201).json({
-      ...purchaseOrder,
-      items: createdItems,
+    const user = req.user as AuthUser;
+    const created = await withLegacyCompany(req, async (c, ctx) => {
+      let warehouseId = Number(orderData.warehouseId ?? user.warehouseId ?? 0);
+      if (!warehouseId) {
+        const w = await c.query(
+          `SELECT id FROM warehouses WHERE store_id=$1 AND is_active AND (company_id IS NULL OR company_id=$2)
+            ORDER BY is_default DESC, id LIMIT 1`,
+          [ctx.storeId, ctx.companyId],
+        );
+        warehouseId = Number(w.rows[0]?.id ?? 0);
+      }
+      if (!warehouseId) throw new LegacyBridgeError('Seleccione el almacén que recibirá la mercancía', 400);
+      const po = await createPurchaseOrder(c, {
+        companyId: ctx.companyId,
+        storeId: ctx.storeId,
+        userId: ctx.userId,
+        supplierId: orderData.supplierId ? Number(orderData.supplierId) : undefined,
+        warehouseId,
+        orderDate: dateOnly(orderData.orderDate) ?? new Date().toISOString().slice(0, 10),
+        expectedDate: dateOnly(orderData.expectedDeliveryDate) ?? undefined,
+        currency: orderData.currency,
+        paymentTerms: orderData.paymentTerms,
+        notes: orderData.notes,
+        items: items.map((i: any) => ({
+          productId: Number(i.productId),
+          productName: i.productName,
+          quantity: String(i.quantity),
+          unitCost: String(i.unitCost),
+          discountRate: i.discountRate != null ? String(i.discountRate) : undefined,
+          taxRate: i.taxRate != null ? String(i.taxRate) : undefined,
+          sku: i.sku ?? undefined,
+          notes: i.notes ?? undefined,
+        })),
+      });
+      const approval = await submitPurchaseOrder(c, {
+        companyId: ctx.companyId, storeId: ctx.storeId, purchaseOrderId: po.id, userId: ctx.userId,
+      });
+      const row = await c.query(`SELECT * FROM purchase_orders WHERE id=$1`, [po.id]);
+      const lines = await c.query(`SELECT * FROM purchase_order_items WHERE purchase_order_id=$1 ORDER BY id`, [po.id]);
+      return { ...row.rows[0], items: lines.rows, approval };
     });
+    res.status(201).json(created);
   } catch (error) {
-    console.error('Error creating purchase order:', error);
-    res.status(500).json({ error: 'Error al crear orden de compra' });
+    sendLegacyError(res, error, 'Error al crear orden de compra');
   }
 });
 
@@ -483,239 +461,95 @@ router.delete('/purchase-orders/:id', authenticateToken, async (req: any, res: a
   }
 });
 
-// POST - Marcar orden de compra como recibida (simple)
+// POST - Recepción rápida: recibe todo lo pendiente de la orden
+//
+// Antes sólo cambiaba el estado a "recibida" sin mover inventario. Ahora recibe
+// cada línea por lo que falta, con el mismo servicio que la recepción detallada.
 router.post('/purchase-orders/:id/receive', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = req.user as AuthUser;
-    if (!user.storeId) {
-      return res.status(403).json({ error: 'Store ID requerido' });
-    }
-
     const id = parseInt(req.params.id);
-    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId, 10) : user.storeId;
-    const db = await getTenantDb(storeId);
-
-    // Actualizar estado a recibido
-    const [purchaseOrder] = await db
-      .update(schema.purchaseOrders)
-      .set({
-        status: 'received',
-        receivedDate: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(schema.purchaseOrders.id, id),
-          eq(schema.purchaseOrders.storeId, storeId)
-        )
-      )
-      .returning();
-
-    if (!purchaseOrder) {
-      return res.status(404).json({ error: 'Orden de compra no encontrada' });
-    }
-
-    res.json(purchaseOrder);
+    const receiptDate = dateOnly(req.body?.date) ?? new Date().toISOString().slice(0, 10);
+    const result = await withLegacyCompany(req, async (c, ctx) => {
+      const pending = await c.query(
+        `SELECT i.id, i.quantity - coalesce((
+                  SELECT sum(l.quantity) FROM purchase_receipt_lines l JOIN purchase_receipts r ON r.id=l.receipt_id
+                   WHERE l.purchase_order_item_id=i.id AND r.status='posted'), 0) AS pending
+           FROM purchase_order_items i JOIN purchase_orders po ON po.id=i.purchase_order_id
+          WHERE i.purchase_order_id=$1 AND po.store_id=$2`,
+        [id, ctx.storeId],
+      );
+      const lines = pending.rows
+        .filter((r: any) => Number(r.pending) > 0)
+        .map((r: any) => ({ purchaseOrderItemId: Number(r.id), quantity: String(r.pending) }));
+      if (lines.length === 0) throw new LegacyBridgeError('La orden no tiene cantidades pendientes', 400);
+      return receivePurchaseOrder(c, { companyId: ctx.companyId, purchaseOrderId: id, date: receiptDate, userId: ctx.userId, lines });
+    });
+    res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Error receiving purchase order:', error);
-    res.status(500).json({ error: 'Error al recibir orden de compra' });
+    sendLegacyError(res, error, 'Error al recibir orden de compra');
   }
 });
 
 // POST - Recibir items de orden de compra con trazabilidad
+//
+// La pantalla envía por línea la cantidad recibida ACUMULADA (pre-llena lo ya
+// recibido). El servidor la convierte en lo que llega en esta entrega — la
+// diferencia contra lo ya registrado — y la recibe con el servicio de compras:
+// entra al inventario valorado al costo de la orden, se ubica en el almacén,
+// mueve todas las vistas del stock y contabiliza Dr Inventario / Cr Recepciones
+// por facturar. Antes se sumaba la cifra completa otra vez y una segunda
+// recepción parcial contaba la primera dos veces.
 router.post('/purchase-orders/:id/receive-items', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = req.user as AuthUser;
-    if (!user.storeId) {
-      return res.status(403).json({ error: 'Store ID requerido' });
-    }
-
     const id = parseInt(req.params.id);
-    const { items, status: newStatus, closureNote } = req.body;
-    const storeId = typeof user.storeId === 'string' ? parseInt(user.storeId, 10) : user.storeId;
-    const db = await getTenantDb(storeId);
+    const { items, status: newStatus, closureNote, date } = req.body;
+    const receiptDate = dateOnly(date) ?? new Date().toISOString().slice(0, 10);
 
-    // Obtener la orden actual
-    const [currentOrder] = await db
-      .select()
-      .from(schema.purchaseOrders)
-      .where(
-        and(
-          eq(schema.purchaseOrders.id, id),
-          eq(schema.purchaseOrders.storeId, storeId)
-        )
-      )
-      .limit(1);
-
-    if (!currentOrder) {
-      return res.status(404).json({ error: 'Orden de compra no encontrada' });
-    }
-
-    // Resolve warehouse: from the order, then the user JWT, then fallback to first warehouse of the store
-    let resolvedWarehouseId: number | null = currentOrder.warehouseId ?? (user.warehouseId ?? null);
-    if (!resolvedWarehouseId) {
-      const [firstWarehouse] = await db
-        .select({ id: schema.warehouses.id })
-        .from(schema.warehouses)
-        .where(eq(schema.warehouses.storeId, storeId))
-        .limit(1);
-      resolvedWarehouseId = firstWarehouse?.id ?? null;
-    }
-
-    // Si el almacén usa ubicaciones WMS, la recepción también dice en qué
-    // estante quedó cada cosa. La configuración se lee antes de tocar nada para
-    // poder rechazar la recepción completa cuando falta una ubicación
-    // obligatoria — recibir la mitad y fallar deja el inventario a medias.
-    const companyId = await resolveActiveCompany(Number(user.id));
-    const wmsConfig = companyId && resolvedWarehouseId
-      ? await withCompany(companyId, (c) => warehouseConfig(c, resolvedWarehouseId!))
-      : null;
-
-    if (wmsConfig?.wmsEnabled && wmsConfig.requireLocationOnReceipt) {
-      const missing = (items as any[]).filter(
-        (i) => parseFloat(i.quantityReceived) > 0 && i.productId && !hasLocations(i),
-      );
-      if (missing.length > 0) {
-        return res.status(400).json({
-          error: `El almacén exige ubicación al recibir. Falta indicarla en: ${missing
-            .map((i) => i.productName || i.sku || i.productId)
-            .join(', ')}`,
+    const result = await withLegacyCompany(req, async (c, ctx) => {
+      const po = await c.query(`SELECT id, store_id, notes FROM purchase_orders WHERE id=$1`, [id]);
+      if (po.rows.length === 0 || Number(po.rows[0].store_id) !== ctx.storeId) {
+        throw new LegacyBridgeError('Orden de compra no encontrada', 404);
+      }
+      const lines = [];
+      for (const item of (items ?? []) as any[]) {
+        if (!item.id) {
+          throw new LegacyBridgeError(
+            `"${item.productName ?? 'producto'}" no está en la orden: agréguelo a la orden antes de recibirlo`, 400,
+          );
+        }
+        const current = await c.query(
+          `SELECT coalesce(sum(l.quantity),0)::text AS q
+             FROM purchase_receipt_lines l JOIN purchase_receipts r ON r.id=l.receipt_id
+            WHERE l.purchase_order_item_id=$1 AND r.status='posted'`,
+          [item.id],
+        );
+        const delta = Number(item.quantityReceived ?? 0) - Number(current.rows[0].q);
+        if (delta <= 0) continue;
+        lines.push({
+          purchaseOrderItemId: Number(item.id),
+          quantity: String(delta),
+          lotNo: item.lotNumber ?? undefined,
+          expirationDate: dateOnly(item.expirationDate),
+          locations: hasLocations(item) ? putawayLinesOf(item, delta) : undefined,
         });
       }
-    }
-
-    // Actualizar items
-    for (const item of items) {
-      const quantityReceived = parseFloat(item.quantityReceived) || 0;
-
-      if (quantityReceived <= 0) continue;
-
-      // Actualizar o crear item
-      if (item.id) {
-        // Update existing item
-        await db
-          .update(schema.purchaseOrderItems)
-          .set({
-            quantityReceived: item.quantityReceived,
-            lotNumber: item.lotNumber,
-            expirationDate: item.expirationDate ? new Date(item.expirationDate) : null,
-            manufacturingDate: item.manufacturingDate ? new Date(item.manufacturingDate) : null,
-          })
-          .where(eq(schema.purchaseOrderItems.id, item.id));
-      } else {
-        // Insert new item (added during receiving)
-        await db
-          .insert(schema.purchaseOrderItems)
-          .values({
-            purchaseOrderId: id,
-            storeId: storeId,
-            productId: item.productId,
-            productName: item.productName,
-            sku: item.sku,
-            barcode: item.barcode,
-            quantity: item.quantity || "0",
-            quantityReceived: item.quantityReceived,
-            lotNumber: item.lotNumber,
-            expirationDate: item.expirationDate ? new Date(item.expirationDate) : null,
-            manufacturingDate: item.manufacturingDate ? new Date(item.manufacturingDate) : null,
-            unitCost: item.unitCost,
-            taxRate: item.taxRate || "0",
-            discountRate: item.discountRate || "0",
-            totalCost: item.totalCost,
-            notes: item.notes,
-          });
+      if (lines.length === 0) throw new LegacyBridgeError('No hay cantidades nuevas por recibir', 400);
+      const receipt = await receivePurchaseOrder(c, {
+        companyId: ctx.companyId, purchaseOrderId: id, date: receiptDate, userId: ctx.userId,
+        lines, notes: closureNote, closeShort: newStatus === 'received',
+      });
+      if (closureNote) {
+        const existing = po.rows[0].notes || '';
+        await c.query(`UPDATE purchase_orders SET notes=$2 WHERE id=$1`, [
+          id, `${existing}${existing ? '\n\n---\n\n' : ''}${closureNote}`,
+        ]);
       }
+      return receipt;
+    });
 
-      // Actualizar inventario del producto
-      if (item.productId) {
-        const [product] = await db
-          .select()
-          .from(schema.products)
-          .where(eq(schema.products.id, item.productId))
-          .limit(1);
-
-        if (product) {
-          const currentStock = parseFloat(product.stockQuantity?.toString() || '0');
-          const newStock = currentStock + quantityReceived;
-
-          await db
-            .update(schema.products)
-            .set({ stockQuantity: newStock })
-            .where(eq(schema.products.id, item.productId));
-
-          // Registrar movimiento de inventario
-          await db
-            .insert(schema.inventoryMovements)
-            .values({
-              storeId: storeId,
-              productId: item.productId,
-              type: 'purchase',
-              quantity: quantityReceived.toString(),
-              unitId: item.unitId || product.baseUnitId, // Usar unitId del item o la unidad base del producto
-              quantityBefore: currentStock.toString(),
-              quantityAfter: newStock.toString(),
-              unitCost: item.unitCost,
-              totalCost: (quantityReceived * parseFloat(item.unitCost)).toFixed(2),
-              lotNumber: item.lotNumber,
-              expirationDate: item.expirationDate ? new Date(item.expirationDate) : null,
-              supplierId: currentOrder.supplierId,
-              referenceType: 'purchase_order',
-              referenceId: id.toString(),
-              reason: `Recepción de orden de compra #${currentOrder.purchaseNumber}`,
-              notes: item.notes,
-              createdBy: user.id,
-              warehouseId: resolvedWarehouseId,
-            });
-
-          // Guardar en ubicaciones. Es un hecho físico — la caja quedó en A-01 —
-          // e independiente de si la compra ya se costeó en contabilidad; el
-          // reporte de diferencias (`/api/wms/drift`) es el que después empareja
-          // las dos vistas en lugar de que una pise a la otra.
-          if (wmsConfig?.wmsEnabled && companyId && hasLocations(item)) {
-            await withCompany(companyId, (c) =>
-              putaway(c, {
-                companyId,
-                productId: item.productId,
-                warehouseId: resolvedWarehouseId!,
-                receivedDate: new Date().toISOString().slice(0, 10),
-                unitCost: item.unitCost ? String(item.unitCost) : '0',
-                sourceType: 'purchase_order',
-                sourceId: String(id),
-                userId: Number(user.id),
-                lines: putawayLinesOf(item, quantityReceived),
-              }),
-            );
-          }
-        }
-      }
-    }
-
-    // Actualizar estado de la orden
-    const updateData: any = {
-      status: newStatus || 'received',
-      receivedDate: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Si hay una nota de cierre, agregarla a las notas existentes
-    if (closureNote) {
-      const existingNotes = currentOrder.notes || '';
-      const separator = existingNotes ? '\n\n---\n\n' : '';
-      updateData.notes = `${existingNotes}${separator}${closureNote}`;
-    }
-
-    await db
-      .update(schema.purchaseOrders)
-      .set(updateData)
-      .where(eq(schema.purchaseOrders.id, id));
-
-    res.json({ success: true, message: 'Orden recibida exitosamente' });
+    res.json({ success: true, message: `Recepción ${result.receiptNo} registrada`, ...result });
   } catch (error) {
-    if (error instanceof WmsError) {
-      return res.status(400).json({ error: error.message });
-    }
-    console.error('Error receiving purchase order items:', error);
-    res.status(500).json({ error: 'Error al recibir items de la orden' });
+    sendLegacyError(res, error, 'Error al recibir items de la orden');
   }
 });
 

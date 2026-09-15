@@ -52,15 +52,21 @@ export async function allocateNcf(
   client: SqlClient,
   companyId: number,
   ncfType: string,
+  /**
+   * Fecha del comprobante. La vigencia del rango se evalúa contra ella, no contra
+   * el reloj del servidor: un comprobante fechado dentro de la vigencia es válido
+   * aunque se capture después, y uno fechado después del vencimiento no lo es.
+   */
+  asOfDate?: string,
 ): Promise<NcfAllocation> {
   const { rows } = await client.query(
     `SELECT id, is_ecf FROM ncf_sequences
       WHERE company_id = $1 AND ncf_type = $2 AND is_active
         AND next_number <= range_to
-        AND (expiry_date IS NULL OR expiry_date >= current_date)
+        AND (expiry_date IS NULL OR expiry_date >= coalesce($3::date, current_date))
       ORDER BY range_from
       LIMIT 1`,
-    [companyId, ncfType],
+    [companyId, ncfType, asOfDate ?? null],
   );
   if (rows.length === 0) throw new NcfExhaustedError(ncfType);
 

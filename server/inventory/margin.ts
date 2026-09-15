@@ -41,8 +41,8 @@ export async function marginReport(
           AND fd.status = 'issued'
           AND fdl.product_id IS NOT NULL
           AND fd.doc_type IN ('invoice','debit_note','credit_note')
-          AND (fd.emitted_at AT TIME ZONE 'America/Santo_Domingo')::date >= make_date($2,$3,1)
-          AND (fd.emitted_at AT TIME ZONE 'America/Santo_Domingo')::date < (make_date($2,$3,1) + interval '1 month')::date
+          AND fd.document_date >= make_date($2,$3,1)
+          AND fd.document_date < (make_date($2,$3,1) + interval '1 month')::date
         GROUP BY fdl.product_id
      ),
      cog AS (

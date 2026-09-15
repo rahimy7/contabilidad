@@ -130,8 +130,12 @@ describeIntegration("Inventory costing across physical warehouses", () => {
     // Accounting says 10 units at 60 sit in bodega A.
     await inTx((c) => new InventoryCosting(c).receive({ companyId, productId: P, date: DATE, quantity: "10", unitCost: "60", warehouseId: whA }));
 
-    // The POS's own count says 8 — two went missing somewhere.
-    await pool.query(`INSERT INTO warehouse_stock (warehouse_id, product_id, store_id, quantity) VALUES ($1,$2,1,8)`, [whA, P]);
+    // Every valued movement keeps the operational count in step, so right after
+    // the receipt the two agree.
+    expect((await stockReconciliation(pool, companyId)).reconciled).toBe(true);
+
+    // Someone edits the POS's own count to 8 by hand — two went missing somewhere.
+    await pool.query(`UPDATE warehouse_stock SET quantity=8 WHERE warehouse_id=$1 AND product_id=$2`, [whA, P]);
 
     const rec = await stockReconciliation(pool, companyId);
     expect(rec.reconciled).toBe(false);

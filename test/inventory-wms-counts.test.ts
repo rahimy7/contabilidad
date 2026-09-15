@@ -69,6 +69,10 @@ describeIntegration("WMS locations, FEFO rotation and physical count", () => {
       await cleanup();
       await pool.query(`DELETE FROM companies WHERE id=$1`, [companyId]);
     }
+    // Valued movements keep the operational stock views in step, so the
+    // warehouse also has warehouse_stock and kárdex rows to clear.
+    if (wh) await pool.query(`DELETE FROM inventory_movements WHERE warehouse_id=$1`, [wh]);
+    if (wh) await pool.query(`DELETE FROM warehouse_stock WHERE warehouse_id=$1`, [wh]);
     if (wh) await pool.query(`DELETE FROM warehouses WHERE id=$1`, [wh]);
     if (P) await pool.query(`DELETE FROM products WHERE id = ANY($1)`, [[P, P2]]);
     await pool.end();

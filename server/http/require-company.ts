@@ -48,7 +48,7 @@ export async function requireCompany(req: CompanyRequest, res: Response, next: N
   }
 }
 
-function pickCompanyId(req: Request): number | undefined {
+export function pickCompanyId(req: Request): number | undefined {
   const header = req.header("x-company-id");
   const q = typeof req.query.companyId === "string" ? req.query.companyId : undefined;
   const raw = header ?? q;

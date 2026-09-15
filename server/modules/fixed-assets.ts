@@ -1,5 +1,6 @@
 import { SqlClient } from "../accounting/types";
 import { Decimal, add, sub, cmp, toMoney, isZero } from "../accounting/decimal";
+import { PostingEngine, ManualEntryLine } from "../accounting/posting-engine";
 
 /**
  * Fixed asset register and monthly depreciation.
@@ -24,6 +25,15 @@ export interface RegisterAssetInput {
   cost: Decimal;
   residualValue?: Decimal;
   usefulLifeMonths: number;
+  /** Asset class account: 1.2.01.001 mobiliario (default), 1.2.01.002 vehículos, 1.2.01.004 cómputo. */
+  assetAccountCode?: string;
+  /**
+   * Also post the acquisition, crediting this account (a bank, a payable, a
+   * capital contribution). Leave it out when the asset came in through a
+   * supplier invoice, which already debited the asset account.
+   */
+  capitalizeAgainstAccount?: string;
+  postedBy?: number;
 }
 
 export class FixedAssets {
@@ -34,10 +44,12 @@ export class FixedAssets {
     if (cmp(input.residualValue ?? "0", input.cost) > 0) {
       throw new FixedAssetError("el valor residual no puede exceder el costo");
     }
+    const assetAccount = input.assetAccountCode ?? "1.2.01.001";
+    await this.accountId(input.companyId, assetAccount);
     const { rows } = await this.client.query(
       `INSERT INTO fixed_assets
-         (company_id, code, name, category, acquisition_date, cost, residual_value, useful_life_months)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+         (company_id, code, name, category, acquisition_date, cost, residual_value, useful_life_months, asset_account_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
       [
         input.companyId,
         input.code,
@@ -47,9 +59,63 @@ export class FixedAssets {
         toMoney(input.cost),
         toMoney(input.residualValue ?? "0"),
         input.usefulLifeMonths,
+        assetAccount,
       ],
     );
-    return Number(rows[0].id);
+    const assetId = Number(rows[0].id);
+    if (input.capitalizeAgainstAccount) {
+      await new PostingEngine(this.client).postManual({
+        companyId: input.companyId,
+        entryDate: input.acquisitionDate,
+        reference: String(assetId),
+        sourceType: "fixed_asset",
+        sourceEvent: "acquisition",
+        memo: `Alta de activo ${input.code} ${input.name}`,
+        lines: [
+          { accountCode: assetAccount, debit: toMoney(input.cost), memo: input.name },
+          { accountCode: input.capitalizeAgainstAccount, credit: toMoney(input.cost), memo: input.name },
+        ],
+        postedBy: input.postedBy,
+      });
+    }
+    return assetId;
+  }
+
+  /**
+   * Sells or scraps an asset. Brings depreciation up to the disposal month
+   * first, then removes cost and accumulated depreciation from the books; what
+   * was received for it (if anything) lands in the proceeds account, and the
+   * difference against book value is a gain (4.2.03.001) or a loss (5.3.01.003).
+   */
+  async dispose(input: {
+    companyId: number; assetId: number; date: string; proceeds?: Decimal; proceedsAccountCode?: string; reason?: string; postedBy?: number;
+  }): Promise<{ journalEntryId: number; bookValue: Decimal; gainOrLoss: Decimal }> {
+    const { rows } = await this.client.query(
+      `SELECT id, code, name, cost::text, accumulated_depreciation::text, asset_account_code, accum_account_code, status
+         FROM fixed_assets WHERE id=$1 AND company_id=$2 FOR UPDATE`,
+      [input.assetId, input.companyId],
+    );
+    if (rows.length === 0) throw new FixedAssetError(`activo ${input.assetId} no existe`);
+    const a = rows[0];
+    if (a.status === "disposed") throw new FixedAssetError(`el activo ${a.code} ya fue dado de baja`);
+    const proceeds = input.proceeds ?? "0";
+    if (!isZero(proceeds) && !input.proceedsAccountCode) throw new FixedAssetError("indique la cuenta donde entra el producto de la venta");
+
+    const bookValue = sub(a.cost, a.accumulated_depreciation);
+    const gainOrLoss = sub(proceeds, bookValue);
+    const lines: ManualEntryLine[] = [];
+    if (!isZero(a.accumulated_depreciation)) lines.push({ accountCode: a.accum_account_code, debit: toMoney(a.accumulated_depreciation), memo: "Baja: depreciación acumulada" });
+    if (!isZero(proceeds)) lines.push({ accountCode: input.proceedsAccountCode, debit: toMoney(proceeds), memo: "Producto de la venta" });
+    if (cmp(gainOrLoss, "0") < 0) lines.push({ accountCode: "5.3.01.003", debit: toMoney(sub("0", gainOrLoss)), memo: "Pérdida en baja de activo" });
+    lines.push({ accountCode: a.asset_account_code, credit: toMoney(a.cost), memo: "Baja: costo del activo" });
+    if (cmp(gainOrLoss, "0") > 0) lines.push({ accountCode: "4.2.03.001", credit: toMoney(gainOrLoss), memo: "Ganancia en venta de activo" });
+
+    const posted = await new PostingEngine(this.client).postManual({
+      companyId: input.companyId, entryDate: input.date, reference: String(a.id), sourceType: "fixed_asset", sourceEvent: "disposal",
+      memo: `Baja de activo ${a.code} ${a.name}${input.reason ? ` — ${input.reason}` : ""}`, lines, postedBy: input.postedBy,
+    });
+    await this.client.query(`UPDATE fixed_assets SET status='disposed', disposal_date=$2 WHERE id=$1`, [a.id, input.date]);
+    return { journalEntryId: posted.entryId, bookValue: toMoney(bookValue), gainOrLoss: toMoney(gainOrLoss) };
   }
 
   /**
@@ -77,14 +143,22 @@ export class FixedAssets {
     periodNo: number,
     entryDate: string,
     postedBy?: number,
+    /**
+     * `full_month` (default): an asset depreciates from the month it was acquired.
+     * `mid_month`: acquired after the 15th, it starts the following month — the
+     * usual convention so a purchase on the 28th does not carry a whole month.
+     */
+    convention: "full_month" | "mid_month" = "full_month",
   ): Promise<{ charged: number; total: Decimal }> {
+    const periodStart = `${year}-${String(periodNo).padStart(2, "0")}-01`;
     const { rows } = await this.client.query(
       `SELECT id, cost::text, residual_value::text, useful_life_months,
               accumulated_depreciation::text, expense_account_code, accum_account_code
          FROM fixed_assets
         WHERE company_id=$1 AND status='active'
-          AND acquisition_date <= $2::date`,
-      [companyId, entryDate],
+          AND acquisition_date <= $2::date
+          AND ($3::text <> 'mid_month' OR acquisition_date < $4::date OR extract(day from acquisition_date) <= 15)`,
+      [companyId, entryDate, convention, periodStart],
     );
 
     let charged = 0;

@@ -266,7 +266,20 @@ export const fiscalDocuments = pgTable(
     qrUrl: text("qr_url"),
     contingency: boolean("contingency").notNull().default(false),
 
+    /** Real instant the system emitted the document (e-CF lifecycle). */
     emittedAt: timestamp("emitted_at", { withTimezone: true }),
+    /**
+     * Fiscal date of the comprobante. The 606/607/608 and IT-1 group by this, not
+     * by `emitted_at`: a document dated the 1st belongs to that month whenever it
+     * was captured.
+     */
+    documentDate: date("document_date")
+      .notNull()
+      .default(sql`((now() AT TIME ZONE 'America/Santo_Domingo')::date)`),
+    /** 'cash' | 'credit' | 'card' | 'transfer' — how the sale was settled. */
+    paymentMethod: text("payment_method"),
+    /** Seller the sale is attributed to, for commissions. */
+    sellerUserId: integer("seller_user_id"),
     dueDate: date("due_date"),
 
     /** Filled once the GL exists; null for documents issued before it did. */
@@ -284,6 +297,7 @@ export const fiscalDocuments = pgTable(
     index("fiscal_documents_buyer_idx").on(t.companyId, t.buyerRnc),
     index("fiscal_documents_ecf_status_idx").on(t.companyId, t.ecfStatus),
     index("fiscal_documents_emitted_idx").on(t.companyId, t.emittedAt),
+    index("fiscal_documents_document_date_idx").on(t.companyId, t.documentDate),
     check("fiscal_documents_total_ck", sql`${t.total} >= 0`),
   ],
 );

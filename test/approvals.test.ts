@@ -24,6 +24,7 @@ describeIntegration("approvals engine", () => {
   let storeId: number;
   let approverUserId: number;
   let requesterUserId: number;
+  let secondApproverUserId: number;
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
@@ -32,7 +33,7 @@ describeIntegration("approvals engine", () => {
     await pool.query(`DELETE FROM approval_actions WHERE request_id IN (SELECT id FROM approval_requests WHERE store_id=$1)`, [storeId]);
     await pool.query(`DELETE FROM approval_requests WHERE store_id=$1`, [storeId]);
     await pool.query(`DELETE FROM approval_rules WHERE store_id=$1`, [storeId]);
-    await pool.query(`DELETE FROM users WHERE username IN ('appr-boss','appr-clerk')`);
+    await pool.query(`DELETE FROM users WHERE username IN ('appr-boss','appr-clerk','appr-second')`);
 
     const boss = await pool.query(
       `INSERT INTO users (username, password, name, role, status)
@@ -44,6 +45,11 @@ describeIntegration("approvals engine", () => {
        VALUES ('appr-clerk', 'x', 'Requester', 'seller', 'active') RETURNING id`,
     );
     requesterUserId = clerk.rows[0].id;
+    const second = await pool.query(
+      `INSERT INTO users (username, password, name, role, status)
+       VALUES ('appr-second', 'x', 'Second Approver', 'admin', 'active') RETURNING id`,
+    );
+    secondApproverUserId = second.rows[0].id;
 
     await pool.query(
       `INSERT INTO approval_rules
@@ -63,7 +69,7 @@ describeIntegration("approvals engine", () => {
     await pool.query(`DELETE FROM approval_actions WHERE request_id IN (SELECT id FROM approval_requests WHERE store_id=$1)`, [storeId]);
     await pool.query(`DELETE FROM approval_requests WHERE store_id=$1`, [storeId]);
     await pool.query(`DELETE FROM approval_rules WHERE store_id=$1`, [storeId]);
-    await pool.query(`DELETE FROM users WHERE id IN ($1, $2)`, [approverUserId, requesterUserId]);
+    await pool.query(`DELETE FROM users WHERE id IN ($1, $2, $3)`, [approverUserId, requesterUserId, secondApproverUserId]);
     await pool.end();
   });
 
@@ -138,7 +144,10 @@ describeIntegration("approvals engine", () => {
     const first = await resolveApproval(pool, req.id, approverUserId, "approve");
     expect(first.status).toBe("pending");
     expect(first.receivedApprovals).toBe(1);
-    const second = await resolveApproval(pool, req.id, requesterUserId, "approve");
+    // The same person does not count twice, and the requester never counts.
+    await expect(resolveApproval(pool, req.id, approverUserId, "approve")).rejects.toThrow(/ya aprobó/);
+    await expect(resolveApproval(pool, req.id, requesterUserId, "approve")).rejects.toThrow(/propia solicitud/);
+    const second = await resolveApproval(pool, req.id, secondApproverUserId, "approve");
     expect(second.status).toBe("approved");
     expect(second.receivedApprovals).toBe(2);
   });

@@ -249,8 +249,11 @@ export class FinancialStatements {
               /* Cash aumenta cuando la contrapartida es acreditada (por eso
                  -counter_delta). */
               sum(-counters.counter_delta)::text AS amount
-         FROM cash_lines
-         JOIN counters ON counters.entry_id = cash_lines.entry_id
+         -- One row per entry that touched cash: a sale posts Caja twice (revenue
+         -- and ITBIS), and joining each cash line to every counter line would
+         -- count the sale's revenue twice.
+         FROM (SELECT DISTINCT entry_id FROM cash_lines) cash_entries
+         JOIN counters ON counters.entry_id = cash_entries.entry_id
         GROUP BY counters.counter_code, counters.counter_name, counters.counter_type
         HAVING sum(-counters.counter_delta) <> 0
         ORDER BY counters.counter_code`,
@@ -262,28 +265,17 @@ export class FinancialStatements {
     const financing: CashLine[] = [];
     for (const r of rows.rows) {
       const line: CashLine = { code: r.code, name: r.name, amount: add(r.amount, "0") };
-      switch (r.account_type) {
-        case "income":
-        case "expense":
-          operating.push(line);
-          break;
-        case "asset":
-          // Otros activos que no son efectivo = inversión.
-          investing.push(line);
-          break;
-        case "liability":
-          // Simplificación: tratamos toda liability como financiamiento. Un
-          // corte fino distinguiría corto plazo (operación) de largo plazo
-          // (financiamiento); mientras no exista una bandera, la ganancia
-          // sobre "no clasificar" supera al costo del binario grueso.
-          financing.push(line);
-          break;
-        case "equity":
-          financing.push(line);
-          break;
-        default:
-          operating.push(line);
-      }
+      // By what the counter account is, read from its place in the chart:
+      //   working capital (receivables, inventory, prepaid taxes, current
+      //   liabilities: suppliers, taxes, payroll, advances) and the P&L → operación;
+      //   property, plant and equipment and other non-current assets → inversión;
+      //   equity and non-current liabilities → financiamiento.
+      if (r.account_type === "income" || r.account_type === "expense") operating.push(line);
+      else if (r.code.startsWith("1.2")) investing.push(line);
+      else if (r.code.startsWith("1.1") || r.code.startsWith("2.1")) operating.push(line);
+      else if (r.code.startsWith("3") || r.code.startsWith("2.2")) financing.push(line);
+      else if (r.account_type === "asset") investing.push(line);
+      else financing.push(line);
     }
 
     const operatingTotal = sum(operating.map((l) => l.amount));

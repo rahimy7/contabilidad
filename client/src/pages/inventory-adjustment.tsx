@@ -75,6 +75,30 @@ export default function InventoryAdjustmentPage() {
   const [notes, setNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [expandedAdjustmentId, setExpandedAdjustmentId] = useState<number | null>(null);
+  const [warehouseId, setWarehouseId] = useState<number | null>(null);
+  const [adjustmentDate, setAdjustmentDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // Almacenes: el ajuste es de un almacén concreto, que es donde se contó.
+  const { data: warehouses = [] } = useQuery<any[]>({
+    queryKey: ["/api/warehouses"],
+    queryFn: () => apiCall("/api/warehouses"),
+  });
+  const activeWarehouseId = warehouseId ?? (warehouses as any[]).find((w: any) => w.isDefault)?.id ?? (warehouses as any[])[0]?.id ?? null;
+
+  // Existencia y costo según el libro valorado, por almacén. El ajuste se
+  // compara contra esto y se valora al costo promedio, no al precio de venta.
+  const { data: valuation } = useQuery<any>({
+    queryKey: ["/api/inventory/valuation"],
+    queryFn: () => apiCall("/api/inventory/valuation"),
+  });
+  const valued = useMemo(() => {
+    const m = new Map<number, { qty: number; cost: number }>();
+    for (const v of valuation?.items ?? []) {
+      if (Number(v.warehouse_id) !== activeWarehouseId) continue;
+      m.set(Number(v.product_id), { qty: Number(v.quantity_on_hand), cost: Number(v.average_cost) });
+    }
+    return m;
+  }, [valuation, activeWarehouseId]);
 
   // Fetch products
   const { data: products = [], isLoading: loadingProducts } = useQuery<any[]>({
@@ -132,11 +156,11 @@ export default function InventoryAdjustmentPage() {
       if (val === "" || isNaN(parseInt(val))) continue;
       const product = (products as any[]).find((p: any) => p.id === parseInt(idStr));
       if (!product) continue;
-      const previousStock = product.stock_quantity ?? product.stockQuantity ?? 0;
+      const previousStock = valued.get(product.id)?.qty ?? 0;
       const realStock = parseInt(val);
       const difference = realStock - previousStock;
-      const unitPrice = product.price || "0";
-      const baseCurrency = product.baseCurrency || product.currency || "DOP";
+      const unitPrice = String(valued.get(product.id)?.cost ?? 0);
+      const baseCurrency = "DOP";
       const adjustmentAmount = (Math.abs(difference) * parseFloat(unitPrice)).toFixed(2);
       result.push({
         productId: product.id,
@@ -150,7 +174,7 @@ export default function InventoryAdjustmentPage() {
       });
     }
     return result;
-  }, [realStockMap, products]);
+  }, [realStockMap, products, valued]);
 
   // Summary stats (only pending items — only changed rows)
   const summary = useMemo(() => {
@@ -177,10 +201,15 @@ export default function InventoryAdjustmentPage() {
   };
 
   const handleConfirm = () => {
+    if (!activeWarehouseId) {
+      toast({ title: "Seleccione un almacén", variant: "destructive" });
+      return;
+    }
     applyMutation.mutate({
-      storeId: 1, // backend uses user.storeId from JWT
+      warehouseId: activeWarehouseId,
+      date: adjustmentDate,
       notes,
-      items: pendingItems,
+      items: pendingItems.map((i) => ({ productId: i.productId, productName: i.productName, realStock: i.realStock })),
     });
   };
 
@@ -195,7 +224,25 @@ export default function InventoryAdjustmentPage() {
             <ClipboardList className="w-8 h-8 text-primary" />
             Ajuste de Inventario
           </h1>
-          <p className="text-muted-foreground mt-1">Corrige el stock real de tus productos y aplica el ajuste masivo</p>
+          <p className="text-muted-foreground mt-1">Corrige el stock real de un almacén; faltantes y sobrantes se contabilizan al costo</p>
+        </div>
+        <div className="flex items-end gap-3">
+          <label className="text-xs text-muted-foreground flex flex-col gap-1">
+            Almacén
+            <select
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+              value={activeWarehouseId ?? ""}
+              onChange={(e) => { setWarehouseId(Number(e.target.value)); setRealStockMap({}); }}
+            >
+              {(warehouses as any[]).map((w: any) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-muted-foreground flex flex-col gap-1">
+            Fecha
+            <Input type="date" className="h-9" value={adjustmentDate} onChange={(e) => setAdjustmentDate(e.target.value)} />
+          </label>
         </div>
       </div>
 
@@ -297,7 +344,7 @@ export default function InventoryAdjustmentPage() {
                     <thead className="bg-subtle border-b">
                       <tr>
                         <th className="text-left py-3 px-4 font-medium text-muted-foreground">Producto</th>
-                        <th className="text-right py-3 px-4 font-medium text-muted-foreground w-32">Precio</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground w-32">Costo prom.</th>
                         <th className="text-center py-3 px-4 font-medium text-muted-foreground w-28">Stock actual</th>
                         <th className="text-center py-3 px-4 font-medium text-muted-foreground w-32">Stock real</th>
                         <th className="text-center py-3 px-4 font-medium text-muted-foreground w-28">Diferencia</th>
@@ -306,13 +353,13 @@ export default function InventoryAdjustmentPage() {
                     </thead>
                     <tbody>
                       {filteredProducts.map((product: any) => {
-                        const currentStock = product.stock_quantity ?? product.stockQuantity ?? 0;
+                        const currentStock = valued.get(product.id)?.qty ?? 0;
                         const rawVal = realStockMap[product.id];
                         const realStock = rawVal !== undefined && rawVal !== "" ? parseInt(rawVal) : null;
                         const diff = realStock !== null ? realStock - currentStock : null;
-                        const unitPrice = parseFloat(product.price || "0");
+                        const unitPrice = valued.get(product.id)?.cost ?? 0;
                         const adjustmentAmt = diff !== null ? Math.abs(diff) * unitPrice : null;
-                        const currency = product.baseCurrency || product.currency || "DOP";
+                        const currency = "DOP";
 
                         const isChanged = realStock !== null && realStock !== currentStock;
                         const rowCls = isChanged

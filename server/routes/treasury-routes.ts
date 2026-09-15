@@ -86,6 +86,25 @@ export function treasuryRoutes(): Router {
     return { status: 201, ...res };
   }));
 
+  // Transferencia entre dos cuentas bancarias de la empresa.
+  r.post("/transfers", h(async (req) => {
+    const b = z.object({
+      fromBankAccountId: z.number().int().positive(),
+      toBankAccountId: z.number().int().positive(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      amount: z.string().regex(/^\d+(\.\d+)?$/),
+      reference: z.string().optional(),
+      memo: z.string().optional(),
+    }).parse(req.body);
+    const res = await scoped(req, (c) =>
+      new Treasury(c).transfer({
+        companyId: req.companyId!, postedBy: uid(req), fromBankAccountId: b.fromBankAccountId,
+        toBankAccountId: b.toBankAccountId, date: b.date, amount: b.amount, reference: b.reference, memo: b.memo,
+      }),
+    );
+    return { status: 201, ...res };
+  }));
+
   // ── Reconciliation ─────────────────────────────────────────────────────────
   r.get("/reconciliations", h(async (req) => {
     const bankAccountId = req.query.bankAccountId ? Number(req.query.bankAccountId) : null;

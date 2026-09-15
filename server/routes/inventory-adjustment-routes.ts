@@ -5,6 +5,8 @@ import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
+import { withLegacyCompany, sendLegacyError } from '../http/legacy-bridge';
+import { applyStockAdjustment } from '../inventory/adjustments';
 
 const router = Router();
 
@@ -85,100 +87,46 @@ router.get('/inventory-adjustments/:id', authenticateToken, async (req: any, res
 });
 
 // POST - Aplicar un ajuste de inventario
+//
+// Cada línea dice cuánto hay realmente en el estante (`realStock`) de un almacén.
+// La diferencia contra el libro valorado es el ajuste: un faltante sale al costo
+// y va a "Faltantes de inventario" (5.1.02.001), un sobrante entra al costo
+// promedio contra "Sobrantes de inventario" (4.2.02.001). Se valora al COSTO,
+// nunca al precio de venta, y todo — cabecera, líneas, existencias y asientos —
+// ocurre en una transacción.
+const adjustmentBody = z.object({
+  warehouseId: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes: z.string().optional().nullable(),
+  reason: z.string().optional(),
+  items: z.array(z.object({
+    productId: z.number().int().positive(),
+    productName: z.string().optional(),
+    realStock: z.union([z.number(), z.string()]).transform((v) => String(v)),
+    /** Costo de un sobrante sin costo previo en el almacén. */
+    unitCost: z.string().optional(),
+    reason: z.string().optional(),
+  })).min(1, 'Se requiere al menos un producto'),
+});
+
 router.post('/inventory-adjustments', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = req.user as AuthUser;
-    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
-
-    const validation = schema.insertInventoryAdjustmentSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ error: 'Datos inválidos', details: validation.error.flatten() });
-    }
-
-    const { notes, items } = validation.data;
-    const db = await getTenantDb(user.storeId);
-
-    // Compute summary
-    const surplusItems = items.filter(i => i.difference > 0).length;
-    const deficitItems = items.filter(i => i.difference < 0).length;
-    const surplusValue = items
-      .filter(i => i.difference > 0)
-      .reduce((acc, i) => acc + Math.abs(parseFloat(i.adjustmentAmount)), 0);
-    const deficitValue = items
-      .filter(i => i.difference < 0)
-      .reduce((acc, i) => acc + Math.abs(parseFloat(i.adjustmentAmount)), 0);
-    const netAdjustmentValue = surplusValue - deficitValue;
-
-    // Insert header
-    const [adjustment] = await db
-      .insert(schema.inventoryAdjustments)
-      .values({
-        storeId: user.storeId,
-        adjustedBy: user.id,
-        notes: notes || null,
-        totalItems: items.length,
-        surplusItems,
-        deficitItems,
-        surplusValue: surplusValue.toFixed(2),
-        deficitValue: deficitValue.toFixed(2),
-        netAdjustmentValue: netAdjustmentValue.toFixed(2),
-      })
-      .returning();
-
-    // Insert line items
-    if (items.length > 0) {
-      await db.insert(schema.inventoryAdjustmentItems).values(
-        items.map(item => ({
-          adjustmentId: adjustment.id,
-          productId: item.productId,
-          productName: item.productName,
-          previousStock: item.previousStock,
-          realStock: item.realStock,
-          difference: item.difference,
-          unitPrice: item.unitPrice,
-          baseCurrency: item.baseCurrency,
-          adjustmentAmount: item.adjustmentAmount,
-        }))
-      );
-    }
-
-    // Apply stock adjustments + record inventory movements
-    for (const item of items) {
-      // Update product stock
-      await db
-        .update(schema.products)
-        .set({ stockQuantity: item.realStock })
-        .where(
-          and(
-            eq(schema.products.id, item.productId),
-            eq(schema.products.storeId, user.storeId)
-          )
-        );
-
-      // Record movement in inventoryMovements
-      await db.insert(schema.inventoryMovements).values({
-        storeId: user.storeId,
-        productId: item.productId,
-        type: 'adjustment',
-        quantity: String(Math.abs(item.difference)),
-        quantityBefore: String(item.previousStock),
-        quantityAfter: String(item.realStock),
-        referenceType: 'inventory_adjustment',
-        referenceId: adjustment.id,
-        notes: notes || `Ajuste de inventario #${adjustment.id}`,
-        reason: item.difference > 0 ? 'sobrante' : item.difference < 0 ? 'faltante' : 'sin cambio',
-        createdBy: user.id,
-      });
-    }
-
+    const body = adjustmentBody.parse(req.body);
+    const date = body.date ?? new Date().toISOString().slice(0, 10);
+    const result = await withLegacyCompany(req, (c, ctx) =>
+      applyStockAdjustment(c, {
+        companyId: ctx.companyId, storeId: ctx.storeId, userId: ctx.userId, warehouseId: body.warehouseId, date,
+        notes: body.notes, reason: body.reason,
+        items: body.items.map((i) => ({ productId: i.productId, productName: i.productName, realStock: i.realStock, unitCost: i.unitCost, reason: i.reason })),
+      }),
+    );
     return res.status(201).json({
-      message: `Ajuste aplicado correctamente a ${items.length} producto(s)`,
-      adjustmentId: adjustment.id,
-      summary: { surplusItems, deficitItems, surplusValue, deficitValue, netAdjustmentValue },
+      message: `Ajuste aplicado correctamente a ${body.items.length} producto(s)`,
+      adjustmentId: result.adjustmentId,
+      summary: result,
     });
   } catch (error) {
-    console.error('Error applying inventory adjustment:', error);
-    return res.status(500).json({ error: 'Error al aplicar ajuste de inventario' });
+    return sendLegacyError(res, error, 'Error al aplicar ajuste de inventario');
   }
 });
 

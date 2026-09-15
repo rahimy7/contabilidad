@@ -414,6 +414,48 @@
 			"when": 1786323566461,
 			"tag": "0058_api_keys",
 			"breakpoints": true
+		},
+		{
+			"idx": 59,
+			"version": "7",
+			"when": 1789466182357,
+			"tag": "0059_document_dates",
+			"breakpoints": true
+		},
+		{
+			"idx": 60,
+			"version": "7",
+			"when": 1789466946997,
+			"tag": "0060_legacy_bridge_stock",
+			"breakpoints": true
+		},
+		{
+			"idx": 61,
+			"version": "7",
+			"when": 1789466946998,
+			"tag": "0061_procurement_grni",
+			"breakpoints": true
+		},
+		{
+			"idx": 62,
+			"version": "7",
+			"when": 1789466946999,
+			"tag": "0062_payroll_concepts",
+			"breakpoints": true
+		},
+		{
+			"idx": 63,
+			"version": "7",
+			"when": 1789467953714,
+			"tag": "0063_cascade_new_subledgers",
+			"breakpoints": true
+		},
+		{
+			"idx": 64,
+			"version": "7",
+			"when": 1789469035274,
+			"tag": "0064_subledger_document_cascade",
+			"breakpoints": true
 		}
 	]
 }

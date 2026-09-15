@@ -1,7 +1,8 @@
 import { SqlClient, AccountingEvent, EventMeasure } from "../accounting/types";
 import { PostingEngine } from "../accounting/posting-engine";
-import { Decimal, add, sum, isZero, toMoney } from "../accounting/decimal";
+import { Decimal, add, sum, cmp, isZero, toMoney } from "../accounting/decimal";
 import { InventoryCosting } from "../inventory/costing";
+import { Receivables } from "../subledgers/receivables";
 import { consumePlacements, warehouseConfig, putaway, inboundBin } from "../inventory/wms";
 import { allocateNcf, isEcfType } from "./ncf";
 import {
@@ -67,7 +68,17 @@ export interface IssueInvoiceInput {
   bookCogs?: boolean;
   /** Warehouse the goods leave from; 0 = the company's single store. */
   warehouseId?: number;
+  /** Seller the sale is attributed to (commissions). */
+  sellerUserId?: number;
+  /**
+   * A supervisor authorised this credit sale above the customer's credit limit.
+   * Without it, a credit sale that would take the customer past the limit set in
+   * their commercial terms is refused.
+   */
+  creditApprovedBy?: number;
 }
+
+export class CreditLimitError extends Error {}
 
 export interface IssuedDocument {
   documentId: number;
@@ -77,6 +88,8 @@ export interface IssuedDocument {
   total: Decimal;
   /** Cost of goods sold recognised, when `bookCogs` was set. */
   cogsTotal?: Decimal;
+  /** The receivable a credit sale opened. */
+  openItemId?: number;
 }
 
 export class FiscalDocumentService {
@@ -106,8 +119,12 @@ export class FiscalDocumentService {
       applyRetentions: false,
     });
 
+    if (input.paymentMethod === "credit" && input.customerId && !input.creditApprovedBy) {
+      await this.assertWithinCreditLimit(input.companyId, input.customerId, breakdown.total);
+    }
+
     // Reserved here, released on rollback. Everything below shares this transaction.
-    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType);
+    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType, input.date);
 
     const doc = await this.client.query(
       `INSERT INTO fiscal_documents
@@ -115,12 +132,14 @@ export class FiscalDocumentService {
           issuer_rnc, buyer_rnc, buyer_name, customer_id, order_id,
           currency, fx_rate,
           subtotal_taxed, subtotal_exempt, itbis_18, itbis_16, itbis_0,
-          tip_legal, total, status, ecf_status, emitted_at, due_date)
+          tip_legal, total, status, ecf_status, emitted_at, due_date,
+          document_date, payment_method, seller_user_id)
        VALUES ($1,'invoice',$2,$3,$4,
                $5,$6,$7,$8,$9,
                $10,$11,
                $12,$13,$14,$15,$16,
-               $17,$18,'issued',$19, now(), $20)
+               $17,$18,'issued',$19, now(), $20,
+               $21,$22,$23)
        RETURNING id`,
       [
         input.companyId,
@@ -144,6 +163,9 @@ export class FiscalDocumentService {
         // An e-CF starts life unsent; a legacy NCF has no DGII lifecycle at all.
         isEcfType(input.ncfType) ? "pendiente" : null,
         input.dueDate ?? null,
+        input.date,
+        input.paymentMethod ?? null,
+        input.sellerUserId ?? null,
       ],
     );
     const documentId = Number(doc.rows[0].id);
@@ -211,6 +233,22 @@ export class FiscalDocumentService {
       ? await this.bookCogsForSale(input.companyId, documentId, input.date, input.lines, input.warehouseId ?? 0, input.postedBy)
       : undefined;
 
+    // A credit sale is a receivable from the moment it is issued. Opening the
+    // item here, in the invoice's transaction, is what makes the Clientes
+    // account and the sum of open items the same number by construction.
+    const openItemId =
+      input.paymentMethod === "credit"
+        ? await new Receivables(this.client).openItem({
+            companyId: input.companyId,
+            customerId: input.customerId,
+            documentId,
+            issueDate: input.date,
+            dueDate: input.dueDate ?? (await this.dueDateFor(input.customerId, input.date)),
+            amount: breakdown.total,
+            currency,
+          })
+        : undefined;
+
     return {
       documentId,
       ncf: allocation.ncf,
@@ -218,7 +256,45 @@ export class FiscalDocumentService {
       entryNo: posted.entryNo,
       total: breakdown.total,
       cogsTotal,
+      openItemId,
     };
+  }
+
+  /** Due date from the customer's credit terms (credit_days), else the invoice date. */
+  private async dueDateFor(customerId: number | undefined, date: string): Promise<string> {
+    if (!customerId) return date;
+    const { rows } = await this.client.query(
+      `SELECT ($2::date + credit_days)::text AS due FROM customer_pricing_terms
+        WHERE customer_id=$1 AND is_active LIMIT 1`,
+      [customerId, date],
+    );
+    return rows[0]?.due ?? date;
+  }
+
+  /**
+   * Refuses a credit sale that would take a customer past the credit limit in
+   * their commercial terms. What they already owe is the open balance of their
+   * receivables in this company; a limit of 0 means no limit was set.
+   */
+  private async assertWithinCreditLimit(companyId: number, customerId: number, saleTotal: Decimal): Promise<void> {
+    const terms = await this.client.query(
+      `SELECT credit_limit::text FROM customer_pricing_terms WHERE customer_id=$1 AND is_active LIMIT 1`,
+      [customerId],
+    );
+    const limit = terms.rows[0]?.credit_limit as Decimal | undefined;
+    if (!limit || isZero(limit)) return;
+    const owed = await this.client.query(
+      `SELECT coalesce(sum(balance),0)::text AS b FROM ar_open_items
+        WHERE company_id=$1 AND customer_id=$2 AND status NOT IN ('paid','cancelled')`,
+      [companyId, customerId],
+    );
+    const exposure = add(owed.rows[0].b, saleTotal);
+    if (Number(exposure) > Number(limit)) {
+      throw new CreditLimitError(
+        `el cliente tiene un límite de crédito de ${limit}, debe ${toMoney(owed.rows[0].b)} y esta venta es de ` +
+          `${toMoney(saleTotal)}: requiere aprobación de un supervisor`,
+      );
+    }
   }
 
   /**
@@ -319,12 +395,14 @@ export class FiscalDocumentService {
     matchInvoiceLines?: boolean;
   }): Promise<IssuedDocument> {
     const original = await this.client.query(
-      `SELECT ncf, buyer_rnc, buyer_name, customer_id, currency FROM fiscal_documents
+      `SELECT ncf, buyer_rnc, buyer_name, customer_id, currency, fx_rate::text, payment_method, status
+         FROM fiscal_documents
         WHERE id=$1 AND company_id=$2 AND doc_type='invoice'`,
       [input.modifiesDocId, input.companyId],
     );
     if (original.rows.length === 0) throw new Error("factura original no encontrada");
     const orig = original.rows[0];
+    if (orig.status === "cancelled") throw new Error("la factura está anulada: no admite notas de crédito");
 
     await this.assertCreditable(input.companyId, input.modifiesDocId, input.lines, {
       matchInvoiceLines: input.matchInvoiceLines,
@@ -335,7 +413,25 @@ export class FiscalDocumentService {
       date: input.date,
       applyRetentions: false,
     });
-    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType);
+    // Where the credit goes: a credit sale still owed is settled against its
+    // receivable; anything else goes back the way the sale was paid, unless the
+    // caller says how the refund is made.
+    const receivables = new Receivables(this.client);
+    const arItem = await receivables.itemForDocument(input.companyId, input.modifiesDocId);
+    let settlement = input.paymentMethod ?? orig.payment_method ?? undefined;
+    let applyToItem = false;
+    if (arItem && arItem.status !== "cancelled" && !input.paymentMethod) {
+      if (cmp(breakdown.total, arItem.balance) > 0) {
+        throw new Error(
+          `la factura tiene un saldo pendiente de ${arItem.balance} y la nota de crédito es de ${toMoney(breakdown.total)}: ` +
+            `indique cómo se devuelve el excedente (paymentMethod cash/transfer)`,
+        );
+      }
+      settlement = "credit";
+      applyToItem = true;
+    }
+
+    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType, input.date);
     const itbisTotal = sum([breakdown.itbis18, breakdown.itbis16, breakdown.itbis0]);
     const revenue = add(breakdown.subtotalTaxed, breakdown.subtotalExempt);
 
@@ -344,9 +440,9 @@ export class FiscalDocumentService {
          (company_id, doc_type, ncf, ncf_type, is_ecf, modifies_ncf, modifies_doc_id,
           issuer_rnc, buyer_rnc, buyer_name, customer_id, currency, fx_rate,
           subtotal_taxed, subtotal_exempt, itbis_18, itbis_16, itbis_0, total,
-          status, ecf_status, emitted_at)
-       VALUES ($1,'credit_note',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,
-               $12,$13,$14,$15,$16,$17,'issued',$18, now())
+          status, ecf_status, emitted_at, document_date, payment_method)
+       VALUES ($1,'credit_note',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$21,
+               $12,$13,$14,$15,$16,$17,'issued',$18, now(), $19, $20)
        RETURNING id`,
       [
         input.companyId,
@@ -367,6 +463,9 @@ export class FiscalDocumentService {
         toMoney(breakdown.itbis0),
         toMoney(breakdown.total),
         allocation.isEcf ? "pendiente" : null,
+        input.date,
+        settlement ?? null,
+        orig.fx_rate ?? "1",
       ],
     );
     const documentId = Number(doc.rows[0].id);
@@ -397,7 +496,7 @@ export class FiscalDocumentService {
     }
 
     // Negative measures: the engine swaps sides, so revenue is debited and cash
-    // credited — the reversal of the original sale.
+    // (or the receivable) credited — the reversal of the original sale.
     const measures: EventMeasure[] = [{ role: "revenue", amount: "-" + toMoney(revenue), memo: "Nota de crédito" }];
     if (!isZero(itbisTotal)) measures.push({ role: "itbis", amount: "-" + toMoney(itbisTotal), memo: "ITBIS NC" });
 
@@ -409,7 +508,10 @@ export class FiscalDocumentService {
         sourceId: String(documentId),
         entryDate: input.date,
         currency: orig.currency,
-        context: input.paymentMethod ? { paymentMethod: input.paymentMethod } : {},
+        // The same rate as the invoice it modifies: a credit note reverses that
+        // sale's functional amounts, not today's.
+        fxRate: orig.fx_rate ?? "1",
+        context: settlement ? { paymentMethod: settlement } : {},
         measures,
         memo: `Nota de crédito ${allocation.ncf}`,
         postedBy: input.postedBy,
@@ -417,6 +519,13 @@ export class FiscalDocumentService {
       "credit_note",
     );
     await this.client.query(`UPDATE fiscal_documents SET journal_entry_id=$1 WHERE id=$2`, [posted.entryId, documentId]);
+
+    if (applyToItem && arItem) {
+      await receivables.applyCreditNote({
+        companyId: input.companyId, openItemId: arItem.id, documentId, amount: breakdown.total,
+        date: input.date, journalEntryId: posted.entryId,
+      });
+    }
 
     if (input.restockInventory) {
       await this.restockFromReturn(input.companyId, input.modifiesDocId, documentId, input.date, input.lines, input.postedBy);
@@ -451,7 +560,7 @@ export class FiscalDocumentService {
     reason?: string;
   }): Promise<IssuedDocument> {
     const original = await this.client.query(
-      `SELECT ncf, buyer_rnc, buyer_name, customer_id, currency FROM fiscal_documents
+      `SELECT ncf, buyer_rnc, buyer_name, customer_id, currency, fx_rate::text FROM fiscal_documents
         WHERE id=$1 AND company_id=$2 AND doc_type='invoice'`,
       [input.modifiesDocId, input.companyId],
     );
@@ -463,7 +572,7 @@ export class FiscalDocumentService {
       date: input.date,
       applyRetentions: false,
     });
-    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType);
+    const allocation = await allocateNcf(this.client, input.companyId, input.ncfType, input.date);
     const itbisTotal = sum([breakdown.itbis18, breakdown.itbis16, breakdown.itbis0]);
     const revenue = add(breakdown.subtotalTaxed, breakdown.subtotalExempt);
 
@@ -472,9 +581,9 @@ export class FiscalDocumentService {
          (company_id, doc_type, ncf, ncf_type, is_ecf, modifies_ncf, modifies_doc_id,
           issuer_rnc, buyer_rnc, buyer_name, customer_id, currency, fx_rate,
           subtotal_taxed, subtotal_exempt, itbis_18, itbis_16, itbis_0, total,
-          status, ecf_status, emitted_at)
-       VALUES ($1,'debit_note',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,
-               $12,$13,$14,$15,$16,$17,'issued',$18, now())
+          status, ecf_status, emitted_at, document_date, payment_method)
+       VALUES ($1,'debit_note',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$21,
+               $12,$13,$14,$15,$16,$17,'issued',$18, now(), $19, $20)
        RETURNING id`,
       [
         input.companyId,
@@ -495,6 +604,9 @@ export class FiscalDocumentService {
         toMoney(breakdown.itbis0),
         toMoney(breakdown.total),
         allocation.isEcf ? "pendiente" : null,
+        input.date,
+        input.paymentMethod ?? null,
+        orig.fx_rate ?? "1",
       ],
     );
     const documentId = Number(doc.rows[0].id);
@@ -541,6 +653,7 @@ export class FiscalDocumentService {
         sourceId: String(documentId),
         entryDate: input.date,
         currency: orig.currency,
+        fxRate: orig.fx_rate ?? "1",
         context: input.paymentMethod ? { paymentMethod: input.paymentMethod } : {},
         measures,
         memo: `Nota de débito ${allocation.ncf}`,
@@ -550,7 +663,16 @@ export class FiscalDocumentService {
     );
     await this.client.query(`UPDATE fiscal_documents SET journal_entry_id=$1 WHERE id=$2`, [posted.entryId, documentId]);
 
-    return { documentId, ncf: allocation.ncf, journalEntryId: posted.entryId, entryNo: posted.entryNo, total: breakdown.total };
+    // A debit note charged on credit is owed like the invoice it adds to.
+    const openItemId =
+      input.paymentMethod === "credit"
+        ? await new Receivables(this.client).openItem({
+            companyId: input.companyId, customerId: orig.customer_id ?? undefined, documentId,
+            issueDate: input.date, dueDate: input.date, amount: breakdown.total, currency: orig.currency,
+          })
+        : undefined;
+
+    return { documentId, ncf: allocation.ncf, journalEntryId: posted.entryId, entryNo: posted.entryNo, total: breakdown.total, openItemId };
   }
 
   /**
@@ -847,16 +969,74 @@ export class FiscalDocumentService {
    * is reported on Form 608; handing it to another sale would put two documents
    * under one number in DGII's records.
    */
-  async cancel(documentId: number, reason: string, postedBy?: number): Promise<void> {
+  async cancel(documentId: number, reason: string, postedBy?: number, companyId?: number): Promise<void> {
     const { rows } = await this.client.query(
-      `SELECT id, status, journal_entry_id FROM fiscal_documents WHERE id=$1`,
-      [documentId],
+      `SELECT id, company_id, doc_type, status, journal_entry_id, document_date::text, modifies_doc_id
+         FROM fiscal_documents WHERE id=$1 AND ($2::int IS NULL OR company_id=$2)`,
+      [documentId, companyId ?? null],
     );
     if (rows.length === 0) throw new Error(`fiscal document ${documentId} not found`);
-    if (rows[0].status === "cancelled") throw new Error(`document ${documentId} is already cancelled`);
+    const doc = rows[0];
+    if (doc.status === "cancelled") throw new Error(`document ${documentId} is already cancelled`);
+    const company = Number(doc.company_id);
 
-    if (rows[0].journal_entry_id) {
-      await this.ledger.reverse(Number(rows[0].journal_entry_id), reason, postedBy);
+    // A document that others modify cannot vanish from under them.
+    const dependents = await this.client.query(
+      `SELECT ncf FROM fiscal_documents WHERE company_id=$1 AND modifies_doc_id=$2 AND status<>'cancelled' LIMIT 1`,
+      [company, documentId],
+    );
+    if (dependents.rows.length > 0) {
+      throw new Error(`el documento tiene notas vigentes (${dependents.rows[0].ncf}): anúlelas primero`);
+    }
+
+    if (doc.doc_type === "purchase") {
+      await this.guardPurchaseCancel(company, documentId);
+    }
+
+    if (doc.journal_entry_id) {
+      await this.ledger.reverse(Number(doc.journal_entry_id), reason, postedBy);
+    }
+
+    // The cost side of the sale: every issue it booked is reversed and the goods
+    // go back to the bodega they left, at the cost they left for.
+    const costing = new InventoryCosting(this.client);
+    const issues = await this.client.query(
+      `SELECT id, product_id, warehouse_id, quantity::text, total_cost::text, journal_entry_id
+         FROM inventory_cost_movements
+        WHERE company_id=$1 AND kind='issue' AND source_type='fiscal_document' AND source_id=$2
+        ORDER BY id`,
+      [company, String(documentId)],
+    );
+    for (const m of issues.rows) {
+      if (m.journal_entry_id) await this.ledger.reverse(Number(m.journal_entry_id), reason, postedBy);
+      await costing.returnToStock({
+        companyId: company, productId: Number(m.product_id), date: doc.document_date, quantity: m.quantity,
+        unitCost: "0", totalCost: m.total_cost, warehouseId: Number(m.warehouse_id), post: false,
+        sourceType: "fiscal_document_cancel", sourceId: String(documentId), postedBy,
+      });
+    }
+
+    // Stock a purchase brought in leaves again (its entry was reversed above).
+    const receipts = await this.client.query(
+      `SELECT product_id, warehouse_id, quantity::text FROM inventory_cost_movements
+        WHERE company_id=$1 AND kind='receipt' AND source_type='purchase_document' AND source_id=$2`,
+      [company, String(documentId)],
+    );
+    for (const m of receipts.rows) {
+      await costing.issue({
+        companyId: company, productId: Number(m.product_id), date: doc.document_date, quantity: m.quantity,
+        warehouseId: Number(m.warehouse_id), post: false, sourceType: "purchase_document_cancel", sourceId: String(documentId), postedBy,
+      });
+    }
+
+    if (["invoice", "debit_note"].includes(doc.doc_type)) {
+      await new Receivables(this.client).cancelItemForDocument({ companyId: company, documentId, date: doc.document_date });
+    }
+    if (doc.doc_type === "purchase") {
+      await this.client.query(
+        `UPDATE ap_open_items SET balance=0, status='cancelled' WHERE company_id=$1 AND document_id=$2`,
+        [company, documentId],
+      );
     }
 
     await this.client.query(
@@ -871,5 +1051,25 @@ export class FiscalDocumentService {
        VALUES ($1,'issued','cancelled','out',$2)`,
       [documentId, reason],
     );
+  }
+
+  /** A purchase already paid or matched to receipts is corrected with a credit note, not voided. */
+  private async guardPurchaseCancel(companyId: number, documentId: number): Promise<void> {
+    const paid = await this.client.query(
+      `SELECT coalesce(sum(a.amount),0)::text AS paid FROM ap_applications a
+         JOIN ap_open_items i ON i.id = a.open_item_id
+        WHERE i.company_id=$1 AND i.document_id=$2`,
+      [companyId, documentId],
+    );
+    if (!isZero(paid.rows[0].paid)) {
+      throw new Error(`la factura de compra tiene pagos por ${paid.rows[0].paid}: regístrela con nota de crédito`);
+    }
+    const matched = await this.client.query(
+      `SELECT 1 FROM supplier_invoice_matches WHERE company_id=$1 AND document_id=$2 LIMIT 1`,
+      [companyId, documentId],
+    );
+    if (matched.rows.length > 0) {
+      throw new Error("la factura está casada con recepciones de una orden de compra: corríjala con nota de crédito");
+    }
   }
 }

@@ -1,4 +1,5 @@
 import type { SqlClient } from "../accounting/types";
+import { ensureFiscalYear } from "../accounting/periods";
 import {
   DR_CHART_OF_ACCOUNTS,
   levelOf,
@@ -17,7 +18,7 @@ import {
 export async function seedCompanyDefaults(pool: SqlClient, companyId: number) {
   await seedChartOfAccounts(pool, companyId);
   await seedTaxConfiguration(pool, companyId);
-  await seedPeriods(pool, companyId, new Date().getUTCFullYear());
+  await ensureFiscalYear(pool, companyId, new Date().getUTCFullYear());
   await seedPostingRules(pool, companyId);
 }
 
@@ -62,9 +63,49 @@ async function seedPostingRules(pool: SqlClient, companyId: number) {
     ["purchase.retention_isr", "2.1.01.001", "2.1.02.003", {}, 0],
     ["purchase.retention_itbis", "2.1.01.001", "2.1.02.002", {}, 0],
 
+    // Card sale: the acquirer owes us until it settles, so it is neither cash nor bank.
+    ["pos_sale.revenue", "1.1.01.004", "4.1.01.001", { paymentMethod: "card" }, 10],
+    ["pos_sale.itbis", "1.1.01.004", "2.1.02.001", { paymentMethod: "card" }, 10],
+    ["pos_sale.discount", "4.1.02.001", "1.1.01.004", { paymentMethod: "card" }, 10],
+
     // AR receipt: Dr Caja / Cr Clientes. AP payment: Dr Proveedores / Cr Caja.
     ["ar_receipt.settlement", "1.1.01.001", "1.1.02.001", {}, 0],
     ["ap_payment.settlement", "2.1.01.001", "1.1.01.001", {}, 0],
+    // Settled through a bank account: the money moves in Bancos, and the
+    // treasury subledger records the same movement so reconciliation sees it.
+    ["ar_receipt.settlement", "1.1.01.003", "1.1.02.001", { settlementChannel: "bank" }, 10],
+    ["ap_payment.settlement", "2.1.01.001", "1.1.01.003", { settlementChannel: "bank" }, 10],
+    // Customer advance: cash in before any invoice exists is a liability.
+    ["ar_advance.settlement", "1.1.01.001", "2.1.04.001", {}, 0],
+    ["ar_advance.settlement", "1.1.01.003", "2.1.04.001", { settlementChannel: "bank" }, 10],
+    ["ar_advance.application", "2.1.04.001", "1.1.02.001", {}, 0],
+    // Withholdings a customer (e.g. the State) applies to our invoice: they reduce
+    // the receivable and become a tax credit, ITBIS or ISR.
+    ["ar_receipt.withholding_itbis", "1.1.04.003", "1.1.02.001", {}, 0],
+    ["ar_receipt.withholding_isr", "1.1.04.002", "1.1.02.001", {}, 0],
+
+    // Three-way match. Receiving against a purchase order values the stock
+    // against "recepciones por facturar"; the supplier's invoice clears that
+    // clearing account into Proveedores, and whatever the invoice differs from
+    // the received cost is a purchase price variance.
+    ["po_receipt.inventory", "1.1.03.001", "2.1.01.002", {}, 0],
+    ["po_receipt.inventory", "1.1.03.002", "2.1.01.002", { inventoryAccount: "1.1.03.002" }, 10],
+    ["purchase.grni_clear", "2.1.01.002", "2.1.01.001", {}, 0],
+    ["purchase.price_variance", "5.1.01.002", "2.1.01.001", {}, 0],
+    // Supplier credit note (merchandise returned, or a price allowance): the
+    // payable goes down against the stock that left, its ITBIS credit, and any
+    // difference between what is credited and what the stock cost.
+    ["purchase_credit.inventory", "2.1.01.001", "1.1.03.001", {}, 0],
+    ["purchase_credit.inventory", "2.1.01.001", "1.1.03.002", { inventoryAccount: "1.1.03.002" }, 10],
+    ["purchase_credit.itbis_credit", "2.1.01.001", "1.1.04.001", {}, 0],
+    ["purchase_credit.price_variance", "2.1.01.001", "5.1.01.002", {}, 0],
+    ["purchase_credit.expense", "2.1.01.001", "5.2.02.004", {}, 0],
+    // Landed costs: freight and duties parked in their clearing account are
+    // capitalised into the stock they belong to; the share whose goods already
+    // left goes to cost of sales.
+    ["landed_cost.capitalize", "1.1.03.001", "1.1.03.003", {}, 0],
+    ["landed_cost.expense_sold", "5.1.01.001", "1.1.03.003", {}, 0],
+    ["purchase.inventory", "1.1.03.003", "2.1.01.001", { purchaseType: "landed_cost" }, 10],
 
     // Inventory costing. A receipt raises inventory against the payable; an issue
     // books COGS against inventory; a return puts stock back, reversing the COGS.
@@ -89,6 +130,16 @@ async function seedPostingRules(pool: SqlClient, companyId: number) {
     ["inventory_adjustment.surplus", "1.1.03.002", "4.2.02.001", { inventoryAccount: "1.1.03.002" }, 10],
 
     ["depreciation.expense", "5.2.03.001", "1.2.01.003", {}, 0],
+    // Fixed-asset purchases route to the asset class account.
+    ["purchase.inventory", "1.2.01.002", "2.1.01.001", { purchaseType: "fixed_asset", assetAccount: "1.2.01.002" }, 20],
+    ["purchase.inventory", "1.2.01.004", "2.1.01.001", { purchaseType: "fixed_asset", assetAccount: "1.2.01.004" }, 20],
+    // Services and expenses routed to the expense account the invoice names.
+    ...(["5.2.02.001", "5.2.02.002", "5.2.02.003", "5.2.02.004", "5.2.02.005", "5.3.01.002"] as const).flatMap(
+      (code): Rule[] => [
+        ["purchase.inventory", code, "2.1.01.001", { purchaseType: "expense", expenseAccount: code }, 20],
+        ["purchase.inventory", code, "2.1.01.001", { purchaseType: "service", expenseAccount: code }, 20],
+      ],
+    ),
     ["fx.gain", "1.1.01.003", "4.2.01.001", {}, 0],
     ["fx.loss", "5.3.01.001", "1.1.01.003", {}, 0],
   ];
@@ -202,26 +253,4 @@ async function seedTaxConfiguration(pool: SqlClient, companyId: number) {
       [companyId, name, base, rate, JSON.stringify(appliesWhen), accountRef],
     );
   }
-}
-
-/** Twelve monthly periods plus period 13, which carries year-end adjustments. */
-async function seedPeriods(pool: SqlClient, companyId: number, year: number) {
-  for (let m = 1; m <= 12; m++) {
-    const start = new Date(Date.UTC(year, m - 1, 1));
-    const end = new Date(Date.UTC(year, m, 0));
-    await pool.query(
-      `INSERT INTO accounting_periods (company_id, fiscal_year, period_no, start_date, end_date, status)
-       VALUES ($1,$2,$3,$4,$5,'open')
-       ON CONFLICT (company_id, fiscal_year, period_no) DO NOTHING`,
-      [companyId, year, m, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)],
-    );
-  }
-  // Period 13 shares December's last day: closing entries are dated at year end.
-  const dec31 = `${year}-12-31`;
-  await pool.query(
-    `INSERT INTO accounting_periods (company_id, fiscal_year, period_no, start_date, end_date, status)
-     VALUES ($1,$2,13,$3,$3,'open')
-     ON CONFLICT (company_id, fiscal_year, period_no) DO NOTHING`,
-    [companyId, year, dec31],
-  );
 }

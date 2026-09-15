@@ -1,6 +1,6 @@
 import { SqlClient } from "../accounting/types";
 import { PostingEngine } from "../accounting/posting-engine";
-import { Decimal, add, sub, isNegative, isZero, toMoney } from "../accounting/decimal";
+import { Decimal, add, sub, cmp, isNegative, isZero, toMoney } from "../accounting/decimal";
 
 /**
  * Treasury: bank accounts, their movements, and reconciliation.
@@ -53,7 +53,18 @@ export interface MovementInput {
   postedBy?: number;
   /** Clear against this reconciliation on the spot, e.g. a bank charge found while reconciling. */
   reconciliationId?: number;
+  /** Lets a subledger settlement record its own movement; refused to direct callers. */
+  allowControlCounterparty?: boolean;
 }
+
+/**
+ * Counterparty accounts a raw treasury movement may not touch. Each is the
+ * control account of a subledger: paying a supplier "from the bank screen"
+ * against Proveedores would reduce the ledger without reducing any open item,
+ * and from then on the two never agree. Those movements go through the
+ * subledger (AP payment, AR receipt), which records the bank movement itself.
+ */
+const SUBLEDGER_CONTROLLED = new Set(["1.1.02.001", "2.1.01.001", "2.1.01.002", "1.1.03.001", "1.1.03.002"]);
 
 interface ReconRow {
   id: number;
@@ -89,6 +100,117 @@ export class Treasury {
         Number(gl.rows[0].id),
       ],
     );
+    const bankAccountId = Number(rows[0].id);
+
+    // A bank that rolls into its own ledger account needs settlements routed
+    // there too; the default Bancos account is covered by the company rules.
+    if (glCode !== DEFAULT_BANK_GL) {
+      const routes: Array<[string, string, string]> = [
+        ["ar_receipt.settlement", glCode, "1.1.02.001"],
+        ["ap_payment.settlement", "2.1.01.001", glCode],
+        ["ar_advance.settlement", glCode, "2.1.04.001"],
+      ];
+      for (const [event, debit, credit] of routes) {
+        await this.client.query(
+          `INSERT INTO posting_rules (company_id, event_type, match, debit_account_ref, credit_account_ref, priority)
+           SELECT $1,$2,$3::jsonb,$4,$5,20
+            WHERE NOT EXISTS (SELECT 1 FROM posting_rules WHERE company_id=$1 AND event_type=$2 AND match=$3::jsonb)`,
+          [input.companyId, event, JSON.stringify({ settlementChannel: "bank", bankGlAccount: glCode }), debit, credit],
+        );
+      }
+    }
+    return bankAccountId;
+  }
+
+  /** The ledger account a bank account rolls into. */
+  static async bankGl(client: SqlClient, companyId: number, bankAccountId: number): Promise<{ glAccountId: number; glCode: string; currency: string }> {
+    const { rows } = await client.query(
+      `SELECT b.gl_account_id, a.code, b.currency, b.is_active
+         FROM bank_accounts b JOIN chart_of_accounts a ON a.id = b.gl_account_id
+        WHERE b.id=$1 AND b.company_id=$2`,
+      [bankAccountId, companyId],
+    );
+    if (rows.length === 0) throw new TreasuryError(`cuenta bancaria ${bankAccountId} no existe`);
+    if (rows[0].is_active === false) throw new TreasuryError(`la cuenta bancaria ${bankAccountId} está inactiva`);
+    return { glAccountId: Number(rows[0].gl_account_id), glCode: rows[0].code, currency: rows[0].currency ?? "DOP" };
+  }
+
+  /**
+   * Records in treasury a bank movement another module already posted — an AR
+   * receipt or an AP payment settled through the bank. Nothing is posted here;
+   * the entry is checked to actually move this bank's ledger account by this
+   * amount on the right side, so the treasury balance and the ledger cannot part.
+   */
+  async attachTransaction(input: {
+    companyId: number; bankAccountId: number; txnDate: string; direction: "in" | "out"; amount: Decimal;
+    kind: string; counterpartyAccountRef: string; journalEntryId: number;
+    reference?: string; memo?: string; sourceType?: string; sourceId?: string;
+  }): Promise<number> {
+    const bank = await Treasury.bankGl(this.client, input.companyId, input.bankAccountId);
+    const side = input.direction === "in" ? "debit" : "credit";
+    const check = await this.client.query(
+      `SELECT coalesce(sum(${side}),0)::text AS amt FROM journal_entry_lines
+        WHERE entry_id=$1 AND company_id=$2 AND account_id=$3`,
+      [input.journalEntryId, input.companyId, bank.glAccountId],
+    );
+    if (cmp(check.rows[0].amt, toMoney(input.amount)) !== 0) {
+      throw new TreasuryError(
+        `el asiento ${input.journalEntryId} no mueve la cuenta del banco por ${input.amount} (${side} ${check.rows[0].amt})`,
+      );
+    }
+    const { rows } = await this.client.query(
+      `INSERT INTO bank_transactions
+         (company_id, bank_account_id, txn_date, direction, amount, kind, counterparty_account_ref, memo, reference,
+          journal_entry_id, source_type, source_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [
+        input.companyId, input.bankAccountId, input.txnDate, input.direction, toMoney(input.amount), input.kind,
+        input.counterpartyAccountRef, input.memo ?? null, input.reference ?? null, input.journalEntryId,
+        input.sourceType ?? null, input.sourceId ?? null,
+      ],
+    );
+    return Number(rows[0].id);
+  }
+
+  /**
+   * Moves money between two of the company's bank accounts: one movement out of
+   * the source, one into the destination, each posted against the other bank's
+   * ledger account. Both land in the reconciliation of their own bank.
+   */
+  async transfer(input: {
+    companyId: number; fromBankAccountId: number; toBankAccountId: number; date: string; amount: Decimal;
+    reference?: string; memo?: string; postedBy?: number;
+  }): Promise<{ outTransactionId: number; inTransactionId: number }> {
+    if (input.fromBankAccountId === input.toBankAccountId) throw new TreasuryError("origen y destino son la misma cuenta");
+    const from = await Treasury.bankGl(this.client, input.companyId, input.fromBankAccountId);
+    const to = await Treasury.bankGl(this.client, input.companyId, input.toBankAccountId);
+    if (from.currency !== to.currency) throw new TreasuryError("la transferencia entre monedas distintas requiere tasa de cambio");
+    const memo = input.memo ?? `Transferencia entre cuentas ${input.reference ?? ""}`.trim();
+    // Posted once, as a single entry Dr destino / Cr origen; each bank gets its
+    // own treasury movement pointing at that entry.
+    const posted = await new PostingEngine(this.client).postManual({
+      companyId: input.companyId, entryDate: input.date, currency: from.currency, memo,
+      lines: [
+        { accountId: to.glAccountId, debit: toMoney(input.amount), memo },
+        { accountId: from.glAccountId, credit: toMoney(input.amount), memo },
+      ],
+      postedBy: input.postedBy,
+    });
+    const outTransactionId = await this.insertTxn(input.companyId, input.fromBankAccountId, input.date, "out", input.amount, "transfer", to.glCode, memo, input.reference, posted.entryId);
+    const inTransactionId = await this.insertTxn(input.companyId, input.toBankAccountId, input.date, "in", input.amount, "transfer", from.glCode, memo, input.reference, posted.entryId);
+    return { outTransactionId, inTransactionId };
+  }
+
+  private async insertTxn(
+    companyId: number, bankAccountId: number, date: string, direction: "in" | "out", amount: Decimal, kind: string,
+    counterparty: string, memo: string, reference: string | undefined, journalEntryId: number,
+  ): Promise<number> {
+    const { rows } = await this.client.query(
+      `INSERT INTO bank_transactions
+         (company_id, bank_account_id, txn_date, direction, amount, kind, counterparty_account_ref, memo, reference, journal_entry_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [companyId, bankAccountId, date, direction, toMoney(amount), kind, counterparty, memo, reference ?? null, journalEntryId],
+    );
     return Number(rows[0].id);
   }
 
@@ -102,6 +224,12 @@ export class Treasury {
     }
     if (input.direction !== "in" && input.direction !== "out") {
       throw new TreasuryError(`dirección inválida: ${input.direction}`);
+    }
+    if (!input.allowControlCounterparty && SUBLEDGER_CONTROLLED.has(input.counterpartyAccountRef)) {
+      throw new TreasuryError(
+        `la cuenta ${input.counterpartyAccountRef} es de control de un auxiliar: registre el cobro o pago ` +
+          `desde Cuentas por cobrar / por pagar para que la partida también se liquide`,
+      );
     }
 
     const acct = await this.client.query(

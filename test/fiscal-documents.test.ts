@@ -246,8 +246,8 @@ describeIntegration("fiscal documents and DGII filings", () => {
     await pool.query(
       `INSERT INTO fiscal_documents
          (company_id, doc_type, ncf, ncf_type, issuer_rnc, buyer_rnc,
-          subtotal_taxed, itbis_18, retention_itbis, retention_isr, total, status, emitted_at)
-       VALUES ($1,'purchase','B0100000055','B01',$2,$3, 2000, 360, 108, 0, 2252, 'issued', $4::date)`,
+          subtotal_taxed, itbis_18, retention_itbis, retention_isr, total, status, emitted_at, document_date)
+       VALUES ($1,'purchase','B0100000055','B01',$2,$3, 2000, 360, 108, 0, 2252, 'issued', $4::date, $4::date)`,
       [companyId, SUPPLIER_RNC, RNC, DATE],
     );
 

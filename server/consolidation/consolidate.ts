@@ -183,8 +183,8 @@ export class Consolidation {
           AND d.doc_type = 'invoice' AND d.status = 'issued'
           AND d.buyer_rnc = ANY($2)
           AND d.buyer_rnc <> seller.rnc
-          AND extract(year from (d.emitted_at AT TIME ZONE 'America/Santo_Domingo')) = $3
-          AND ($4::int IS NULL OR extract(month from (d.emitted_at AT TIME ZONE 'America/Santo_Domingo')) <= $4)`,
+          AND extract(year from d.document_date) = $3
+          AND ($4::int IS NULL OR extract(month from d.document_date) <= $4)`,
       [memberIds, memberRncs, fiscalYear, periodNo ?? null],
     );
     const revenue = add(sales.rows[0].revenue, "0");

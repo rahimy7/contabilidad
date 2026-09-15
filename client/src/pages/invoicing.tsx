@@ -428,67 +428,22 @@ export default function InvoicingPage() {
 
   const issueMutation = useMutation({
     mutationFn: async (): Promise<IssuedInvoice> => {
-      const productLines = lines.filter((l) => l.productId);
-      let orderId: number | undefined;
-      let orderNumber: string | undefined;
-
-      // 1) Pedido operativo: mueve inventario y alimenta el historial de ventas.
-      if (affectInventory && productLines.length > 0) {
-        const orderRes = await apiRequest<any>('POST', '/api/orders', {
-          customerId: customer?.id,
-          status: condition === 'credito' ? 'pending' : 'completed',
-          deliveryCost: 0,
-          priority: 'normal',
-          notes: `Facturación ERP — ${NCF_LABELS[ncfType] ?? ncfType}`,
-          paymentMethod: effectivePaymentMethod,
-          paymentStatus: condition === 'credito' ? 'credit' : 'paid',
-          receivedAmount: condition === 'credito' ? 0 : totals.total,
-          changeAmount: 0,
-          totalAmount: totals.total,
-          subtotalAmount: r2(totals.subtotalTaxed + totals.subtotalExempt),
-          discountAmount: totals.discountTotal > 0 ? totals.discountTotal : undefined,
-          orderType: 'sale',
-          warehouseId: warehouseId ?? undefined,
-          items: productLines.map((l) => {
-            const c = computeLine(l);
-            return {
-              productId: l.productId,
-              quantity: num(l.quantity),
-              unitPrice: r2(num(l.unitPrice)),
-              totalPrice: c.lineTotal,
-            };
-          }),
-        });
-        const createdOrder = orderRes?.order ?? orderRes;
-        orderId = createdOrder?.id;
-        orderNumber = createdOrder?.orderNumber;
-
-        // Deuda operativa del cliente, igual que en el POS.
-        if (condition === 'credito' && customer?.id) {
-          await apiRequest('POST', '/api/credits/charge', {
-            customerId: customer.id,
-            amount: totals.total,
-            orderId,
-            description: `Venta a crédito - Factura ${NCF_LABELS[ncfType] ?? ncfType}`,
-          });
-        }
-      }
-
-      // 2) Comprobante fiscal: asigna NCF y contabiliza.
-      const doc = await fiscalApi.issueInvoice({
+      // Una sola llamada: el servidor registra el pedido operativo (si se pide),
+      // emite el NCF, contabiliza ingreso, ITBIS y costo, descuenta inventario
+      // una sola vez y abre la cuenta por cobrar si es a crédito — todo o nada.
+      const doc = await apiRequest<any>('POST', '/api/sales/checkout', {
         ncfType,
         date,
+        paymentMethod: effectivePaymentMethod,
+        warehouseId: warehouseId ?? 0,
+        createOrder: affectInventory,
         customerId: customer?.id,
         buyerRnc: buyerRnc ? cleanTaxId(buyerRnc) : undefined,
         buyerName: buyerName.trim() || undefined,
-        orderId,
         currency,
         fxRate: currency === 'DOP' ? undefined : String(num(fxRate)),
-        paymentMethod: effectivePaymentMethod,
-        applyLegalTip,
         dueDate: dueDate ?? undefined,
-        bookCogs: true,
-        warehouseId: warehouseId ?? undefined,
+        notes: `Facturación ERP — ${NCF_LABELS[ncfType] ?? ncfType}`,
         lines: lines.map((l) => {
           const c = computeLine(l);
           return {
@@ -501,6 +456,7 @@ export default function InvoicingPage() {
           };
         }),
       });
+      const orderNumber: string | undefined = doc.orderNumber ?? undefined;
 
       return {
         documentId: doc.documentId,

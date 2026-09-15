@@ -22,6 +22,8 @@
         "gpt:tests": "node ai-tools/gpt5nano.mjs --mode=tests",
         "test": "vitest run",
         "test:ui": "vitest --ui",
+        "test:mes": "node scripts/test-mes.mjs",
+        "seed:mes": "tsx scripts/seed-october-scenario.ts",
         "ai:test": "tsx server/ai-test-suite.ts",
         "ai:migrate": "tsx server/migrate-ai-tables.ts"
     },

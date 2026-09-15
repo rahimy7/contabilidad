@@ -1,4 +1,6 @@
 import express, { type Response } from "express";
+import { withLegacyCompany } from "../http/legacy-bridge";
+import { syncPayrollEmployee } from "../payroll/runs";
 import { z } from "zod";
 import { authenticateToken, type AuthenticatedRequest } from "../authMiddleware";
 import { masterPool } from "../multi-tenant-db";
@@ -68,7 +70,11 @@ router.post("/hr/employees", authenticateToken, async (req: AuthenticatedRequest
   try {
     const body = hireBody.parse(req.body);
     const emp = await hireEmployee(masterPool, { storeId: storeIdOf(req), ...body });
-    res.status(201).json(emp);
+    // El expediente de RRHH es el maestro: la nómina de la empresa activa recibe
+    // al empleado en el mismo momento, con su salario y fecha de ingreso.
+    const payrollEmployeeId = await withLegacyCompany(req as any, (c, ctx) =>
+      syncPayrollEmployee(c, ctx.companyId, Number((emp as any).id))).catch(() => null);
+    res.status(201).json({ ...emp, payrollEmployeeId });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) return res.status(422).json({ error: "Validation failed", issues: err.issues });
     console.error("[hr] hire failed:", err);
@@ -107,7 +113,9 @@ router.post("/hr/employees/:id/position", authenticateToken, async (req: Authent
       changeReason: z.enum(["promotion", "demotion", "transfer", "raise", "adjustment", "other"]),
       notes: z.string().optional(),
     }).parse(req.body);
-    res.json(await updatePosition(masterPool, { employeeId: Number(req.params.id), ...body }));
+    const updated = await updatePosition(masterPool, { employeeId: Number(req.params.id), ...body });
+    await withLegacyCompany(req as any, (c, ctx) => syncPayrollEmployee(c, ctx.companyId, Number(req.params.id))).catch(() => null);
+    res.json(updated);
   } catch (err: unknown) {
     if (err instanceof z.ZodError) return res.status(422).json({ error: "Validation failed", issues: err.issues });
     res.status(500).json({ error: "Failed" });
@@ -347,7 +355,14 @@ router.get("/hr/terminations/:id", authenticateToken, async (req: AuthenticatedR
 
 router.post("/hr/terminations/:id/approve", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    res.json(await approveTermination(masterPool, Number(req.params.id), req.user!.id));
+    const approved = await approveTermination(masterPool, Number(req.params.id), req.user!.id);
+    // Terminated in HR means out of the next payroll run (it still pays the
+    // days worked in the month of the termination).
+    const emp = await masterPool.query(`SELECT employee_id FROM hr_terminations WHERE id=$1`, [Number(req.params.id)]);
+    if (emp.rows[0]) {
+      await withLegacyCompany(req as any, (c, ctx) => syncPayrollEmployee(c, ctx.companyId, Number(emp.rows[0].employee_id))).catch(() => null);
+    }
+    res.json(approved);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("no existe")) return res.status(404).json({ error: msg });

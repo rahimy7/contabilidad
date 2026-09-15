@@ -1,6 +1,7 @@
 import { SqlClient } from "../accounting/types";
 import { PostingEngine } from "../accounting/posting-engine";
 import { Decimal, add, mul, neg, sub, cmp, isNegative, isZero, roundTo, toMoney } from "../accounting/decimal";
+import { syncOperationalStock, ValuedMovementKind } from "./operational-stock";
 
 /**
  * Inventory costing: weighted-average or FIFO, per product, per warehouse.
@@ -386,7 +387,8 @@ export class InventoryCosting {
     const movementId = await this.recordMovement({
       companyId: input.companyId, productId: input.productId, warehouseId, date: input.date, kind,
       quantity: input.quantity, totalCost: receiptValue, balances,
-      sourceType: input.sourceType, sourceId: input.sourceId,
+      sourceType: input.sourceType, sourceId: input.sourceId, userId: input.postedBy,
+      lotNo: input.lotNo, expirationDate: input.expirationDate,
     });
 
     return { movementId, balances, value: receiptValue, inventoryAccount, lotId };
@@ -462,7 +464,7 @@ export class InventoryCosting {
     const movementId = await this.recordMovement({
       companyId: input.companyId, productId: input.productId, warehouseId, date: input.date, kind,
       quantity: input.quantity, totalCost: cost, balances,
-      sourceType: input.sourceType, sourceId: input.sourceId,
+      sourceType: input.sourceType, sourceId: input.sourceId, userId: input.postedBy,
     });
 
     return { movementId, cost, balances, inventoryAccount };
@@ -542,11 +544,14 @@ export class InventoryCosting {
     warehouseId: number;
     date: string;
     quantity: Decimal;
-    kind: string;
+    kind: ValuedMovementKind;
     totalCost: Decimal;
     balances: Balances;
     sourceType?: string;
     sourceId?: string;
+    userId?: number;
+    lotNo?: string;
+    expirationDate?: string | null;
   }): Promise<number> {
     const { rows } = await this.client.query(
       `INSERT INTO inventory_cost_movements
@@ -560,7 +565,28 @@ export class InventoryCosting {
         m.balances.quantityOnHand, m.balances.totalValue, m.sourceType ?? null, m.sourceId ?? null,
       ],
     );
-    return Number(rows[0].id);
+    const movementId = Number(rows[0].id);
+
+    // Every valued movement also moves the operational views of the same stock —
+    // per-bodega quantity, the catalog's total and the unit kárdex — in this
+    // transaction, so the POS never shows a number the books disagree with.
+    await syncOperationalStock(this.client, {
+      companyId: m.companyId,
+      productId: m.productId,
+      warehouseId: m.warehouseId,
+      date: m.date,
+      kind: m.kind,
+      quantity: m.quantity,
+      totalCost: m.totalCost,
+      quantityOnHand: m.balances.quantityOnHand,
+      costMovementId: movementId,
+      sourceType: m.sourceType,
+      sourceId: m.sourceId,
+      userId: m.userId,
+      lotNo: m.lotNo ?? null,
+      expirationDate: m.expirationDate ?? null,
+    });
+    return movementId;
   }
 
   /**

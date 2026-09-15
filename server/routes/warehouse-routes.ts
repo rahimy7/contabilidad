@@ -5,6 +5,8 @@ import { authenticateToken } from '../authMiddleware';
 import { getTenantDb } from '../multi-tenant-db';
 import * as schema from '@shared/schema';
 import type { AuthUser } from '@shared/auth';
+import { withLegacyCompany, LegacyBridgeError, sendLegacyError } from '../http/legacy-bridge';
+import { InventoryCosting } from '../inventory/costing';
 
 const router = Router();
 
@@ -484,95 +486,73 @@ router.patch('/warehouse-transfers/:id/approve', authenticateToken, async (req: 
   }
 });
 
-// PATCH /api/warehouse-transfers/:id/complete — completar (descontar/acreditar stock)
+// PATCH /api/warehouse-transfers/:id/complete — completar (mueve existencias valoradas)
+//
+// La mercancía sale del origen al costo que tiene allí y entra al destino con
+// exactamente ese valor (InventoryCosting.transfer), y las cuatro vistas del
+// stock — valuación, warehouse_stock, products.stock_quantity y el kárdex —
+// se mueven en la misma transacción. No hay asiento: ambos almacenes ruedan a
+// la misma cuenta de control. Si el origen no tiene la cantidad, se rechaza
+// completa en vez de dejar existencias negativas escondidas tras un Math.max.
 router.patch('/warehouse-transfers/:id/complete', authenticateToken, async (req: any, res: any) => {
   try {
-    const user = req.user as AuthUser;
-    if (!user.storeId) return res.status(403).json({ error: 'Store ID requerido' });
-
     const id = parseInt(req.params.id);
-    const db = await getTenantDb(user.storeId);
+    const date: string = typeof req.body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
+      ? req.body.date
+      : new Date().toISOString().slice(0, 10);
 
-    const [transfer] = await db
-      .select()
-      .from(schema.warehouseTransfers)
-      .where(and(eq(schema.warehouseTransfers.id, id), eq(schema.warehouseTransfers.storeId, user.storeId)));
-    if (!transfer) return res.status(404).json({ error: 'Transferencia no encontrada' });
-    if (!['approved', 'in_transit'].includes(transfer.status)) {
-      return res.status(400).json({ error: 'La transferencia debe estar aprobada para completarse' });
-    }
-
-    const items = await db
-      .select()
-      .from(schema.warehouseTransferItems)
-      .where(eq(schema.warehouseTransferItems.transferId, id));
-
-    // Procesar cada ítem: descontar del origen, acreditar en destino
-    for (const item of items) {
-      const qty = parseFloat(String(item.requestedQuantity));
-
-      // Descontar del almacén origen
-      const [srcStock] = await db
-        .select()
-        .from(schema.warehouseStock)
-        .where(
-          and(
-            eq(schema.warehouseStock.warehouseId, transfer.fromWarehouseId),
-            eq(schema.warehouseStock.productId, item.productId)
-          )
-        );
-
-      if (srcStock) {
-        const newQty = Math.max(0, parseFloat(String(srcStock.quantity)) - qty);
-        await db
-          .update(schema.warehouseStock)
-          .set({ quantity: String(newQty), updatedAt: new Date() })
-          .where(eq(schema.warehouseStock.id, srcStock.id));
+    const updated = await withLegacyCompany(req, async (c, ctx) => {
+      const t = await c.query(
+        `SELECT id, store_id, transfer_number, from_warehouse_id, to_warehouse_id, status, company_id
+           FROM warehouse_transfers WHERE id=$1 FOR UPDATE`,
+        [id],
+      );
+      if (t.rows.length === 0 || Number(t.rows[0].store_id) !== ctx.storeId) {
+        throw new LegacyBridgeError('Transferencia no encontrada', 404);
+      }
+      const transfer = t.rows[0];
+      if (transfer.company_id !== null && Number(transfer.company_id) !== ctx.companyId) {
+        throw new LegacyBridgeError('La transferencia pertenece a otra empresa', 409);
+      }
+      if (!['approved', 'in_transit'].includes(transfer.status)) {
+        throw new LegacyBridgeError('La transferencia debe estar aprobada para completarse', 400);
       }
 
-      // Acreditar en almacén destino
-      const [dstStock] = await db
-        .select()
-        .from(schema.warehouseStock)
-        .where(
-          and(
-            eq(schema.warehouseStock.warehouseId, transfer.toWarehouseId),
-            eq(schema.warehouseStock.productId, item.productId)
-          )
-        );
-
-      if (dstStock) {
-        const newQty = parseFloat(String(dstStock.quantity)) + qty;
-        await db
-          .update(schema.warehouseStock)
-          .set({ quantity: String(newQty), updatedAt: new Date() })
-          .where(eq(schema.warehouseStock.id, dstStock.id));
-      } else {
-        await db.insert(schema.warehouseStock).values({
-          warehouseId: transfer.toWarehouseId,
-          productId: item.productId,
-          storeId: user.storeId,
-          quantity: String(qty),
+      const items = await c.query(
+        `SELECT id, product_id, requested_quantity::text FROM warehouse_transfer_items WHERE transfer_id=$1 ORDER BY id`,
+        [id],
+      );
+      const costing = new InventoryCosting(c);
+      for (const item of items.rows) {
+        await costing.transfer({
+          companyId: ctx.companyId,
+          productId: Number(item.product_id),
+          date,
+          quantity: item.requested_quantity,
+          fromWarehouseId: Number(transfer.from_warehouse_id),
+          toWarehouseId: Number(transfer.to_warehouse_id),
+          sourceType: 'warehouse_transfer',
+          sourceId: String(id),
+          postedBy: ctx.userId,
         });
+        await c.query(
+          `UPDATE warehouse_transfer_items SET sent_quantity=requested_quantity, received_quantity=requested_quantity WHERE id=$1`,
+          [item.id],
+        );
       }
 
-      // Registrar received_quantity en el ítem
-      await db
-        .update(schema.warehouseTransferItems)
-        .set({ receivedQuantity: String(qty), sentQuantity: String(qty) })
-        .where(eq(schema.warehouseTransferItems.id, item.id));
-    }
-
-    const [updated] = await db
-      .update(schema.warehouseTransfers)
-      .set({ status: 'completed', completedBy: user.id, completedAt: new Date() })
-      .where(eq(schema.warehouseTransfers.id, id))
-      .returning();
+      const done = await c.query(
+        `UPDATE warehouse_transfers
+            SET status='completed', completed_by=$2, completed_at=now(), company_id=$3, transfer_date=$4
+          WHERE id=$1 RETURNING *`,
+        [id, ctx.userId, ctx.companyId, date],
+      );
+      return done.rows[0];
+    });
 
     return res.json(updated);
   } catch (err) {
-    console.error('[warehouse-transfers] PATCH complete error:', err);
-    return res.status(500).json({ error: 'Error al completar transferencia' });
+    return sendLegacyError(res, err, 'Error al completar transferencia');
   }
 });
 

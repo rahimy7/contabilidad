@@ -236,7 +236,11 @@ export const inventoryApi = {
   receive: (body: any) => apiRequest("POST", "/api/inventory/receive", body),
   issue: (body: any) => apiRequest("POST", "/api/inventory/issue", body),
   transfer: (body: any) => apiRequest<{ cost: string }>("POST", "/api/inventory/transfer", body),
-  warehouses: () => apiRequest<{ warehouses: any[] }>("GET", "/api/warehouses"),
+  // The warehouses route answers with a plain array; the dialogs expect `{ warehouses }`.
+  warehouses: async () => {
+    const res = await apiRequest<any>("GET", "/api/warehouses");
+    return { warehouses: Array.isArray(res) ? res : res?.warehouses ?? [] };
+  },
   margin: (year: number, month: number) =>
     apiRequest<{ period: string; lines: any[]; totalRevenue: string; totalCogs: string; totalMargin: string; marginPct: string }>(
       "GET",

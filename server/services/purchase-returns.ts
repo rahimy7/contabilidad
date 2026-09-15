@@ -247,3 +247,81 @@ export async function listReturns(pool: Pool, storeId: number, status?: string, 
   );
   return { rows: r.rows };
 }
+
+/**
+ * Completar la devolución con su contabilidad: la nota de crédito del
+ * proveedor (su B04) contra la factura de compra original.
+ *
+ * Es la forma que usa la ruta. La mercancía sale del inventario valorado al
+ * costo que tiene (y con ella warehouse_stock, el catálogo y el kárdex), la
+ * cuenta por pagar baja por lo acreditado, se reversa el ITBIS adelantado y la
+ * diferencia entre lo acreditado y el costo va a diferencias de precio. Todo en
+ * la transacción del llamador; `completeReturn` queda sólo para el flujo sin
+ * contabilidad heredado.
+ */
+export async function completeReturnWithCreditNote(
+  client: { query: (text: string, params?: unknown[]) => Promise<{ rows: any[]; rowCount?: number | null }> },
+  input: {
+    companyId: number;
+    storeId: number;
+    returnId: number;
+    userId: number;
+    supplierNcf: string;
+    modifiesDocumentId: number;
+    date: string;
+    supplierRnc?: string;
+    taxCode?: string;
+  },
+): Promise<{ returnId: number; creditNoteDocumentId: number; total: string; stockCost: string }> {
+  const { Payables } = await import("../subledgers/payables");
+  const head = await client.query(
+    `SELECT r.id, r.store_id, r.status, r.supplier_id, r.return_number, s.tax_id
+       FROM purchase_returns r LEFT JOIN suppliers s ON s.id = r.supplier_id
+      WHERE r.id=$1 FOR UPDATE OF r`,
+    [input.returnId],
+  );
+  if (head.rows.length === 0 || Number(head.rows[0].store_id) !== input.storeId) {
+    throw new Error("devolución no encontrada");
+  }
+  const ret = head.rows[0];
+  if (ret.status !== "draft" && ret.status !== "sent") throw new Error(`la devolución ya está ${ret.status}`);
+  const rnc = input.supplierRnc ?? String(ret.tax_id ?? "").replace(/\D/g, "");
+  if (!/^\d{9}$|^\d{11}$/.test(rnc)) throw new Error("el proveedor no tiene RNC válido: indíquelo en la devolución");
+
+  const lines = await client.query(
+    `SELECT product_id, product_name, quantity::text, unit_cost::text, warehouse_id
+       FROM purchase_return_lines WHERE return_id=$1 ORDER BY id`,
+    [input.returnId],
+  );
+  if (lines.rows.length === 0) throw new Error("la devolución no tiene líneas");
+  const missingWh = lines.rows.find((l: any) => l.product_id && !l.warehouse_id);
+  if (missingWh) throw new Error(`"${missingWh.product_name}" no indica de qué almacén sale`);
+
+  const credit = await new Payables(client).registerSupplierCreditNote({
+    companyId: input.companyId,
+    supplierId: ret.supplier_id ?? undefined,
+    supplierRnc: rnc,
+    ncf: input.supplierNcf,
+    date: input.date,
+    modifiesDocumentId: input.modifiesDocumentId,
+    returnGoods: true,
+    postedBy: input.userId,
+    lines: lines.rows.map((l: any) => ({
+      description: l.product_name,
+      quantity: l.quantity,
+      unitPrice: l.unit_cost,
+      taxCode: input.taxCode ?? "ITBIS18",
+      productId: l.product_id ?? undefined,
+      warehouseId: l.warehouse_id ?? undefined,
+    })),
+  });
+
+  await client.query(
+    `UPDATE purchase_returns
+        SET status='completed', completed_by=$2, completed_at=now(), updated_at=now(),
+            company_id=$3, supplier_credit_document_id=$4
+      WHERE id=$1`,
+    [input.returnId, input.userId, input.companyId, credit.documentId],
+  );
+  return { returnId: input.returnId, creditNoteDocumentId: credit.documentId, total: credit.total, stockCost: credit.stockCost };
+}
