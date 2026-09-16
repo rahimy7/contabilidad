@@ -6,7 +6,7 @@ import { Budgets, BudgetError } from "../modules/budget";
 import { Payroll, PayrollError } from "../modules/payroll";
 import {
   prepareRun, setRunInput, importCommissions, calculateRun, postRun, payRun, payStatutory,
-  statutoryLiabilities, generateIr3, loadConcepts, syncPayrollEmployee, PayrollRunError,
+  statutoryLiabilities, generateIr3, loadConcepts, syncPayrollEmployee, listRuns, runJournalEntry, PayrollRunError,
 } from "../payroll/runs";
 
 const decimal = z.string().regex(/^\d+(\.\d+)?$/);
@@ -114,6 +114,15 @@ export function moduleRoutes(): Router {
     const id = await scoped(req, (c) => syncPayrollEmployee(c, req.companyId!, b.hrEmployeeId));
     return { status: 201, payrollEmployeeId: id };
   }));
+
+  r.get("/payroll/runs", h(async (req) => {
+    const q = z.object({ year: z.coerce.number().int().optional() }).parse(req.query);
+    return scoped(req, async (c) => ({ runs: await listRuns(c, req.companyId!, q.year) }));
+  }));
+
+  r.get("/payroll/runs/:id/entry", h(async (req) =>
+    scoped(req, async (c) => ({ entry: await runJournalEntry(c, req.companyId!, Number(req.params.id)) })),
+  ));
 
   r.post("/payroll/runs", h(async (req) => {
     const b = z.object({ year: z.number().int(), month: z.number().int().min(1).max(12), paymentDate: isoDate.optional() }).parse(req.body);

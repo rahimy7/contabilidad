@@ -239,14 +239,18 @@ export async function quotePrice(pool: Pool, input: PriceQuoteInput): Promise<Pr
  */
 export async function checkCreditAvailability(pool: Pool, customerId: number, amount: number) {
   const terms = await loadCustomerTerms(pool, customerId);
-  if (!terms || Number(terms.creditLimit) === 0) {
-    return { hasCredit: false, reason: "sin línea de crédito", limit: 0, used: 0, available: 0 };
+  const line = await pool.query(`SELECT credit_status FROM customers WHERE id = $1`, [customerId]);
+  const status = line.rows[0]?.credit_status ?? "none";
+  if (status !== "active" || !terms || Number(terms.creditLimit) === 0) {
+    const reason = status === "suspended" ? "línea de crédito suspendida"
+      : status === "blocked" ? "línea de crédito bloqueada" : "sin línea de crédito aprobada";
+    return { hasCredit: false, reason, limit: Number(terms?.creditLimit ?? 0), used: 0, available: 0, status };
   }
   const balance = await pool.query(
-    `SELECT coalesce(sum(open_balance::numeric), 0)::text AS "used"
-       FROM ar_open_items WHERE customer_id = $1 AND balance_status = 'open'`,
+    `SELECT coalesce(sum(balance), 0)::text AS "used"
+       FROM ar_open_items WHERE customer_id = $1 AND status NOT IN ('paid','cancelled')`,
     [customerId],
-  ).catch(() => ({ rows: [{ used: "0" }] } as any));
+  );
   const used = Number(balance.rows[0]?.used ?? 0);
   const limit = Number(terms.creditLimit);
   const available = limit - used;
@@ -257,5 +261,6 @@ export async function checkCreditAvailability(pool: Pool, customerId: number, am
     used,
     available,
     creditDays: terms.creditDays,
+    status,
   };
 }

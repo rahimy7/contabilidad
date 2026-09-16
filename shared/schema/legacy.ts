@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, bigserial, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, bigserial, varchar, index, date, char } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { makeInsertSchema } from "../schema.utils";
@@ -335,7 +335,46 @@ export const customers = pgTable("customers", {
   phone: text("phone").notNull().unique(),
   storeId: integer("store_id").notNull(),
   whatsappId: text("whatsapp_id"),
-  email: text("email").unique().notNull(),
+  email: text("email").unique(),
+
+  // Identificación fiscal (0061 + 0065). Ver server/sales/customers.ts.
+  /** RNC (9) o cédula (11), sólo cifras: lo que se copia a buyer_rnc. */
+  rnc: varchar("rnc", { length: 11 }),
+  companyId: integer("company_id"),
+  code: text("code"),
+  personType: text("person_type").notNull().default("fisica"), // fisica | juridica
+  taxIdType: text("tax_id_type"), // rnc | cedula | pasaporte | extranjero
+  /** Pasaporte o identificación extranjera, cuando no hay RNC ni cédula. */
+  foreignId: text("foreign_id"),
+  legalName: text("legal_name"),
+  tradeName: text("trade_name"),
+  taxpayerType: text("taxpayer_type").notNull().default("consumidor_final"),
+  defaultNcfType: varchar("default_ncf_type", { length: 3 }),
+  itbisExempt: boolean("itbis_exempt").notNull().default(false),
+  exemptionReference: text("exemption_reference"),
+  economicActivity: text("economic_activity"),
+  dgiiStatus: text("dgii_status"),
+  dgiiVerifiedAt: date("dgii_verified_at"),
+  phoneAlt: text("phone_alt"),
+  website: text("website"),
+  province: text("province"),
+  municipality: text("municipality"),
+  sector: text("sector"),
+  postalCode: text("postal_code"),
+  country: char("country", { length: 2 }).notNull().default("DO"),
+  salesRepUserId: integer("sales_rep_user_id"),
+  currency: char("currency", { length: 3 }).notNull().default("DOP"),
+  preferredPaymentMethod: text("preferred_payment_method"),
+
+  // Línea de crédito: el límite y el plazo viven en customer_pricing_terms.
+  creditStatus: text("credit_status").notNull().default("none"), // none | active | suspended | blocked
+  creditStatusReason: text("credit_status_reason"),
+  creditStatusChangedAt: timestamp("credit_status_changed_at", { withTimezone: true }),
+  creditApprovedBy: integer("credit_approved_by"),
+  creditApprovedAt: timestamp("credit_approved_at", { withTimezone: true }),
+  creditReviewDate: date("credit_review_date"),
+  createdBy: integer("created_by"),
+  updatedBy: integer("updated_by"),
 
   // Categorización
   customerTypeId: integer("customer_type_id").references(() => customerTypes.id), // Tipo de cliente

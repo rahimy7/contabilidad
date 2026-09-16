@@ -177,6 +177,15 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
         lastContact: schema.customers.lastContact,
         notes: schema.customers.notes,
         createdAt: schema.customers.createdAt,
+        // Identidad fiscal: el POS y la facturación eligen el comprobante con ella.
+        code: schema.customers.code,
+        rnc: schema.customers.rnc,
+        taxIdType: schema.customers.taxIdType,
+        legalName: schema.customers.legalName,
+        taxpayerType: schema.customers.taxpayerType,
+        defaultNcfType: schema.customers.defaultNcfType,
+        creditStatus: schema.customers.creditStatus,
+        companyId: schema.customers.companyId,
 
         // Campos del tipo de cliente
         customerTypeId_ct: schema.customerTypes.id,
@@ -228,7 +237,15 @@ router.get('/customers', authenticateToken, async (req: any, res: any) => {
       lastContact: row.lastContact,
       notes: row.notes,
       createdAt: row.createdAt,
-      
+      code: row.code,
+      rnc: row.rnc,
+      taxIdType: row.taxIdType,
+      legalName: row.legalName,
+      taxpayerType: row.taxpayerType,
+      defaultNcfType: row.defaultNcfType,
+      creditStatus: row.creditStatus,
+      companyId: row.companyId,
+
       // Construir objeto customerType solo si existe
       customerType: row.customerTypeId_ct ? {
         id: row.customerTypeId_ct,

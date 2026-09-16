@@ -8,6 +8,7 @@ import {
   getById,
   listRequests,
 } from "../services/approvals";
+import { CREDIT_DOCUMENT_TYPE, syncCreditApplication } from "../sales/customers";
 
 const router = express.Router();
 
@@ -123,6 +124,21 @@ router.post("/approvals/:id/resolve", authenticateToken, async (req: Authenticat
       body.action,
       body.comment,
     );
+    // Una línea de crédito aprobada aquí entra en vigor ya, no la próxima vez
+    // que alguien abra la ficha: la factura lee el estado de la línea.
+    if (out.documentType === CREDIT_DOCUMENT_TYPE && out.status !== "pending") {
+      const client = await masterPool.connect();
+      try {
+        await client.query("BEGIN");
+        await syncCreditApplication(client as any, Number(out.documentId));
+        await client.query("COMMIT");
+      } catch (syncErr) {
+        await client.query("ROLLBACK");
+        console.error("[approvals] customer credit sync failed:", syncErr);
+      } finally {
+        client.release();
+      }
+    }
     res.json(out);
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {

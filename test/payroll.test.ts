@@ -4,6 +4,7 @@ import ws from "ws";
 import { describeIntegration, TEST_DATABASE_URL } from "./helpers";
 import { seedCompanyDefaults } from "../server/seed/company-defaults";
 import { Payroll } from "../server/modules/payroll";
+import { listRuns, prepareRun, runJournalEntry } from "../server/payroll/runs";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -110,6 +111,43 @@ describeIntegration("Dominican payroll", () => {
     await pool.query(`INSERT INTO payroll_employees (company_id, code, name, base_salary) VALUES ($1,'E1','Ana','50000.00')`, [companyId]);
     await inTx((c) => new Payroll(c).run(companyId, YEAR, MONTH, DATE));
     await expect(inTx((c) => new Payroll(c).run(companyId, YEAR, MONTH, DATE))).rejects.toThrow(/ya fue procesada/);
+  });
+
+  it("lists processed runs and returns the entry each one posted", async () => {
+    await pool.query(
+      `INSERT INTO payroll_employees (company_id, code, name, base_salary) VALUES ($1,'E1','Ana','50000.00'),($1,'E2','Luis','30000.00')`,
+      [companyId],
+    );
+    const res = await inTx((c) => new Payroll(c).run(companyId, YEAR, MONTH, DATE));
+
+    const runs = await inTx((c) => listRuns(c, companyId, YEAR));
+    expect(runs).toHaveLength(1);
+    const r = runs[0];
+    expect(r.id).toBe(res.runId);
+    expect(r.status).toBe("posted");
+    expect(r.employees).toBe(2);
+    expect(Number(r.gross_total)).toBe(80000);
+    expect(r.entry_no).toBeTruthy();
+    expect(r.paid_kinds).toEqual([]);
+    // Another year has nothing.
+    expect(await inTx((c) => listRuns(c, companyId, YEAR - 1))).toHaveLength(0);
+
+    const entry = await inTx((c) => runJournalEntry(c, companyId, res.runId));
+    expect(entry!.entryNo).toBe(r.entry_no);
+    const debit = entry!.lines.reduce((s: number, l: any) => s + Number(l.debit), 0);
+    const credit = entry!.lines.reduce((s: number, l: any) => s + Number(l.credit), 0);
+    expect(debit).toBeCloseTo(credit, 2);
+    const salary = entry!.lines.find((l: any) => l.account_code === "5.2.01.001");
+    expect(Number(salary.debit)).toBe(80000);
+  });
+
+  it("returns no entry for a draft run", async () => {
+    await pool.query(`INSERT INTO payroll_employees (company_id, code, name, base_salary) VALUES ($1,'E1','Ana','50000.00')`, [companyId]);
+    const { runId } = await inTx((c) => prepareRun(c, { companyId, year: YEAR, month: MONTH }));
+    expect(await inTx((c) => runJournalEntry(c, companyId, runId))).toBeNull();
+    const runs = await inTx((c) => listRuns(c, companyId));
+    expect(runs[0].status).toBe("draft");
+    expect(runs[0].entry_no).toBeNull();
   });
 
   async function inTx<T>(fn: (c: any) => Promise<T>): Promise<T> {

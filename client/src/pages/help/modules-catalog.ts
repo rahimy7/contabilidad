@@ -161,8 +161,11 @@ export const AREAS: Area[] = [
       {
         nombre: "Clientes",
         estado: "disponible",
-        ruta: "/customer-management",
-        detalle: "Catálogo de clientes con RNC/cédula, crédito y cuenta corriente.",
+        ruta: "/customers",
+        detalle:
+          "Ficha maestra con identidad fiscal (RNC/cédula, régimen, NCF por defecto), dirección " +
+          "fiscal, contactos, condiciones comerciales, estado de cuenta y línea de crédito con " +
+          "solicitud, aprobación, suspensión y bloqueo.",
       },
       {
         nombre: "Prospectos",

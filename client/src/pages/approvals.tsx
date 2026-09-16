@@ -66,6 +66,7 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   requisition: 'Requisición interna',
   vacation_request: 'Vacaciones y permisos',
   inventory_adjustment: 'Ajuste de inventario',
+  customer_credit: 'Línea de crédito de cliente',
 };
 
 const money = (v: string, ccy = 'DOP') =>

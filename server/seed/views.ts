@@ -63,7 +63,6 @@ export const APP_VIEWS: ViewSeed[] = [
   { routePath: "/sales-history", label: "Historial de Ventas", iconName: "Receipt", permission: "manage_orders", section: "ventas", sortOrder: 230 },
   { routePath: "/cash-register", label: "Caja", iconName: "DollarSign", permission: "manage_cash_register", section: "ventas", sortOrder: 240 },
   { routePath: "/customers", label: "Clientes", iconName: "Users", permission: "manage_customers", section: "ventas", sortOrder: 250 },
-  { routePath: "/customer-management", label: "Gestión de Clientes", iconName: "UserPlus", permission: "manage_customers", section: "ventas", sortOrder: 260 },
   { routePath: "/price-lists", label: "Listas de Precios (B2B)", iconName: "Tags", permission: "manage_products", section: "ventas", sortOrder: 270 },
   { routePath: "/promotions", label: "Promociones", iconName: "Tag", permission: "manage_orders", section: "ventas", sortOrder: 275 },
   { routePath: "/marketing/segments", label: "Segmentos de Clientes", iconName: "Users", permission: "manage_customers", section: "ventas", sortOrder: 280 },

@@ -1,5 +1,5 @@
 // App.tsx
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 
 import ConversationsTest from './components/ConversationsTest';
@@ -25,6 +25,7 @@ import WhatsAppSettings from "@/pages/whatsapp-settings";
 import AutoResponses from "@/pages/auto-responses";
 import Employees from "@/pages/employees";
 import Customers from "@/pages/customers";
+import CustomerDetail from "@/pages/customer-detail";
 import AssignmentRules from "@/pages/assignment-rules";
 import Notifications from "@/pages/notifications";
 import TechnicianDashboard from "@/pages/technician-dashboard";
@@ -81,7 +82,6 @@ import DeliveryDashboardPage from "./pages/delivery-dashboard";
 import TripsPage from "./pages/trips";
 import PublicOrder from "./pages/public-order";
 import POSScreen from "./pages/pos-screen";
-import CustomerManagement from "./pages/customer-management";
 import PurchaseManagement from "./pages/purchase-management";
 import InventoryTraceability from "./pages/inventory-traceability";
 import ReceivePurchaseOrder from "./pages/receive-purchase-order";
@@ -220,6 +220,8 @@ function Router() {
       <Route path="/whatsapp-settings" component={() => <ProtectedRoute component={WhatsAppSettings} permission="manage_settings" />} />
       <Route path="/auto-responses" component={() => <ProtectedRoute component={AutoResponses} permission="manage_settings" />} />
       <Route path="/customers" component={() => <ProtectedRoute component={Customers} permission="manage_customers" />} />
+      <Route path="/customers/new" component={() => <ProtectedRoute component={CustomerDetail} permission="manage_customers" />} />
+      <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetail} permission="manage_customers" />} />
       <Route path="/assignment-rules" component={() => <ProtectedRoute component={AssignmentRules} permission="manage_assignments" />} />
       <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} permission="view_notifications" />} />
       <Route path="/admin/categories-brands" component={() => <ProtectedRoute component={CategoriesBrandsManagement} permission="manage_products" />} />
@@ -231,7 +233,8 @@ function Router() {
       <Route path="/simple-catalog" component={SimpleCatalog} />
      <Route path="/trips" component={TripsPage} />
       <Route path="/delivery-dashboard" component={() => <ProtectedRoute component={DeliveryDashboardPage} permission="view_dashboard_delivery" />} />
-      <Route path="/customer-management" component={() => <ProtectedRoute component={CustomerManagement} permission="manage_customers" />} />
+      {/* La ficha de clientes se unificó en /customers. */}
+      <Route path="/customer-management">{() => <Redirect to="/customers" replace />}</Route>
       <Route path="/purchase-management" component={() => <ProtectedRoute component={PurchaseManagement} permission="manage_products" />} />
       <Route path="/receive-purchase-order/:id" component={() => <ProtectedRoute component={ReceivePurchaseOrder} permission="manage_products" />} />
       <Route path="/inventory-traceability" component={() => <ProtectedRoute component={InventoryTraceability} permission="manage_products" />} />

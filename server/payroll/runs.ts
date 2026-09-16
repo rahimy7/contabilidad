@@ -400,6 +400,61 @@ export async function generateIr3(client: SqlClient, companyId: number, year: nu
   return { period: `${year}${String(month).padStart(2, "0")}`, employees: rows, totalRetained: toMoney(total) };
 }
 
+/**
+ * Every run of the company, newest month first, with what the history screen
+ * needs to tell them apart without opening each one: totals, how many payslips,
+ * the entry it posted and which of its obligations were already paid.
+ *
+ * Statutory payments are per month rather than per run (TSS and the IR-3 are
+ * filed for the month), so they are matched on year/month; net pay carries the
+ * run itself.
+ */
+export async function listRuns(client: SqlClient, companyId: number, year?: number) {
+  const { rows } = await client.query(
+    `SELECT r.id, r.fiscal_year, r.month, r.status,
+            r.period_start::text, r.period_end::text, r.payment_date::text, r.paid_at, r.created_at,
+            r.gross_total::text, r.net_total::text, r.employer_total::text,
+            coalesce(s.employees, 0) AS employees, coalesce(s.isr, 0)::text AS isr_total,
+            r.journal_entry_id, je.entry_no, je.entry_date::text,
+            coalesce((SELECT array_agg(p.kind ORDER BY p.kind) FROM payroll_liability_payments p
+                       WHERE p.company_id = r.company_id AND p.fiscal_year = r.fiscal_year AND p.month = r.month),
+                     '{}') AS paid_kinds
+       FROM payroll_runs r
+       LEFT JOIN (SELECT run_id, count(*)::int AS employees, sum(isr) AS isr
+                    FROM payslips WHERE company_id = $1 GROUP BY run_id) s ON s.run_id = r.id
+       LEFT JOIN journal_entries je ON je.id = r.journal_entry_id
+      WHERE r.company_id = $1 AND ($2::int IS NULL OR r.fiscal_year = $2)
+      ORDER BY r.fiscal_year DESC, r.month DESC`,
+    [companyId, year ?? null],
+  );
+  return rows;
+}
+
+/** The journal entry a posted run produced, line by line. `null` while the run is a draft. */
+export async function runJournalEntry(client: SqlClient, companyId: number, runId: number) {
+  const run = await client.query(
+    `SELECT r.journal_entry_id, je.entry_no, je.entry_date::text, je.memo, je.status
+       FROM payroll_runs r LEFT JOIN journal_entries je ON je.id = r.journal_entry_id
+      WHERE r.id = $1 AND r.company_id = $2`,
+    [runId, companyId],
+  );
+  if (run.rows.length === 0) throw new PayrollRunError(`nómina ${runId} no existe`);
+  const head = run.rows[0];
+  if (!head.journal_entry_id) return null;
+  const { rows: lines } = await client.query(
+    `SELECT l.line_no, a.code AS account_code, a.name AS account_name,
+            l.debit_func::text AS debit, l.credit_func::text AS credit, l.memo
+       FROM journal_entry_lines l JOIN chart_of_accounts a ON a.id = l.account_id
+      WHERE l.entry_id = $1 AND l.company_id = $2
+      ORDER BY l.line_no`,
+    [head.journal_entry_id, companyId],
+  );
+  return {
+    id: Number(head.journal_entry_id), entryNo: head.entry_no, entryDate: head.entry_date,
+    memo: head.memo, status: head.status, lines,
+  };
+}
+
 async function loadRun(client: SqlClient, companyId: number, runId: number) {
   const { rows } = await client.query(
     `SELECT id, fiscal_year, month, status, period_start::text, period_end::text, net_total::text, paid_at

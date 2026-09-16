@@ -43,6 +43,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { fiscalApi } from '@/lib/accounting-api';
+import { customersApi } from '@/lib/customers-api';
+import { CREDIT_LINE_STATUS, formatTaxId } from '@shared/customer-fiscal';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 
@@ -68,6 +70,13 @@ interface CustomerRow {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  /** Identidad fiscal de la ficha maestra (/customers/:id). */
+  code?: string | null;
+  rnc?: string | null;
+  legalName?: string | null;
+  defaultNcfType?: string | null;
+  creditStatus?: string | null;
+  isActive?: boolean | null;
 }
 
 interface WarehouseRow {
@@ -266,9 +275,18 @@ export default function InvoicingPage() {
     queryKey: ['customers'],
     queryFn: async () => {
       const data = await apiRequest<CustomerRow[]>('GET', '/api/customers');
-      return Array.isArray(data) ? data : [];
+      return Array.isArray(data) ? data.filter((c) => c.isActive !== false) : [];
     },
   });
+
+  // Línea de crédito del cliente elegido: límite, disponible y plazo aprobados.
+  const customerCredit = useQuery({
+    queryKey: ['/api/customer-master', customer?.id],
+    queryFn: () => customersApi.get(customer!.id),
+    enabled: !!customer?.id,
+    select: (d) => d.credit,
+  });
+  const credit = customer ? customerCredit.data : undefined;
 
   const { data: warehouses = [] } = useQuery<WarehouseRow[]>({
     queryKey: ['warehouses'],
@@ -386,13 +404,23 @@ export default function InvoicingPage() {
 
   const removeLine = (id: string) => setLines((prev) => prev.filter((l) => l.id !== id));
 
+  // La ficha del cliente decide lo fiscal: razón social, RNC y comprobante.
   const selectCustomer = (c: CustomerRow | null) => {
     setCustomer(c);
     if (c) {
-      setBuyerName(c.name || '');
+      setBuyerName(c.legalName || c.name || '');
       setBuyerAddress(c.address || '');
+      setBuyerRnc(c.rnc ? formatTaxId(c.rnc) : '');
+      if (c.defaultNcfType && availableSequences.some((s) => s.ncf_type === c.defaultNcfType)) {
+        setNcfType(c.defaultNcfType);
+      }
     }
   };
+
+  // Al conocer la línea aprobada, el plazo de la factura es el aprobado.
+  useEffect(() => {
+    if (credit?.status === 'active' && credit.days > 0) setCreditDays(String(credit.days));
+  }, [credit?.status, credit?.days]);
 
   const resetForm = () => {
     setLines([]);
@@ -421,6 +449,17 @@ export default function InvoicingPage() {
     if (buyerRnc && !isValidTaxId(buyerRnc)) return 'El RNC/Cédula debe tener 9 u 11 dígitos.';
     if (condition === 'credito' && !customer) {
       return 'Una venta a crédito necesita un cliente registrado.';
+    }
+    if (condition === 'credito' && credit) {
+      if (credit.status !== 'active') {
+        return `${customer!.name} no tiene una línea de crédito activa (${CREDIT_LINE_STATUS[credit.status as keyof typeof CREDIT_LINE_STATUS] ?? credit.status}). Facture de contado o gestione el crédito en su ficha.`;
+      }
+      if (Number(creditDays) > credit.days) {
+        return `El plazo (${creditDays} días) excede el aprobado para el cliente (${credit.days} días).`;
+      }
+      if (Number(credit.limit) > 0 && totals.total > Number(credit.available)) {
+        return `La factura (${money(totals.total)}) excede el crédito disponible del cliente (${money(Number(credit.available))}).`;
+      }
     }
     if (currency !== 'DOP' && num(fxRate) <= 0) return 'Indica una tasa de cambio válida.';
     return null;
@@ -672,7 +711,13 @@ export default function InvoicingPage() {
                   </Select>
                 </Field>
               ) : (
-                <Field label="Días de crédito" hint={dueDate ? `Vence el ${formatDateLong(dueDate)}` : undefined}>
+                <Field
+                  label="Días de crédito"
+                  hint={[
+                    dueDate ? `Vence el ${formatDateLong(dueDate)}` : null,
+                    credit?.status === 'active' ? `aprobado: ${credit.days} días` : null,
+                  ].filter(Boolean).join(' · ') || undefined}
+                >
                   <Input
                     type="number"
                     min={0}
@@ -749,6 +794,29 @@ export default function InvoicingPage() {
                 onSelect={selectCustomer}
                 onClear={() => selectCustomer(null)}
               />
+              {customer && credit && (
+                <div
+                  className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-xs ${
+                    condition === 'credito' && credit.status !== 'active'
+                      ? 'border-destructive/40 bg-destructive/5 text-destructive'
+                      : 'border-border bg-muted/30 text-muted-foreground'
+                  }`}
+                >
+                  <span className="font-medium text-foreground">
+                    Crédito: {CREDIT_LINE_STATUS[credit.status as keyof typeof CREDIT_LINE_STATUS] ?? credit.status}
+                  </span>
+                  {credit.status === 'active' ? (
+                    <>
+                      <span>Límite {money(Number(credit.limit))}</span>
+                      <span>Disponible <span className="font-medium text-foreground">{money(Number(credit.available))}</span></span>
+                      <span>Plazo {credit.days} días</span>
+                      {Number(credit.overdue) > 0 && <span className="text-destructive">Vencido {money(Number(credit.overdue))}</span>}
+                    </>
+                  ) : (
+                    <span>Sólo puede facturarse de contado.</span>
+                  )}
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field
                   label="RNC / Cédula"
@@ -1073,8 +1141,11 @@ function CustomerPicker({
       .filter(
         (c) =>
           c.name?.toLowerCase().includes(q) ||
+          c.legalName?.toLowerCase().includes(q) ||
+          c.code?.toLowerCase().includes(q) ||
           c.phone?.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q),
+          c.email?.toLowerCase().includes(q) ||
+          (q.replace(/\D/g, '').length >= 3 && c.rnc?.includes(q.replace(/\D/g, ''))),
       )
       .slice(0, 8);
   }, [customers, query]);
@@ -1085,7 +1156,8 @@ function CustomerPicker({
         <div className="text-sm">
           <p className="font-medium">{selected.name}</p>
           <p className="text-xs text-muted-foreground">
-            {[selected.phone, selected.email].filter(Boolean).join(' · ') || 'Sin contacto registrado'}
+            {[selected.code, selected.rnc ? `RNC ${formatTaxId(selected.rnc)}` : null, selected.phone]
+              .filter(Boolean).join(' · ') || 'Sin contacto registrado'}
           </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClear}>
@@ -1100,7 +1172,7 @@ function CustomerPicker({
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         className="pl-9"
-        placeholder="Buscar cliente por nombre, teléfono o correo — vacío = consumo final"
+        placeholder="Buscar cliente por nombre, código, RNC o teléfono — vacío = consumo final"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);

@@ -105,7 +105,7 @@ export const MODULE_ORDER = [
 export const MODULE_GROUPS: Record<string, { label: string; routes: string[] }[]> = {
   ventas: [
     { label: "Operación diaria", routes: ["/pos", "/cash-register", "/invoicing", "/orders", "/order-management", "/sales-returns"] },
-    { label: "Clientes y precios", routes: ["/customers", "/customer-management", "/price-lists", "/promotions"] },
+    { label: "Clientes y precios", routes: ["/customers", "/price-lists", "/promotions"] },
     { label: "Marketing y análisis", routes: ["/marketing/leads", "/marketing/campaigns", "/marketing/segments", "/sales-history"] },
   ],
   compras: [

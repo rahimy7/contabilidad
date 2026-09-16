@@ -31,6 +31,8 @@ interface DataGridProps<T> {
   isLoading?: boolean;
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
+  /** Marca la fila cuyo detalle se está mostrando. */
+  isRowSelected?: (row: T) => boolean;
   /**
    * Fila de totales, indexada por la clave de la columna. Se dibuja como un
    * `<tfoot>` de verdad para que cada total caiga bajo su columna: un total de
@@ -55,7 +57,7 @@ const ALIGN = {
 
 export function DataGrid<T>({
   columns, rows, rowKey, isLoading, emptyMessage = "No hay registros.",
-  onRowClick, totals, totalsLabel, footer, className, stickyHeader,
+  onRowClick, isRowSelected, totals, totalsLabel, footer, className, stickyHeader,
 }: DataGridProps<T>) {
   const firstTotal = totals ? columns.findIndex((c) => c.key in totals) : -1;
   const labelSpan = firstTotal > 0 ? firstTotal : 1;
@@ -97,6 +99,7 @@ export function DataGrid<T>({
               <TableRow
                 key={rowKey(row, i)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
+                data-state={isRowSelected?.(row) ? "selected" : undefined}
                 className={onRowClick ? "cursor-pointer" : undefined}
               >
                 {columns.map((c) => (

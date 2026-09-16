@@ -171,6 +171,13 @@ export const moduleApi = {
   createEmployee: (body: any) => apiRequest("POST", "/api/modules/payroll/employees", body),
   runPayroll: (body: any) => apiRequest("POST", "/api/modules/payroll/run", body),
   payslips: (runId: number) => apiRequest<{ payslips: any[] }>("GET", `/api/modules/payroll/runs/${runId}/payslips`),
+  payrollRuns: (year?: number) =>
+    apiRequest<{ runs: any[] }>("GET", `/api/modules/payroll/runs${year ? `?year=${year}` : ""}`),
+  payrollRunEntry: (runId: number) => apiRequest<{ entry: any | null }>("GET", `/api/modules/payroll/runs/${runId}/entry`),
+  payrollStatutory: (year: number, month: number) =>
+    apiRequest<{ tss: string; infotep: string; isr_salaries: string }>("GET", `/api/modules/payroll/statutory?year=${year}&month=${month}`),
+  payrollIr3: (year: number, month: number) =>
+    apiRequest<{ period: string; employees: any[]; totalRetained: string }>("GET", `/api/modules/payroll/ir3?year=${year}&month=${month}`),
   createBudget: (body: any) => apiRequest<{ id: number }>("POST", "/api/modules/budgets", body),
   variance: (id: number) => apiRequest<{ rows: any[]; totalBudget: string; totalActual: string }>("GET", `/api/modules/budgets/${id}/variance`),
 };

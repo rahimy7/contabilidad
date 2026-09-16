@@ -71,9 +71,9 @@ export interface IssueInvoiceInput {
   /** Seller the sale is attributed to (commissions). */
   sellerUserId?: number;
   /**
-   * A supervisor authorised this credit sale above the customer's credit limit.
-   * Without it, a credit sale that would take the customer past the limit set in
-   * their commercial terms is refused.
+   * A supervisor authorised this credit sale outside the customer's credit line:
+   * above the limit, on a suspended line, or to a customer with no approved line.
+   * A blocked line refuses the sale even with this.
    */
   creditApprovedBy?: number;
 }
@@ -119,8 +119,8 @@ export class FiscalDocumentService {
       applyRetentions: false,
     });
 
-    if (input.paymentMethod === "credit" && input.customerId && !input.creditApprovedBy) {
-      await this.assertWithinCreditLimit(input.companyId, input.customerId, breakdown.total);
+    if (input.paymentMethod === "credit" && input.customerId) {
+      await this.assertCreditAllowed(input.companyId, input.customerId, breakdown.total, input.creditApprovedBy);
     }
 
     // Reserved here, released on rollback. Everything below shares this transaction.
@@ -272,16 +272,42 @@ export class FiscalDocumentService {
   }
 
   /**
-   * Refuses a credit sale that would take a customer past the credit limit in
-   * their commercial terms. What they already owe is the open balance of their
-   * receivables in this company; a limit of 0 means no limit was set.
+   * A credit sale needs the customer's credit line (server/sales/customers.ts):
+   *
+   *  - blocked   → refused, whoever asks;
+   *  - suspended, or no approved line → refused unless a supervisor authorised it;
+   *  - active    → refused when what they owe in this company plus this sale
+   *                passes the approved limit, unless a supervisor authorised it.
+   *
+   * A limit of 0 on an active line means no limit was set (lines activated before
+   * approvals existed); an approval always sets one.
    */
-  private async assertWithinCreditLimit(companyId: number, customerId: number, saleTotal: Decimal): Promise<void> {
-    const terms = await this.client.query(
-      `SELECT credit_limit::text FROM customer_pricing_terms WHERE customer_id=$1 AND is_active LIMIT 1`,
+  private async assertCreditAllowed(
+    companyId: number,
+    customerId: number,
+    saleTotal: Decimal,
+    approvedBy: number | undefined,
+  ): Promise<void> {
+    const line = await this.client.query(
+      `SELECT c.name, c.credit_status, t.credit_limit::text AS credit_limit
+         FROM customers c
+         LEFT JOIN customer_pricing_terms t ON t.customer_id=c.id AND t.is_active
+        WHERE c.id=$1`,
       [customerId],
     );
-    const limit = terms.rows[0]?.credit_limit as Decimal | undefined;
+    if (line.rows.length === 0) return;
+    const { name, credit_status: status } = line.rows[0];
+    if (status === "blocked") {
+      throw new CreditLimitError(`la línea de crédito de ${name} está bloqueada: no se le puede vender a crédito`);
+    }
+    if (approvedBy) return;
+    if (status === "suspended") {
+      throw new CreditLimitError(`la línea de crédito de ${name} está suspendida: requiere aprobación de un supervisor`);
+    }
+    if (status !== "active") {
+      throw new CreditLimitError(`${name} no tiene una línea de crédito aprobada: requiere aprobación de un supervisor`);
+    }
+    const limit = line.rows[0].credit_limit as Decimal | null;
     if (!limit || isZero(limit)) return;
     const owed = await this.client.query(
       `SELECT coalesce(sum(balance),0)::text AS b FROM ar_open_items
@@ -289,7 +315,7 @@ export class FiscalDocumentService {
       [companyId, customerId],
     );
     const exposure = add(owed.rows[0].b, saleTotal);
-    if (Number(exposure) > Number(limit)) {
+    if (cmp(exposure, limit) > 0) {
       throw new CreditLimitError(
         `el cliente tiene un límite de crédito de ${limit}, debe ${toMoney(owed.rows[0].b)} y esta venta es de ` +
           `${toMoney(saleTotal)}: requiere aprobación de un supervisor`,

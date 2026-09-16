@@ -214,8 +214,15 @@ router.put("/customers/:id/pricing-terms", authenticateToken, async (req: Authen
       isrRetentionPercent: z.number().min(0).max(100).optional(),
       requiresPurchaseOrder: z.boolean().optional(),
     }).parse(req.body);
+    // El límite y el plazo de crédito sólo los cambia una solicitud aprobada
+    // (server/sales/customers.ts): aquí se conservan los vigentes y se ignoran
+    // `creditLimit`/`creditDays` del cuerpo.
+    const current = await masterPool.query(
+      `SELECT credit_days, credit_limit::text FROM customer_pricing_terms WHERE customer_id = $1 AND is_active LIMIT 1`,
+      [Number(req.params.id)],
+    );
     await masterPool.query(
-      `UPDATE customer_pricing_terms SET is_active = false WHERE customer_id = $1`,
+      `UPDATE customer_pricing_terms SET is_active = false, valid_to = CURRENT_DATE WHERE customer_id = $1 AND is_active`,
       [Number(req.params.id)],
     );
     const r = await masterPool.query(
@@ -230,7 +237,7 @@ router.put("/customers/:id/pricing-terms", authenticateToken, async (req: Authen
         Number(req.params.id), storeIdOf(req),
         body.priceListId ?? null,
         String(body.additionalDiscountPercent ?? 0),
-        body.creditDays ?? 0, String(body.creditLimit ?? 0),
+        current.rows[0]?.credit_days ?? 0, current.rows[0]?.credit_limit ?? "0",
         String(body.earlyPaymentDiscountPercent ?? 0),
         body.earlyPaymentDays ?? null,
         String(body.itbisRetentionPercent ?? 0),

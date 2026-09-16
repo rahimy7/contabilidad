@@ -47,7 +47,7 @@ const QUICK_CREATE: { label: string; icon: any; route: string; requires: string 
   { label: "Venta en caja", icon: Plus, route: "/pos", requires: "/pos" },
   { label: "Orden de compra", icon: ShoppingBag, route: "/purchase-management", requires: "/purchase-management" },
   { label: "Producto", icon: PackagePlus, route: "/add-product", requires: "/add-product" },
-  { label: "Cliente", icon: UserPlus, route: "/customer-management", requires: "/customer-management" },
+  { label: "Cliente", icon: UserPlus, route: "/customers/new", requires: "/customers" },
 ];
 
 interface TopNavProps {

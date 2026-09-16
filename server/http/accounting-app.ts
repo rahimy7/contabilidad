@@ -15,6 +15,7 @@ import { wmsRoutes } from "../routes/wms-routes";
 import { consolidationRoutes } from "../routes/consolidation-routes";
 import { salesRoutes } from "../routes/sales-routes";
 import { procurementRoutes } from "../routes/procurement-routes";
+import { customerRoutes } from "../routes/customer-routes";
 
 /**
  * The accounting + fiscal HTTP surface, assembled on its own.
@@ -55,6 +56,10 @@ export function accountingApiRouter(): Router {
   // with receipts that value stock against "recepciones por facturar".
   router.use("/sales", authenticateToken, salesRoutes());
   router.use("/procurement", authenticateToken, procurementRoutes());
+  // Ficha maestra de clientes: identidad fiscal, condiciones, contactos, estado
+  // de cuenta y línea de crédito con aprobación. No bajo /customers, que sigue
+  // siendo del POS heredado y se monta antes que este router.
+  router.use("/customer-master", authenticateToken, customerRoutes());
   return router;
 }
 

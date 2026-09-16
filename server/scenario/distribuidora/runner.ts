@@ -242,10 +242,12 @@ export async function runOctoberScenario(
   const cust: Record<string, number> = {};
   for (const [i, cu] of CUSTOMERS.entries()) {
     const r = await pool.query(
-      `INSERT INTO customers (name, phone, email, store_id, rnc, company_id, category)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      // Las líneas con límite se dan por aprobadas antes del mes que se simula.
+      `INSERT INTO customers (name, phone, email, store_id, rnc, company_id, category, credit_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [cu.name, `8${String(hash(P) % 1000).padStart(3, "0")}55${String(i).padStart(4, "0")}`, `${P.toLowerCase()}${cu.key.toLowerCase()}@clientes.do`,
-       storeId, cu.rnc ?? null, companyId, cu.creditDays > 0 ? "credito" : "contado"],
+       storeId, cu.rnc ?? null, companyId, cu.creditDays > 0 ? "credito" : "contado",
+       Number(cu.creditLimit) > 0 ? "active" : "none"],
     );
     cust[cu.key] = Number(r.rows[0].id);
     await pool.query(
